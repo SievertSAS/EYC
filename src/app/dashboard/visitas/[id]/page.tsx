@@ -1,0 +1,374 @@
+"use client";
+
+import { use } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { useDb } from "@/components/db-provider";
+import { useRole } from "@/components/role-provider";
+import { useRouter } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { StateTimeline } from "@/components/state-timeline";
+import { VisitActionBar } from "@/components/visit-action-bar";
+import {
+  getModuleStatuses,
+  getVisitCompleteness,
+  type ModuloStatus,
+} from "@/lib/workflow/module-completeness";
+import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  MapPin,
+  Radio,
+  Thermometer,
+  Gauge,
+  Eye,
+  FlaskConical,
+  Camera,
+  FileText,
+  CheckCircle2,
+  Circle,
+  Loader2,
+  AlertCircle,
+  Lock,
+  MessageSquareWarning,
+} from "lucide-react";
+import Link from "next/link";
+
+/** Módulos del workspace de visita */
+const MODULOS = [
+  {
+    id: "info",
+    nombre: "Información General",
+    descripcion: "Datos del cliente, sede, equipo",
+    icon: Building2,
+    tipo: "readonly" as const,
+    ruta: "info",
+  },
+  {
+    id: "condiciones",
+    nombre: "Condiciones",
+    descripcion: "Ambientales y de operación",
+    icon: Thermometer,
+    tipo: "form" as const,
+    ruta: "condiciones",
+  },
+  {
+    id: "levantamiento",
+    nombre: "Levantamiento Radiométrico",
+    descripcion: "Puntos de medición y diagrama",
+    icon: Gauge,
+    tipo: "form" as const,
+    ruta: "levantamiento",
+  },
+  {
+    id: "inspeccion",
+    nombre: "Inspección Visual",
+    descripcion: "Checklists del equipo e instalación",
+    icon: Eye,
+    tipo: "form" as const,
+    ruta: "inspeccion",
+  },
+  {
+    id: "pruebas",
+    nombre: "Pruebas de Control de Calidad",
+    descripcion: "Según tipo de equipo",
+    icon: FlaskConical,
+    tipo: "form" as const,
+    ruta: "pruebas",
+  },
+  {
+    id: "evidencias",
+    nombre: "Evidencias Fotográficas",
+    descripcion: "Fotos del equipo e instalación",
+    icon: Camera,
+    tipo: "form" as const,
+    ruta: "evidencias",
+  },
+  {
+    id: "pre-informe",
+    nombre: "Pre-Informe",
+    descripcion: "Generar y previsualizar PDF",
+    icon: FileText,
+    tipo: "action" as const,
+    ruta: "pre-informe",
+  },
+];
+
+const STATUS_ICON = {
+  sin_iniciar: <Circle className="w-4 h-4 text-slate-300" />,
+  en_progreso: <AlertCircle className="w-4 h-4 text-amber-500" />,
+  completado: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
+};
+
+export default function VisitaWorkspacePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const visitaId = parseInt(id, 10);
+  const { isReady } = useDb();
+  const { role } = useRole();
+  const router = useRouter();
+
+  const data = useLiveQuery(async () => {
+    if (!isReady || isNaN(visitaId)) return null;
+
+    const visita = await db.visitas.get(visitaId);
+    if (!visita) return null;
+
+    const equipo = visita.equipo_id
+      ? await db.equipos.get(visita.equipo_id)
+      : undefined;
+    const ubicacion = visita.ubicacion_id
+      ? await db.ubicaciones_rx.get(visita.ubicacion_id)
+      : undefined;
+    const solicitud = await db.solicitudes.get(visita.solicitud_id);
+    const cliente = solicitud
+      ? await db.clientes.get(solicitud.cliente_id)
+      : undefined;
+    const sede = ubicacion
+      ? await db.sedes.get(
+          (await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0
+        )
+      : undefined;
+
+    // Module statuses y completitud
+    const moduleStatuses = await getModuleStatuses(visitaId);
+    const completeness = await getVisitCompleteness(visitaId);
+
+    return {
+      visita,
+      equipo,
+      ubicacion,
+      sede,
+      cliente,
+      solicitud,
+      moduleStatuses,
+      completeness,
+    };
+  }, [isReady, visitaId]);
+
+  if (!isReady || data === undefined) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <p className="text-slate-500 font-bold">Cargando visita...</p>
+      </div>
+    );
+  }
+
+  if (data === null) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/dashboard/visitas"
+          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Volver a visitas
+        </Link>
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <div className="bg-red-100 p-6 rounded-3xl">
+            <AlertCircle className="w-10 h-10 text-red-500" />
+          </div>
+          <p className="text-slate-500 font-bold text-lg">
+            Visita no encontrada
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { visita, equipo, ubicacion, sede, cliente, moduleStatuses, completeness } = data;
+  const estadoConfig = ESTADO_CONFIG[visita.estado_visita];
+  const isLocked = visita.estado_visita === "asignada";
+  const hasRevisionNotes =
+    visita.observaciones_revision &&
+    visita.estado_visita === "en_progreso" &&
+    visita.devuelto_en;
+
+  return (
+    <div className="space-y-6 pb-24 md:pb-6">
+      {/* Navegación */}
+      <Link
+        href="/dashboard/visitas"
+        className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Volver a visitas
+      </Link>
+
+      {/* Banner de devolución del ingeniero */}
+      {hasRevisionNotes && (
+        <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+          <div className="flex items-center gap-2">
+            <MessageSquareWarning className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-black text-amber-800">
+              Devuelta por el ingeniero revisor
+            </span>
+          </div>
+          <p className="text-sm text-amber-700 font-medium ml-7">
+            {visita.observaciones_revision}
+          </p>
+        </div>
+      )}
+
+      {/* Header con info del servicio */}
+      <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                {cliente?.nombre_cliente ?? "Sin cliente"}
+              </h2>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {sede?.ciudad} — {ubicacion?.nombre_servicio}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Radio className="w-3 h-3" />
+                  {equipo?.gen_marca} {equipo?.gen_modelo} (
+                  {equipo?.tipo_equipo?.replace(/_/g, " ")})
+                </span>
+              </div>
+            </div>
+            <Badge
+              className={`${estadoConfig.bgColor} ${estadoConfig.color} ${estadoConfig.borderColor} rounded-full text-[10px] font-black uppercase tracking-widest hover:${estadoConfig.bgColor}`}
+            >
+              {estadoConfig.label}
+            </Badge>
+          </div>
+
+          {/* Info rápida */}
+          <div className="flex flex-wrap gap-2">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+              NIT: {cliente?.nit}
+            </span>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+              Hab: {ubicacion?.codigo_habilitacion ?? "—"}
+            </span>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+              Visita: {visita.fecha_visita ?? "Sin fecha"}
+            </span>
+          </div>
+
+          {/* Timeline de estado */}
+          <StateTimeline currentState={visita.estado_visita} />
+
+          {/* Barra de progreso */}
+          {visita.estado_visita !== "asignada" &&
+            visita.estado_visita !== "aprobada" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Progreso
+                  </span>
+                  <span className="text-xs font-black text-slate-600">
+                    {completeness.completed}/{completeness.total} módulos
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${completeness.percentage}%` }}
+                  />
+                </div>
+              </div>
+            )}
+        </CardContent>
+      </Card>
+
+      {/* Módulos del workspace */}
+      <div>
+        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-4">
+          Módulos de captura
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+          {MODULOS.map((modulo) => {
+            const status: ModuloStatus =
+              moduleStatuses[modulo.id] ?? "sin_iniciar";
+            const Icon = modulo.icon;
+            const locked = isLocked && modulo.id !== "info";
+
+            const cardContent = (
+              <Card
+                className={`border-none shadow-sm transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group overflow-hidden ${
+                  locked
+                    ? "opacity-60 cursor-not-allowed"
+                    : "hover:shadow-lg cursor-pointer"
+                }`}
+              >
+                <CardContent className="p-4 sm:p-5 md:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2.5 rounded-xl flex-shrink-0 ${
+                          locked ? "bg-slate-100" : "bg-primary/10"
+                        }`}
+                      >
+                        <Icon
+                          className={`w-5 h-5 ${
+                            locked ? "text-slate-400" : "text-primary"
+                          }`}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-slate-900 text-sm sm:text-base truncate">
+                          {modulo.nombre}
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          {modulo.descripcion}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {locked ? (
+                        <Lock className="w-4 h-4 text-slate-300" />
+                      ) : (
+                        <>
+                          {STATUS_ICON[status]}
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors" />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+
+            return locked ? (
+              <div key={modulo.id}>{cardContent}</div>
+            ) : (
+              <Link
+                key={modulo.id}
+                href={`/dashboard/visitas/${id}/${modulo.ruta}`}
+              >
+                {cardContent}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Barra de acciones */}
+      <VisitActionBar
+        visitaId={visitaId}
+        estadoVisita={visita.estado_visita}
+        onTransition={() => {
+          // useLiveQuery se actualiza automáticamente
+        }}
+        onGenerarPreInforme={() => {
+          router.push(`/dashboard/visitas/${id}/pre-informe`);
+        }}
+        progressText={
+          visita.estado_visita === "en_progreso"
+            ? `${completeness.completed}/${completeness.total} módulos completados`
+            : undefined
+        }
+      />
+    </div>
+  );
+}

@@ -18,23 +18,9 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Settings,
-  Users,
-  Shield,
-  Plus,
-  Loader2,
-  UserCheck,
-  UserX,
-  Pencil,
-} from "lucide-react";
+import { Settings, Users, Shield, Plus, Loader2, UserCheck, UserX, Pencil } from "lucide-react";
 import type { RolUsuario, ModuloApp } from "@/lib/db/types";
-import {
-  ROLES_DISPONIBLES,
-  ROL_LABELS,
-  MODULOS_APP,
-  MODULO_LABELS,
-} from "@/lib/db/types";
+import { ROLES_DISPONIBLES, ROL_LABELS, MODULOS_APP, MODULO_LABELS } from "@/lib/db/types";
 
 export default function ConfiguracionPage() {
   const { isReady } = useDb();
@@ -54,9 +40,7 @@ export default function ConfiguracionPage() {
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Shield className="w-10 h-10 text-red-500" />
         <p className="text-slate-500 font-bold">Acceso restringido</p>
-        <p className="text-slate-400 text-sm">
-          Solo el coordinador puede acceder a configuración.
-        </p>
+        <p className="text-slate-400 text-sm">Solo el coordinador puede acceder a configuración.</p>
       </div>
     );
   }
@@ -111,8 +95,8 @@ function UsuariosTab() {
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500 font-medium">
-          {usuarios.length} usuario{usuarios.length !== 1 ? "s" : ""}{" "}
-          registrado{usuarios.length !== 1 ? "s" : ""}
+          {usuarios.length} usuario{usuarios.length !== 1 ? "s" : ""} registrado
+          {usuarios.length !== 1 ? "s" : ""}
         </p>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger
@@ -145,9 +129,7 @@ function UsuariosTab() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-black text-slate-900 text-sm truncate">
-                      {u.nombre}
-                    </p>
+                    <p className="font-black text-slate-900 text-sm truncate">{u.nombre}</p>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
                         u.activo
@@ -192,11 +174,7 @@ function UsuariosTab() {
                         : "text-slate-400 hover:text-emerald-500"
                     }
                   >
-                    {u.activo ? (
-                      <UserX className="w-4 h-4" />
-                    ) : (
-                      <UserCheck className="w-4 h-4" />
-                    )}
+                    {u.activo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                   </Button>
                 </div>
               </div>
@@ -212,17 +190,8 @@ function UsuariosTab() {
 //  Dialog: Crear / Editar usuario
 // ============================================================
 
-function UsuarioFormDialog({
-  onClose,
-  editId,
-}: {
-  onClose: () => void;
-  editId: number | null;
-}) {
-  const existingUser = useLiveQuery(
-    () => (editId ? db.usuarios.get(editId) : undefined),
-    [editId]
-  );
+function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: number | null }) {
+  const existingUser = useLiveQuery(() => (editId ? db.usuarios.get(editId) : undefined), [editId]);
 
   const [nombre, setNombre] = useState("");
   const [cedula, setCedula] = useState("");
@@ -313,10 +282,7 @@ function UsuarioFormDialog({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label
-              htmlFor="cedula"
-              className="font-bold text-xs text-slate-600"
-            >
+            <Label htmlFor="cedula" className="font-bold text-xs text-slate-600">
               Cédula
             </Label>
             <Input
@@ -328,10 +294,7 @@ function UsuarioFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label
-              htmlFor="cargo"
-              className="font-bold text-xs text-slate-600"
-            >
+            <Label htmlFor="cargo" className="font-bold text-xs text-slate-600">
               Rol
             </Label>
             <select
@@ -351,10 +314,7 @@ function UsuarioFormDialog({
         {!editId && (
           <>
             <div className="space-y-2">
-              <Label
-                htmlFor="email"
-                className="font-bold text-xs text-slate-600"
-              >
+              <Label htmlFor="email" className="font-bold text-xs text-slate-600">
                 Email
               </Label>
               <Input
@@ -367,10 +327,7 @@ function UsuarioFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label
-                htmlFor="password"
-                className="font-bold text-xs text-slate-600"
-              >
+              <Label htmlFor="password" className="font-bold text-xs text-slate-600">
                 Contraseña temporal
               </Label>
               <Input
@@ -386,10 +343,7 @@ function UsuarioFormDialog({
           </>
         )}
         <div className="space-y-2">
-          <Label
-            htmlFor="telefono"
-            className="font-bold text-xs text-slate-600"
-          >
+          <Label htmlFor="telefono" className="font-bold text-xs text-slate-600">
             Teléfono (opcional)
           </Label>
           <Input
@@ -401,9 +355,7 @@ function UsuarioFormDialog({
         </div>
 
         {error && (
-          <p className="text-xs text-red-600 font-bold bg-red-50 p-2 rounded-lg">
-            {error}
-          </p>
+          <p className="text-xs text-red-600 font-bold bg-red-50 p-2 rounded-lg">{error}</p>
         )}
 
         <DialogFooter>
@@ -432,20 +384,14 @@ function RolesTab() {
   if (!permisos) return null;
 
   function isActive(rol: RolUsuario, modulo: ModuloApp): boolean {
-    return (
-      permisos?.some(
-        (p) => p.rol === rol && p.modulo === modulo && p.activo
-      ) ?? false
-    );
+    return permisos?.some((p) => p.rol === rol && p.modulo === modulo && p.activo) ?? false;
   }
 
   async function togglePermiso(rol: RolUsuario, modulo: ModuloApp) {
     const key = `${rol}-${modulo}`;
     setSaving(key);
     try {
-      const existing = permisos?.find(
-        (p) => p.rol === rol && p.modulo === modulo
-      );
+      const existing = permisos?.find((p) => p.rol === rol && p.modulo === modulo);
       if (existing) {
         await db.rol_permisos.update(existing.id!, {
           activo: !existing.activo,
@@ -470,8 +416,7 @@ function RolesTab() {
   return (
     <div className="space-y-4 mt-4">
       <p className="text-sm text-slate-500 font-medium">
-        Configura qué módulos puede ver cada rol. Los cambios se aplican
-        inmediatamente.
+        Configura qué módulos puede ver cada rol. Los cambios se aplican inmediatamente.
       </p>
 
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
@@ -499,9 +444,7 @@ function RolesTab() {
                     key={modulo}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="p-3 sm:p-4 font-bold text-slate-700">
-                      {MODULO_LABELS[modulo]}
-                    </td>
+                    <td className="p-3 sm:p-4 font-bold text-slate-700">{MODULO_LABELS[modulo]}</td>
                     {ROLES_DISPONIBLES.map((rol) => {
                       const locked = isLocked(rol, modulo);
                       const active = locked || isActive(rol, modulo);
@@ -510,6 +453,9 @@ function RolesTab() {
                       return (
                         <td key={rol} className="text-center p-3 sm:p-4">
                           <button
+                            role="switch"
+                            aria-checked={active}
+                            aria-label={`${MODULO_LABELS[modulo]} para ${ROL_LABELS[rol]}`}
                             onClick={() => !locked && togglePermiso(rol, modulo)}
                             disabled={locked || saving === key}
                             className={`w-7 h-7 rounded-lg transition-all ${
@@ -517,9 +463,7 @@ function RolesTab() {
                                 ? "bg-primary text-white shadow-sm"
                                 : "bg-slate-100 text-slate-300 hover:bg-slate-200"
                             } ${
-                              locked
-                                ? "cursor-not-allowed opacity-70"
-                                : "cursor-pointer"
+                              locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
                             } flex items-center justify-center mx-auto`}
                           >
                             {saving === key ? (
@@ -552,8 +496,7 @@ function RolesTab() {
       </Card>
 
       <p className="text-[11px] text-slate-400 font-medium">
-        El rol Coordinador siempre tiene acceso a Configuración y no puede ser
-        desactivado.
+        El rol Coordinador siempre tiene acceso a Configuración y no puede ser desactivado.
       </p>
     </div>
   );

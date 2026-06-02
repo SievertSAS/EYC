@@ -39,12 +39,8 @@ export default function EquiposPage() {
     const enriched = await Promise.all(
       equipos.map(async (equipo) => {
         const ubicacion = await db.ubicaciones_rx.get(equipo.ubicacion_id);
-        const sede = ubicacion?.sede_id
-          ? await db.sedes.get(ubicacion.sede_id)
-          : undefined;
-        const cliente = sede?.cliente_id
-          ? await db.clientes.get(sede.cliente_id)
-          : undefined;
+        const sede = ubicacion?.sede_id ? await db.sedes.get(ubicacion.sede_id) : undefined;
+        const cliente = sede?.cliente_id ? await db.clientes.get(sede.cliente_id) : undefined;
         return { equipo, ubicacion, sede, cliente };
       })
     );
@@ -63,8 +59,7 @@ export default function EquiposPage() {
 
   // Filtrar por búsqueda y tipo
   const filtered = data.filter((d) => {
-    if (tipoFilter !== "todos" && d.equipo.tipo_equipo !== tipoFilter)
-      return false;
+    if (tipoFilter !== "todos" && d.equipo.tipo_equipo !== tipoFilter) return false;
 
     if (search) {
       const q = search.toLowerCase();
@@ -141,9 +136,7 @@ export default function EquiposPage() {
           {activeTipos.map((tipo) => (
             <button
               key={tipo}
-              onClick={() =>
-                setTipoFilter(tipoFilter === tipo ? "todos" : tipo)
-              }
+              onClick={() => setTipoFilter(tipoFilter === tipo ? "todos" : tipo)}
               className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 ${
                 tipoFilter === tipo
                   ? "bg-primary text-white shadow-md"
@@ -174,17 +167,12 @@ export default function EquiposPage() {
               ? "Sin resultados para esta búsqueda"
               : "No hay equipos registrados"}
           </p>
-          <p className="text-slate-400 text-sm">
-            Los equipos se crean desde la ficha del cliente.
-          </p>
+          <p className="text-slate-400 text-sm">Los equipos se crean desde la ficha del cliente.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map(({ equipo, ubicacion, sede, cliente }) => (
-            <Link
-              key={equipo.id}
-              href={`/dashboard/clientes/${cliente?.id ?? ""}`}
-            >
+            <Link key={equipo.id} href={`/dashboard/clientes/${cliente?.id ?? ""}`}>
               <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
                 <CardContent className="p-4 sm:p-5 md:p-6">
                   <div className="flex items-start justify-between gap-3">
@@ -196,8 +184,7 @@ export default function EquiposPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-black text-slate-900 text-sm sm:text-base truncate">
-                            {equipo.gen_marca ?? "Sin marca"}{" "}
-                            {equipo.gen_modelo ?? ""}
+                            {equipo.gen_marca ?? "Sin marca"} {equipo.gen_modelo ?? ""}
                           </p>
                           {equipo.gen_numero_serie && (
                             <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
@@ -219,9 +206,7 @@ export default function EquiposPage() {
                         {ubicacion && (
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
-                            {sede?.nombre_sede
-                              ? `${sede.nombre_sede} — `
-                              : ""}
+                            {sede?.nombre_sede ? `${sede.nombre_sede} — ` : ""}
                             {ubicacion.nombre_servicio}
                           </span>
                         )}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import { TIPOS_EQUIPO, type TipoEquipo } from "@/lib/db/types";
 import {
   Dialog,
@@ -74,9 +75,7 @@ function CollapsibleSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-wider">
-          {title}
-        </span>
+        <span className="text-xs font-black text-slate-600 uppercase tracking-wider">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -98,15 +97,9 @@ export function EquipoFormDialog({
   const isEdit = !!equipo;
 
   // ─── Equipo fields ───
-  const [tipoEquipo, setTipoEquipo] = useState<string>(
-    equipo?.tipo_equipo ?? ""
-  );
-  const [planillaEspacial, setPlanillaEspacial] = useState(
-    equipo?.planilla_espacial ?? false
-  );
-  const [sistemaAdq, setSistemaAdq] = useState(
-    equipo?.sistema_adquisicion ?? ""
-  );
+  const [tipoEquipo, setTipoEquipo] = useState<string>(equipo?.tipo_equipo ?? "");
+  const [planillaEspacial, setPlanillaEspacial] = useState(equipo?.planilla_espacial ?? false);
+  const [sistemaAdq, setSistemaAdq] = useState(equipo?.sistema_adquisicion ?? "");
   const [distanciaFoco, setDistanciaFoco] = useState(
     equipo?.distancia_foco_paciente?.toString() ?? ""
   );
@@ -116,18 +109,14 @@ export function EquipoFormDialog({
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
   const [genModelo, setGenModelo] = useState(equipo?.gen_modelo ?? "");
   const [genSerie, setGenSerie] = useState(equipo?.gen_numero_serie ?? "");
-  const [genFechaFab, setGenFechaFab] = useState(
-    equipo?.gen_fecha_fabricacion ?? ""
-  );
+  const [genFechaFab, setGenFechaFab] = useState(equipo?.gen_fecha_fabricacion ?? "");
   const [genFase, setGenFase] = useState(equipo?.gen_fase ?? "");
 
   // Filtración
   const [filtInherente, setFiltInherente] = useState(
     equipo?.filtracion_inherente_mmal?.toString() ?? ""
   );
-  const [filtAnadida, setFiltAnadida] = useState(
-    equipo?.filtracion_anadida_mmal?.toString() ?? ""
-  );
+  const [filtAnadida, setFiltAnadida] = useState(equipo?.filtracion_anadida_mmal?.toString() ?? "");
 
   // ─── Tubo fields ───
   const [tuboMarca, setTuboMarca] = useState("");
@@ -156,27 +145,24 @@ export function EquipoFormDialog({
   async function handleSave() {
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const equipoData: Omit<Equipo, "id"> = {
         ubicacion_id: ubicacionId,
         tipo_equipo: (tipoEquipo as TipoEquipo) || undefined,
         planilla_espacial: planillaEspacial,
         sistema_adquisicion: sistemaAdq || undefined,
-        distancia_foco_paciente: distanciaFoco
-          ? parseFloat(distanciaFoco)
-          : undefined,
+        distancia_foco_paciente: distanciaFoco ? parseFloat(distanciaFoco) : undefined,
         bucky: (bucky as Equipo["bucky"]) || undefined,
         gen_marca: genMarca || undefined,
         gen_modelo: genModelo || undefined,
         gen_numero_serie: genSerie || undefined,
         gen_fecha_fabricacion: genFechaFab || undefined,
         gen_fase: (genFase as Equipo["gen_fase"]) || undefined,
-        filtracion_inherente_mmal: filtInherente
-          ? parseFloat(filtInherente)
-          : undefined,
-        filtracion_anadida_mmal: filtAnadida
-          ? parseFloat(filtAnadida)
-          : undefined,
-        creado_en: new Date().toISOString(),
+        filtracion_inherente_mmal: filtInherente ? parseFloat(filtInherente) : undefined,
+        filtracion_anadida_mmal: filtAnadida ? parseFloat(filtAnadida) : undefined,
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
       };
 
       let equipoId: number;
@@ -189,6 +175,7 @@ export function EquipoFormDialog({
       }
 
       // Guardar tubo si hay datos
+      let tuboId: number | undefined;
       if (tuboMarca || tuboModelo || tuboSerie) {
         const tuboData: Omit<Tubo, "id"> = {
           equipo_id: equipoId,
@@ -200,27 +187,31 @@ export function EquipoFormDialog({
           kv_max: tuboKvMax ? parseFloat(tuboKvMax) : undefined,
           ma_max: tuboMaMax ? parseFloat(tuboMaMax) : undefined,
           foco_fino_mm: tuboFocoFino ? parseFloat(tuboFocoFino) : undefined,
-          foco_grueso_mm: tuboFocoGrueso
-            ? parseFloat(tuboFocoGrueso)
-            : undefined,
-          creado_en: new Date().toISOString(),
+          foco_grueso_mm: tuboFocoGrueso ? parseFloat(tuboFocoGrueso) : undefined,
+          creado_en: now,
+          sync_status: "pending",
+          last_modified: now,
         };
-        await db.tubos.add(tuboData as Tubo);
+        tuboId = (await db.tubos.add(tuboData as Tubo)) as number;
       }
 
       // Guardar colimador si hay datos
+      let colId: number | undefined;
       if (colMarca || colModelo || colSerie) {
         const colData: Omit<Colimador, "id"> = {
           equipo_id: equipoId,
           marca: colMarca || undefined,
           modelo: colModelo || undefined,
           numero_serie: colSerie || undefined,
-          creado_en: new Date().toISOString(),
+          creado_en: now,
+          sync_status: "pending",
+          last_modified: now,
         };
-        await db.colimadores.add(colData as Colimador);
+        colId = (await db.colimadores.add(colData as Colimador)) as number;
       }
 
       // Guardar gantry si hay datos
+      let gantryId: number | undefined;
       if (gantryMarca || gantryModelo || gantrySerie) {
         const gantryData: Omit<Gantry, "id"> = {
           equipo_id: equipoId,
@@ -228,13 +219,20 @@ export function EquipoFormDialog({
           modelo: gantryModelo || undefined,
           numero_serie: gantrySerie || undefined,
           tipo_detector: gantryDetector || undefined,
-          creado_en: new Date().toISOString(),
+          creado_en: now,
+          sync_status: "pending",
+          last_modified: now,
         };
-        await db.gantry.add(gantryData as Gantry);
+        gantryId = (await db.gantry.add(gantryData as Gantry)) as number;
       }
 
       onOpenChange(false);
       onSaved?.();
+
+      pushSingle("equipos", equipoId);
+      if (tuboId) pushSingle("tubos", tuboId);
+      if (colId) pushSingle("colimadores", colId);
+      if (gantryId) pushSingle("gantry", gantryId);
     } catch (err) {
       console.error("[EquipoForm] Error:", err);
     } finally {
@@ -250,8 +248,7 @@ export function EquipoFormDialog({
             {isEdit ? "Editar Equipo" : "Nuevo Equipo"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
-            Todos los campos son opcionales. El técnico puede completarlos en
-            visita.
+            Todos los campos son opcionales. El técnico puede completarlos en visita.
           </DialogDescription>
         </DialogHeader>
 
@@ -329,9 +326,7 @@ export function EquipoFormDialog({
                 onChange={(e) => setPlanillaEspacial(e.target.checked)}
                 className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
               />
-              <span className="text-sm font-bold text-slate-700">
-                Requiere planilla espacial
-              </span>
+              <span className="text-sm font-bold text-slate-700">Requiere planilla espacial</span>
             </label>
           </CollapsibleSection>
 
@@ -396,9 +391,7 @@ export function EquipoFormDialog({
                 <SelectContent>
                   <SelectItem value="monofasico">Monofásico</SelectItem>
                   <SelectItem value="trifasico">Trifásico</SelectItem>
-                  <SelectItem value="alta_frecuencia">
-                    Alta Frecuencia
-                  </SelectItem>
+                  <SelectItem value="alta_frecuencia">Alta Frecuencia</SelectItem>
                 </SelectContent>
               </Select>
             </div>

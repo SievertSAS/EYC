@@ -8,15 +8,7 @@ import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Building2,
-  Search,
-  Plus,
-  MapPin,
-  ArrowRight,
-  Loader2,
-  Radio,
-} from "lucide-react";
+import { Building2, Search, Plus, MapPin, ArrowRight, Loader2, Radio } from "lucide-react";
 import Link from "next/link";
 import { ClienteFormDialog } from "@/components/cliente-form-dialog";
 
@@ -38,28 +30,16 @@ export default function ClientesPage() {
     // Enriquecer con conteo de sedes y equipos
     const enriched = await Promise.all(
       clientes.map(async (cliente) => {
-        const sedes = await db.sedes
-          .where("cliente_id")
-          .equals(cliente.id!)
-          .count();
+        const sedes = await db.sedes.where("cliente_id").equals(cliente.id!).count();
 
         // Contar equipos: sedes → ubicaciones → equipos
-        const sedesList = await db.sedes
-          .where("cliente_id")
-          .equals(cliente.id!)
-          .toArray();
+        const sedesList = await db.sedes.where("cliente_id").equals(cliente.id!).toArray();
         const sedeIds = sedesList.map((s) => s.id!);
         let equiposCount = 0;
         for (const sedeId of sedeIds) {
-          const ubis = await db.ubicaciones_rx
-            .where("sede_id")
-            .equals(sedeId)
-            .toArray();
+          const ubis = await db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray();
           for (const ubi of ubis) {
-            const eqCount = await db.equipos
-              .where("ubicacion_id")
-              .equals(ubi.id!)
-              .count();
+            const eqCount = await db.equipos.where("ubicacion_id").equals(ubi.id!).count();
             equiposCount += eqCount;
           }
         }
@@ -84,9 +64,7 @@ export default function ClientesPage() {
   const filtered = search.trim()
     ? data.filter(
         ({ cliente }) =>
-          cliente.nombre_cliente
-            .toLowerCase()
-            .includes(search.toLowerCase()) ||
+          cliente.nombre_cliente.toLowerCase().includes(search.toLowerCase()) ||
           cliente.nit.includes(search)
       )
     : data;
@@ -145,10 +123,7 @@ export default function ClientesPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map(({ cliente, sedes, equipos }) => (
-            <Link
-              key={cliente.id}
-              href={`/dashboard/clientes/${cliente.id}`}
-            >
+            <Link key={cliente.id} href={`/dashboard/clientes/${cliente.id}`}>
               <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
                 <CardContent className="p-4 sm:p-5 md:p-6">
                   <div className="flex items-start justify-between gap-3">
@@ -163,9 +138,7 @@ export default function ClientesPage() {
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
                           <span>NIT: {cliente.nit}</span>
                           {cliente.naturaleza && (
-                            <span className="capitalize">
-                              {cliente.naturaleza}
-                            </span>
+                            <span className="capitalize">{cliente.naturaleza}</span>
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 pt-0.5">
@@ -190,10 +163,7 @@ export default function ClientesPage() {
       )}
 
       {/* Dialog crear cliente */}
-      <ClienteFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      <ClienteFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

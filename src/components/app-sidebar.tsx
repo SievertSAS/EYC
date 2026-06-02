@@ -49,7 +49,12 @@ const menuItems: MenuGroup[] = [
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, module: "dashboard" },
       { title: "Clientes", href: "/dashboard/clientes", icon: Building2, module: "clientes" },
-      { title: "Solicitudes", href: "/dashboard/solicitudes", icon: Briefcase, module: "solicitudes" },
+      {
+        title: "Solicitudes",
+        href: "/dashboard/solicitudes",
+        icon: Briefcase,
+        module: "solicitudes",
+      },
       { title: "Mis Visitas", href: "/dashboard/visitas", icon: ClipboardCheck, module: "visitas" },
       { title: "Revisión", href: "/dashboard/revision", icon: ShieldCheck, module: "revision" },
     ],
@@ -65,7 +70,12 @@ const menuItems: MenuGroup[] = [
     group: "Sistema",
     items: [
       { title: "Sincronización", href: "/dashboard/sync", icon: RefreshCw, module: "sync" },
-      { title: "Configuración", href: "/dashboard/configuracion", icon: Settings, module: "configuracion" },
+      {
+        title: "Configuración",
+        href: "/dashboard/configuracion",
+        icon: Settings,
+        module: "configuracion",
+      },
     ],
   },
 ];
@@ -113,9 +123,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-3 sm:px-4">
         {menuItems.map((group) => {
-          const visibleItems = group.items.filter((item) =>
-            hasPermission(item.module)
-          );
+          const visibleItems = group.items.filter((item) => hasPermission(item.module));
           if (visibleItems.length === 0) return null;
 
           return (
@@ -127,8 +135,7 @@ export function AppSidebar() {
                 {visibleItems.map((item) => {
                   const isActive =
                     pathname === item.href ||
-                    (item.href !== "/dashboard" &&
-                      pathname.startsWith(item.href));
+                    (item.href !== "/dashboard" && pathname.startsWith(item.href));
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
@@ -162,9 +169,7 @@ export function AppSidebar() {
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-black text-slate-900 truncate">
-                {role.nombre}
-              </span>
+              <span className="text-sm font-black text-slate-900 truncate">{role.nombre}</span>
               <span
                 className={`text-[10px] font-black uppercase tracking-wider ${CARGO_COLORS[cargo] ?? "text-primary"}`}
               >

@@ -63,11 +63,7 @@ const TIPO_EQUIPO_LABELS: Record<string, string> = {
   VARIOS_RX: "Varios RX",
 };
 
-export default function ClienteDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const clienteId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -81,9 +77,7 @@ export default function ClienteDetailPage({
   const [editSede, setEditSede] = useState<Sede | undefined>();
   const [ubicacionDialogOpen, setUbicacionDialogOpen] = useState(false);
   const [ubicacionSedeId, setUbicacionSedeId] = useState<number>(0);
-  const [editUbicacion, setEditUbicacion] = useState<
-    UbicacionRx | undefined
-  >();
+  const [editUbicacion, setEditUbicacion] = useState<UbicacionRx | undefined>();
   const [equipoDialogOpen, setEquipoDialogOpen] = useState(false);
   const [equipoUbicacionId, setEquipoUbicacionId] = useState<number>(0);
 
@@ -97,30 +91,18 @@ export default function ClienteDetailPage({
     const cliente = await db.clientes.get(clienteId);
     if (!cliente) return null;
 
-    const contactos = await db.contactos
-      .where("cliente_id")
-      .equals(clienteId)
-      .toArray();
+    const contactos = await db.contactos.where("cliente_id").equals(clienteId).toArray();
 
-    const sedes = await db.sedes
-      .where("cliente_id")
-      .equals(clienteId)
-      .toArray();
+    const sedes = await db.sedes.where("cliente_id").equals(clienteId).toArray();
 
     // Enrichir sedes con ubicaciones y equipos
     const sedesEnriched = await Promise.all(
       sedes.map(async (sede) => {
-        const ubicaciones = await db.ubicaciones_rx
-          .where("sede_id")
-          .equals(sede.id!)
-          .toArray();
+        const ubicaciones = await db.ubicaciones_rx.where("sede_id").equals(sede.id!).toArray();
 
         const ubicacionesEnriched = await Promise.all(
           ubicaciones.map(async (ubi) => {
-            const equipos = await db.equipos
-              .where("ubicacion_id")
-              .equals(ubi.id!)
-              .toArray();
+            const equipos = await db.equipos.where("ubicacion_id").equals(ubi.id!).toArray();
             return { ubicacion: ubi, equipos };
           })
         );
@@ -178,8 +160,7 @@ export default function ClienteDetailPage({
 
   const { cliente, contactos, sedes } = data;
   const totalEquipos = sedes.reduce(
-    (acc, s) =>
-      acc + s.ubicaciones.reduce((a, u) => a + u.equipos.length, 0),
+    (acc, s) => acc + s.ubicaciones.reduce((a, u) => a + u.equipos.length, 0),
     0
   );
 
@@ -201,9 +182,7 @@ export default function ClienteDetailPage({
           </h2>
           <p className="text-slate-500 font-medium text-sm">
             NIT: {cliente.nit}
-            {cliente.digito_verificacion
-              ? `-${cliente.digito_verificacion}`
-              : ""}
+            {cliente.digito_verificacion ? `-${cliente.digito_verificacion}` : ""}
           </p>
         </div>
         {isAdmin && (
@@ -229,9 +208,7 @@ export default function ClienteDetailPage({
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 Contactos
               </p>
-              <p className="text-lg font-black text-slate-900">
-                {contactos.length}
-              </p>
+              <p className="text-lg font-black text-slate-900">{contactos.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -244,9 +221,7 @@ export default function ClienteDetailPage({
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 Sedes
               </p>
-              <p className="text-lg font-black text-slate-900">
-                {sedes.length}
-              </p>
+              <p className="text-lg font-black text-slate-900">{sedes.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -259,9 +234,7 @@ export default function ClienteDetailPage({
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 Equipos
               </p>
-              <p className="text-lg font-black text-slate-900">
-                {totalEquipos}
-              </p>
+              <p className="text-lg font-black text-slate-900">{totalEquipos}</p>
             </div>
           </CardContent>
         </Card>
@@ -269,10 +242,7 @@ export default function ClienteDetailPage({
 
       {/* Tabs */}
       <Tabs defaultValue="info">
-        <TabsList
-          variant="line"
-          className="w-full justify-start border-b border-slate-200 pb-0"
-        >
+        <TabsList variant="line" className="w-full justify-start border-b border-slate-200 pb-0">
           <TabsTrigger value="info" className="font-black text-sm">
             Info
           </TabsTrigger>
@@ -293,18 +263,14 @@ export default function ClienteDetailPage({
                 label="Naturaleza"
                 value={
                   cliente.naturaleza
-                    ? cliente.naturaleza.charAt(0).toUpperCase() +
-                      cliente.naturaleza.slice(1)
+                    ? cliente.naturaleza.charAt(0).toUpperCase() + cliente.naturaleza.slice(1)
                     : undefined
                 }
               />
               <InfoRow label="Dirección" value={cliente.direccion} />
               <InfoRow label="Teléfono" value={cliente.telefono} />
               <InfoRow label="Email" value={cliente.email} />
-              <InfoRow
-                label="Representante Legal"
-                value={cliente.nombre_representante_legal}
-              />
+              <InfoRow label="Representante Legal" value={cliente.nombre_representante_legal} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -341,9 +307,7 @@ export default function ClienteDetailPage({
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <p className="font-black text-slate-900 text-sm">
-                          {contacto.nombre}
-                        </p>
+                        <p className="font-black text-slate-900 text-sm">{contacto.nombre}</p>
                         {contacto.para_programar && (
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
                             Programar
@@ -435,9 +399,8 @@ export default function ClienteDetailPage({
                             {sede.nombre_sede}
                           </p>
                           <p className="text-[11px] text-slate-400 font-medium">
-                            {[sede.ciudad, sede.departamento]
-                              .filter(Boolean)
-                              .join(", ") || sede.direccion_sede}
+                            {[sede.ciudad, sede.departamento].filter(Boolean).join(", ") ||
+                              sede.direccion_sede}
                           </p>
                         </div>
                       </div>
@@ -478,9 +441,7 @@ export default function ClienteDetailPage({
                           </p>
                         ) : (
                           ubicaciones.map(({ ubicacion, equipos }) => {
-                            const ubiExpanded = expandedUbis.has(
-                              ubicacion.id!
-                            );
+                            const ubiExpanded = expandedUbis.has(ubicacion.id!);
                             return (
                               <div
                                 key={ubicacion.id}
@@ -496,8 +457,7 @@ export default function ClienteDetailPage({
                                       {ubicacion.nombre_servicio}
                                     </p>
                                     <p className="text-[10px] text-slate-400 font-medium">
-                                      {ubicacion.codigo_habilitacion ??
-                                        "Sin código"}
+                                      {ubicacion.codigo_habilitacion ?? "Sin código"}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -521,9 +481,7 @@ export default function ClienteDetailPage({
                                         size="sm"
                                         className="rounded-lg font-bold border-dashed border-slate-300 text-slate-500 hover:text-primary hover:border-primary text-xs"
                                         onClick={() => {
-                                          setEquipoUbicacionId(
-                                            ubicacion.id!
-                                          );
+                                          setEquipoUbicacionId(ubicacion.id!);
                                           setEquipoDialogOpen(true);
                                         }}
                                       >
@@ -545,14 +503,12 @@ export default function ClienteDetailPage({
                                           <Radio className="w-4 h-4 text-primary flex-shrink-0" />
                                           <div className="min-w-0">
                                             <p className="text-sm font-bold text-slate-800 truncate">
-                                              {equipo.gen_marca}{" "}
-                                              {equipo.gen_modelo}
+                                              {equipo.gen_marca} {equipo.gen_modelo}
                                             </p>
                                             <p className="text-[10px] text-slate-400 font-medium">
                                               {equipo.tipo_equipo
-                                                ? TIPO_EQUIPO_LABELS[
-                                                    equipo.tipo_equipo
-                                                  ] ?? equipo.tipo_equipo
+                                                ? (TIPO_EQUIPO_LABELS[equipo.tipo_equipo] ??
+                                                  equipo.tipo_equipo)
                                                 : "Tipo no definido"}
                                               {equipo.gen_numero_serie
                                                 ? ` • S/N: ${equipo.gen_numero_serie}`
@@ -611,21 +567,13 @@ export default function ClienteDetailPage({
   );
 }
 
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) {
+function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-40 flex-shrink-0">
         {label}
       </p>
-      <p className="text-sm font-medium text-slate-700">
-        {value || "—"}
-      </p>
+      <p className="text-sm font-medium text-slate-700">{value || "—"}</p>
     </div>
   );
 }

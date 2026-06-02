@@ -10,6 +10,7 @@ const CACHE_NAME = "sievert-eyc-v1";
 const APP_SHELL = [
   "/",
   "/dashboard",
+  "/offline.html",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -106,16 +107,16 @@ async function networkFirstWithFallback(request) {
     const cached = await caches.match(request);
     if (cached) return cached;
 
-    // Fallback: devolver la página principal cacheada (SPA)
+    // Fallback: devolver la página principal cacheada o la página offline
     if (request.mode === "navigate") {
       const fallback = await caches.match("/dashboard");
       if (fallback) return fallback;
+
+      const offlinePage = await caches.match("/offline.html");
+      if (offlinePage) return offlinePage;
     }
 
-    return new Response("Offline — sin conexión a internet", {
-      status: 503,
-      headers: { "Content-Type": "text/plain" },
-    });
+    return new Response("Offline", { status: 503 });
   }
 }
 
@@ -134,11 +135,17 @@ self.addEventListener("message", (event) => {
   }
 });
 
-// ─── Background Sync (preparado para futuro) ───
+// ─── Background Sync ───
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-pending-data") {
     console.log("[SW] Background sync triggered — sync-pending-data");
-    // Futuro: leer pendientes de IndexedDB y enviar al servidor
+    event.waitUntil(
+      self.clients.matchAll({ type: "window" }).then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: "SYNC_REQUESTED" });
+        }
+      })
+    );
   }
 });
 

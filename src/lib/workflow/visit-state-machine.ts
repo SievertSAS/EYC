@@ -185,10 +185,7 @@ const SOLICITUD_SYNC: Partial<Record<EstadoVisita, string>> = {
 /**
  * Devuelve las acciones disponibles para el estado y rol actuales.
  */
-export function getAvailableActions(
-  estado: EstadoVisita,
-  cargo: RolUsuario
-): ActionDefinition[] {
+export function getAvailableActions(estado: EstadoVisita, cargo: RolUsuario): ActionDefinition[] {
   return (TRANSITIONS[estado] ?? []).filter((t) => t.roles.includes(cargo));
 }
 
@@ -207,10 +204,7 @@ export function canTransition(
  * Ejecuta la gate de validación para una acción.
  * Retorna si puede proceder y los errores de bloqueo.
  */
-export async function checkGate(
-  visitaId: number,
-  action: VisitAction
-): Promise<GateResult> {
+export async function checkGate(visitaId: number, action: VisitAction): Promise<GateResult> {
   if (action === "completar_visita") {
     const completeness = await getVisitCompleteness(visitaId);
     if (completeness.blocking.length > 0) {

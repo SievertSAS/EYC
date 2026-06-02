@@ -16,6 +16,8 @@ import {
   type ModuloStatus,
 } from "@/lib/workflow/module-completeness";
 import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
+import { getModules, getDefaultModules } from "@/lib/equipos/registry";
+import type { ModuloVisita } from "@/lib/equipos/types";
 import {
   ArrowLeft,
   ArrowRight,
@@ -34,68 +36,37 @@ import {
   AlertCircle,
   Lock,
   MessageSquareWarning,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
-/** Módulos del workspace de visita */
-const MODULOS = [
-  {
-    id: "info",
-    nombre: "Información General",
-    descripcion: "Datos del cliente, sede, equipo",
-    icon: Building2,
-    tipo: "readonly" as const,
-    ruta: "info",
-  },
-  {
-    id: "condiciones",
-    nombre: "Condiciones",
-    descripcion: "Ambientales y de operación",
-    icon: Thermometer,
-    tipo: "form" as const,
-    ruta: "condiciones",
-  },
-  {
-    id: "levantamiento",
-    nombre: "Levantamiento Radiométrico",
-    descripcion: "Puntos de medición y diagrama",
-    icon: Gauge,
-    tipo: "form" as const,
-    ruta: "levantamiento",
-  },
-  {
-    id: "inspeccion",
-    nombre: "Inspección Visual",
-    descripcion: "Checklists del equipo e instalación",
-    icon: Eye,
-    tipo: "form" as const,
-    ruta: "inspeccion",
-  },
-  {
-    id: "pruebas",
-    nombre: "Pruebas de Control de Calidad",
-    descripcion: "Según tipo de equipo",
-    icon: FlaskConical,
-    tipo: "form" as const,
-    ruta: "pruebas",
-  },
-  {
-    id: "evidencias",
-    nombre: "Evidencias Fotográficas",
-    descripcion: "Fotos del equipo e instalación",
-    icon: Camera,
-    tipo: "form" as const,
-    ruta: "evidencias",
-  },
-  {
-    id: "pre-informe",
-    nombre: "Pre-Informe",
-    descripcion: "Generar y previsualizar PDF",
-    icon: FileText,
-    tipo: "action" as const,
-    ruta: "pre-informe",
-  },
-];
+/** Mapa de nombres de icono → componente Lucide */
+const ICON_MAP: Record<string, LucideIcon> = {
+  Building2,
+  Thermometer,
+  Gauge,
+  Eye,
+  FlaskConical,
+  Camera,
+  FileText,
+};
+
+function resolveIcon(iconName: string): LucideIcon {
+  return ICON_MAP[iconName] ?? FlaskConical;
+}
+
+/** Módulo de info general (siempre presente, es readonly) */
+const INFO_MODULE = {
+  id: "info",
+  nombre: "Información General",
+  nombreCorto: "Info",
+  icon: "Building2",
+  orden: 0,
+  requerido: false,
+  ruta: "info",
+  descripcion: "Datos del cliente, sede, equipo",
+  tipo: "readonly" as const,
+};
 
 const STATUS_ICON = {
   sin_iniciar: <Circle className="w-4 h-4 text-slate-300" />,
@@ -103,11 +74,7 @@ const STATUS_ICON = {
   completado: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
 };
 
-export default function VisitaWorkspacePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -120,20 +87,14 @@ export default function VisitaWorkspacePage({
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const equipo = visita.equipo_id
-      ? await db.equipos.get(visita.equipo_id)
-      : undefined;
+    const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
     const ubicacion = visita.ubicacion_id
       ? await db.ubicaciones_rx.get(visita.ubicacion_id)
       : undefined;
     const solicitud = await db.solicitudes.get(visita.solicitud_id);
-    const cliente = solicitud
-      ? await db.clientes.get(solicitud.cliente_id)
-      : undefined;
+    const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
     const sede = ubicacion
-      ? await db.sedes.get(
-          (await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0
-        )
+      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
       : undefined;
 
     // Module statuses y completitud
@@ -174,9 +135,7 @@ export default function VisitaWorkspacePage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Visita no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
         </div>
       </div>
     );
@@ -186,9 +145,12 @@ export default function VisitaWorkspacePage({
   const estadoConfig = ESTADO_CONFIG[visita.estado_visita];
   const isLocked = visita.estado_visita === "asignada";
   const hasRevisionNotes =
-    visita.observaciones_revision &&
-    visita.estado_visita === "en_progreso" &&
-    visita.devuelto_en;
+    visita.observaciones_revision && visita.estado_visita === "en_progreso" && visita.devuelto_en;
+
+  // Módulos dinámicos del paquete del equipo
+  const packageModulos = equipo?.tipo_equipo ? getModules(equipo.tipo_equipo) : getDefaultModules();
+  // Prepend info module + package modules
+  const MODULOS = [INFO_MODULE, ...packageModulos];
 
   return (
     <div className="space-y-6 pb-24 md:pb-6">
@@ -209,9 +171,7 @@ export default function VisitaWorkspacePage({
               Devuelta por el ingeniero revisor
             </span>
           </div>
-          <p className="text-sm text-amber-700 font-medium ml-7">
-            {visita.observaciones_revision}
-          </p>
+          <p className="text-sm text-amber-700 font-medium ml-7">{visita.observaciones_revision}</p>
         </div>
       )}
 
@@ -259,25 +219,24 @@ export default function VisitaWorkspacePage({
           <StateTimeline currentState={visita.estado_visita} />
 
           {/* Barra de progreso */}
-          {visita.estado_visita !== "asignada" &&
-            visita.estado_visita !== "aprobada" && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Progreso
-                  </span>
-                  <span className="text-xs font-black text-slate-600">
-                    {completeness.completed}/{completeness.total} módulos
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${completeness.percentage}%` }}
-                  />
-                </div>
+          {visita.estado_visita !== "asignada" && visita.estado_visita !== "aprobada" && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Progreso
+                </span>
+                <span className="text-xs font-black text-slate-600">
+                  {completeness.completed}/{completeness.total} módulos
+                </span>
               </div>
-            )}
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${completeness.percentage}%` }}
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -288,17 +247,15 @@ export default function VisitaWorkspacePage({
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           {MODULOS.map((modulo) => {
-            const status: ModuloStatus =
-              moduleStatuses[modulo.id] ?? "sin_iniciar";
-            const Icon = modulo.icon;
+            const status: ModuloStatus = moduleStatuses[modulo.id] ?? "sin_iniciar";
+            const Icon = resolveIcon(modulo.icon);
+            const ruta = modulo.ruta ?? modulo.id;
             const locked = isLocked && modulo.id !== "info";
 
             const cardContent = (
               <Card
                 className={`border-none shadow-sm transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group overflow-hidden ${
-                  locked
-                    ? "opacity-60 cursor-not-allowed"
-                    : "hover:shadow-lg cursor-pointer"
+                  locked ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg cursor-pointer"
                 }`}
               >
                 <CardContent className="p-4 sm:p-5 md:p-6">
@@ -309,18 +266,14 @@ export default function VisitaWorkspacePage({
                           locked ? "bg-slate-100" : "bg-primary/10"
                         }`}
                       >
-                        <Icon
-                          className={`w-5 h-5 ${
-                            locked ? "text-slate-400" : "text-primary"
-                          }`}
-                        />
+                        <Icon className={`w-5 h-5 ${locked ? "text-slate-400" : "text-primary"}`} />
                       </div>
                       <div className="min-w-0">
                         <p className="font-black text-slate-900 text-sm sm:text-base truncate">
                           {modulo.nombre}
                         </p>
                         <p className="text-[11px] text-slate-400 font-medium">
-                          {modulo.descripcion}
+                          {(modulo as { descripcion?: string }).descripcion ?? modulo.nombreCorto}
                         </p>
                       </div>
                     </div>
@@ -342,10 +295,7 @@ export default function VisitaWorkspacePage({
             return locked ? (
               <div key={modulo.id}>{cardContent}</div>
             ) : (
-              <Link
-                key={modulo.id}
-                href={`/dashboard/visitas/${id}/${modulo.ruta}`}
-              >
+              <Link key={modulo.id} href={`/dashboard/visitas/${id}/${ruta}`}>
                 {cardContent}
               </Link>
             );

@@ -8,13 +8,6 @@ import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   ArrowLeft,
   Building2,
   MapPin,
@@ -32,16 +25,12 @@ import {
 import Link from "next/link";
 import { crearVisitaDesdeSolicitud } from "@/lib/workflow/visita-service";
 import { SolicitudFormDialog } from "@/components/solicitud-form-dialog";
-import { useRouter } from "next/navigation";
 
 // ============================================================
 //  Detalle de solicitud + botón "Programar Visita"
 // ============================================================
 
-const ESTADO_BADGE: Record<
-  string,
-  { bg: string; text: string; border: string }
-> = {
+const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
   solicitudes: {
     bg: "bg-slate-100",
     text: "text-slate-600",
@@ -69,25 +58,18 @@ const ESTADO_BADGE: Record<
   },
 };
 
-export default function SolicitudDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function SolicitudDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const solicitudId = parseInt(id, 10);
   const { isReady } = useDb();
   const { isAdmin } = useRole();
-  const router = useRouter();
-
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedEquipoId, setSelectedEquipoId] = useState("");
   const [creatingVisita, setCreatingVisita] = useState(false);
   const [resultado, setResultado] = useState<{
-    success: boolean;
-    visitaId?: number;
-    pruebasCreadas?: number;
-    error?: string;
+    total: number;
+    exitosas: number;
+    pruebasCreadas: number;
+    errores: string[];
   } | null>(null);
 
   const data = useLiveQuery(async () => {
@@ -109,17 +91,11 @@ export default function SolicitudDetailPage({
 
     // Equipos disponibles en la ubicación
     const equipos = solicitud.ubicacion_id
-      ? await db.equipos
-          .where("ubicacion_id")
-          .equals(solicitud.ubicacion_id)
-          .toArray()
+      ? await db.equipos.where("ubicacion_id").equals(solicitud.ubicacion_id).toArray()
       : [];
 
     // Visitas ya creadas para esta solicitud
-    const visitas = await db.visitas
-      .where("solicitud_id")
-      .equals(solicitudId)
-      .toArray();
+    const visitas = await db.visitas.where("solicitud_id").equals(solicitudId).toArray();
 
     return { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas };
   }, [isReady, solicitudId]);
@@ -150,30 +126,39 @@ export default function SolicitudDetailPage({
     );
   }
 
-  const { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas } =
-    data;
+  const { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas } = data;
   const estado = solicitud.pipeline_estado ?? "solicitudes";
   const badge = ESTADO_BADGE[estado] ?? ESTADO_BADGE.solicitudes;
 
   // Equipos que ya tienen visita creada
   const equiposConVisita = new Set(visitas.map((v) => v.equipo_id));
-  const equiposSinVisita = equipos.filter(
-    (e) => !equiposConVisita.has(e.id!)
-  );
+  const equiposSinVisita = equipos.filter((e) => !equiposConVisita.has(e.id!));
 
-  async function handleCrearVisita() {
-    if (!selectedEquipoId) return;
+  async function handleCrearVisitas() {
+    if (equiposSinVisita.length === 0) return;
     setCreatingVisita(true);
     setResultado(null);
     try {
-      const result = await crearVisitaDesdeSolicitud(
-        solicitudId,
-        parseInt(selectedEquipoId, 10)
-      );
-      setResultado(result);
-      if (result.success) {
-        setSelectedEquipoId("");
+      let exitosas = 0;
+      let pruebasTotal = 0;
+      const errores: string[] = [];
+
+      for (const eq of equiposSinVisita) {
+        const result = await crearVisitaDesdeSolicitud(solicitudId, eq.id!);
+        if (result.success) {
+          exitosas++;
+          pruebasTotal += result.pruebasCreadas ?? 0;
+        } else {
+          errores.push(`${eq.gen_marca ?? ""} ${eq.gen_modelo ?? ""}: ${result.error}`);
+        }
       }
+
+      setResultado({
+        total: equiposSinVisita.length,
+        exitosas,
+        pruebasCreadas: pruebasTotal,
+        errores,
+      });
     } catch (err) {
       console.error("[SolicitudDetail] Error:", err);
     } finally {
@@ -199,9 +184,7 @@ export default function SolicitudDetailPage({
               <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
                 Solicitud #{solicitud.id}
               </h2>
-              <p className="text-sm text-slate-500 font-medium">
-                {cliente?.nombre_cliente}
-              </p>
+              <p className="text-sm text-slate-500 font-medium">{cliente?.nombre_cliente}</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <span
@@ -251,9 +234,7 @@ export default function SolicitudDetailPage({
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                   Contacto
                 </p>
-                <p className="text-sm font-bold text-slate-700">
-                  {contacto.nombre}
-                </p>
+                <p className="text-sm font-bold text-slate-700">{contacto.nombre}</p>
               </div>
             )}
             {solicitud.tipo_servicio && (
@@ -319,10 +300,7 @@ export default function SolicitudDetailPage({
             {visitas.map((visita) => {
               const eq = equipos.find((e) => e.id === visita.equipo_id);
               return (
-                <Link
-                  key={visita.id}
-                  href={`/dashboard/visitas/${visita.id}`}
-                >
+                <Link key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
                   <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-center justify-between gap-3">
@@ -333,9 +311,7 @@ export default function SolicitudDetailPage({
                           <div className="min-w-0">
                             <p className="text-sm font-black text-slate-900 truncate">
                               Visita #{visita.id}
-                              {eq
-                                ? ` — ${eq.gen_marca} ${eq.gen_modelo}`
-                                : ""}
+                              {eq ? ` — ${eq.gen_marca} ${eq.gen_modelo}` : ""}
                             </p>
                             <p className="text-[11px] text-slate-400 font-medium">
                               Estado: {visita.estado_visita.replace("_", " ")}
@@ -353,41 +329,27 @@ export default function SolicitudDetailPage({
         </div>
       )}
 
-      {/* Crear nueva visita */}
+      {/* Crear visitas para todos los equipos pendientes */}
       {isAdmin && equiposSinVisita.length > 0 && (
         <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-2xl bg-primary/5 overflow-hidden">
           <CardContent className="p-5 space-y-4">
-            <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
-              <Radio className="w-5 h-5 text-primary" />
-              Programar Visita
-            </h3>
-            <p className="text-sm text-slate-500 font-medium">
-              Selecciona un equipo para crear la visita y auto-generar las
-              pruebas aplicables.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Select
-                value={selectedEquipoId}
-                onValueChange={(v) => setSelectedEquipoId(v ?? "")}
-              >
-                <SelectTrigger className="w-full sm:flex-1 rounded-xl border-slate-200 h-11 font-medium bg-white">
-                  <SelectValue placeholder="Seleccionar equipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {equiposSinVisita.map((eq) => (
-                    <SelectItem key={eq.id} value={String(eq.id)}>
-                      {eq.gen_marca} {eq.gen_modelo}
-                      {eq.tipo_equipo ? ` (${eq.tipo_equipo})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+                  <Radio className="w-5 h-5 text-primary" />
+                  Programar Visitas
+                </h3>
+                <p className="text-sm text-slate-500 font-medium mt-1">
+                  {equiposSinVisita.length === 1
+                    ? `1 equipo pendiente: ${equiposSinVisita[0].gen_marca ?? ""} ${equiposSinVisita[0].gen_modelo ?? ""} ${equiposSinVisita[0].tipo_equipo ? `(${equiposSinVisita[0].tipo_equipo})` : ""}`.trim()
+                    : `${equiposSinVisita.length} equipos pendientes en esta ubicación.`}
+                </p>
+              </div>
 
               <Button
-                className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6"
-                disabled={!selectedEquipoId || creatingVisita}
-                onClick={handleCrearVisita}
+                className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
+                disabled={creatingVisita}
+                onClick={handleCrearVisitas}
               >
                 {creatingVisita ? (
                   <>
@@ -397,39 +359,50 @@ export default function SolicitudDetailPage({
                 ) : (
                   <>
                     <ClipboardCheck className="w-4 h-4 mr-2" />
-                    Crear Visita
+                    {equiposSinVisita.length === 1 ? "Crear Visita" : `Crear ${equiposSinVisita.length} Visitas`}
                   </>
                 )}
               </Button>
             </div>
 
-            {/* Resultado */}
+            {equiposSinVisita.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                {equiposSinVisita.map((eq) => (
+                  <span
+                    key={eq.id}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-600"
+                  >
+                    {eq.gen_marca ?? ""} {eq.gen_modelo ?? ""}
+                    {eq.tipo_equipo ? ` (${eq.tipo_equipo})` : ""}
+                  </span>
+                ))}
+              </div>
+            )}
+
             {resultado && (
               <div
                 className={`p-3 rounded-xl text-sm font-medium ${
-                  resultado.success
+                  resultado.errores.length === 0
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     : "bg-red-50 text-red-600 border border-red-200"
                 }`}
               >
-                {resultado.success ? (
+                {resultado.errores.length === 0 ? (
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>
-                      Visita #{resultado.visitaId} creada con{" "}
-                      {resultado.pruebasCreadas} pruebas.
+                      {resultado.exitosas} {resultado.exitosas === 1 ? "visita creada" : "visitas creadas"} con {resultado.pruebasCreadas} pruebas en total.
                     </span>
-                    <Link
-                      href={`/dashboard/visitas/${resultado.visitaId}`}
-                      className="underline font-bold ml-1"
-                    >
-                      Ver visita
-                    </Link>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    <span>{resultado.error}</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>{resultado.exitosas}/{resultado.total} visitas creadas.</span>
+                    </div>
+                    {resultado.errores.map((err, i) => (
+                      <p key={i} className="text-xs ml-6">{err}</p>
+                    ))}
                   </div>
                 )}
               </div>

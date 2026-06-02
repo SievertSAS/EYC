@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Cliente } from "@/lib/db/types";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
   DialogContent,
@@ -55,9 +56,7 @@ export function ClienteFormDialog({
   onSaved,
 }: ClienteFormDialogProps) {
   const isEdit = !!cliente;
-  const [form, setForm] = useState<Partial<Cliente>>(
-    cliente ? { ...cliente } : { ...EMPTY }
-  );
+  const [form, setForm] = useState<Partial<Cliente>>(cliente ? { ...cliente } : { ...EMPTY });
   const [saving, setSaving] = useState(false);
 
   function update(field: keyof Cliente, value: string) {
@@ -69,22 +68,30 @@ export function ClienteFormDialog({
     setSaving(true);
     try {
       const now = new Date().toISOString();
+      let savedId: number;
       if (isEdit && cliente?.id) {
         await db.clientes.update(cliente.id, {
           ...form,
           nombre_cliente: form.nombre_cliente!.trim(),
+          sync_status: "pending",
+          last_modified: now,
         });
-        onSaved?.(cliente.id);
+        savedId = cliente.id;
       } else {
-        const id = await db.clientes.add({
+        savedId = (await db.clientes.add({
           ...form,
           nombre_cliente: form.nombre_cliente!.trim(),
           creado_en: now,
-        } as Cliente);
-        onSaved?.(id as number);
+          sync_status: "pending",
+          last_modified: now,
+        } as Cliente)) as number;
       }
+      onSaved?.(savedId);
       setForm({ ...EMPTY });
       onOpenChange(false);
+
+      // Push inmediato a Supabase (no bloquea la UI)
+      pushSingle("clientes", savedId);
     } catch (err) {
       console.error("[ClienteForm] Error al guardar:", err);
     } finally {
@@ -177,9 +184,7 @@ export function ClienteFormDialog({
             </Label>
             <Select
               value={form.naturaleza ?? ""}
-              onValueChange={(val) =>
-                update("naturaleza", (val ?? "") as string)
-              }
+              onValueChange={(val) => update("naturaleza", (val ?? "") as string)}
             >
               <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
                 <SelectValue placeholder="Seleccionar..." />
@@ -241,9 +246,7 @@ export function ClienteFormDialog({
               className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Nombre completo"
               value={form.nombre_representante_legal ?? ""}
-              onChange={(e) =>
-                update("nombre_representante_legal", e.target.value)
-              }
+              onChange={(e) => update("nombre_representante_legal", e.target.value)}
             />
           </div>
         </div>

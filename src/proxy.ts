@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { clientEnv } from "@/lib/env";
 
 const PROTECTED_PREFIX = "/dashboard";
 const LOGIN_PATH = "/login";
@@ -7,8 +8,8 @@ const LOGIN_PATH = "/login";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseUrl = clientEnv.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   let response = NextResponse.next({
     request: { headers: request.headers },
@@ -20,9 +21,7 @@ export async function proxy(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value)
-        );
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({
           request: { headers: request.headers },
         });
@@ -33,9 +32,28 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verificar si hay cookie de sesión de Supabase (sb-<ref>-auth-token*)
+  const hasSessionCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      // Error de red o Supabase inalcanzable → confiar en cookie local
+      if (hasSessionCookie) {
+        return response;
+      }
+    } else {
+      user = data.user;
+    }
+  } catch {
+    // Error de red total (fetch failed) → confiar en cookie local
+    if (hasSessionCookie) {
+      return response;
+    }
+  }
 
   if (pathname.startsWith(PROTECTED_PREFIX) && !user) {
     const loginUrl = new URL(LOGIN_PATH, request.url);

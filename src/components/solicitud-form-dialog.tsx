@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Solicitud } from "@/lib/db/types";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
   DialogContent,
@@ -58,9 +59,7 @@ export function SolicitudFormDialog({
   const [contactoId, setContactoId] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
   const [tipoServicio, setTipoServicio] = useState("CONTROL_CALIDAD");
-  const [fechaSolicitud, setFechaSolicitud] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [fechaSolicitud, setFechaSolicitud] = useState(new Date().toISOString().split("T")[0]);
   const [fechaEstimada, setFechaEstimada] = useState("");
   const [formaPago, setFormaPago] = useState("");
   const [pagoRecibido, setPagoRecibido] = useState(false);
@@ -79,19 +78,12 @@ export function SolicitudFormDialog({
   }, [sedeId]);
 
   // Data queries
-  const clientes = useLiveQuery(
-    () => (isReady ? db.clientes.toArray() : []),
-    [isReady],
-    []
-  );
+  const clientes = useLiveQuery(() => (isReady ? db.clientes.toArray() : []), [isReady], []);
 
   const sedes = useLiveQuery(
     () =>
       isReady && clienteId
-        ? db.sedes
-            .where("cliente_id")
-            .equals(parseInt(clienteId, 10))
-            .toArray()
+        ? db.sedes.where("cliente_id").equals(parseInt(clienteId, 10)).toArray()
         : [],
     [isReady, clienteId],
     []
@@ -100,10 +92,7 @@ export function SolicitudFormDialog({
   const ubicaciones = useLiveQuery(
     () =>
       isReady && sedeId
-        ? db.ubicaciones_rx
-            .where("sede_id")
-            .equals(parseInt(sedeId, 10))
-            .toArray()
+        ? db.ubicaciones_rx.where("sede_id").equals(parseInt(sedeId, 10)).toArray()
         : [],
     [isReady, sedeId],
     []
@@ -123,12 +112,7 @@ export function SolicitudFormDialog({
   );
 
   const tecnicos = useLiveQuery(
-    () =>
-      isReady
-        ? db.usuarios
-            .filter((t) => t.activo && t.cargo === "tecnico")
-            .toArray()
-        : [],
+    () => (isReady ? db.usuarios.filter((t) => t.activo && t.cargo === "tecnico").toArray() : []),
     [isReady],
     []
   );
@@ -137,8 +121,12 @@ export function SolicitudFormDialog({
   useEffect(() => {
     if (!open || !editSolicitud) return;
     setClienteId(editSolicitud.cliente_id ? String(editSolicitud.cliente_id) : "");
-    setContactoId(editSolicitud.contacto_programar_id ? String(editSolicitud.contacto_programar_id) : "");
-    setTecnicoId(editSolicitud.tecnico_asignado_id ? String(editSolicitud.tecnico_asignado_id) : "");
+    setContactoId(
+      editSolicitud.contacto_programar_id ? String(editSolicitud.contacto_programar_id) : ""
+    );
+    setTecnicoId(
+      editSolicitud.tecnico_asignado_id ? String(editSolicitud.tecnico_asignado_id) : ""
+    );
     setTipoServicio(editSolicitud.tipo_servicio ?? "CONTROL_CALIDAD");
     setFechaSolicitud(editSolicitud.fecha_solicitud ?? new Date().toISOString().split("T")[0]);
     setFechaEstimada(editSolicitud.fecha_estimada_visita ?? "");
@@ -180,20 +168,16 @@ export function SolicitudFormDialog({
         // Modo edición — actualizar con tracking de cambios
         const changes: Partial<Solicitud> = {
           cliente_id: parseInt(clienteId, 10),
-          contacto_programar_id: contactoId
-            ? parseInt(contactoId, 10)
-            : undefined,
-          ubicacion_id: ubicacionId
-            ? parseInt(ubicacionId, 10)
-            : undefined,
-          tecnico_asignado_id: tecnicoId
-            ? parseInt(tecnicoId, 10)
-            : undefined,
+          contacto_programar_id: contactoId ? parseInt(contactoId, 10) : undefined,
+          ubicacion_id: ubicacionId ? parseInt(ubicacionId, 10) : undefined,
+          tecnico_asignado_id: tecnicoId ? parseInt(tecnicoId, 10) : undefined,
           tipo_servicio: tipoServicio || undefined,
           forma_pago: formaPago || undefined,
           pago_recibido: pagoRecibido,
           fecha_solicitud: fechaSolicitud || undefined,
           fecha_estimada_visita: fechaEstimada || undefined,
+          sync_status: "pending",
+          last_modified: now,
         };
         await updateWithTracking(
           "solicitudes",
@@ -206,19 +190,15 @@ export function SolicitudFormDialog({
         resetForm();
         onOpenChange(false);
         onSaved?.(editSolicitud.id);
+
+        pushSingle("solicitudes", editSolicitud.id);
       } else {
         // Modo creación
         const data: Omit<Solicitud, "id"> = {
           cliente_id: parseInt(clienteId, 10),
-          contacto_programar_id: contactoId
-            ? parseInt(contactoId, 10)
-            : undefined,
-          ubicacion_id: ubicacionId
-            ? parseInt(ubicacionId, 10)
-            : undefined,
-          tecnico_asignado_id: tecnicoId
-            ? parseInt(tecnicoId, 10)
-            : undefined,
+          contacto_programar_id: contactoId ? parseInt(contactoId, 10) : undefined,
+          ubicacion_id: ubicacionId ? parseInt(ubicacionId, 10) : undefined,
+          tecnico_asignado_id: tecnicoId ? parseInt(tecnicoId, 10) : undefined,
           tipo_servicio: tipoServicio || undefined,
           pipeline_estado: "solicitudes",
           forma_pago: formaPago || undefined,
@@ -226,12 +206,16 @@ export function SolicitudFormDialog({
           fecha_solicitud: fechaSolicitud || undefined,
           fecha_estimada_visita: fechaEstimada || undefined,
           creado_en: now,
+          sync_status: "pending",
+          last_modified: now,
         };
 
         const id = (await db.solicitudes.add(data as Solicitud)) as number;
         resetForm();
         onOpenChange(false);
         onSaved?.(id);
+
+        pushSingle("solicitudes", id);
       }
     } catch (err) {
       console.error("[SolicitudForm] Error:", err);
@@ -306,10 +290,7 @@ export function SolicitudFormDialog({
               <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
                 Ubicación RX
               </Label>
-              <Select
-                value={ubicacionId}
-                onValueChange={(v) => setUbicacionId(v ?? "")}
-              >
+              <Select value={ubicacionId} onValueChange={(v) => setUbicacionId(v ?? "")}>
                 <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
                   <SelectValue placeholder="Seleccionar ubicación..." />
                 </SelectTrigger>
@@ -330,10 +311,7 @@ export function SolicitudFormDialog({
               <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
                 Contacto para Programar
               </Label>
-              <Select
-                value={contactoId}
-                onValueChange={(v) => setContactoId(v ?? "")}
-              >
+              <Select value={contactoId} onValueChange={(v) => setContactoId(v ?? "")}>
                 <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
                   <SelectValue placeholder="Seleccionar contacto..." />
                 </SelectTrigger>
@@ -382,12 +360,8 @@ export function SolicitudFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CONTROL_CALIDAD">
-                    Control de Calidad
-                  </SelectItem>
-                  <SelectItem value="LEVANTAMIENTO">
-                    Levantamiento
-                  </SelectItem>
+                  <SelectItem value="CONTROL_CALIDAD">Control de Calidad</SelectItem>
+                  <SelectItem value="LEVANTAMIENTO">Levantamiento</SelectItem>
                   <SelectItem value="ASESORIA">Asesoría</SelectItem>
                 </SelectContent>
               </Select>
@@ -438,9 +412,7 @@ export function SolicitudFormDialog({
               onChange={(e) => setPagoRecibido(e.target.checked)}
               className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
             />
-            <span className="text-sm font-bold text-slate-700">
-              Pago recibido
-            </span>
+            <span className="text-sm font-bold text-slate-700">Pago recibido</span>
           </label>
         </div>
 
@@ -462,8 +434,10 @@ export function SolicitudFormDialog({
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 Creando...
               </>
+            ) : isEditing ? (
+              "Guardar Cambios"
             ) : (
-              isEditing ? "Guardar Cambios" : "Crear Solicitud"
+              "Crear Solicitud"
             )}
           </Button>
         </DialogFooter>

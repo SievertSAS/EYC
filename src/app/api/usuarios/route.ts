@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createUsuarioSchema } from "@/lib/validation/schemas";
+import { rateLimit } from "@/lib/rate-limit";
+import { clientEnv, getServerEnv } from "@/lib/env";
 
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function getAuthenticatedUser(request: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+    clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -28,6 +31,15 @@ async function getAuthenticatedUser(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const { allowed } = rateLimit(`create-user:${ip}`, 5, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." },
+      { status: 429 }
+    );
+  }
+
   const user = await getAuthenticatedUser(request);
   if (!user) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -44,27 +56,25 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { email, password, nombre, cedula, cargo, telefono } = body;
+  const parsed = createUsuarioSchema.safeParse(body);
 
-  if (!email || !password || !nombre || !cedula || !cargo) {
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Campos requeridos: email, password, nombre, cedula, cargo" },
+      { error: "Datos inválidos", detalles: parsed.error.issues },
       { status: 400 }
     );
   }
 
-  const { data: authData, error: authError } =
-    await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
+  const { email, password, nombre, cedula, cargo, telefono } = parsed.data;
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
 
   if (authError) {
-    return NextResponse.json(
-      { error: authError.message },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: authError.message }, { status: 400 });
   }
 
   const { data: usuario, error: dbError } = await supabaseAdmin
@@ -83,10 +93,7 @@ export async function POST(request: NextRequest) {
 
   if (dbError) {
     await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-    return NextResponse.json(
-      { error: dbError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
   return NextResponse.json({ usuario }, { status: 201 });

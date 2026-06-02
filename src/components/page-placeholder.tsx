@@ -7,12 +7,7 @@ interface PagePlaceholderProps {
   message: string;
 }
 
-export function PagePlaceholder({
-  title,
-  subtitle,
-  icon: Icon,
-  message,
-}: PagePlaceholderProps) {
+export function PagePlaceholder({ title, subtitle, icon: Icon, message }: PagePlaceholderProps) {
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -20,9 +15,7 @@ export function PagePlaceholder({
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
           {title}
         </h2>
-        <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
-          {subtitle}
-        </p>
+        <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">{subtitle}</p>
       </div>
 
       {/* Empty state */}

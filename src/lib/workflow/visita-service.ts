@@ -1,11 +1,6 @@
 import { db } from "@/lib/db";
-import type {
-  VisitaEjecucion,
-  PruebaResultado,
-  GrupoResultado,
-  Solicitud,
-} from "@/lib/db/types";
-import { hasPackage } from "@/lib/pruebas";
+import type { VisitaEjecucion, PruebaResultado, GrupoResultado, Solicitud } from "@/lib/db/types";
+import { hasPackage } from "@/lib/equipos";
 
 // ============================================================
 //  Servicio de creación de visitas
@@ -68,9 +63,7 @@ export async function crearVisitaDesdeSolicitud(
         db.prueba_definiciones,
       ],
       async () => {
-        visitaId = (await db.visitas.add(
-          visita as VisitaEjecucion
-        )) as number;
+        visitaId = (await db.visitas.add(visita as VisitaEjecucion)) as number;
 
         if (equipo.tipo_equipo) {
           const usarPaquete = hasPackage(equipo.tipo_equipo);
@@ -128,9 +121,7 @@ export async function crearVisitaDesdeSolicitud(
               )
               .toArray();
 
-            definiciones.sort(
-              (a, b) => (a.orden_sugerido ?? 999) - (b.orden_sugerido ?? 999)
-            );
+            definiciones.sort((a, b) => (a.orden_sugerido ?? 999) - (b.orden_sugerido ?? 999));
 
             for (const def of definiciones) {
               await db.prueba_resultados.add({
@@ -149,8 +140,7 @@ export async function crearVisitaDesdeSolicitud(
 
         // Actualizar pipeline de la solicitud
         await db.solicitudes.update(solicitudId, {
-          pipeline_estado:
-            "programacion" as Solicitud["pipeline_estado"],
+          pipeline_estado: "programacion" as Solicitud["pipeline_estado"],
         });
       }
     );
@@ -178,8 +168,5 @@ export async function getEquiposDeSolicitud(solicitudId: number) {
   const solicitud = await db.solicitudes.get(solicitudId);
   if (!solicitud?.ubicacion_id) return [];
 
-  return db.equipos
-    .where("ubicacion_id")
-    .equals(solicitud.ubicacion_id)
-    .toArray();
+  return db.equipos.where("ubicacion_id").equals(solicitud.ubicacion_id).toArray();
 }

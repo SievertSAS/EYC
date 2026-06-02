@@ -1,6 +1,7 @@
 // ============================================================
 //  Motor de evaluación de fórmulas y criterios
-//  Evalúa expresiones JS contra datos de medición crudos
+//  Evalúa expresiones contra datos de medición crudos
+//  Compartido por todos los EquipmentPackage
 // ============================================================
 
 import type {
@@ -51,6 +52,73 @@ export const stats = {
   },
 };
 
+// ─── Helpers reutilizables para fórmulas complejas ───
+
+export const formulaHelpers = {
+  /** Variación porcentual de un campo respecto al ROI "Centro" */
+  variacionVsCentro(rows: Record<string, unknown>[], valueField: string): number {
+    const centro = rows.find((r) => r.roi === "Centro");
+    if (!centro || !centro[valueField]) return 0;
+    const centroVal = centro[valueField] as number;
+    return stats.max(
+      rows
+        .filter((r) => (r[valueField] as number) > 0)
+        .map((r) => (Math.abs((r[valueField] as number) - centroVal) / centroVal) * 100)
+    );
+  },
+
+  /** Variación porcentual máxima vs media, con filtro opcional por campo */
+  variacionVsMedia(
+    rows: Record<string, unknown>[],
+    valueField: string,
+    filterField?: string,
+    filterValue?: string
+  ): number {
+    const filtered = filterField
+      ? rows.filter((r) => r[filterField] === filterValue && (r[valueField] as number) > 0)
+      : rows.filter((r) => (r[valueField] as number) > 0);
+    const vals = filtered.map((r) => r[valueField] as number);
+    if (vals.length < 2) return 0;
+    const m = stats.mean(vals);
+    return stats.max(vals.map((v) => (Math.abs(v - m) / m) * 100));
+  },
+};
+
+// ─── Validación de expresiones ───
+
+const BLOCKED_PATTERNS: RegExp[] = [
+  /\bimport\b/,
+  /\brequire\b/,
+  /\beval\b/,
+  /\bFunction\b/,
+  /\bwindow\b/,
+  /\bdocument\b/,
+  /\bglobal(?:This)?\b/,
+  /\bprocess\b/,
+  /\bfetch\b/,
+  /\bXMLHttpRequest\b/,
+  /\bconstructor\b/,
+  /\bprototype\b/,
+  /\b__proto__\b/,
+  /\bsetTimeout\b/,
+  /\bsetInterval\b/,
+  /\bPromise\b/,
+  /\balert\b/,
+  /\bconfirm\b/,
+  /\bprompt\b/,
+  /\bObject\b/,
+  /\bReflect\b/,
+  /\bProxy\b/,
+];
+
+function validateExpression(expr: string): void {
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(expr)) {
+      throw new Error(`Expresión de fórmula bloqueada: patrón no permitido "${pattern.source}"`);
+    }
+  }
+}
+
 // ─── Contexto de evaluación ───
 
 export interface FormulaContext {
@@ -60,10 +128,6 @@ export interface FormulaContext {
 
 // ─── Evaluación de fórmulas ───
 
-/**
- * Evalúa una fórmula contra una fila y todas las filas del grupo.
- * Retorna el valor numérico o null si hay error.
- */
 export function evaluateFormula(
   formula: FormulaDefinicion,
   row: Record<string, unknown>,
@@ -71,7 +135,9 @@ export function evaluateFormula(
   context: FormulaContext = {}
 ): number | null {
   try {
-    // Crear scope restringido para la evaluación
+    validateExpression(formula.expresion);
+
+    // eslint-disable-next-line no-new-func
     const fn = new Function(
       "row",
       "rows",
@@ -79,6 +145,7 @@ export function evaluateFormula(
       "Math",
       "equipo",
       "valores_ref",
+      "helpers",
       `"use strict"; return (${formula.expresion});`
     );
 
@@ -88,7 +155,8 @@ export function evaluateFormula(
       stats,
       Math,
       context.equipo ?? {},
-      context.valores_ref ?? {}
+      context.valores_ref ?? {},
+      formulaHelpers
     );
 
     if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
@@ -112,9 +180,7 @@ export function evaluateAllFormulas(
   const results = new Map<string, (number | null)[]>();
 
   for (const formula of formulas) {
-    const values = rows.map((row) =>
-      evaluateFormula(formula, row, rows, context)
-    );
+    const values = rows.map((row) => evaluateFormula(formula, row, rows, context));
     results.set(formula.campo_resultado, values);
   }
 
@@ -138,14 +204,12 @@ export function evaluateFormulaSummaries(
       .filter((v): v is number => v !== null);
 
     if (values.length > 0) {
-      // Para desviaciones/CV: tomar el máximo (peor caso)
       if (
         formula.campo_resultado.includes("desviacion") ||
         formula.campo_resultado.includes("cv")
       ) {
         summaries[formula.campo_resultado] = stats.max(values.map(Math.abs));
       } else {
-        // Para otros: tomar la media
         summaries[formula.campo_resultado] = stats.mean(values);
       }
     } else {
@@ -161,10 +225,7 @@ export function evaluateFormulaSummaries(
 /**
  * Evalúa un criterio contra un valor.
  */
-export function evaluateCriterio(
-  criterio: CriterioAceptacion,
-  valor: number
-): boolean {
+export function evaluateCriterio(criterio: CriterioAceptacion, valor: number): boolean {
   switch (criterio.operador) {
     case "lt":
       return valor < (criterio.valor as number);
@@ -206,9 +267,7 @@ export function evaluateCriterios(
 /**
  * Determina el concepto sugerido: FAVORABLE si todos los criterios se cumplen.
  */
-export function suggestConcepto(
-  evaluaciones: EvaluacionCriterio[]
-): "FAVORABLE" | "NO_FAVORABLE" {
+export function suggestConcepto(evaluaciones: EvaluacionCriterio[]): "FAVORABLE" | "NO_FAVORABLE" {
   return evaluaciones.every((e) => e.cumple) ? "FAVORABLE" : "NO_FAVORABLE";
 }
 
@@ -237,9 +296,7 @@ export function evaluateGroup(
 
     const resultados = evaluateFormulaSummaries(formulas, rawData, context);
     const evaluacion = evaluateCriterios(criterios, resultados);
-    const concepto = evaluacion.length > 0
-      ? suggestConcepto(evaluacion)
-      : "FAVORABLE";
+    const concepto = evaluacion.length > 0 ? suggestConcepto(evaluacion) : "FAVORABLE";
 
     return {
       prueba_definicion_id: prueba.id!,

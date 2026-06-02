@@ -8,15 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  Camera,
-  Plus,
-  Trash2,
-  Loader2,
-  AlertCircle,
-  Image,
-} from "lucide-react";
+import { ArrowLeft, Camera, Plus, Trash2, Loader2, AlertCircle, Image } from "lucide-react";
 import Link from "next/link";
 import { ModuleNav } from "@/components/module-nav";
 
@@ -35,11 +27,7 @@ const TIPOS_EVIDENCIA = [
   "otro",
 ];
 
-export default function EvidenciasPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function EvidenciasPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -84,10 +72,7 @@ export default function EvidenciasPage({
   );
 
   const actualizarEvidencia = useCallback(
-    async (
-      evidenciaId: number,
-      campo: { tipo?: string; descripcion?: string }
-    ) => {
+    async (evidenciaId: number, campo: { tipo?: string; descripcion?: string }) => {
       await db.evidencias.update(evidenciaId, {
         ...campo,
         last_modified: new Date().toISOString(),
@@ -122,8 +107,8 @@ export default function EvidenciasPage({
             Evidencias Fotográficas
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
-            {evidencias.length} foto{evidencias.length !== 1 ? "s" : ""}{" "}
-            capturada{evidencias.length !== 1 ? "s" : ""}
+            {evidencias.length} foto{evidencias.length !== 1 ? "s" : ""} capturada
+            {evidencias.length !== 1 ? "s" : ""}
           </p>
         </div>
         <Button
@@ -152,12 +137,9 @@ export default function EvidenciasPage({
           <div className="bg-primary/10 p-6 rounded-3xl">
             <Camera className="w-10 h-10 text-primary" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Sin evidencias fotográficas
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Sin evidencias fotográficas</p>
           <p className="text-slate-400 text-sm max-w-xs">
-            Toma fotos del equipo, placas de identificación, sala, blindaje y
-            señalización.
+            Toma fotos del equipo, placas de identificación, sala, blindaje y señalización.
           </p>
         </div>
       ) : (
@@ -190,16 +172,11 @@ function EvidenciaCard({
     blob_local?: Blob;
     fecha_captura?: string;
   };
-  onUpdate: (
-    id: number,
-    campo: { tipo?: string; descripcion?: string }
-  ) => void;
+  onUpdate: (id: number, campo: { tipo?: string; descripcion?: string }) => void;
   onDelete: (id: number) => void;
 }) {
   // Generar URL temporal del blob
-  const imageUrl = evidencia.blob_local
-    ? URL.createObjectURL(evidencia.blob_local)
-    : null;
+  const imageUrl = evidencia.blob_local ? URL.createObjectURL(evidencia.blob_local) : null;
 
   return (
     <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
@@ -235,15 +212,11 @@ function EvidenciaCard({
           <select
             className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 outline-none transition-colors bg-white"
             defaultValue={evidencia.tipo ?? "otro"}
-            onChange={(e) =>
-              onUpdate(evidencia.id!, { tipo: e.target.value })
-            }
+            onChange={(e) => onUpdate(evidencia.id!, { tipo: e.target.value })}
           >
             {TIPOS_EVIDENCIA.map((t) => (
               <option key={t} value={t}>
-                {t
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (c) => c.toUpperCase())}
+                {t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
               </option>
             ))}
           </select>
@@ -259,9 +232,7 @@ function EvidenciaCard({
             placeholder="Describe la foto..."
             className="rounded-xl border-slate-200 focus:border-primary font-medium h-9 text-sm"
             defaultValue={evidencia.descripcion ?? ""}
-            onBlur={(e) =>
-              onUpdate(evidencia.id!, { descripcion: e.target.value })
-            }
+            onBlur={(e) => onUpdate(evidencia.id!, { descripcion: e.target.value })}
           />
         </div>
 

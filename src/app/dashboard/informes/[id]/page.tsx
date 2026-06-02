@@ -36,10 +36,7 @@ const MOTIVO_LABELS: Record<string, string> = {
   actualizacion: "Actualización",
 };
 
-const VERSION_ESTADO_BADGE: Record<
-  string,
-  { bg: string; text: string; border: string }
-> = {
+const VERSION_ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
   borrador: {
     bg: "bg-slate-100",
     text: "text-slate-500",
@@ -62,11 +59,7 @@ const VERSION_ESTADO_BADGE: Record<
   },
 };
 
-export default function InformeDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function InformeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const informeId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -80,27 +73,16 @@ export default function InformeDetailPage({
     const equipo = await db.equipos.get(informe.equipo_id);
     const ubicacion = await db.ubicaciones_rx.get(informe.ubicacion_id);
     const visita = await db.visitas.get(informe.visita_id);
-    const solicitud = visita
-      ? await db.solicitudes.get(visita.solicitud_id)
-      : undefined;
-    const cliente = solicitud
-      ? await db.clientes.get(solicitud.cliente_id)
-      : undefined;
+    const solicitud = visita ? await db.solicitudes.get(visita.solicitud_id) : undefined;
+    const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
 
-    const versiones = await db.informe_versiones
-      .where("informe_id")
-      .equals(informeId)
-      .toArray();
+    const versiones = await db.informe_versiones.where("informe_id").equals(informeId).toArray();
 
     // Enriquecer versiones con nombres
     const versionesEnriched = await Promise.all(
       versiones.map(async (v) => {
-        const generador = v.generado_por_id
-          ? await db.usuarios.get(v.generado_por_id)
-          : undefined;
-        const revisor = v.revisado_por_id
-          ? await db.usuarios.get(v.revisado_por_id)
-          : undefined;
+        const generador = v.generado_por_id ? await db.usuarios.get(v.generado_por_id) : undefined;
+        const revisor = v.revisado_por_id ? await db.usuarios.get(v.revisado_por_id) : undefined;
         return { ...v, generador, revisor };
       })
     );
@@ -114,9 +96,7 @@ export default function InformeDetailPage({
       ubicacion,
       cliente,
       visita,
-      versiones: versionesEnriched.sort(
-        (a, b) => b.numero_version - a.numero_version
-      ),
+      versiones: versionesEnriched.sort((a, b) => b.numero_version - a.numero_version),
       vigente,
     };
   }, [isReady, informeId]);
@@ -180,9 +160,7 @@ export default function InformeDetailPage({
               <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
                 {informe.numero_informe}
               </h2>
-              <p className="text-sm text-slate-500 font-medium">
-                {cliente?.nombre_cliente}
-              </p>
+              <p className="text-sm text-slate-500 font-medium">{cliente?.nombre_cliente}</p>
             </div>
             <span
               className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -214,19 +192,13 @@ export default function InformeDetailPage({
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 Emisión
               </p>
-              <p className="text-sm font-bold text-slate-700">
-                {informe.fecha_emision}
-              </p>
+              <p className="text-sm font-bold text-slate-700">{informe.fecha_emision}</p>
             </div>
             <div className="space-y-1">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 Vencimiento
               </p>
-              <p
-                className={`text-sm font-bold ${
-                  vigente ? "text-emerald-600" : "text-red-600"
-                }`}
-              >
+              <p className={`text-sm font-bold ${vigente ? "text-emerald-600" : "text-red-600"}`}>
                 {informe.fecha_vencimiento}
               </p>
             </div>
@@ -280,23 +252,15 @@ export default function InformeDetailPage({
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 font-medium">
-                        {MOTIVO_LABELS[version.motivo_cambio ?? ""] ??
-                          version.motivo_cambio}
-                        {version.descripcion_cambio &&
-                          ` — ${version.descripcion_cambio}`}
+                        {MOTIVO_LABELS[version.motivo_cambio ?? ""] ?? version.motivo_cambio}
+                        {version.descripcion_cambio && ` — ${version.descripcion_cambio}`}
                       </p>
                       <div className="flex flex-wrap gap-x-4 text-[11px] text-slate-400 font-medium">
-                        {version.generador && (
-                          <span>Generado: {version.generador.nombre}</span>
-                        )}
-                        {version.revisor && (
-                          <span>Revisado: {version.revisor.nombre}</span>
-                        )}
+                        {version.generador && <span>Generado: {version.generador.nombre}</span>}
+                        {version.revisor && <span>Revisado: {version.revisor.nombre}</span>}
                         <span>
                           {version.fecha_generacion
-                            ? new Date(
-                                version.fecha_generacion
-                              ).toLocaleDateString()
+                            ? new Date(version.fecha_generacion).toLocaleDateString()
                             : ""}
                         </span>
                       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fullSync } from "@/lib/supabase/sync-engine";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,10 +33,12 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cooldown, setCooldown] = useState(false);
+  const failCount = useRef(0);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!email || !password || cooldown) return;
 
     setLoading(true);
     setError("");
@@ -49,6 +51,11 @@ function LoginForm() {
       });
 
       if (authError) {
+        failCount.current++;
+        const delay = Math.min(2000 * 2 ** (failCount.current - 1), 30_000);
+        setCooldown(true);
+        setTimeout(() => setCooldown(false), delay);
+
         setError(
           authError.message === "Invalid login credentials"
             ? "Credenciales incorrectas. Verifica tu email y contraseña."
@@ -57,16 +64,15 @@ function LoginForm() {
         return;
       }
 
-      // Sincronizar datos maestros (incluyendo técnicos) al login
-      try {
-        await fullSync();
-      } catch {
-        // Sync puede fallar en primera carga, no bloquea el login
-        console.warn("[Login] Sync inicial falló, continuando...");
-      }
+      failCount.current = 0;
 
       router.push(redirect);
       router.refresh();
+
+      // Sincronizar en background — no bloquea la navegación
+      fullSync().catch(() =>
+        console.warn("[Login] Sync inicial falló, se reintentará después")
+      );
     } catch {
       setError("Error de conexión. Verifica tu internet.");
     } finally {
@@ -93,9 +99,7 @@ function LoginForm() {
           <CardContent className="p-0">
             {/* Header */}
             <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 sm:p-8 border-b border-primary/10">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                Iniciar Sesión
-              </h1>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">Iniciar Sesión</h1>
               <p className="text-slate-500 font-medium text-sm mt-1">
                 Ingresa tus credenciales para continuar
               </p>
@@ -149,7 +153,7 @@ function LoginForm() {
                 <Button
                   type="submit"
                   className="w-full rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-12"
-                  disabled={loading}
+                  disabled={loading || cooldown}
                 >
                   {loading ? (
                     <>

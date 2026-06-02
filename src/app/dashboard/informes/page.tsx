@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   FileText,
@@ -26,6 +27,7 @@ type FilterTab = "todos" | "vigentes" | "vencidos";
 
 export default function InformesPage() {
   const { isReady } = useDb();
+  const { hasPermission } = useRole();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("todos");
 
   const informes = useLiveQuery(async () => {
@@ -38,12 +40,8 @@ export default function InformesPage() {
         const equipo = await db.equipos.get(informe.equipo_id);
         const ubicacion = await db.ubicaciones_rx.get(informe.ubicacion_id);
         const visita = await db.visitas.get(informe.visita_id);
-        const solicitud = visita
-          ? await db.solicitudes.get(visita.solicitud_id)
-          : undefined;
-        const cliente = solicitud
-          ? await db.clientes.get(solicitud.cliente_id)
-          : undefined;
+        const solicitud = visita ? await db.solicitudes.get(visita.solicitud_id) : undefined;
+        const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
 
         const hoy = new Date().toISOString().split("T")[0];
         const vigente = informe.fecha_vencimiento >= hoy;
@@ -64,12 +62,24 @@ export default function InformesPage() {
     );
   }
 
+  if (!hasPermission("informes")) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <FileText className="w-10 h-10 text-red-500" />
+        <p className="text-slate-500 font-bold">Acceso restringido</p>
+        <p className="text-slate-400 text-sm">
+          No tienes permisos para acceder al módulo de informes.
+        </p>
+      </div>
+    );
+  }
+
   const filtered =
     activeFilter === "todos"
       ? informes
       : activeFilter === "vigentes"
-      ? informes.filter((i) => i.vigente)
-      : informes.filter((i) => !i.vigente);
+        ? informes.filter((i) => i.vigente)
+        : informes.filter((i) => !i.vigente);
 
   const counts = {
     todos: informes.length,
@@ -90,7 +100,7 @@ export default function InformesPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="tablist" aria-label="Filtro de informes">
         {(
           [
             { id: "todos", label: "Todos" },
@@ -100,6 +110,8 @@ export default function InformesPage() {
         ).map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeFilter === tab.id}
             onClick={() => setActiveFilter(tab.id)}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all ${
               activeFilter === tab.id
@@ -125,9 +137,7 @@ export default function InformesPage() {
           <div className="bg-primary/10 p-6 rounded-3xl">
             <FileText className="w-10 h-10 text-primary" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            No hay informes
-          </p>
+          <p className="text-slate-500 font-bold text-lg">No hay informes</p>
           <p className="text-slate-400 text-sm">
             Los informes se generan automáticamente al aprobar una visita.
           </p>
@@ -135,10 +145,7 @@ export default function InformesPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map(({ informe, equipo, cliente, vigente }) => (
-            <Link
-              key={informe.id}
-              href={`/dashboard/informes/${informe.id}`}
-            >
+            <Link key={informe.id} href={`/dashboard/informes/${informe.id}`}>
               <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
                 <CardContent className="p-4 sm:p-5 md:p-6">
                   <div className="flex items-start justify-between gap-3">

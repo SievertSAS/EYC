@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Sede } from "@/lib/db/types";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
   DialogContent,
@@ -54,24 +55,31 @@ export function SedeFormDialog({
     if (!nombre.trim()) return;
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const data: Omit<Sede, "id"> = {
         cliente_id: clienteId,
         nombre_sede: nombre.trim(),
         direccion_sede: direccion || undefined,
         ciudad: ciudad || undefined,
         departamento: departamento || undefined,
-        creado_en: new Date().toISOString(),
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
       };
 
+      let savedId: number;
       if (isEdit && sede?.id) {
         await db.sedes.update(sede.id, data);
+        savedId = sede.id;
       } else {
-        await db.sedes.add(data as Sede);
+        savedId = (await db.sedes.add(data as Sede)) as number;
       }
 
       resetForm();
       onOpenChange(false);
       onSaved?.();
+
+      pushSingle("sedes", savedId);
     } catch (err) {
       console.error("[SedeForm] Error:", err);
     } finally {

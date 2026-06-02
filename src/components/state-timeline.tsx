@@ -1,10 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  ESTADO_ORDER,
-  ESTADO_CONFIG,
-} from "@/lib/workflow/visit-state-machine";
+import { ESTADO_ORDER, ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
 import type { EstadoVisita } from "@/lib/db/types";
 
 // ============================================================
@@ -34,8 +31,7 @@ export function StateTimeline({ currentState, className }: StateTimelineProps) {
               <div
                 className={cn(
                   "w-2.5 h-2.5 rounded-full border-2 transition-all",
-                  isCurrent &&
-                    "w-3.5 h-3.5 bg-primary border-primary ring-4 ring-primary/20",
+                  isCurrent && "w-3.5 h-3.5 bg-primary border-primary ring-4 ring-primary/20",
                   isPast && "bg-primary/60 border-primary/60",
                   !isPast && !isCurrent && "bg-slate-200 border-slate-300"
                 )}
@@ -49,9 +45,7 @@ export function StateTimeline({ currentState, className }: StateTimelineProps) {
                 )}
               >
                 <span className="hidden sm:inline">{config.label}</span>
-                <span className="sm:hidden">
-                  {config.label.split(" ")[0]}
-                </span>
+                <span className="sm:hidden">{config.label.split(" ")[0]}</span>
               </span>
             </div>
 

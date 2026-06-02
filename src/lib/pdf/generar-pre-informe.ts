@@ -1,5 +1,4 @@
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import type { jsPDF } from "jspdf";
 import { db } from "@/lib/db";
 import type {
   VisitaEjecucion,
@@ -17,7 +16,21 @@ import type {
   ElementoProteccion,
   ParteEquipo,
 } from "@/lib/db/types";
-import { LOGO_SIEVERT_BASE64 } from "./logo-base64";
+let _logoCache: string | null = null;
+
+async function getLogoBase64(): Promise<string> {
+  if (_logoCache) return _logoCache;
+  const res = await fetch("/logo-informe.png");
+  const blob = await res.blob();
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      _logoCache = reader.result as string;
+      resolve(_logoCache);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
 
 // ─── Tipos internos ───
 
@@ -57,33 +70,22 @@ async function recopilarDatos(visitaId: number): Promise<DatosInforme | null> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) return null;
 
-  const equipo = visita.equipo_id
-    ? await db.equipos.get(visita.equipo_id)
-    : undefined;
+  const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
   const ubicacion = visita.ubicacion_id
     ? await db.ubicaciones_rx.get(visita.ubicacion_id)
     : undefined;
   const solicitud = await db.solicitudes.get(visita.solicitud_id);
-  const cliente = solicitud
-    ? await db.clientes.get(solicitud.cliente_id)
-    : undefined;
+  const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
   const sede = ubicacion
-    ? await db.sedes.get(
-        (await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0
-      )
+    ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
     : undefined;
   const tubo = visita.equipo_id
     ? await db.tubos.where("equipo_id").equals(visita.equipo_id).first()
     : undefined;
   const sala = visita.ubicacion_id
-    ? await db.sala_dimensiones
-        .where("ubicacion_id")
-        .equals(visita.ubicacion_id)
-        .first()
+    ? await db.sala_dimensiones.where("ubicacion_id").equals(visita.ubicacion_id).first()
     : undefined;
-  const tecnico = visita.tecnico_id
-    ? await db.usuarios.get(visita.tecnico_id)
-    : undefined;
+  const tecnico = visita.tecnico_id ? await db.usuarios.get(visita.tecnico_id) : undefined;
 
   // Contactos del cliente
   const contactos = cliente?.id
@@ -91,10 +93,7 @@ async function recopilarDatos(visitaId: number): Promise<DatosInforme | null> {
     : [];
 
   // Pruebas con definiciones
-  const resultados = await db.prueba_resultados
-    .where("visita_id")
-    .equals(visitaId)
-    .toArray();
+  const resultados = await db.prueba_resultados.where("visita_id").equals(visitaId).toArray();
   const definiciones = await db.prueba_definiciones.toArray();
   const defMap = new Map(definiciones.map((d) => [d.id!, d]));
   const pruebas = resultados.map((r) => ({
@@ -102,9 +101,7 @@ async function recopilarDatos(visitaId: number): Promise<DatosInforme | null> {
     definicion: defMap.get(r.prueba_definicion_id),
   }));
   pruebas.sort(
-    (a, b) =>
-      (a.definicion?.orden_sugerido ?? 99) -
-      (b.definicion?.orden_sugerido ?? 99)
+    (a, b) => (a.definicion?.orden_sugerido ?? 99) - (b.definicion?.orden_sugerido ?? 99)
   );
 
   // Mediciones
@@ -114,17 +111,11 @@ async function recopilarDatos(visitaId: number): Promise<DatosInforme | null> {
     .sortBy("punto_numero");
 
   // Elementos de protección
-  const elementos = await db.elementos_proteccion
-    .where("visita_id")
-    .equals(visitaId)
-    .toArray();
+  const elementos = await db.elementos_proteccion.where("visita_id").equals(visitaId).toArray();
 
   // Partes del equipo
   const partes = visita.equipo_id
-    ? await db.partes_equipo
-        .where("equipo_id")
-        .equals(visita.equipo_id)
-        .toArray()
+    ? await db.partes_equipo.where("equipo_id").equals(visita.equipo_id).toArray()
     : [];
 
   return {
@@ -190,8 +181,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
     TIE: {
       objetivo:
         "Evaluar la exactitud y la repetibilidad del indicador del tiempo de exposición del generador de rayos X.",
-      instrumentacion:
-        "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
+      instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. Se seleccionó una combinación representativa de tensión y corriente del generador y se realizaron al menos tres exposiciones para un tiempo de exposición determinado.",
       criterio:
@@ -200,8 +190,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
     KVP: {
       objetivo:
         "Evaluar la exactitud y la repetibilidad del indicador de la tensión del tubo de rayos X del generador.",
-      instrumentacion:
-        "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
+      instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación. Se seleccionaron al menos tres valores representativos de tensión del tubo de rayos X y se realizaron al menos tres exposiciones para cada valor seleccionado, registrando la tensión medida en cada irradiación.",
       criterio:
@@ -210,8 +199,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
     CHR: {
       objetivo:
         "Verificar si el valor de la capa hemirreductora está de acuerdo con los requisitos mínimos.",
-      instrumentacion:
-        "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
+      instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación. Se realizaron exposiciones utilizando valores representativos de tensión del tubo de rayos X, registrando la capa hemirreductora (CHR) reportada por el analizador para cada condición de irradiación.",
       criterio:
@@ -220,16 +208,14 @@ function getTextoPrueba(codigo: string): TextoPrueba {
     REN: {
       objetivo:
         "Evaluar el valor, la repetibilidad y la linealidad del rendimiento del tubo de rayos X.",
-      instrumentacion:
-        "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
+      instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
       metodologia:
         "Se posicionó el detector del sistema dosimétrico a aproximadamente 100 cm del foco del tubo de rayos X. Se seleccionó un valor de 80 kV como tensión de referencia. Se realizaron exposiciones utilizando diferentes valores de mAs, registrando el kerma en aire reportado por el analizador en cada irradiación.",
       criterio:
         "El coeficiente de variación (CV) para exposiciones repetidas no debe exceder 5 %. La desviación en la linealidad del rendimiento con respecto al mAs no debe exceder ±10 %.",
     },
     DOS: {
-      objetivo:
-        "Estimar la dosis al receptor de imagen bajo condiciones clínicas representativas.",
+      objetivo: "Estimar la dosis al receptor de imagen bajo condiciones clínicas representativas.",
       instrumentacion:
         "Sistema dosimétrico calibrado para medición de kerma en aire (cámara de ionización o detector de estado sólido), material atenuador y sistema receptor de imagen digital.",
       metodologia:
@@ -243,8 +229,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
   return (
     textos[codigo] ?? {
       objetivo: "Evaluar el parámetro según los lineamientos del IAEA-TECDOC-1958.",
-      instrumentacion:
-        "Analizador de rayos X con detector para radiodiagnóstico.",
+      instrumentacion: "Analizador de rayos X con detector para radiodiagnóstico.",
       metodologia:
         "La prueba se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, bajo condiciones representativas de operación del equipo.",
       criterio:
@@ -257,9 +242,13 @@ function getTextoPrueba(codigo: string): TextoPrueba {
 //  Generar el PDF
 // ============================================================
 
-export async function generarPreInforme(
-  visitaId: number
-): Promise<Blob | null> {
+export async function generarPreInforme(visitaId: number): Promise<Blob | null> {
+  const [{ jsPDF }, { default: autoTable }, logoBase64] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+    getLogoBase64(),
+  ]);
+
   const datosRaw = await recopilarDatos(visitaId);
   if (!datosRaw) return null;
   const datos: DatosInforme = datosRaw;
@@ -274,7 +263,7 @@ export async function generarPreInforme(
     if (y + needed > 275) {
       doc.addPage();
       y = MARGIN + HEADER_HEIGHT;
-      addHeader(doc, datos);
+      addHeader(doc, datos, logoBase64);
     }
   }
 
@@ -322,7 +311,7 @@ export async function generarPreInforme(
 
   // Logo
   try {
-    doc.addImage(LOGO_SIEVERT_BASE64, "PNG", MARGIN, 8, 55, 18);
+    doc.addImage(logoBase64, "PNG", MARGIN, 8, 55, 18);
   } catch {
     // Fallback si el logo no se puede cargar
     doc.setFont("helvetica", "bold");
@@ -344,11 +333,7 @@ export async function generarPreInforme(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.setTextColor(...COLOR_PRIMARY);
-  doc.text(
-    "FT-LEC-6c CONTROL DE CALIDAD Y ESTUDIO AMBIENTAL EN",
-    MARGIN,
-    y
-  );
+  doc.text("FT-LEC-6c CONTROL DE CALIDAD Y ESTUDIO AMBIENTAL EN", MARGIN, y);
   y += 5;
   doc.text("UNIDADES DE RADIOGRAFÍA GENERAL", MARGIN, y);
   y += 8;
@@ -381,11 +366,7 @@ export async function generarPreInforme(
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
   doc.setFont("helvetica", "normal");
-  doc.text(
-    `${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`,
-    MARGIN + 5,
-    y
-  );
+  doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN + 5, y);
   y += 5;
   doc.text(
     `Marca: ${datos.equipo?.gen_marca ?? "—"}    Modelo: ${datos.equipo?.gen_modelo ?? "—"}    Serie: ${datos.equipo?.gen_numero_serie ?? "—"}`,
@@ -411,10 +392,7 @@ export async function generarPreInforme(
     ["Sede:", datos.sede?.nombre_sede ?? "—"],
     ["Área - servicio:", datos.ubicacion?.nombre_servicio ?? "—"],
     ["Dirección:", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "—"],
-    [
-      "Ciudad - Departamento:",
-      `${datos.sede?.ciudad ?? "—"} - ${datos.sede?.departamento ?? "—"}`,
-    ],
+    ["Ciudad - Departamento:", `${datos.sede?.ciudad ?? "—"} - ${datos.sede?.departamento ?? "—"}`],
   ];
 
   doc.setFontSize(9);
@@ -450,7 +428,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   doc.addPage();
   y = MARGIN + HEADER_HEIGHT;
-  addHeader(doc, datos);
+  addHeader(doc, datos, logoBase64);
 
   y = addSectionTitle(doc, "INFORMACIÓN DE LA PRÁCTICA", y);
 
@@ -460,10 +438,7 @@ export async function generarPreInforme(
   const datosGenerales = [
     ["Fecha de Informe", fechaInforme],
     ["Nombre de la Institución", datos.cliente?.nombre_cliente ?? "—"],
-    [
-      "Sede de ubicación de la unidad de RX",
-      datos.sede?.nombre_sede ?? "—",
-    ],
+    ["Sede de ubicación de la unidad de RX", datos.sede?.nombre_sede ?? "—"],
     ["Dirección", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "—"],
     ["Teléfono(s)", datos.cliente?.telefono ?? "—"],
     [
@@ -472,42 +447,21 @@ export async function generarPreInforme(
         ? "Pública"
         : datos.cliente?.naturaleza === "privado"
           ? "Privada"
-          : datos.cliente?.naturaleza ?? "—",
+          : (datos.cliente?.naturaleza ?? "—"),
     ],
-    [
-      "Nombre del Representante Legal",
-      datos.cliente?.nombre_representante_legal ?? "—",
-    ],
-    [
-      "Nombre del Servicio",
-      datos.ubicacion?.nombre_servicio ?? "—",
-    ],
+    ["Nombre del Representante Legal", datos.cliente?.nombre_representante_legal ?? "—"],
+    ["Nombre del Servicio", datos.ubicacion?.nombre_servicio ?? "—"],
     ["Médico Responsable", medicoResp?.nombre ?? "—"],
-    [
-      "Tecnólogo Responsable del Servicio",
-      tecnologo?.nombre ?? "—",
-    ],
-    [
-      "Correo Electrónico Tecnólogo",
-      tecnologo?.email ?? "—",
-    ],
-    [
-      "Información de Contacto Tecnólogo",
-      tecnologo?.telefono ?? "—",
-    ],
+    ["Tecnólogo Responsable del Servicio", tecnologo?.nombre ?? "—"],
+    ["Correo Electrónico Tecnólogo", tecnologo?.email ?? "—"],
+    ["Información de Contacto Tecnólogo", tecnologo?.telefono ?? "—"],
     [
       "Oficial o encargado de protección radiológica",
       opr?.nombre ?? contactoProgramar?.nombre ?? "—",
     ],
-    [
-      "Correo Electrónico Institución",
-      datos.cliente?.email ?? "—",
-    ],
+    ["Correo Electrónico Institución", datos.cliente?.email ?? "—"],
     ["Responsable de la Visita", datos.tecnico?.nombre ?? "—"],
-    [
-      "Cédula Responsable de la Visita",
-      datos.tecnico?.cedula ?? "—",
-    ],
+    ["Cédula Responsable de la Visita", datos.tecnico?.cedula ?? "—"],
   ];
 
   autoTable(doc, {
@@ -523,9 +477,7 @@ export async function generarPreInforme(
     },
   });
 
-  y =
-    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 6;
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
   // Datos de la Instalación e Identificación del Equipo
   checkPage(50);
@@ -540,36 +492,15 @@ export async function generarPreInforme(
       "Fecha de expiración de la licencia",
       datos.ubicacion?.fecha_expiracion_licencia ?? "No Aplica",
     ],
-    [
-      "Código de habilitación del servicio",
-      datos.ubicacion?.codigo_habilitacion ?? "—",
-    ],
-    [
-      "Días Laborados por Semana",
-      String(datos.visita.dias_laborados_semana ?? "—"),
-    ],
-    [
-      "No. de Pacientes por Semana",
-      String(datos.visita.pacientes_por_semana ?? "—"),
-    ],
+    ["Código de habilitación del servicio", datos.ubicacion?.codigo_habilitacion ?? "—"],
+    ["Días Laborados por Semana", String(datos.visita.dias_laborados_semana ?? "—")],
+    ["No. de Pacientes por Semana", String(datos.visita.pacientes_por_semana ?? "—")],
     ["KV máximo usado", String(datos.visita.kv_maximo_usado ?? "—")],
-    [
-      "% de rechazo de Radiografías",
-      String(datos.visita.porcentaje_rechazo ?? "—"),
-    ],
-    [
-      "Horas por día",
-      String(datos.ubicacion?.horas_x_dia ?? "—"),
-    ],
-    [
-      "Máximo de disparos/Paciente",
-      String(datos.visita.max_disparos_paciente ?? "—"),
-    ],
+    ["% de rechazo de Radiografías", String(datos.visita.porcentaje_rechazo ?? "—")],
+    ["Horas por día", String(datos.ubicacion?.horas_x_dia ?? "—")],
+    ["Máximo de disparos/Paciente", String(datos.visita.max_disparos_paciente ?? "—")],
     ["mAs máximo usado", String(datos.visita.mas_maximo_usado ?? "—")],
-    [
-      "No. de radiografías/semana",
-      String(datos.visita.radiografias_por_semana ?? "—"),
-    ],
+    ["No. de radiografías/semana", String(datos.visita.radiografias_por_semana ?? "—")],
   ];
 
   autoTable(doc, {
@@ -585,9 +516,7 @@ export async function generarPreInforme(
     },
   });
 
-  y =
-    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 6;
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
   // Características del Generador
   checkPage(40);
@@ -598,10 +527,7 @@ export async function generarPreInforme(
     ["Modelo", datos.equipo?.gen_modelo ?? "—"],
     ["No. de Serie", datos.equipo?.gen_numero_serie ?? "—"],
     ["Fecha de fabricación", datos.equipo?.gen_fecha_fabricacion ?? "—"],
-    [
-      "Fase del generador",
-      datos.equipo?.gen_fase?.replace(/_/g, " ") ?? "—",
-    ],
+    ["Fase del generador", datos.equipo?.gen_fase?.replace(/_/g, " ") ?? "—"],
   ];
 
   autoTable(doc, {
@@ -616,9 +542,7 @@ export async function generarPreInforme(
     },
   });
 
-  y =
-    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 6;
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
   // Especificaciones del Tubo
   if (datos.tubo) {
@@ -649,36 +573,22 @@ export async function generarPreInforme(
       },
     });
 
-    y =
-      (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-        .finalY + 6;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
   }
 
   // Características del Colimador y Sistema de Adquisición
   checkPage(30);
-  addSubsectionTitle(
-    "",
-    "Características del Colimador y del Sistema de Adquisición de Imágenes"
-  );
+  addSubsectionTitle("", "Características del Colimador y del Sistema de Adquisición de Imágenes");
 
   const datosColimador = [
-    [
-      "Distancia Foco / Paciente (cm)",
-      String(datos.equipo?.distancia_foco_paciente ?? "—"),
-    ],
+    ["Distancia Foco / Paciente (cm)", String(datos.equipo?.distancia_foco_paciente ?? "—")],
     ["Bucky", datos.equipo?.bucky?.replace(/_/g, " ") ?? "—"],
-    [
-      "Sistema de Adquisición de Imágenes",
-      datos.equipo?.sistema_adquisicion ?? "—",
-    ],
+    ["Sistema de Adquisición de Imágenes", datos.equipo?.sistema_adquisicion ?? "—"],
     [
       "Filtración Inherente (mm Al)",
       String(datos.equipo?.filtracion_inherente_mmal ?? "No reporta"),
     ],
-    [
-      "Filtración Añadida (mm Al)",
-      String(datos.equipo?.filtracion_anadida_mmal ?? "No reporta"),
-    ],
+    ["Filtración Añadida (mm Al)", String(datos.equipo?.filtracion_anadida_mmal ?? "No reporta")],
   ];
 
   autoTable(doc, {
@@ -693,26 +603,16 @@ export async function generarPreInforme(
     },
   });
 
-  y =
-    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 6;
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
   // Condiciones ambientales
   checkPage(15);
   addSubsectionTitle("", "Condiciones ambientales");
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(
-    `Temperatura (°C): ${datos.visita.temperatura_c ?? "—"}`,
-    MARGIN,
-    y
-  );
+  doc.text(`Temperatura (°C): ${datos.visita.temperatura_c ?? "—"}`, MARGIN, y);
   y += 5;
-  doc.text(
-    `Presión (hPa): ${datos.visita.presion_hpa ?? "—"}`,
-    MARGIN,
-    y
-  );
+  doc.text(`Presión (hPa): ${datos.visita.presion_hpa ?? "—"}`, MARGIN, y);
   y += 8;
 
   // ═══════════════════════════════════════════════════════════
@@ -720,7 +620,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   doc.addPage();
   y = MARGIN + HEADER_HEIGHT;
-  addHeader(doc, datos);
+  addHeader(doc, datos, logoBase64);
 
   y = addSectionTitle(doc, "INTRODUCCIÓN", y);
 
@@ -744,11 +644,7 @@ export async function generarPreInforme(
   //  SECCIÓN — PRUEBAS DE CONTROL DE CALIDAD
   // ═══════════════════════════════════════════════════════════
   y += 4;
-  y = addSectionTitle(
-    doc,
-    "2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL",
-    y
-  );
+  y = addSectionTitle(doc, "2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL", y);
 
   // ─── Para cada prueba ───
   const pruebasOrdenadas = datos.pruebas.filter((p) => p.completado);
@@ -789,15 +685,9 @@ export async function generarPreInforme(
     addSubsectionTitle(`${numPrueba}.4.`, "Resultados");
 
     // Tabla de datos de la prueba
-    const mediciones = prueba.datos_json?.mediciones as
-      | Record<string, string>[]
-      | undefined;
+    const mediciones = prueba.datos_json?.mediciones as Record<string, string>[] | undefined;
 
-    if (
-      prueba.concepto === "NO_APLICA" ||
-      !mediciones ||
-      mediciones.length === 0
-    ) {
+    if (prueba.concepto === "NO_APLICA" || !mediciones || mediciones.length === 0) {
       if (prueba.concepto === "NO_APLICA") {
         addParagraph("NO APLICA.");
         if (prueba.acciones_correctivas) {
@@ -826,16 +716,10 @@ export async function generarPreInforme(
           body: datos.mediciones.map((m) => [
             String(m.punto_numero),
             m.ubicacion_descripcion || "—",
-            m.tasa_dosis_msv_h != null
-              ? m.tasa_dosis_msv_h.toFixed(5)
-              : "—",
+            m.tasa_dosis_msv_h != null ? m.tasa_dosis_msv_h.toFixed(5) : "—",
             m.factor_ocupacion ?? "—",
-            m.tipo_area
-              ? m.tipo_area.charAt(0).toUpperCase() + m.tipo_area.slice(1)
-              : "—",
-            m.dosis_anual_msv != null
-              ? m.dosis_anual_msv.toFixed(4)
-              : "—",
+            m.tipo_area ? m.tipo_area.charAt(0).toUpperCase() + m.tipo_area.slice(1) : "—",
+            m.dosis_anual_msv != null ? m.dosis_anual_msv.toFixed(4) : "—",
             m.concepto?.replace(/_/g, " ") ?? "—",
           ]),
           theme: "grid",
@@ -849,9 +733,7 @@ export async function generarPreInforme(
           alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           columnStyles: { 0: { cellWidth: 8 } },
         });
-        y =
-          (doc as unknown as { lastAutoTable: { finalY: number } })
-            .lastAutoTable.finalY + 4;
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
       }
       // Para INS, mostrar tablas de inspección
       else if (codigo === "INS" && datos.partes.length > 0) {
@@ -875,9 +757,7 @@ export async function generarPreInforme(
           bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
           alternateRowStyles: { fillColor: COLOR_ALT_ROW },
         });
-        y =
-          (doc as unknown as { lastAutoTable: { finalY: number } })
-            .lastAutoTable.finalY + 4;
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
 
         // Elementos de protección
         if (datos.elementos.length > 0) {
@@ -909,9 +789,7 @@ export async function generarPreInforme(
             bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
             alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           });
-          y =
-            (doc as unknown as { lastAutoTable: { finalY: number } })
-              .lastAutoTable.finalY + 4;
+          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
         }
       }
       // Para las demás pruebas, tabla genérica de mediciones
@@ -919,18 +797,14 @@ export async function generarPreInforme(
         const keys = Object.keys(mediciones[0]).filter((k) => k !== "id");
         if (keys.length > 0) {
           const headers = keys.map((k) =>
-            k
-              .replace(/_/g, " ")
-              .replace(/\b\w/g, (c) => c.toUpperCase())
+            k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
           );
 
           autoTable(doc, {
             startY: y,
             margin: { left: MARGIN, right: MARGIN },
             head: [headers],
-            body: mediciones.map((m) =>
-              keys.map((k) => String(m[k] ?? "—"))
-            ),
+            body: mediciones.map((m) => keys.map((k) => String(m[k] ?? "—"))),
             theme: "grid",
             headStyles: {
               fillColor: COLOR_PRIMARY,
@@ -941,9 +815,7 @@ export async function generarPreInforme(
             bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
             alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           });
-          y =
-            (doc as unknown as { lastAutoTable: { finalY: number } })
-              .lastAutoTable.finalY + 4;
+          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
         }
       }
     }
@@ -967,21 +839,9 @@ export async function generarPreInforme(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(
-      prueba.concepto === "FAVORABLE"
-        ? 16
-        : prueba.concepto === "NO_FAVORABLE"
-          ? 220
-          : 100,
-      prueba.concepto === "FAVORABLE"
-        ? 150
-        : prueba.concepto === "NO_FAVORABLE"
-          ? 50
-          : 116,
-      prueba.concepto === "FAVORABLE"
-        ? 80
-        : prueba.concepto === "NO_FAVORABLE"
-          ? 50
-          : 139
+      prueba.concepto === "FAVORABLE" ? 16 : prueba.concepto === "NO_FAVORABLE" ? 220 : 100,
+      prueba.concepto === "FAVORABLE" ? 150 : prueba.concepto === "NO_FAVORABLE" ? 50 : 116,
+      prueba.concepto === "FAVORABLE" ? 80 : prueba.concepto === "NO_FAVORABLE" ? 50 : 139
     );
     doc.text(conceptoText, MARGIN, y);
     y += 6;
@@ -1041,9 +901,7 @@ export async function generarPreInforme(
     },
   });
 
-  y =
-    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 10;
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
 
   // CONCEPTO GENERAL
   checkPage(30);
@@ -1060,20 +918,14 @@ export async function generarPreInforme(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(
-    todosF ? 16 : 220,
-    todosF ? 150 : 50,
-    todosF ? 80 : 50
-  );
+  doc.setTextColor(todosF ? 16 : 220, todosF ? 150 : 50, todosF ? 80 : 50);
   doc.text(conceptoGeneral, PAGE_WIDTH / 2, y, { align: "center" });
   y += 10;
 
   // ACCIONES CORRECTIVAS
   y = addSectionTitle(doc, "ACCIONES CORRECTIVAS", y);
 
-  const pruebasNoFav = pruebasOrdenadas.filter(
-    (p) => p.concepto === "NO_FAVORABLE"
-  );
+  const pruebasNoFav = pruebasOrdenadas.filter((p) => p.concepto === "NO_FAVORABLE");
   if (pruebasNoFav.length === 0) {
     addParagraph("No se requieren acciones correctivas.");
   } else {
@@ -1188,13 +1040,13 @@ function addSectionTitle(doc: jsPDF, title: string, y: number): number {
   return y + 7;
 }
 
-function addHeader(doc: jsPDF, datos: DatosInforme) {
+function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string) {
   const pageNum = doc.getNumberOfPages();
   doc.setPage(pageNum);
 
   // Logo pequeño en header
   try {
-    doc.addImage(LOGO_SIEVERT_BASE64, "PNG", MARGIN, 8, 35, 12);
+    doc.addImage(logoBase64, "PNG", MARGIN, 8, 35, 12);
   } catch {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
@@ -1212,12 +1064,9 @@ function addHeader(doc: jsPDF, datos: DatosInforme) {
     12,
     { align: "right" }
   );
-  doc.text(
-    datos.cliente?.nombre_cliente?.substring(0, 60) ?? "",
-    PAGE_WIDTH - MARGIN,
-    16,
-    { align: "right" }
-  );
+  doc.text(datos.cliente?.nombre_cliente?.substring(0, 60) ?? "", PAGE_WIDTH - MARGIN, 16, {
+    align: "right",
+  });
 
   // Línea separadora
   doc.setDrawColor(220, 220, 230);
@@ -1236,11 +1085,7 @@ function addFooter(doc: jsPDF, datos: DatosInforme) {
   const fechaCorta = datos.visita.fecha_visita
     ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO")
     : "";
-  doc.text(
-    `${fechaCorta} — Pre-informe sujeto a revisión`,
-    MARGIN,
-    292
-  );
+  doc.text(`${fechaCorta} — Pre-informe sujeto a revisión`, MARGIN, 292);
   doc.text(`${pageNum}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
 
   // Línea inferior púrpura

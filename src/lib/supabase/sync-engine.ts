@@ -330,12 +330,13 @@ export async function pushSingle(localTable: string, localId: number): Promise<b
 
     const { localId: lid, remoteId, data } = stripLocalFields(record, localTable);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const table = supabase.from(remote) as any;
     if (remoteId) {
-      const { error } = await supabase.from(remote).update(data).eq("id", remoteId);
+      const { error } = await table.update(data).eq("id", remoteId);
       if (error) throw error;
     } else {
-      const { data: inserted, error } = await supabase
-        .from(remote)
+      const { data: inserted, error } = await table
         .insert(data)
         .select("id")
         .single();

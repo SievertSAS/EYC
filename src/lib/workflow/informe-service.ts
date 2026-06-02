@@ -15,10 +15,7 @@ async function generarNumeroInforme(): Promise<string> {
   const prefix = `EYC-${year}-`;
 
   // Buscar el último informe del año
-  const informesDelAnio = await db.informes
-    .where("numero_informe")
-    .startsWith(prefix)
-    .toArray();
+  const informesDelAnio = await db.informes.where("numero_informe").startsWith(prefix).toArray();
 
   const maxSeq = informesDelAnio.reduce((max, inf) => {
     const parts = inf.numero_informe.split("-");
@@ -34,13 +31,8 @@ async function generarNumeroInforme(): Promise<string> {
  * Determina el concepto general basado en los resultados de las pruebas.
  * Si CUALQUIER prueba es NO_FAVORABLE, el concepto general es NO_FAVORABLE.
  */
-async function determinarConceptoGeneral(
-  visitaId: number
-): Promise<"FAVORABLE" | "NO_FAVORABLE"> {
-  const pruebas = await db.prueba_resultados
-    .where("visita_id")
-    .equals(visitaId)
-    .toArray();
+async function determinarConceptoGeneral(visitaId: number): Promise<"FAVORABLE" | "NO_FAVORABLE"> {
+  const pruebas = await db.prueba_resultados.where("visita_id").equals(visitaId).toArray();
 
   const hayNoFavorable = pruebas.some((p) => p.concepto === "NO_FAVORABLE");
   return hayNoFavorable ? "NO_FAVORABLE" : "FAVORABLE";
@@ -63,19 +55,12 @@ export async function crearInformeDesdeVisita(
   if (!visita) throw new Error("Visita no encontrada");
 
   // Verificar que no exista ya un informe para esta visita
-  const existente = await db.informes
-    .where("visita_id")
-    .equals(visitaId)
-    .first();
+  const existente = await db.informes.where("visita_id").equals(visitaId).first();
   if (existente) return existente;
 
   const now = new Date();
   const fechaEmision = now.toISOString().split("T")[0]; // YYYY-MM-DD
-  const fechaVencimiento = new Date(
-    now.getFullYear() + 2,
-    now.getMonth(),
-    now.getDate()
-  )
+  const fechaVencimiento = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate())
     .toISOString()
     .split("T")[0];
 

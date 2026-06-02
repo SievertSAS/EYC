@@ -1,8 +1,8 @@
 import { db } from "./index";
 import type { PruebaDefinicion, TipoEquipo, RolUsuario, ModuloApp, RolPermiso } from "./types";
 import { ROLES_DISPONIBLES, MODULOS_APP } from "./types";
-import type { PaquetePruebas } from "@/lib/pruebas/types";
-import { CONVENCIONAL_PACKAGE } from "@/lib/pruebas/convencional";
+import type { EquipmentPackage } from "@/lib/equipos/types";
+import { CONVENCIONAL_PACKAGE } from "@/lib/equipos/convencional";
 
 // ============================================================
 //  Seed: Catálogo de pruebas de control de calidad
@@ -10,11 +10,7 @@ import { CONVENCIONAL_PACKAGE } from "@/lib/pruebas/convencional";
 // ============================================================
 
 /** Tipos de equipo de radiografía general */
-const RX_GENERAL: TipoEquipo[] = [
-  "CONVENCIONAL",
-  "RX_PORTATIL",
-  "MULTIPROPOSITO",
-];
+const RX_GENERAL: TipoEquipo[] = ["CONVENCIONAL", "RX_PORTATIL", "MULTIPROPOSITO"];
 
 /** Tipos de equipo extraoral */
 const RX_EXTRAORAL: TipoEquipo[] = ["PANORAMICO", "CT_DENTAL"];
@@ -57,8 +53,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "COL",
     nombre: "Sistema de colimación del haz y perpendicularidad del rayo central",
-    descripcion:
-      "Evaluar coincidencia campo luminoso/campo de radiación y perpendicularidad",
+    descripcion: "Evaluar coincidencia campo luminoso/campo de radiación y perpendicularidad",
     tipos_equipo_aplicables: RX_GENERAL,
     orden_sugerido: 3,
     plantilla_informe: "FT-LEC-6c",
@@ -67,8 +62,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "TIE",
     nombre: "Exactitud y repetibilidad del tiempo de exposición",
-    descripcion:
-      "Evaluar exactitud y repetibilidad del indicador de tiempo del generador",
+    descripcion: "Evaluar exactitud y repetibilidad del indicador de tiempo del generador",
     tipos_equipo_aplicables: [...RX_GENERAL, ...RX_EXTRAORAL],
     orden_sugerido: 4,
     plantilla_informe: "FT-LEC-6c",
@@ -86,8 +80,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "CHR",
     nombre: "Capa hemirreductora (CHR)",
-    descripcion:
-      "Determinar la calidad del haz mediante la capa hemirreductora en mmAl",
+    descripcion: "Determinar la calidad del haz mediante la capa hemirreductora en mmAl",
     tipos_equipo_aplicables: [...RX_GENERAL, ...RX_EXTRAORAL],
     orden_sugerido: 6,
     plantilla_informe: "FT-LEC-6c",
@@ -96,8 +89,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "REN",
     nombre: "Rendimiento del tubo de rayos X, repetibilidad y linealidad",
-    descripcion:
-      "Determinar rendimiento del tubo (µGy/mAs), su repetibilidad y linealidad",
+    descripcion: "Determinar rendimiento del tubo (µGy/mAs), su repetibilidad y linealidad",
     tipos_equipo_aplicables: RX_GENERAL,
     orden_sugerido: 7,
     plantilla_informe: "FT-LEC-6c",
@@ -161,8 +153,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "CAS",
     nombre: "Integridad y limpieza de cassettes y pantallas IP CR",
-    descripcion:
-      "Verificar estado de cassettes y pantallas de fósforo (solo CR)",
+    descripcion: "Verificar estado de cassettes y pantallas de fósforo (solo CR)",
     tipos_equipo_aplicables: RX_GENERAL,
     orden_sugerido: 14,
     plantilla_informe: "FT-LEC-6c",
@@ -180,8 +171,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "MTF",
     nombre: "Función de transferencia de modulación (MTF)",
-    descripcion:
-      "Determinar MTF en direcciones horizontal y vertical del detector",
+    descripcion: "Determinar MTF en direcciones horizontal y vertical del detector",
     tipos_equipo_aplicables: RX_GENERAL,
     orden_sugerido: 16,
     plantilla_informe: "FT-LEC-6c",
@@ -208,8 +198,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "CAE_R",
     nombre: "Repetibilidad del CAE",
-    descripcion:
-      "Verificar consistencia del DDI/EI para exposiciones repetidas con CAE",
+    descripcion: "Verificar consistencia del DDI/EI para exposiciones repetidas con CAE",
     tipos_equipo_aplicables: RX_GENERAL,
     orden_sugerido: 19,
     plantilla_informe: "FT-LEC-6c",
@@ -227,8 +216,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "DOS",
     nombre: "Dosis al receptor",
-    descripcion:
-      "Estimar dosis al receptor de imagen bajo condiciones clínicas representativas",
+    descripcion: "Estimar dosis al receptor de imagen bajo condiciones clínicas representativas",
     tipos_equipo_aplicables: RX_GENERAL,
     orden_sugerido: 21,
     plantilla_informe: "FT-LEC-6c",
@@ -258,8 +246,7 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   {
     codigo: "PKL_PKA",
     nombre: "Determinación del producto kerma-área (PKA) y producto kerma-longitud (PKL)",
-    descripcion:
-      "Determinar PKA y PKL para equipos panorámicos y CT dental",
+    descripcion: "Determinar PKA y PKL para equipos panorámicos y CT dental",
     tipos_equipo_aplicables: RX_EXTRAORAL,
     orden_sugerido: 8,
     plantilla_informe: "FT-LEC-6b",
@@ -269,7 +256,16 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
 
 const PERMISOS_DEFAULT: Record<RolUsuario, ModuloApp[]> = {
   coordinador: [...MODULOS_APP],
-  programador: ["dashboard", "clientes", "solicitudes", "visitas", "revision", "equipos", "informes", "sync"],
+  programador: [
+    "dashboard",
+    "clientes",
+    "solicitudes",
+    "visitas",
+    "revision",
+    "equipos",
+    "informes",
+    "sync",
+  ],
   tecnico: ["dashboard", "visitas", "revision", "equipos", "informes", "sync"],
   comercial: ["dashboard", "clientes", "solicitudes"],
 };
@@ -325,59 +321,48 @@ export async function seedPruebaDefiniciones(): Promise<void> {
  * Carga un paquete de pruebas: crea GrupoPrueba + PruebaDefinicion enriquecidas.
  * Si el paquete ya está cargado (grupo_pruebas ya existen), no hace nada.
  */
-export async function seedFromPackage(paquete: PaquetePruebas): Promise<void> {
-  const existing = await db.grupo_pruebas
-    .where("tipo_equipo")
-    .equals(paquete.tipo_equipo)
-    .count();
+export async function seedFromPackage(paquete: EquipmentPackage): Promise<void> {
+  const existing = await db.grupo_pruebas.where("tipo_equipo").equals(paquete.tipo_equipo).count();
   if (existing > 0) return;
 
   const now = new Date().toISOString();
 
-  await db.transaction(
-    "rw",
-    [db.grupo_pruebas, db.prueba_definiciones],
-    async () => {
-      for (const grupo of paquete.grupos) {
-        const grupoId = (await db.grupo_pruebas.add({
-          codigo: grupo.codigo,
-          nombre: grupo.nombre,
-          tipo_equipo: paquete.tipo_equipo,
-          orden: grupo.orden,
-          schema_mediciones: grupo.schema_mediciones,
-          slots_imagen: grupo.slots_imagen,
-          activo: true,
+  await db.transaction("rw", [db.grupo_pruebas, db.prueba_definiciones], async () => {
+    for (const grupo of paquete.grupos) {
+      const grupoId = (await db.grupo_pruebas.add({
+        codigo: grupo.codigo,
+        nombre: grupo.nombre,
+        tipo_equipo: paquete.tipo_equipo,
+        orden: grupo.orden,
+        schema_mediciones: grupo.schema_mediciones,
+        slots_imagen: grupo.slots_imagen,
+        activo: true,
+        creado_en: now,
+      })) as number;
+
+      for (const prueba of grupo.pruebas) {
+        await db.prueba_definiciones.add({
+          codigo: prueba.codigo,
+          numero_tecdoc: prueba.numero_tecdoc,
+          nombre: prueba.nombre,
+          descripcion: prueba.descripcion,
+          grupo_id: grupoId,
+          tipos_equipo_aplicables: [paquete.tipo_equipo],
+          orden_en_grupo: prueba.orden_en_grupo,
+          orden_sugerido: prueba.orden_global,
+          formulas: prueba.formulas,
+          criterios_aceptacion: prueba.criterios_aceptacion,
+          textos_informe: prueba.textos_informe,
+          slots_imagen: prueba.slots_imagen,
+          plantilla_informe: paquete.plantilla_informe,
+          activa: true,
           creado_en: now,
-        })) as number;
-
-        for (const prueba of grupo.pruebas) {
-          await db.prueba_definiciones.add({
-            codigo: prueba.codigo,
-            numero_tecdoc: prueba.numero_tecdoc,
-            nombre: prueba.nombre,
-            descripcion: prueba.descripcion,
-            grupo_id: grupoId,
-            tipos_equipo_aplicables: [paquete.tipo_equipo],
-            orden_en_grupo: prueba.orden_en_grupo,
-            orden_sugerido: prueba.orden_global,
-            formulas: prueba.formulas,
-            criterios_aceptacion: prueba.criterios_aceptacion,
-            textos_informe: prueba.textos_informe,
-            slots_imagen: prueba.slots_imagen,
-            plantilla_informe: paquete.plantilla_informe,
-            activa: true,
-            creado_en: now,
-          });
-        }
-
-        console.log(
-          `[Seed] Grupo ${grupo.codigo}: ${grupo.pruebas.length} pruebas cargadas`
-        );
+        });
       }
-    }
-  );
 
-  console.log(
-    `[Seed] Paquete ${paquete.tipo_equipo}: ${paquete.grupos.length} grupos cargados`
-  );
+      console.log(`[Seed] Grupo ${grupo.codigo}: ${grupo.pruebas.length} pruebas cargadas`);
+    }
+  });
+
+  console.log(`[Seed] Paquete ${paquete.tipo_equipo}: ${paquete.grupos.length} grupos cargados`);
 }

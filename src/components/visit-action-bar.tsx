@@ -91,9 +91,7 @@ export function VisitActionBar({
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 md:static md:border-0 md:bg-transparent md:p-0 md:mt-6 z-20">
           <div className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-50 rounded-2xl border border-emerald-200">
             <BadgeCheck className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm font-bold text-emerald-700">
-              Visita aprobada
-            </span>
+            <span className="text-sm font-bold text-emerald-700">Visita aprobada</span>
           </div>
         </div>
       );
@@ -120,11 +118,7 @@ export function VisitActionBar({
       // Caso especial: generar pre-informe navega a la ruta del PDF
       if (actionDef.action === "generar_pre_informe" && onGenerarPreInforme) {
         // Primero transicionar el estado
-        const result = await executeTransition(
-          visitaId,
-          actionDef.action,
-          role.cargo
-        );
+        const result = await executeTransition(visitaId, actionDef.action, role.cargo);
         if (result.success) {
           onGenerarPreInforme();
           onTransition?.(result.newState!);
@@ -133,12 +127,9 @@ export function VisitActionBar({
         return;
       }
 
-      const result = await executeTransition(
-        visitaId,
-        actionDef.action,
-        role.cargo,
-        { observaciones_revision: observacionesRevision }
-      );
+      const result = await executeTransition(visitaId, actionDef.action, role.cargo, {
+        observaciones_revision: observacionesRevision,
+      });
 
       if (result.success) {
         onTransition?.(result.newState!);
@@ -159,16 +150,11 @@ export function VisitActionBar({
         <div className="mb-3 p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-            <span className="text-sm font-black text-amber-800">
-              Módulos incompletos
-            </span>
+            <span className="text-sm font-black text-amber-800">Módulos incompletos</span>
           </div>
           <ul className="space-y-1 ml-6">
             {gateErrors.errors.map((err) => (
-              <li
-                key={err.moduleId}
-                className="text-xs text-amber-700 font-medium"
-              >
+              <li key={err.moduleId} className="text-xs text-amber-700 font-medium">
                 {err.message}
               </li>
             ))}
@@ -178,9 +164,7 @@ export function VisitActionBar({
 
       <div className="flex items-center gap-3">
         {progressText && (
-          <span className="text-xs font-bold text-slate-500 hidden md:block">
-            {progressText}
-          </span>
+          <span className="text-xs font-bold text-slate-500 hidden md:block">{progressText}</span>
         )}
 
         <div className="flex gap-2 flex-1 md:flex-none md:ml-auto">

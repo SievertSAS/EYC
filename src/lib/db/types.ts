@@ -36,7 +36,7 @@ export type TipoEquipo = (typeof TIPOS_EQUIPO)[number];
 
 // ─── Núcleo ───
 
-export interface Cliente {
+export interface Cliente extends Partial<SyncFields> {
   id?: number;
   nombre_cliente: string;
   nombre_prestador?: string;
@@ -50,7 +50,7 @@ export interface Cliente {
   creado_en?: string;
 }
 
-export interface Contacto {
+export interface Contacto extends Partial<SyncFields> {
   id?: number;
   cliente_id: number;
   nombre: string;
@@ -62,7 +62,7 @@ export interface Contacto {
   creado_en?: string;
 }
 
-export interface Sede {
+export interface Sede extends Partial<SyncFields> {
   id?: number;
   cliente_id: number;
   nombre_sede: string;
@@ -72,7 +72,7 @@ export interface Sede {
   creado_en?: string;
 }
 
-export interface UbicacionRx {
+export interface UbicacionRx extends Partial<SyncFields> {
   id?: number;
   sede_id: number;
   nombre_servicio: string;
@@ -83,7 +83,7 @@ export interface UbicacionRx {
   creado_en?: string;
 }
 
-export interface Equipo {
+export interface Equipo extends Partial<SyncFields> {
   id?: number;
   ubicacion_id: number;
   tipo_equipo?: TipoEquipo;
@@ -115,7 +115,7 @@ export interface EquipoMovimiento {
   creado_en?: string;
 }
 
-export interface Tubo {
+export interface Tubo extends Partial<SyncFields> {
   id?: number;
   equipo_id: number;
   marca?: string;
@@ -131,7 +131,7 @@ export interface Tubo {
   creado_en?: string;
 }
 
-export interface Colimador {
+export interface Colimador extends Partial<SyncFields> {
   id?: number;
   equipo_id: number;
   marca?: string;
@@ -140,7 +140,7 @@ export interface Colimador {
   creado_en?: string;
 }
 
-export interface Gantry {
+export interface Gantry extends Partial<SyncFields> {
   id?: number;
   equipo_id: number;
   marca?: string;
@@ -291,7 +291,7 @@ export interface Cotizacion {
   creado_en?: string;
 }
 
-export interface Solicitud {
+export interface Solicitud extends Partial<SyncFields> {
   id?: number;
   cotizacion_id?: number;
   cliente_id: number;
@@ -300,12 +300,7 @@ export interface Solicitud {
   tecnico_asignado_id?: number;
   suitecrm_id?: string;
   tipo_servicio?: string;
-  pipeline_estado?:
-    | "solicitudes"
-    | "programacion"
-    | "ejecutado"
-    | "notificado"
-    | "enviado";
+  pipeline_estado?: "solicitudes" | "programacion" | "ejecutado" | "notificado" | "enviado";
   forma_pago?: string;
   pago_recibido: boolean;
   fecha_solicitud?: string;
@@ -594,11 +589,7 @@ export interface InformeVersion {
   id?: number;
   informe_id: number;
   numero_version: number;
-  motivo_cambio?:
-    | "emision_inicial"
-    | "correccion_fisico"
-    | "correccion_cliente"
-    | "actualizacion";
+  motivo_cambio?: "emision_inicial" | "correccion_fisico" | "correccion_cliente" | "actualizacion";
   descripcion_cambio?: string;
   generado_por_id?: number;
   revisado_por_id?: number;

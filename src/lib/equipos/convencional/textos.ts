@@ -39,18 +39,15 @@ export const TEXTOS: Record<string, TextosPrueba> = {
       "La desviación total del campo luminoso respecto al campo de radiación no debe exceder el 3% de la DFI. La desviación de perpendicularidad no debe exceder 1.5° (TECDOC 1958).",
   },
   "2.12": {
-    objetivo:
-      "Evaluar la resolución espacial de alto contraste del sistema de imagen.",
-    instrumentacion:
-      "Patrón de resolución de alto contraste (pares de líneas por milímetro).",
+    objetivo: "Evaluar la resolución espacial de alto contraste del sistema de imagen.",
+    instrumentacion: "Patrón de resolución de alto contraste (pares de líneas por milímetro).",
     metodologia:
       "Se realiza una exposición del patrón de resolución a la técnica clínica estándar y se determina visualmente el número máximo de pares de líneas resueltos.",
     criterio:
       "La resolución debe ser mayor o igual al valor de referencia establecido para el sistema (TECDOC 1958).",
   },
   "2.13": {
-    objetivo:
-      "Evaluar la resolución de bajo contraste del sistema de imagen.",
+    objetivo: "Evaluar la resolución de bajo contraste del sistema de imagen.",
     instrumentacion: "Patrón de resolución de bajo contraste.",
     metodologia:
       "Se realiza una exposición del patrón de bajo contraste y se evalúan los objetos visibles en la imagen.",
@@ -69,13 +66,11 @@ export const TEXTOS: Record<string, TextosPrueba> = {
       "La desviación del tiempo de exposición no debe exceder ±20% para tiempos ≥ 100 ms. CV% ≤ 10% (TECDOC 1958).",
   },
   "2.5": {
-    objetivo:
-      "Evaluar la exactitud y repetibilidad de la tensión del tubo de rayos X (kVp).",
+    objetivo: "Evaluar la exactitud y repetibilidad de la tensión del tubo de rayos X (kVp).",
     instrumentacion: "Detector multifunción tipo RaySafe o equivalente.",
     metodologia:
       "Se realizan mediciones de kVp a los valores nominales seleccionados y se calculan las desviaciones y coeficiente de variación.",
-    criterio:
-      "La desviación del kVp no debe exceder ±10%. CV% ≤ 5% (TECDOC 1958).",
+    criterio: "La desviación del kVp no debe exceder ±10%. CV% ≤ 5% (TECDOC 1958).",
   },
   "2.6": {
     objetivo:
@@ -97,16 +92,14 @@ export const TEXTOS: Record<string, TextosPrueba> = {
       "El rendimiento debe ser estable (CV ≤ 10%). La linealidad (variación entre valores de mAs) debe ser ≤ 20% (TECDOC 1958).",
   },
   "2.8": {
-    objetivo:
-      "Evaluar la repetibilidad y reproducibilidad de la dosis de salida del equipo.",
+    objetivo: "Evaluar la repetibilidad y reproducibilidad de la dosis de salida del equipo.",
     instrumentacion: "Detector multifunción tipo RaySafe o equivalente.",
     metodologia:
       "Se realizan múltiples exposiciones consecutivas a la misma técnica y se calcula el coeficiente de variación de la dosis.",
     criterio: "CV% de la dosis ≤ 10% (TECDOC 1958).",
   },
   "2.21": {
-    objetivo:
-      "Estimar la dosis al paciente para las proyecciones clínicas más frecuentes.",
+    objetivo: "Estimar la dosis al paciente para las proyecciones clínicas más frecuentes.",
     instrumentacion: "Detector multifunción tipo RaySafe o equivalente.",
     metodologia:
       "Se calcula el kerma en aire incidente (Ki) a partir del rendimiento del tubo, la técnica clínica y la distancia foco-piel.",
@@ -118,18 +111,15 @@ export const TEXTOS: Record<string, TextosPrueba> = {
   "2.9": {
     objetivo:
       "Verificar la calibración del indicador de dosis al detector (DDI/EI/S) del sistema de imagen digital.",
-    instrumentacion:
-      "Detector multifunción y sistema de adquisición digital.",
+    instrumentacion: "Detector multifunción y sistema de adquisición digital.",
     metodologia:
       "Se realizan exposiciones a diferentes niveles de mAs y se comparan los valores de DDI/EI indicados por el sistema con los esperados.",
     criterio:
       "La desviación del DDI/EI respecto al valor de referencia no debe exceder ±20% (TECDOC 1958).",
   },
   "2.10": {
-    objetivo:
-      "Evaluar la repetibilidad del indicador de dosis al detector (DDI/EI).",
-    instrumentacion:
-      "Sistema de adquisición digital.",
+    objetivo: "Evaluar la repetibilidad del indicador de dosis al detector (DDI/EI).",
+    instrumentacion: "Sistema de adquisición digital.",
     metodologia:
       "Se realizan múltiples exposiciones a la misma técnica y se calcula el CV% del DDI/EI.",
     criterio: "CV% del DDI/EI ≤ 10% (TECDOC 1958).",
@@ -137,20 +127,16 @@ export const TEXTOS: Record<string, TextosPrueba> = {
 
   // ─── Grupo E ───
   "2.11": {
-    objetivo:
-      "Evaluar la uniformidad de la imagen y detectar la presencia de artefactos.",
-    instrumentacion:
-      "Software de análisis DICOM, fantoma de uniformidad o imagen sin objeto.",
+    objetivo: "Evaluar la uniformidad de la imagen y detectar la presencia de artefactos.",
+    instrumentacion: "Software de análisis DICOM, fantoma de uniformidad o imagen sin objeto.",
     metodologia:
       "Se adquiere una imagen uniforme y se analizan 5 regiones de interés (ROI) en posiciones estándar, calculando la media, desviación estándar y SNR.",
     criterio:
       "La variación de la señal entre ROIs no debe exceder ±10% respecto al valor central. No deben observarse artefactos significativos (TECDOC 1958).",
   },
   "2.16": {
-    objetivo:
-      "Evaluar la función de transferencia de modulación (MTF) del sistema de imagen.",
-    instrumentacion:
-      "Patrón de MTF o borde recto, software de análisis.",
+    objetivo: "Evaluar la función de transferencia de modulación (MTF) del sistema de imagen.",
+    instrumentacion: "Patrón de MTF o borde recto, software de análisis.",
     metodologia:
       "Se adquiere imagen del patrón de MTF y se calcula la MTF al 50% y 20% en ambas direcciones (horizontal y vertical).",
     criterio:
@@ -170,8 +156,7 @@ export const TEXTOS: Record<string, TextosPrueba> = {
   "2.15": {
     objetivo:
       "Evaluar la uniformidad de sensibilidad entre las placas de imagen (IP) del servicio.",
-    instrumentacion:
-      "Sistema CR/DR, exposición controlada.",
+    instrumentacion: "Sistema CR/DR, exposición controlada.",
     metodologia:
       "Se exponen todas las placas IP a las mismas condiciones y se compara el DDI/EI entre ellas.",
     criterio:
@@ -180,38 +165,30 @@ export const TEXTOS: Record<string, TextosPrueba> = {
 
   // ─── Grupo G ───
   "2.17": {
-    objetivo:
-      "Evaluar la sensibilidad del control automático de exposición (CAE).",
-    instrumentacion:
-      "Detector multifunción, láminas de atenuación.",
+    objetivo: "Evaluar la sensibilidad del control automático de exposición (CAE).",
+    instrumentacion: "Detector multifunción, láminas de atenuación.",
     metodologia:
       "Se realizan exposiciones con CAE activo a diferentes espesores de atenuador y se verifica que la dosis al detector permanezca estable.",
     criterio:
       "La variación de la dosis al detector con diferentes espesores no debe exceder ±20% respecto al valor de referencia (TECDOC 1958).",
   },
   "2.18": {
-    objetivo:
-      "Evaluar la consistencia del CAE a diferentes valores de kVp.",
-    instrumentacion:
-      "Detector multifunción, sistema de adquisición digital.",
+    objetivo: "Evaluar la consistencia del CAE a diferentes valores de kVp.",
+    instrumentacion: "Detector multifunción, sistema de adquisición digital.",
     metodologia:
       "Se realizan exposiciones con CAE a diferentes kVp manteniendo el espesor del atenuador constante.",
     criterio:
       "La variación del DDI/EI entre los diferentes kVp no debe exceder ±20% (TECDOC 1958).",
   },
   "2.19": {
-    objetivo:
-      "Evaluar la repetibilidad del control automático de exposición.",
+    objetivo: "Evaluar la repetibilidad del control automático de exposición.",
     instrumentacion: "Detector multifunción, sistema de adquisición digital.",
-    metodologia:
-      "Se realizan múltiples exposiciones consecutivas con CAE a la misma técnica.",
+    metodologia: "Se realizan múltiples exposiciones consecutivas con CAE a la misma técnica.",
     criterio: "CV% de la dosis y del DDI/EI ≤ 10% (TECDOC 1958).",
   },
   "2.20": {
-    objetivo:
-      "Evaluar la compensación del CAE para diferentes espesores del paciente.",
-    instrumentacion:
-      "Detector multifunción, láminas de atenuación de diferentes espesores.",
+    objetivo: "Evaluar la compensación del CAE para diferentes espesores del paciente.",
+    instrumentacion: "Detector multifunción, láminas de atenuación de diferentes espesores.",
     metodologia:
       "Se realizan exposiciones con diferentes espesores de atenuador (simulando distintos grosores de paciente) y se verifica la compensación del CAE.",
     criterio:

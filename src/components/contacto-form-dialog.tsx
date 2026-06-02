@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Contacto } from "@/lib/db/types";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
   DialogContent,
@@ -57,9 +58,7 @@ export function ContactoFormDialog({
   const [cedula, setCedula] = useState(contacto?.cedula ?? "");
   const [telefono, setTelefono] = useState(contacto?.telefono ?? "");
   const [email, setEmail] = useState(contacto?.email ?? "");
-  const [paraProgramar, setParaProgramar] = useState(
-    contacto?.para_programar ?? false
-  );
+  const [paraProgramar, setParaProgramar] = useState(contacto?.para_programar ?? false);
   const [saving, setSaving] = useState(false);
 
   function resetForm() {
@@ -75,6 +74,7 @@ export function ContactoFormDialog({
     if (!nombre.trim()) return;
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const data: Omit<Contacto, "id"> = {
         cliente_id: clienteId,
         nombre: nombre.trim(),
@@ -83,18 +83,24 @@ export function ContactoFormDialog({
         telefono: telefono || undefined,
         email: email || undefined,
         para_programar: paraProgramar,
-        creado_en: new Date().toISOString(),
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
       };
 
+      let savedId: number;
       if (isEdit && contacto?.id) {
         await db.contactos.update(contacto.id, data);
+        savedId = contacto.id;
       } else {
-        await db.contactos.add(data as Contacto);
+        savedId = (await db.contactos.add(data as Contacto)) as number;
       }
 
       resetForm();
       onOpenChange(false);
       onSaved?.();
+
+      pushSingle("contactos", savedId);
     } catch (err) {
       console.error("[ContactoForm] Error:", err);
     } finally {
@@ -196,9 +202,7 @@ export function ContactoFormDialog({
               className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
             />
             <div>
-              <p className="text-sm font-bold text-slate-700">
-                Contacto para programar
-              </p>
+              <p className="text-sm font-bold text-slate-700">Contacto para programar</p>
               <p className="text-[11px] text-slate-400">
                 Este contacto se mostrará al crear solicitudes
               </p>

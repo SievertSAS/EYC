@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -86,7 +79,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         setAuthUid(session.user.id);
         setAuthEmail(session.user.email ?? null);
-      } else {
+      } else if (navigator.onLine) {
         setAuthUid(null);
         setAuthEmail(null);
         setRole(null);
@@ -112,9 +105,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       }
 
       if (authEmail) {
-        const byEmail = usuarios.find(
-          (u) => u.email?.toLowerCase() === authEmail.toLowerCase()
-        );
+        const byEmail = usuarios.find((u) => u.email?.toLowerCase() === authEmail.toLowerCase());
         if (byEmail) {
           setRole({
             usuarioId: byEmail.id!,
@@ -135,9 +126,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback(
     (modulo: string): boolean => {
       if (!role) return false;
-      const permiso = permisos.find(
-        (p: RolPermiso) => p.rol === role.cargo && p.modulo === modulo
-      );
+      const permiso = permisos.find((p: RolPermiso) => p.rol === role.cargo && p.modulo === modulo);
       return permiso?.activo ?? false;
     },
     [role, permisos]

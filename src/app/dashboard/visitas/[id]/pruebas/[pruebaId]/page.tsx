@@ -45,9 +45,7 @@ export default function PruebaDetallePage({
   const [concepto, setConcepto] = useState<string>("");
   const [acciones, setAcciones] = useState("");
   const [mediciones, setMediciones] = useState<Medicion[]>([]);
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [initialized, setInitialized] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -93,19 +91,13 @@ export default function PruebaDetallePage({
 
   // Guardar en DB
   const saveToDb = useCallback(
-    async (data: {
-      concepto: string;
-      acciones: string;
-      mediciones: Medicion[];
-    }) => {
+    async (data: { concepto: string; acciones: string; mediciones: Medicion[] }) => {
       if (!resultado?.id) return;
       try {
         setSaveStatus("saving");
         const now = new Date().toISOString();
         await db.prueba_resultados.update(resultado.id, {
-          concepto:
-            (data.concepto as "FAVORABLE" | "NO_FAVORABLE" | "NO_APLICA") ||
-            undefined,
+          concepto: (data.concepto as "FAVORABLE" | "NO_FAVORABLE" | "NO_APLICA") || undefined,
           acciones_correctivas: data.acciones || undefined,
           datos_json: { mediciones: data.mediciones },
           completado: !!data.concepto,
@@ -153,15 +145,9 @@ export default function PruebaDetallePage({
     triggerSave({ acciones: val });
   };
 
-  const handleMedicionChange = (
-    medicionId: string,
-    campo: string,
-    value: string
-  ) => {
+  const handleMedicionChange = (medicionId: string, campo: string, value: string) => {
     setMediciones((prev) => {
-      const next = prev.map((m) =>
-        m.id === medicionId ? { ...m, [campo]: value } : m
-      );
+      const next = prev.map((m) => (m.id === medicionId ? { ...m, [campo]: value } : m));
       triggerSave({ mediciones: next });
       return next;
     });
@@ -207,9 +193,7 @@ export default function PruebaDetallePage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Prueba no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Prueba no encontrada</p>
         </div>
       </div>
     );
@@ -256,9 +240,7 @@ export default function PruebaDetallePage({
           {pruebaDef.nombre}
         </h2>
         {pruebaDef.descripcion && (
-          <p className="text-slate-500 font-medium text-sm mt-1">
-            {pruebaDef.descripcion}
-          </p>
+          <p className="text-slate-500 font-medium text-sm mt-1">{pruebaDef.descripcion}</p>
         )}
       </div>
 
@@ -271,12 +253,9 @@ export default function PruebaDetallePage({
                 <FlaskConical className="text-primary w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                  Mediciones
-                </h3>
+                <h3 className="font-black text-slate-900 text-sm sm:text-base">Mediciones</h3>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  {campos.length} campo{campos.length !== 1 ? "s" : ""} por
-                  medición
+                  {campos.length} campo{campos.length !== 1 ? "s" : ""} por medición
                 </p>
               </div>
             </div>
@@ -292,10 +271,7 @@ export default function PruebaDetallePage({
           {/* Mediciones */}
           <div className="space-y-3">
             {mediciones.map((medicion, idx) => (
-              <div
-                key={medicion.id}
-                className="bg-slate-50 rounded-xl p-3 sm:p-4 space-y-3"
-              >
+              <div key={medicion.id} className="bg-slate-50 rounded-xl p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     Medición #{idx + 1}
@@ -320,15 +296,9 @@ export default function PruebaDetallePage({
                         step={campo.step ?? "any"}
                         placeholder={campo.placeholder ?? "—"}
                         className="rounded-lg border-slate-200 focus:border-primary font-medium h-9 text-sm"
-                        value={
-                          (medicion[campo.key] as string | undefined) ?? ""
-                        }
+                        value={(medicion[campo.key] as string | undefined) ?? ""}
                         onChange={(e) =>
-                          handleMedicionChange(
-                            medicion.id,
-                            campo.key,
-                            e.target.value
-                          )
+                          handleMedicionChange(medicion.id, campo.key, e.target.value)
                         }
                       />
                     </div>
@@ -348,12 +318,8 @@ export default function PruebaDetallePage({
               <FileText className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Concepto
-              </h3>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Resultado de la prueba
-              </p>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Concepto</h3>
+              <p className="text-[11px] text-slate-400 font-medium">Resultado de la prueba</p>
             </div>
           </div>
 

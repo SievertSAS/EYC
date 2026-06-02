@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { createClient } from "./client";
 import type { SyncStatus } from "@/lib/db/types";
+import { logger } from "@/lib/logger";
 
 // ============================================================
 //  Motor de sincronización Dexie ↔ Supabase
@@ -25,12 +26,75 @@ export interface SyncResult {
 export interface SyncError {
   table: string;
   recordId: number;
+  /** Mensaje legible para mostrar al técnico */
   error: string;
+  /** Detalle técnico del error de Supabase (code, hint, etc.) */
+  detail?: string;
   action: "push" | "pull";
 }
 
+/** Nombres legibles para las tablas en mensajes al usuario */
+const TABLE_LABELS: Record<string, string> = {
+  clientes: "Clientes",
+  contactos: "Contactos",
+  sedes: "Sedes",
+  ubicaciones_rx: "Ubicaciones",
+  equipos: "Equipos",
+  tubos: "Tubos",
+  colimadores: "Colimadores",
+  gantry: "Gantry",
+  solicitudes: "Solicitudes",
+  visitas: "Visitas",
+  grupo_resultados: "Grupos de resultados",
+  prueba_resultados: "Resultados de pruebas",
+  mediciones_radiometricas: "Mediciones radiométricas",
+  evidencias: "Evidencias",
+  sala_dimensiones: "Dimensiones de sala",
+  partes_equipo: "Partes de equipo",
+  valores_referencia: "Valores de referencia",
+  usuarios: "Usuarios",
+  cotizaciones: "Cotizaciones",
+  prueba_definiciones: "Definiciones de pruebas",
+  grupo_pruebas: "Grupos de pruebas",
+  informes: "Informes",
+  informe_versiones: "Versiones de informe",
+  rol_permisos: "Permisos",
+};
+
+function tableLabel(name: string): string {
+  return TABLE_LABELS[name] ?? name;
+}
+
+/** Extrae un mensaje legible de un error de Supabase o JS */
+function describeError(err: unknown): { message: string; detail?: string } {
+  if (err && typeof err === "object" && "message" in err) {
+    const supaErr = err as { message: string; code?: string; hint?: string; details?: string };
+    const detail = [supaErr.code, supaErr.hint, supaErr.details].filter(Boolean).join(" — ");
+    return { message: supaErr.message, detail: detail || undefined };
+  }
+  return { message: String(err) };
+}
+
+// Campos que solo existen en Dexie y nunca deben enviarse a Supabase
+const LOCAL_ONLY_FIELDS = ["id", "sync_status", "blob_local", "last_modified", "_remote_id"];
+
+// Campos extra por tabla que existen en Dexie pero no en Supabase
+const EXTRA_LOCAL_FIELDS: Record<string, string[]> = {
+  solicitudes: ["suitecrm_id"],
+  prueba_resultados: ["grupo_resultado_id", "resultados_calculados", "evaluacion_criterios", "imagenes"],
+};
+
 // Tablas que se sincronizan bidireccionalmente (tienen sync_status)
 const SYNC_TABLES = [
+  { local: "clientes", remote: "clientes" },
+  { local: "contactos", remote: "contactos" },
+  { local: "sedes", remote: "sedes" },
+  { local: "ubicaciones_rx", remote: "ubicaciones_rx" },
+  { local: "equipos", remote: "equipos" },
+  { local: "tubos", remote: "tubos" },
+  { local: "colimadores", remote: "colimadores" },
+  { local: "gantry", remote: "gantry" },
+  { local: "solicitudes", remote: "solicitudes" },
   { local: "visitas", remote: "visitas" },
   { local: "grupo_resultados", remote: "grupo_resultados" },
   { local: "prueba_resultados", remote: "prueba_resultados" },
@@ -38,95 +102,46 @@ const SYNC_TABLES = [
   { local: "evidencias", remote: "evidencias" },
 ] as const;
 
+/** Limpia un registro Dexie para enviar a Supabase, quitando campos locales */
+function stripLocalFields(
+  record: Record<string, unknown>,
+  localTable: string
+): { localId: number; remoteId: unknown; data: Record<string, unknown> } {
+  const exclude = new Set([...LOCAL_ONLY_FIELDS, ...(EXTRA_LOCAL_FIELDS[localTable] ?? [])]);
+  const data: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(record)) {
+    if (!exclude.has(key)) {
+      data[key] = val;
+    }
+  }
+
+  // Limpiar blob_local de imagenes anidadas (grupo_resultados, evidencias)
+  if (Array.isArray(data.imagenes)) {
+    data.imagenes = (data.imagenes as Record<string, unknown>[]).map(
+      ({ blob_local: _b, ...rest }) => rest
+    );
+  }
+
+  return {
+    localId: record.id as number,
+    remoteId: record._remote_id,
+    data,
+  };
+}
+
 // Tablas maestras que se descargan del servidor (read-only para sync)
 const MASTER_TABLES = [
-  "clientes",
-  "contactos",
-  "sedes",
-  "ubicaciones_rx",
-  "equipos",
-  "tubos",
-  "colimadores",
-  "gantry",
   "sala_dimensiones",
   "partes_equipo",
   "valores_referencia",
   "usuarios",
   "cotizaciones",
-  "solicitudes",
   "prueba_definiciones",
   "grupo_pruebas",
   "informes",
   "informe_versiones",
   "rol_permisos",
 ] as const;
-
-const FIRST_SYNC_KEY = "sievert_first_sync_done";
-
-/**
- * Detecta si es la primera sincronización (datos locales son solo demo).
- * En ese caso, limpia las tablas de campo locales antes de sincronizar
- * para evitar pushear datos de demo que fallarían por FK inexistentes.
- */
-async function cleanDemoDataIfFirstSync(): Promise<void> {
-  const done = localStorage.getItem(FIRST_SYNC_KEY);
-  if (done) return;
-
-  console.log("[Sync] Primera sincronización — limpiando datos de demo...");
-
-  // Limpiar tablas de campo (datos de demo)
-  for (const table of SYNC_TABLES) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dexieTable = (db as any)[table.local];
-      if (dexieTable) await dexieTable.clear();
-    } catch {
-      // Ignorar
-    }
-  }
-
-  // También limpiar tablas auxiliares de campo
-  const AUXILIARY_TABLES = ["elementos_proteccion"];
-  for (const t of AUXILIARY_TABLES) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dexieTable = (db as any)[t];
-      if (dexieTable) await dexieTable.clear();
-    } catch {
-      // Ignorar
-    }
-  }
-
-  // Limpiar tablas maestras demo (serán reemplazadas por pullMasterTable)
-  const DEMO_MASTER_TABLES = [
-    "clientes",
-    "contactos",
-    "sedes",
-    "ubicaciones_rx",
-    "equipos",
-    "tubos",
-    "sala_dimensiones",
-    "valores_referencia",
-    "usuarios",
-    "solicitudes",
-    "partes_equipo",
-  ];
-  for (const t of DEMO_MASTER_TABLES) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dexieTable = (db as any)[t];
-      if (dexieTable) await dexieTable.clear();
-    } catch {
-      // Ignorar
-    }
-  }
-
-  // Limpiar timestamps de sync anteriores
-  localStorage.removeItem(SYNC_TIMESTAMPS_KEY);
-
-  localStorage.setItem(FIRST_SYNC_KEY, "true");
-  console.log("[Sync] Datos de demo limpiados");
-}
 
 /**
  * Ejecuta un ciclo completo de sincronización.
@@ -156,19 +171,19 @@ export async function fullSync(): Promise<SyncResult> {
     return result;
   }
 
-  // Limpiar datos de demo en la primera sincronización
-  await cleanDemoDataIfFirstSync();
-
   // 1. PUSH: enviar cambios locales al servidor
   for (const table of SYNC_TABLES) {
     try {
-      const pushed = await pushTable(supabase, table.local, table.remote);
+      const { pushed, errors } = await pushTable(supabase, table.local, table.remote);
       result.pushed += pushed;
+      result.errors.push(...errors);
     } catch (err) {
+      const { message, detail } = describeError(err);
       result.errors.push({
         table: table.local,
         recordId: 0,
-        error: err instanceof Error ? err.message : String(err),
+        error: `Error general enviando ${tableLabel(table.local)}: ${message}`,
+        detail,
         action: "push",
       });
     }
@@ -180,10 +195,12 @@ export async function fullSync(): Promise<SyncResult> {
       const pulled = await pullMasterTable(supabase, tableName);
       result.pulled += pulled;
     } catch (err) {
+      const { message, detail } = describeError(err);
       result.errors.push({
         table: tableName,
         recordId: 0,
-        error: err instanceof Error ? err.message : String(err),
+        error: `Error descargando ${tableLabel(tableName)}: ${message}`,
+        detail,
         action: "pull",
       });
     }
@@ -195,10 +212,12 @@ export async function fullSync(): Promise<SyncResult> {
       const pulled = await pullSyncTable(supabase, table.local, table.remote);
       result.pulled += pulled;
     } catch (err) {
+      const { message, detail } = describeError(err);
       result.errors.push({
         table: table.local,
         recordId: 0,
-        error: err instanceof Error ? err.message : String(err),
+        error: `Error descargando ${tableLabel(table.local)}: ${message}`,
+        detail,
         action: "pull",
       });
     }
@@ -207,43 +226,41 @@ export async function fullSync(): Promise<SyncResult> {
   return result;
 }
 
+interface PushResult {
+  pushed: number;
+  errors: SyncError[];
+}
+
 /**
  * Push: enviar registros con sync_status="pending" al servidor.
  * Después de éxito, marcar como "synced".
+ * Retorna conteo + errores individuales por registro.
  */
 async function pushTable(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   localTable: string,
   remoteTable: string
-): Promise<number> {
+): Promise<PushResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dexieTable = (db as any)[localTable];
-  if (!dexieTable) return 0;
+  if (!dexieTable) return { pushed: 0, errors: [] };
 
-  const pending = await dexieTable
-    .where("sync_status")
-    .equals("pending")
-    .toArray();
+  const pending = await dexieTable.where("sync_status").equals("pending").toArray();
 
-  if (pending.length === 0) return 0;
+  if (pending.length === 0) return { pushed: 0, errors: [] };
 
   let pushed = 0;
+  const errors: SyncError[] = [];
 
   for (const record of pending) {
-    const { id: localId, sync_status, blob_local, ...data } = record;
+    const { localId, remoteId, data } = stripLocalFields(record, localTable);
 
     try {
-      if (record._remote_id) {
-        // UPDATE existente en el servidor
-        const { error } = await supabase
-          .from(remoteTable)
-          .update(data)
-          .eq("id", record._remote_id);
-
+      if (remoteId) {
+        const { error } = await supabase.from(remoteTable).update(data).eq("id", remoteId);
         if (error) throw error;
       } else {
-        // INSERT nuevo en el servidor
         const { data: inserted, error } = await supabase
           .from(remoteTable)
           .insert(data)
@@ -252,13 +269,11 @@ async function pushTable(
 
         if (error) throw error;
 
-        // Guardar referencia al ID remoto
         await dexieTable.update(localId, {
           _remote_id: inserted.id,
         });
       }
 
-      // Marcar como sincronizado
       await dexieTable.update(localId, {
         sync_status: "synced" as SyncStatus,
         last_modified: new Date().toISOString(),
@@ -266,18 +281,109 @@ async function pushTable(
 
       pushed++;
     } catch (err) {
-      // Marcar como error para reintentar después
       await dexieTable.update(localId, {
         sync_status: "error" as SyncStatus,
       });
-      console.error(
-        `[Sync] Error pushing ${localTable}#${localId}:`,
-        err
-      );
+
+      const { message, detail } = describeError(err);
+      const label = tableLabel(localTable);
+      errors.push({
+        table: localTable,
+        recordId: localId,
+        error: `No se pudo enviar registro #${localId} de ${label}: ${message}`,
+        detail,
+        action: "push",
+      });
+      logger.error("sync:push", `Error pushing ${localTable}#${localId}`, err);
     }
   }
 
-  return pushed;
+  return { pushed, errors };
+}
+
+// ─── Push inmediato y auto-sync ───
+
+/**
+ * Push inmediato de un registro recién guardado.
+ * Se llama desde los formularios justo después de guardar en Dexie.
+ * No bloquea la UI — falla silenciosamente si está offline.
+ */
+export async function pushSingle(localTable: string, localId: number): Promise<boolean> {
+  if (!navigator.onLine) return false;
+
+  const remote = SYNC_TABLES.find((t) => t.local === localTable)?.remote;
+  if (!remote) return false;
+
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return false;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dexieTable = (db as any)[localTable];
+    if (!dexieTable) return false;
+
+    const record = await dexieTable.get(localId);
+    if (!record || record.sync_status !== "pending") return false;
+
+    const { localId: lid, remoteId, data } = stripLocalFields(record, localTable);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const table = supabase.from(remote) as any;
+    if (remoteId) {
+      const { error } = await table.update(data).eq("id", remoteId);
+      if (error) throw error;
+    } else {
+      const { data: inserted, error } = await table
+        .insert(data)
+        .select("id")
+        .single();
+      if (error) throw error;
+      await dexieTable.update(lid, { _remote_id: inserted.id });
+    }
+
+    await dexieTable.update(lid, {
+      sync_status: "synced" as SyncStatus,
+      last_modified: new Date().toISOString(),
+    });
+
+    logger.info("sync:push-single", `${localTable}#${lid} synced`);
+    return true;
+  } catch (err) {
+    logger.warn("sync:push-single", `${localTable}#${localId} failed (will retry)`, err);
+    return false;
+  }
+}
+
+/**
+ * Push de todos los registros pendientes (sin pull).
+ * Usado por el auto-sync periódico — más liviano que fullSync.
+ */
+export async function pushAllPending(): Promise<{ pushed: number; errors: number }> {
+  if (!navigator.onLine) return { pushed: 0, errors: 0 };
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return { pushed: 0, errors: 0 };
+
+  let totalPushed = 0;
+  let totalErrors = 0;
+
+  for (const table of SYNC_TABLES) {
+    const { pushed, errors } = await pushTable(supabase, table.local, table.remote);
+    totalPushed += pushed;
+    totalErrors += errors.length;
+  }
+
+  if (totalPushed > 0) {
+    logger.info("sync:auto", `Auto-sync: ${totalPushed} enviados, ${totalErrors} errores`);
+  }
+
+  return { pushed: totalPushed, errors: totalErrors };
 }
 
 /**
@@ -373,31 +479,90 @@ async function pullSyncTable(
 
 const SYNC_TIMESTAMPS_KEY = "sievert_sync_timestamps";
 
-async function getLastSyncTimestamp(
-  table: string
-): Promise<string | null> {
+async function getLastSyncTimestamp(table: string): Promise<string | null> {
   try {
     const stored = localStorage.getItem(SYNC_TIMESTAMPS_KEY);
     if (!stored) return null;
     const timestamps = JSON.parse(stored);
     return timestamps[table] ?? null;
-  } catch {
+  } catch (err) {
+    logger.error("sync:timestamp", `Error leyendo timestamp de ${table}`, err);
     return null;
   }
 }
 
-async function setLastSyncTimestamp(
-  table: string,
-  timestamp: string
-): Promise<void> {
+async function setLastSyncTimestamp(table: string, timestamp: string): Promise<void> {
   try {
     const stored = localStorage.getItem(SYNC_TIMESTAMPS_KEY);
     const timestamps = stored ? JSON.parse(stored) : {};
     timestamps[table] = timestamp;
     localStorage.setItem(SYNC_TIMESTAMPS_KEY, JSON.stringify(timestamps));
-  } catch {
-    // Ignorar errores de localStorage
+  } catch (err) {
+    logger.error("sync:timestamp", `Error guardando timestamp de ${table}`, err);
   }
+}
+
+// ─── Diagnóstico de errores ───
+
+export interface ErrorRecord {
+  table: string;
+  tableLabel: string;
+  id: number;
+  /** Texto identificador del registro (ej. nombre_cliente) */
+  preview: string;
+}
+
+/**
+ * Consulta todos los registros con sync_status="error" para mostrar al usuario.
+ */
+export async function getErrorRecords(): Promise<ErrorRecord[]> {
+  const results: ErrorRecord[] = [];
+
+  for (const table of SYNC_TABLES) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dexieTable = (db as any)[table.local];
+      if (!dexieTable) continue;
+
+      const errored = await dexieTable.where("sync_status").equals("error").toArray();
+      for (const rec of errored) {
+        results.push({
+          table: table.local,
+          tableLabel: tableLabel(table.local),
+          id: rec.id,
+          preview:
+            rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? `#${rec.id}`,
+        });
+      }
+    } catch {
+      // tabla sin sync_status — ignorar
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Marca registros con error como "pending" para reintentar en la próxima sync.
+ */
+export async function retryErrorRecords(): Promise<number> {
+  let count = 0;
+  for (const table of SYNC_TABLES) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dexieTable = (db as any)[table.local];
+      if (!dexieTable) continue;
+
+      const errored = await dexieTable.where("sync_status").equals("error").toArray();
+      for (const rec of errored) {
+        await dexieTable.update(rec.id, { sync_status: "pending" as SyncStatus });
+        count++;
+      }
+    } catch {
+      // tabla sin sync_status — ignorar
+    }
+  }
+  return count;
 }
 
 // ─── Estado de conectividad ───
@@ -409,6 +574,7 @@ export async function checkSyncStatus(): Promise<{
   online: boolean;
   authenticated: boolean;
   pendingCount: number;
+  errorCount: number;
 }> {
   const online = navigator.onLine;
 
@@ -420,28 +586,26 @@ export async function checkSyncStatus(): Promise<{
         data: { session },
       } = await supabase.auth.getSession();
       authenticated = !!session;
-    } catch {
-      // Sin conexión real
+    } catch (err) {
+      logger.warn("sync:status", "No se pudo verificar sesión (posiblemente offline)", err);
     }
   }
 
-  // Contar registros pendientes
+  // Contar registros pendientes y con error
   let pendingCount = 0;
+  let errorCount = 0;
   for (const table of SYNC_TABLES) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dexieTable = (db as any)[table.local];
       if (dexieTable) {
-        const count = await dexieTable
-          .where("sync_status")
-          .equals("pending")
-          .count();
-        pendingCount += count;
+        pendingCount += await dexieTable.where("sync_status").equals("pending").count();
+        errorCount += await dexieTable.where("sync_status").equals("error").count();
       }
-    } catch {
-      // Tabla sin índice sync_status
+    } catch (err) {
+      logger.error("sync:status", `Error contando registros en ${table.local}`, err);
     }
   }
 
-  return { online, authenticated, pendingCount };
+  return { online, authenticated, pendingCount, errorCount };
 }

@@ -44,7 +44,10 @@ export async function trackChange(
 export async function updateWithTracking<T extends Record<string, unknown>>(
   tabla: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dexieTable: { get: (id: number) => Promise<T | undefined>; update: (id: number, changes: Partial<T>) => Promise<number> },
+  dexieTable: {
+    get: (id: number) => Promise<T | undefined>;
+    update: (id: number, changes: Partial<T>) => Promise<number>;
+  },
   registroId: number,
   changes: Partial<T>,
   tecnicoId: number
@@ -84,10 +87,7 @@ export async function updateWithTracking<T extends Record<string, unknown>>(
 /**
  * Obtiene el historial de cambios para un registro.
  */
-export async function getChangeHistory(
-  tabla: string,
-  registroId: number
-): Promise<ChangeLog[]> {
+export async function getChangeHistory(tabla: string, registroId: number): Promise<ChangeLog[]> {
   return db.change_logs
     .where("[tabla+registro_id]")
     .equals([tabla, registroId])

@@ -46,17 +46,11 @@ const ESTADOS_PARTE: { value: string; label: string; color: string }[] = [
   { value: "no_aplica", label: "N/A", color: "bg-slate-400 text-white" },
 ];
 
-export default function InspeccionPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function InspeccionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [initialized, setInitialized] = useState(false);
 
   const visita = useLiveQuery(async () => {
@@ -67,25 +61,18 @@ export default function InspeccionPage({
   // Partes del equipo
   const partes = useLiveQuery(async () => {
     if (!visita?.equipo_id) return undefined;
-    return db.partes_equipo
-      .where("equipo_id")
-      .equals(visita.equipo_id)
-      .toArray();
+    return db.partes_equipo.where("equipo_id").equals(visita.equipo_id).toArray();
   }, [visita?.equipo_id]);
 
   // Elementos de protección
   const elementos = useLiveQuery(async () => {
     if (!isReady || isNaN(visitaId)) return undefined;
-    return db.elementos_proteccion
-      .where("visita_id")
-      .equals(visitaId)
-      .toArray();
+    return db.elementos_proteccion.where("visita_id").equals(visitaId).toArray();
   }, [isReady, visitaId]);
 
   // Inicializar partes si no existen
   const inicializarPartes = useCallback(async () => {
-    if (!visita?.equipo_id || !partes || partes.length > 0 || initialized)
-      return;
+    if (!visita?.equipo_id || !partes || partes.length > 0 || initialized) return;
 
     const now = new Date().toISOString();
     await db.partes_equipo.bulkAdd(
@@ -104,19 +91,16 @@ export default function InspeccionPage({
   }, [inicializarPartes]);
 
   // Actualizar parte
-  const actualizarParte = useCallback(
-    async (parteId: number, campo: Partial<ParteEquipo>) => {
-      try {
-        setSaveStatus("saving");
-        await db.partes_equipo.update(parteId, campo);
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus("idle"), 2000);
-      } catch {
-        setSaveStatus("error");
-      }
-    },
-    []
-  );
+  const actualizarParte = useCallback(async (parteId: number, campo: Partial<ParteEquipo>) => {
+    try {
+      setSaveStatus("saving");
+      await db.partes_equipo.update(parteId, campo);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      setSaveStatus("error");
+    }
+  }, []);
 
   // Agregar elemento de protección
   const agregarElemento = useCallback(async () => {
@@ -216,10 +200,7 @@ export default function InspeccionPage({
 
           <div className="space-y-2">
             {(partes ?? []).map((parte) => (
-              <div
-                key={parte.id}
-                className="flex items-center gap-3 bg-slate-50 rounded-xl p-3"
-              >
+              <div key={parte.id} className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
                 {/* Nombre */}
                 <p className="flex-1 text-sm font-bold text-slate-700 min-w-0 truncate">
                   {parte.parte_nombre}
@@ -281,16 +262,12 @@ export default function InspeccionPage({
 
           {(elementos ?? []).length === 0 ? (
             <p className="text-sm text-slate-400 font-medium text-center py-4">
-              Sin elementos registrados. Agrega delantales plomados,
-              protectores, etc.
+              Sin elementos registrados. Agrega delantales plomados, protectores, etc.
             </p>
           ) : (
             <div className="space-y-3">
               {(elementos ?? []).map((elem) => (
-                <div
-                  key={elem.id}
-                  className="bg-slate-50 rounded-xl p-3 sm:p-4 space-y-3"
-                >
+                <div key={elem.id} className="bg-slate-50 rounded-xl p-3 sm:p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       Elemento
@@ -332,9 +309,7 @@ export default function InspeccionPage({
                         defaultValue={elem.cantidad ?? ""}
                         onBlur={(e) =>
                           actualizarElemento(elem.id!, {
-                            cantidad: e.target.value
-                              ? Number(e.target.value)
-                              : undefined,
+                            cantidad: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
                       />

@@ -22,11 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ImageCaptureSlot } from "@/components/image-capture-slot";
-import {
-  evaluateFormulaSummaries,
-  evaluateCriterios,
-  suggestConcepto,
-} from "@/lib/pruebas/engine";
+import { evaluateFormulaSummaries, evaluateCriterios, suggestConcepto } from "@/lib/equipos/engine";
 import type { ImagenEmbebida } from "@/lib/db/types";
 
 // ─── Helpers ───
@@ -70,18 +66,12 @@ export default function GrupoWorkspacePage({
 
   const pruebaDefs = useLiveQuery(async () => {
     if (!isReady || isNaN(grupoDefId)) return [];
-    return db.prueba_definiciones
-      .where("grupo_id")
-      .equals(grupoDefId)
-      .sortBy("orden_en_grupo");
+    return db.prueba_definiciones.where("grupo_id").equals(grupoDefId).sortBy("orden_en_grupo");
   }, [isReady, grupoDefId]);
 
   const pruebaResultados = useLiveQuery(async () => {
     if (!grupoResultado?.id) return [];
-    return db.prueba_resultados
-      .where("grupo_resultado_id")
-      .equals(grupoResultado.id!)
-      .toArray();
+    return db.prueba_resultados.where("grupo_resultado_id").equals(grupoResultado.id!).toArray();
   }, [grupoResultado?.id]);
 
   // ─── Initialize form from existing data ───
@@ -102,10 +92,7 @@ export default function GrupoWorkspacePage({
   // ─── Auto-save with debounce ───
 
   const save = useCallback(
-    async (
-      newMediciones: Record<string, unknown>[],
-      newImagenes: ImagenEmbebida[]
-    ) => {
+    async (newMediciones: Record<string, unknown>[], newImagenes: ImagenEmbebida[]) => {
       if (!grupoResultado?.id) return;
       setSaveStatus("saving");
       try {
@@ -187,30 +174,41 @@ export default function GrupoWorkspacePage({
 
   const calculatedResults = useMemo(() => {
     if (!pruebaDefs || pruebaDefs.length === 0 || mediciones.length === 0) {
-      return new Map<number, { resultados: Record<string, number | null>; evaluaciones: { campo: string; valor_obtenido: number; criterio_descripcion: string; cumple: boolean }[]; concepto: "FAVORABLE" | "NO_FAVORABLE" }>();
+      return new Map<
+        number,
+        {
+          resultados: Record<string, number | null>;
+          evaluaciones: {
+            campo: string;
+            valor_obtenido: number;
+            criterio_descripcion: string;
+            cumple: boolean;
+          }[];
+          concepto: "FAVORABLE" | "NO_FAVORABLE";
+        }
+      >();
     }
 
-    const map = new Map<number, {
-      resultados: Record<string, number | null>;
-      evaluaciones: { campo: string; valor_obtenido: number; criterio_descripcion: string; cumple: boolean }[];
-      concepto: "FAVORABLE" | "NO_FAVORABLE";
-    }>();
+    const map = new Map<
+      number,
+      {
+        resultados: Record<string, number | null>;
+        evaluaciones: {
+          campo: string;
+          valor_obtenido: number;
+          criterio_descripcion: string;
+          cumple: boolean;
+        }[];
+        concepto: "FAVORABLE" | "NO_FAVORABLE";
+      }
+    >();
 
     for (const def of pruebaDefs) {
       if (!def.formulas?.length && !def.criterios_aceptacion?.length) continue;
 
-      const resultados = evaluateFormulaSummaries(
-        def.formulas ?? [],
-        mediciones
-      );
-      const evaluaciones = evaluateCriterios(
-        def.criterios_aceptacion ?? [],
-        resultados
-      );
-      const concepto =
-        evaluaciones.length > 0
-          ? suggestConcepto(evaluaciones)
-          : "FAVORABLE";
+      const resultados = evaluateFormulaSummaries(def.formulas ?? [], mediciones);
+      const evaluaciones = evaluateCriterios(def.criterios_aceptacion ?? [], resultados);
+      const concepto = evaluaciones.length > 0 ? suggestConcepto(evaluaciones) : "FAVORABLE";
 
       map.set(def.id!, { resultados, evaluaciones, concepto });
     }
@@ -226,18 +224,14 @@ export default function GrupoWorkspacePage({
     setSaveStatus("saving");
     try {
       for (const def of pruebaDefs) {
-        const resultado = pruebaResultados.find(
-          (r) => r.prueba_definicion_id === def.id
-        );
+        const resultado = pruebaResultados.find((r) => r.prueba_definicion_id === def.id);
         if (!resultado) continue;
 
         const calc = calculatedResults.get(def.id!);
         await db.prueba_resultados.update(resultado.id!, {
           resultados_calculados: calc?.resultados ?? {},
           evaluacion_criterios: calc?.evaluaciones ?? [],
-          concepto:
-            calc?.concepto ??
-            (def.criterios_aceptacion?.length ? undefined : "FAVORABLE"),
+          concepto: calc?.concepto ?? (def.criterios_aceptacion?.length ? undefined : "FAVORABLE"),
           completado: true,
           fecha_ejecucion: new Date().toISOString(),
           last_modified: new Date().toISOString(),
@@ -295,9 +289,7 @@ export default function GrupoWorkspacePage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Grupo no encontrado
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Grupo no encontrado</p>
         </div>
       </div>
     );
@@ -365,9 +357,7 @@ export default function GrupoWorkspacePage({
                     >
                       {col.label}
                       {col.unit && (
-                        <span className="text-slate-300 font-medium ml-0.5">
-                          ({col.unit})
-                        </span>
+                        <span className="text-slate-300 font-medium ml-0.5">({col.unit})</span>
                       )}
                     </th>
                   ))}
@@ -380,18 +370,14 @@ export default function GrupoWorkspacePage({
                     key={(row._id as string) ?? rowIdx}
                     className="border-b border-slate-50 hover:bg-slate-50/50"
                   >
-                    <td className="py-1.5 px-1 text-xs font-bold text-slate-400">
-                      {rowIdx + 1}
-                    </td>
+                    <td className="py-1.5 px-1 text-xs font-bold text-slate-400">{rowIdx + 1}</td>
                     {columnas.map((col) => (
                       <td key={col.key} className="py-1.5 px-1">
                         {col.type === "select" ? (
                           <select
                             className="w-full rounded-lg border border-slate-200 text-xs py-1.5 px-2 font-medium focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
                             value={(row[col.key] as string) ?? ""}
-                            onChange={(e) =>
-                              updateCell(rowIdx, col.key, e.target.value)
-                            }
+                            onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
                           >
                             <option value="">—</option>
                             {col.opciones?.map((opt) => (
@@ -410,14 +396,8 @@ export default function GrupoWorkspacePage({
                             }
                             className="rounded-lg border-slate-200 text-xs h-8 font-medium"
                             placeholder={col.placeholder ?? ""}
-                            value={
-                              row[col.key] != null
-                                ? String(row[col.key])
-                                : ""
-                            }
-                            onChange={(e) =>
-                              updateCell(rowIdx, col.key, e.target.value)
-                            }
+                            value={row[col.key] != null ? String(row[col.key]) : ""}
+                            onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
                           />
                         )}
                       </td>
@@ -484,10 +464,7 @@ export default function GrupoWorkspacePage({
               const allPass = calc?.evaluaciones?.every((e) => e.cumple) ?? true;
 
               return (
-                <div
-                  key={def.id}
-                  className="border border-slate-100 rounded-xl overflow-hidden"
-                >
+                <div key={def.id} className="border border-slate-100 rounded-xl overflow-hidden">
                   {/* Test header */}
                   <button
                     type="button"
@@ -528,14 +505,9 @@ export default function GrupoWorkspacePage({
                       {/* Calculated values */}
                       {calc &&
                         Object.entries(calc.resultados).map(([key, val]) => {
-                          const formula = def.formulas?.find(
-                            (f) => f.campo_resultado === key
-                          );
+                          const formula = def.formulas?.find((f) => f.campo_resultado === key);
                           return (
-                            <div
-                              key={key}
-                              className="flex items-center justify-between text-sm"
-                            >
+                            <div key={key} className="flex items-center justify-between text-sm">
                               <span className="text-slate-500 font-medium">
                                 {formula?.label ?? key}
                               </span>
@@ -558,10 +530,7 @@ export default function GrupoWorkspacePage({
                             Criterios
                           </p>
                           {calc.evaluaciones.map((ev, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-2 text-xs"
-                            >
+                            <div key={idx} className="flex items-center gap-2 text-xs">
                               {ev.cumple ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                               ) : (

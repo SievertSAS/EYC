@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sievert EyC
 
-## Getting Started
+Aplicacion web PWA para inspecciones de equipos de radiacion ionizante. Permite a tecnicos de campo realizar evaluaciones de cumplimiento normativo (Resolucion 1811, TECDOC 1958) con soporte offline completo.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Frontend:** Next.js 16, React 19, TypeScript (strict), Tailwind CSS 4
+- **Auth + Backend:** Supabase (PostgreSQL + Auth)
+- **Offline DB:** Dexie (IndexedDB) con 22 tablas y sync bidireccional
+- **PDF:** jsPDF + jspdf-autotable para pre-informes
+- **UI:** shadcn/ui, Lucide icons
+
+## Arquitectura
+
+```
+app/src/
+  app/           # Rutas Next.js (App Router)
+    dashboard/   # Area autenticada (visitas, informes, config...)
+    login/       # Autenticacion con Supabase Auth
+    api/         # API routes (usuarios)
+  lib/
+    db/          # Schema Dexie, tipos, seeders
+    equipos/     # Paquetes de equipo, engine de formulas, definiciones de pruebas
+    supabase/    # Cliente, server, sync engine
+    workflow/    # State machine de visitas, completitud, validacion
+    pdf/         # Generacion de pre-informes PDF
+    validation/  # Schemas Zod
+    env.ts       # Validacion de variables de entorno
+    logger.ts    # Logger estructurado
+    rate-limit.ts
+  components/    # Componentes React reutilizables
+  hooks/         # Custom hooks
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Flujo de visita
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+asignada -> en_progreso -> completada -> pre_informe -> en_revision -> aprobada
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Roles
 
-## Learn More
+- **tecnico:** Ejecuta visitas, captura datos en campo
+- **coordinador:** Revisa y aprueba informes, administra permisos
+- **programador:** Gestiona solicitudes y programacion
+- **comercial:** Vista de pipeline comercial
 
-To learn more about Next.js, take a look at the following resources:
+## Setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cd app
+npm install
+cp .env.example .env.local  # Configurar variables de Supabase
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Variables de entorno
 
-## Deploy on Vercel
+| Variable | Descripcion |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anonima de Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio (solo server-side) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev          # Servidor de desarrollo
+npm run build        # Build de produccion
+npm run lint         # ESLint
+npm run test         # Vitest (watch mode)
+npm run test:run     # Vitest (single run)
+npm run test:coverage # Vitest con coverage
+npm run format       # Prettier (write)
+npm run format:check # Prettier (check)
+```
+
+## Testing
+
+Tests con Vitest + Testing Library. Cobertura en modulos criticos:
+
+- `lib/equipos/engine.ts` — Motor de formulas y criterios
+- `lib/workflow/visit-state-machine.ts` — Transiciones de estado
+- `lib/validation/schemas.ts` — Validacion de entrada
+
+```bash
+npm run test:run
+```

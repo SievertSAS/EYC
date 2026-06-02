@@ -131,7 +131,10 @@ export interface Database {
           activo: boolean;
           modificado_en: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["rol_permisos"]["Row"], "id" | "modificado_en"> & {
+        Insert: Omit<
+          Database["public"]["Tables"]["rol_permisos"]["Row"],
+          "id" | "modificado_en"
+        > & {
           id?: number;
           modificado_en?: string;
         };
@@ -186,7 +189,10 @@ export interface Database {
           last_modified: string;
           creado_en: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["visitas"]["Row"], "id" | "creado_en" | "last_modified"> & {
+        Insert: Omit<
+          Database["public"]["Tables"]["visitas"]["Row"],
+          "id" | "creado_en" | "last_modified"
+        > & {
           id?: number;
           creado_en?: string;
           last_modified?: string;
@@ -207,7 +213,10 @@ export interface Database {
           last_modified: string;
           creado_en: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["prueba_resultados"]["Row"], "id" | "creado_en" | "last_modified"> & {
+        Insert: Omit<
+          Database["public"]["Tables"]["prueba_resultados"]["Row"],
+          "id" | "creado_en" | "last_modified"
+        > & {
           id?: number;
           creado_en?: string;
           last_modified?: string;
@@ -229,7 +238,10 @@ export interface Database {
           last_modified: string;
           creado_en: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["mediciones_radiometricas"]["Row"], "id" | "creado_en" | "last_modified"> & {
+        Insert: Omit<
+          Database["public"]["Tables"]["mediciones_radiometricas"]["Row"],
+          "id" | "creado_en" | "last_modified"
+        > & {
           id?: number;
           creado_en?: string;
           last_modified?: string;
@@ -259,6 +271,104 @@ export interface Database {
           creado_en?: string;
         };
         Update: Partial<Database["public"]["Tables"]["informes"]["Insert"]>;
+      };
+      tubos: {
+        Row: {
+          id: number;
+          equipo_id: number;
+          marca: string | null;
+          modelo: string | null;
+          numero_serie: string | null;
+          tipo: string | null;
+          mas_max: number | null;
+          kv_max: number | null;
+          ma_max: number | null;
+          tiempo_s: number | null;
+          foco_fino_mm: number | null;
+          foco_grueso_mm: number | null;
+          creado_en: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["tubos"]["Row"], "id" | "creado_en"> & {
+          id?: number;
+          creado_en?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tubos"]["Insert"]>;
+      };
+      colimadores: {
+        Row: {
+          id: number;
+          equipo_id: number;
+          marca: string | null;
+          modelo: string | null;
+          numero_serie: string | null;
+          creado_en: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["colimadores"]["Row"], "id" | "creado_en"> & {
+          id?: number;
+          creado_en?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["colimadores"]["Insert"]>;
+      };
+      gantry: {
+        Row: {
+          id: number;
+          equipo_id: number;
+          marca: string | null;
+          modelo: string | null;
+          numero_serie: string | null;
+          tipo_detector: string | null;
+          creado_en: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["gantry"]["Row"], "id" | "creado_en"> & {
+          id?: number;
+          creado_en?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["gantry"]["Insert"]>;
+      };
+      grupo_resultados: {
+        Row: {
+          id: number;
+          visita_id: number;
+          grupo_id: number;
+          equipo_id: number;
+          mediciones_json: Record<string, unknown>[];
+          imagenes: Record<string, unknown>[];
+          completado: boolean;
+          fecha_ejecucion: string | null;
+          last_modified: string;
+          creado_en: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["grupo_resultados"]["Row"],
+          "id" | "creado_en" | "last_modified"
+        > & {
+          id?: number;
+          creado_en?: string;
+          last_modified?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["grupo_resultados"]["Insert"]>;
+      };
+      evidencias: {
+        Row: {
+          id: number;
+          visita_id: number;
+          prueba_resultado_id: number | null;
+          tipo: string | null;
+          descripcion: string | null;
+          url_storage: string | null;
+          fecha_captura: string | null;
+          last_modified: string;
+          creado_en: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["evidencias"]["Row"],
+          "id" | "creado_en" | "last_modified"
+        > & {
+          id?: number;
+          creado_en?: string;
+          last_modified?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["evidencias"]["Insert"]>;
       };
       change_logs: {
         Row: {

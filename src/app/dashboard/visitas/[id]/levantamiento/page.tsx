@@ -35,25 +35,16 @@ const TIPOS_AREA = [
   { value: "supervisada", label: "Supervisada" },
 ];
 
-export default function LevantamientoPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function LevantamientoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // Mediciones existentes (reactivas)
   const mediciones = useLiveQuery(async () => {
     if (!isReady || isNaN(visitaId)) return undefined;
-    return db.mediciones_radiometricas
-      .where("visita_id")
-      .equals(visitaId)
-      .sortBy("punto_numero");
+    return db.mediciones_radiometricas.where("visita_id").equals(visitaId).sortBy("punto_numero");
   }, [isReady, visitaId]);
 
   // Sala dimensiones para contexto
@@ -64,10 +55,7 @@ export default function LevantamientoPage({
 
   const sala = useLiveQuery(async () => {
     if (!visita?.ubicacion_id) return null;
-    return db.sala_dimensiones
-      .where("ubicacion_id")
-      .equals(visita.ubicacion_id)
-      .first();
+    return db.sala_dimensiones.where("ubicacion_id").equals(visita.ubicacion_id).first();
   }, [visita?.ubicacion_id]);
 
   // Agregar punto
@@ -88,10 +76,7 @@ export default function LevantamientoPage({
 
   // Actualizar campo de un punto
   const actualizarPunto = useCallback(
-    async (
-      puntoId: number,
-      campo: Partial<MedicionRadiometrica>
-    ) => {
+    async (puntoId: number, campo: Partial<MedicionRadiometrica>) => {
       try {
         setSaveStatus("saving");
         await db.mediciones_radiometricas.update(puntoId, {
@@ -132,9 +117,7 @@ export default function LevantamientoPage({
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        <p className="text-slate-500 font-bold">
-          Cargando levantamiento...
-        </p>
+        <p className="text-slate-500 font-bold">Cargando levantamiento...</p>
       </div>
     );
   }
@@ -152,9 +135,7 @@ export default function LevantamientoPage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Visita no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
         </div>
       </div>
     );
@@ -214,8 +195,7 @@ export default function LevantamientoPage({
             <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
               <MapPin className="w-3.5 h-3.5 text-primary" />
               <span>
-                Sala: {sala.ancho_m}m × {sala.largo_m}m × {sala.alto_m}m
-                (Área: {sala.area_m2} m²)
+                Sala: {sala.ancho_m}m × {sala.largo_m}m × {sala.alto_m}m (Área: {sala.area_m2} m²)
               </span>
             </div>
           </CardContent>
@@ -228,12 +208,9 @@ export default function LevantamientoPage({
           <div className="bg-primary/10 p-6 rounded-3xl">
             <Gauge className="w-10 h-10 text-primary" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Sin puntos de medición
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Sin puntos de medición</p>
           <p className="text-slate-400 text-sm">
-            Agrega puntos para registrar la tasa de dosis en diferentes
-            ubicaciones de la sala.
+            Agrega puntos para registrar la tasa de dosis en diferentes ubicaciones de la sala.
           </p>
         </div>
       ) : (
@@ -277,8 +254,8 @@ function PuntoMedicion({
     punto.concepto === "Conforme"
       ? "bg-emerald-500 text-white border-emerald-600"
       : punto.concepto === "No_conforme"
-      ? "bg-red-500 text-white border-red-600"
-      : "bg-slate-100 text-slate-500 border-slate-300";
+        ? "bg-red-500 text-white border-red-600"
+        : "bg-slate-100 text-slate-500 border-slate-300";
 
   return (
     <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
@@ -289,9 +266,7 @@ function PuntoMedicion({
             <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-xs font-black text-primary">
               {punto.punto_numero}
             </div>
-            <h4 className="font-black text-slate-900 text-sm">
-              Punto #{punto.punto_numero}
-            </h4>
+            <h4 className="font-black text-slate-900 text-sm">Punto #{punto.punto_numero}</h4>
           </div>
           {totalPuntos > 0 && (
             <button
@@ -315,9 +290,7 @@ function PuntoMedicion({
               placeholder="Ej: Puerta principal de acceso, Zona A"
               className="rounded-xl border-slate-200 focus:border-primary font-medium h-10 text-sm"
               defaultValue={punto.ubicacion_descripcion}
-              onBlur={(e) =>
-                debounceRef({ ubicacion_descripcion: e.target.value })
-              }
+              onBlur={(e) => debounceRef({ ubicacion_descripcion: e.target.value })}
             />
           </div>
 
@@ -334,9 +307,7 @@ function PuntoMedicion({
               defaultValue={punto.tasa_dosis_msv_h ?? ""}
               onBlur={(e) =>
                 debounceRef({
-                  tasa_dosis_msv_h: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
+                  tasa_dosis_msv_h: e.target.value ? Number(e.target.value) : undefined,
                 })
               }
             />
@@ -350,9 +321,7 @@ function PuntoMedicion({
             <select
               className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-10 text-sm px-3 outline-none transition-colors bg-white"
               defaultValue={punto.factor_ocupacion ?? "1"}
-              onChange={(e) =>
-                debounceRef({ factor_ocupacion: e.target.value })
-              }
+              onChange={(e) => debounceRef({ factor_ocupacion: e.target.value })}
             >
               {FACTORES_OCUPACION.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -397,9 +366,7 @@ function PuntoMedicion({
               defaultValue={punto.dosis_anual_msv ?? ""}
               onBlur={(e) =>
                 debounceRef({
-                  dosis_anual_msv: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
+                  dosis_anual_msv: e.target.value ? Number(e.target.value) : undefined,
                 })
               }
             />
@@ -444,9 +411,7 @@ function PuntoMedicion({
               placeholder="Observaciones del punto..."
               className="rounded-xl border-slate-200 focus:border-primary font-medium h-10 text-sm"
               defaultValue={punto.observacion ?? ""}
-              onBlur={(e) =>
-                debounceRef({ observacion: e.target.value || undefined })
-              }
+              onBlur={(e) => debounceRef({ observacion: e.target.value || undefined })}
             />
           </div>
         </div>

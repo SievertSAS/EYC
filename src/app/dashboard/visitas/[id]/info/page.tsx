@@ -106,11 +106,7 @@ function EditableField({
   );
 }
 
-export default function InfoGeneralPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function InfoGeneralPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -122,20 +118,14 @@ export default function InfoGeneralPage({
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const equipo = visita.equipo_id
-      ? await db.equipos.get(visita.equipo_id)
-      : undefined;
+    const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
     const ubicacion = visita.ubicacion_id
       ? await db.ubicaciones_rx.get(visita.ubicacion_id)
       : undefined;
     const solicitud = await db.solicitudes.get(visita.solicitud_id);
-    const cliente = solicitud
-      ? await db.clientes.get(solicitud.cliente_id)
-      : undefined;
+    const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
     const sede = ubicacion
-      ? await db.sedes.get(
-          (await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0
-        )
+      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
       : undefined;
 
     // Datos del tubo
@@ -145,10 +135,7 @@ export default function InfoGeneralPage({
 
     // Datos de la sala
     const sala = visita.ubicacion_id
-      ? await db.sala_dimensiones
-          .where("ubicacion_id")
-          .equals(visita.ubicacion_id)
-          .first()
+      ? await db.sala_dimensiones.where("ubicacion_id").equals(visita.ubicacion_id).first()
       : undefined;
 
     // Contacto para programar
@@ -157,9 +144,7 @@ export default function InfoGeneralPage({
       : undefined;
 
     // Técnico asignado
-    const tecnico = visita.tecnico_id
-      ? await db.usuarios.get(visita.tecnico_id)
-      : undefined;
+    const tecnico = visita.tecnico_id ? await db.usuarios.get(visita.tecnico_id) : undefined;
 
     return {
       visita,
@@ -197,31 +182,18 @@ export default function InfoGeneralPage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Visita no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
         </div>
       </div>
     );
   }
 
-  const {
-    visita,
-    equipo,
-    ubicacion,
-    sede,
-    cliente,
-    solicitud,
-    tubo,
-    sala,
-    contacto,
-    tecnico,
-  } = data;
+  const { visita, equipo, ubicacion, sede, cliente, solicitud, tubo, sala, contacto, tecnico } =
+    data;
 
   // El técnico puede editar datos de equipo/ubicación cuando la visita está en progreso
   const canEdit =
-    role?.cargo === "tecnico" &&
-    ["en_progreso", "completada"].includes(visita.estado_visita);
+    role?.cargo === "tecnico" && ["en_progreso", "completada"].includes(visita.estado_visita);
 
   const tecnicoId = role?.usuarioId ?? 0;
 
@@ -231,11 +203,20 @@ export default function InfoGeneralPage({
       if (!equipo?.id) return;
       const parsed =
         field.includes("mmal") || field === "distancia_foco_paciente"
-          ? value === "" ? undefined : parseFloat(value)
+          ? value === ""
+            ? undefined
+            : parseFloat(value)
           : value || undefined;
       const oldVal = equipo[field as keyof typeof equipo];
       await db.equipos.update(equipo.id, { [field]: parsed });
-      await trackChange("equipos", equipo.id, field, oldVal != null ? String(oldVal) : undefined, parsed != null ? String(parsed) : undefined, tecnicoId);
+      await trackChange(
+        "equipos",
+        equipo.id,
+        field,
+        oldVal != null ? String(oldVal) : undefined,
+        parsed != null ? String(parsed) : undefined,
+        tecnicoId
+      );
     },
     [equipo, tecnicoId]
   );
@@ -245,11 +226,20 @@ export default function InfoGeneralPage({
       if (!ubicacion?.id) return;
       const parsed =
         field === "horas_x_dia"
-          ? value === "" ? undefined : parseFloat(value)
+          ? value === ""
+            ? undefined
+            : parseFloat(value)
           : value || undefined;
       const oldVal = ubicacion[field as keyof typeof ubicacion];
       await db.ubicaciones_rx.update(ubicacion.id, { [field]: parsed });
-      await trackChange("ubicaciones_rx", ubicacion.id, field, oldVal != null ? String(oldVal) : undefined, parsed != null ? String(parsed) : undefined, tecnicoId);
+      await trackChange(
+        "ubicaciones_rx",
+        ubicacion.id,
+        field,
+        oldVal != null ? String(oldVal) : undefined,
+        parsed != null ? String(parsed) : undefined,
+        tecnicoId
+      );
     },
     [ubicacion, tecnicoId]
   );
@@ -259,11 +249,20 @@ export default function InfoGeneralPage({
       if (!tubo?.id) return;
       const numFields = ["kv_max", "ma_max", "mas_max", "foco_fino_mm", "foco_grueso_mm"];
       const parsed = numFields.includes(field)
-        ? value === "" ? undefined : parseFloat(value)
+        ? value === ""
+          ? undefined
+          : parseFloat(value)
         : value || undefined;
       const oldVal = tubo[field as keyof typeof tubo];
       await db.tubos.update(tubo.id, { [field]: parsed });
-      await trackChange("tubos", tubo.id, field, oldVal != null ? String(oldVal) : undefined, parsed != null ? String(parsed) : undefined, tecnicoId);
+      await trackChange(
+        "tubos",
+        tubo.id,
+        field,
+        oldVal != null ? String(oldVal) : undefined,
+        parsed != null ? String(parsed) : undefined,
+        tecnicoId
+      );
     },
     [tubo, tecnicoId]
   );
@@ -303,9 +302,7 @@ export default function InfoGeneralPage({
               <Building2 className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Cliente
-              </h3>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Cliente</h3>
               <p className="text-[11px] text-slate-400 font-medium">
                 Datos del prestador de servicios
               </p>
@@ -318,34 +315,13 @@ export default function InfoGeneralPage({
               value={cliente?.nombre_cliente}
               icon={Building2}
             />
-            <InfoField
-              label="Nombre Prestador"
-              value={cliente?.nombre_prestador}
-            />
+            <InfoField label="Nombre Prestador" value={cliente?.nombre_prestador} />
             <InfoField label="NIT" value={cliente?.nit} icon={Hash} />
-            <InfoField
-              label="Dígito Verificación"
-              value={cliente?.digito_verificacion}
-            />
-            <InfoField
-              label="Naturaleza"
-              value={cliente?.naturaleza}
-            />
-            <InfoField
-              label="Dirección"
-              value={cliente?.direccion}
-              icon={MapPin}
-            />
-            <InfoField
-              label="Teléfono"
-              value={cliente?.telefono}
-              icon={Phone}
-            />
-            <InfoField
-              label="Email"
-              value={cliente?.email}
-              icon={Mail}
-            />
+            <InfoField label="Dígito Verificación" value={cliente?.digito_verificacion} />
+            <InfoField label="Naturaleza" value={cliente?.naturaleza} />
+            <InfoField label="Dirección" value={cliente?.direccion} icon={MapPin} />
+            <InfoField label="Teléfono" value={cliente?.telefono} icon={Phone} />
+            <InfoField label="Email" value={cliente?.email} icon={Mail} />
             <InfoField
               label="Representante Legal"
               value={cliente?.nombre_representante_legal}
@@ -363,9 +339,7 @@ export default function InfoGeneralPage({
               <MapPin className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Sede y Ubicación
-              </h3>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Sede y Ubicación</h3>
               <p className="text-[11px] text-slate-400 font-medium">
                 Lugar donde se presta el servicio
               </p>
@@ -379,18 +353,51 @@ export default function InfoGeneralPage({
             <InfoField label="Departamento" value={sede?.departamento} />
             {canEdit ? (
               <>
-                <EditableField label="Servicio / Área" value={ubicacion?.nombre_servicio} onSave={(v) => saveUbicacion("nombre_servicio", v)} />
-                <EditableField label="Código Habilitación" value={ubicacion?.codigo_habilitacion} icon={Shield} onSave={(v) => saveUbicacion("codigo_habilitacion", v)} />
-                <EditableField label="Licencia" value={ubicacion?.licencia} icon={FileText} onSave={(v) => saveUbicacion("licencia", v)} />
-                <EditableField label="Vencimiento Licencia" value={ubicacion?.fecha_expiracion_licencia} icon={Calendar} type="date" onSave={(v) => saveUbicacion("fecha_expiracion_licencia", v)} />
-                <EditableField label="Horas / Día" value={ubicacion?.horas_x_dia} type="number" onSave={(v) => saveUbicacion("horas_x_dia", v)} />
+                <EditableField
+                  label="Servicio / Área"
+                  value={ubicacion?.nombre_servicio}
+                  onSave={(v) => saveUbicacion("nombre_servicio", v)}
+                />
+                <EditableField
+                  label="Código Habilitación"
+                  value={ubicacion?.codigo_habilitacion}
+                  icon={Shield}
+                  onSave={(v) => saveUbicacion("codigo_habilitacion", v)}
+                />
+                <EditableField
+                  label="Licencia"
+                  value={ubicacion?.licencia}
+                  icon={FileText}
+                  onSave={(v) => saveUbicacion("licencia", v)}
+                />
+                <EditableField
+                  label="Vencimiento Licencia"
+                  value={ubicacion?.fecha_expiracion_licencia}
+                  icon={Calendar}
+                  type="date"
+                  onSave={(v) => saveUbicacion("fecha_expiracion_licencia", v)}
+                />
+                <EditableField
+                  label="Horas / Día"
+                  value={ubicacion?.horas_x_dia}
+                  type="number"
+                  onSave={(v) => saveUbicacion("horas_x_dia", v)}
+                />
               </>
             ) : (
               <>
                 <InfoField label="Servicio / Área" value={ubicacion?.nombre_servicio} />
-                <InfoField label="Código Habilitación" value={ubicacion?.codigo_habilitacion} icon={Shield} />
+                <InfoField
+                  label="Código Habilitación"
+                  value={ubicacion?.codigo_habilitacion}
+                  icon={Shield}
+                />
                 <InfoField label="Licencia" value={ubicacion?.licencia} icon={FileText} />
-                <InfoField label="Vencimiento Licencia" value={ubicacion?.fecha_expiracion_licencia} icon={Calendar} />
+                <InfoField
+                  label="Vencimiento Licencia"
+                  value={ubicacion?.fecha_expiracion_licencia}
+                  icon={Calendar}
+                />
                 <InfoField label="Horas / Día" value={ubicacion?.horas_x_dia} />
               </>
             )}
@@ -406,45 +413,98 @@ export default function InfoGeneralPage({
               <Radio className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Equipo — Generador
-              </h3>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Datos del equipo de rayos X
-              </p>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Equipo — Generador</h3>
+              <p className="text-[11px] text-slate-400 font-medium">Datos del equipo de rayos X</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <InfoField
-              label="Tipo de Equipo"
-              value={equipo?.tipo_equipo?.replace(/_/g, " ")}
-            />
+            <InfoField label="Tipo de Equipo" value={equipo?.tipo_equipo?.replace(/_/g, " ")} />
             {canEdit ? (
               <>
-                <EditableField label="Marca" value={equipo?.gen_marca} onSave={(v) => saveEquipo("gen_marca", v)} />
-                <EditableField label="Modelo" value={equipo?.gen_modelo} onSave={(v) => saveEquipo("gen_modelo", v)} />
-                <EditableField label="No. Serie" value={equipo?.gen_numero_serie} icon={Hash} onSave={(v) => saveEquipo("gen_numero_serie", v)} />
-                <EditableField label="Fecha Fabricación" value={equipo?.gen_fecha_fabricacion} icon={Calendar} type="date" onSave={(v) => saveEquipo("gen_fecha_fabricacion", v)} />
-                <EditableField label="Fase" value={equipo?.gen_fase} icon={Zap} onSave={(v) => saveEquipo("gen_fase", v)} />
-                <EditableField label="Sistema Adquisición" value={equipo?.sistema_adquisicion} onSave={(v) => saveEquipo("sistema_adquisicion", v)} />
-                <EditableField label="Dist. Foco-Paciente (cm)" value={equipo?.distancia_foco_paciente} type="number" onSave={(v) => saveEquipo("distancia_foco_paciente", v)} />
-                <EditableField label="Bucky" value={equipo?.bucky} onSave={(v) => saveEquipo("bucky", v)} />
-                <EditableField label="Filtración Inherente (mmAl)" value={equipo?.filtracion_inherente_mmal} type="number" onSave={(v) => saveEquipo("filtracion_inherente_mmal", v)} />
-                <EditableField label="Filtración Añadida (mmAl)" value={equipo?.filtracion_anadida_mmal} type="number" onSave={(v) => saveEquipo("filtracion_anadida_mmal", v)} />
+                <EditableField
+                  label="Marca"
+                  value={equipo?.gen_marca}
+                  onSave={(v) => saveEquipo("gen_marca", v)}
+                />
+                <EditableField
+                  label="Modelo"
+                  value={equipo?.gen_modelo}
+                  onSave={(v) => saveEquipo("gen_modelo", v)}
+                />
+                <EditableField
+                  label="No. Serie"
+                  value={equipo?.gen_numero_serie}
+                  icon={Hash}
+                  onSave={(v) => saveEquipo("gen_numero_serie", v)}
+                />
+                <EditableField
+                  label="Fecha Fabricación"
+                  value={equipo?.gen_fecha_fabricacion}
+                  icon={Calendar}
+                  type="date"
+                  onSave={(v) => saveEquipo("gen_fecha_fabricacion", v)}
+                />
+                <EditableField
+                  label="Fase"
+                  value={equipo?.gen_fase}
+                  icon={Zap}
+                  onSave={(v) => saveEquipo("gen_fase", v)}
+                />
+                <EditableField
+                  label="Sistema Adquisición"
+                  value={equipo?.sistema_adquisicion}
+                  onSave={(v) => saveEquipo("sistema_adquisicion", v)}
+                />
+                <EditableField
+                  label="Dist. Foco-Paciente (cm)"
+                  value={equipo?.distancia_foco_paciente}
+                  type="number"
+                  onSave={(v) => saveEquipo("distancia_foco_paciente", v)}
+                />
+                <EditableField
+                  label="Bucky"
+                  value={equipo?.bucky}
+                  onSave={(v) => saveEquipo("bucky", v)}
+                />
+                <EditableField
+                  label="Filtración Inherente (mmAl)"
+                  value={equipo?.filtracion_inherente_mmal}
+                  type="number"
+                  onSave={(v) => saveEquipo("filtracion_inherente_mmal", v)}
+                />
+                <EditableField
+                  label="Filtración Añadida (mmAl)"
+                  value={equipo?.filtracion_anadida_mmal}
+                  type="number"
+                  onSave={(v) => saveEquipo("filtracion_anadida_mmal", v)}
+                />
               </>
             ) : (
               <>
                 <InfoField label="Marca" value={equipo?.gen_marca} />
                 <InfoField label="Modelo" value={equipo?.gen_modelo} />
                 <InfoField label="No. Serie" value={equipo?.gen_numero_serie} icon={Hash} />
-                <InfoField label="Fecha Fabricación" value={equipo?.gen_fecha_fabricacion} icon={Calendar} />
+                <InfoField
+                  label="Fecha Fabricación"
+                  value={equipo?.gen_fecha_fabricacion}
+                  icon={Calendar}
+                />
                 <InfoField label="Fase" value={equipo?.gen_fase} icon={Zap} />
                 <InfoField label="Sistema Adquisición" value={equipo?.sistema_adquisicion} />
-                <InfoField label="Dist. Foco-Paciente (cm)" value={equipo?.distancia_foco_paciente} />
+                <InfoField
+                  label="Dist. Foco-Paciente (cm)"
+                  value={equipo?.distancia_foco_paciente}
+                />
                 <InfoField label="Bucky" value={equipo?.bucky} />
-                <InfoField label="Filtración Inherente (mmAl)" value={equipo?.filtracion_inherente_mmal} />
-                <InfoField label="Filtración Añadida (mmAl)" value={equipo?.filtracion_anadida_mmal} />
+                <InfoField
+                  label="Filtración Inherente (mmAl)"
+                  value={equipo?.filtracion_inherente_mmal}
+                />
+                <InfoField
+                  label="Filtración Añadida (mmAl)"
+                  value={equipo?.filtracion_anadida_mmal}
+                />
               </>
             )}
           </div>
@@ -460,27 +520,65 @@ export default function InfoGeneralPage({
                 <Zap className="text-primary w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                  Tubo de Rayos X
-                </h3>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  Características del tubo
-                </p>
+                <h3 className="font-black text-slate-900 text-sm sm:text-base">Tubo de Rayos X</h3>
+                <p className="text-[11px] text-slate-400 font-medium">Características del tubo</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {canEdit ? (
                 <>
-                  <EditableField label="Marca" value={tubo.marca} onSave={(v) => saveTubo("marca", v)} />
-                  <EditableField label="Modelo" value={tubo.modelo} onSave={(v) => saveTubo("modelo", v)} />
-                  <EditableField label="No. Serie" value={tubo.numero_serie} icon={Hash} onSave={(v) => saveTubo("numero_serie", v)} />
-                  <EditableField label="Tipo" value={tubo.tipo} onSave={(v) => saveTubo("tipo", v)} />
-                  <EditableField label="kV Máximo" value={tubo.kv_max} type="number" onSave={(v) => saveTubo("kv_max", v)} />
-                  <EditableField label="mA Máximo" value={tubo.ma_max} type="number" onSave={(v) => saveTubo("ma_max", v)} />
-                  <EditableField label="mAs Máximo" value={tubo.mas_max} type="number" onSave={(v) => saveTubo("mas_max", v)} />
-                  <EditableField label="Foco Fino (mm)" value={tubo.foco_fino_mm} type="number" onSave={(v) => saveTubo("foco_fino_mm", v)} />
-                  <EditableField label="Foco Grueso (mm)" value={tubo.foco_grueso_mm} type="number" onSave={(v) => saveTubo("foco_grueso_mm", v)} />
+                  <EditableField
+                    label="Marca"
+                    value={tubo.marca}
+                    onSave={(v) => saveTubo("marca", v)}
+                  />
+                  <EditableField
+                    label="Modelo"
+                    value={tubo.modelo}
+                    onSave={(v) => saveTubo("modelo", v)}
+                  />
+                  <EditableField
+                    label="No. Serie"
+                    value={tubo.numero_serie}
+                    icon={Hash}
+                    onSave={(v) => saveTubo("numero_serie", v)}
+                  />
+                  <EditableField
+                    label="Tipo"
+                    value={tubo.tipo}
+                    onSave={(v) => saveTubo("tipo", v)}
+                  />
+                  <EditableField
+                    label="kV Máximo"
+                    value={tubo.kv_max}
+                    type="number"
+                    onSave={(v) => saveTubo("kv_max", v)}
+                  />
+                  <EditableField
+                    label="mA Máximo"
+                    value={tubo.ma_max}
+                    type="number"
+                    onSave={(v) => saveTubo("ma_max", v)}
+                  />
+                  <EditableField
+                    label="mAs Máximo"
+                    value={tubo.mas_max}
+                    type="number"
+                    onSave={(v) => saveTubo("mas_max", v)}
+                  />
+                  <EditableField
+                    label="Foco Fino (mm)"
+                    value={tubo.foco_fino_mm}
+                    type="number"
+                    onSave={(v) => saveTubo("foco_fino_mm", v)}
+                  />
+                  <EditableField
+                    label="Foco Grueso (mm)"
+                    value={tubo.foco_grueso_mm}
+                    type="number"
+                    onSave={(v) => saveTubo("foco_grueso_mm", v)}
+                  />
                 </>
               ) : (
                 <>
@@ -525,10 +623,7 @@ export default function InfoGeneralPage({
               <InfoField label="Área (m²)" value={sala.area_m2} />
             </div>
 
-            {(sala.zona_a_desc ||
-              sala.zona_b_desc ||
-              sala.zona_c_desc ||
-              sala.zona_d_desc) && (
+            {(sala.zona_a_desc || sala.zona_b_desc || sala.zona_c_desc || sala.zona_d_desc) && (
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Descripción de zonas
@@ -589,9 +684,7 @@ export default function InfoGeneralPage({
               <User className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Contacto y Técnico
-              </h3>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Contacto y Técnico</h3>
               <p className="text-[11px] text-slate-400 font-medium">
                 Personas involucradas en el servicio
               </p>
@@ -605,22 +698,10 @@ export default function InfoGeneralPage({
                 Contacto del Cliente
               </p>
               <div className="space-y-3">
-                <InfoField
-                  label="Nombre"
-                  value={contacto?.nombre}
-                  icon={User}
-                />
+                <InfoField label="Nombre" value={contacto?.nombre} icon={User} />
                 <InfoField label="Cargo" value={contacto?.cargo} />
-                <InfoField
-                  label="Teléfono"
-                  value={contacto?.telefono}
-                  icon={Phone}
-                />
-                <InfoField
-                  label="Email"
-                  value={contacto?.email}
-                  icon={Mail}
-                />
+                <InfoField label="Teléfono" value={contacto?.telefono} icon={Phone} />
+                <InfoField label="Email" value={contacto?.email} icon={Mail} />
               </div>
             </div>
 
@@ -630,22 +711,10 @@ export default function InfoGeneralPage({
                 Técnico / Físico Asignado
               </p>
               <div className="space-y-3">
-                <InfoField
-                  label="Nombre"
-                  value={tecnico?.nombre}
-                  icon={User}
-                />
+                <InfoField label="Nombre" value={tecnico?.nombre} icon={User} />
                 <InfoField label="Cargo" value={tecnico?.cargo} />
-                <InfoField
-                  label="Cédula"
-                  value={tecnico?.cedula}
-                  icon={Hash}
-                />
-                <InfoField
-                  label="Email"
-                  value={tecnico?.email}
-                  icon={Mail}
-                />
+                <InfoField label="Cédula" value={tecnico?.cedula} icon={Hash} />
+                <InfoField label="Email" value={tecnico?.email} icon={Mail} />
               </div>
             </div>
           </div>
@@ -660,12 +729,8 @@ export default function InfoGeneralPage({
               <FileText className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Datos del Servicio
-              </h3>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Información de la solicitud
-              </p>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Datos del Servicio</h3>
+              <p className="text-[11px] text-slate-400 font-medium">Información de la solicitud</p>
             </div>
           </div>
 
@@ -674,29 +739,15 @@ export default function InfoGeneralPage({
               label="Tipo de Servicio"
               value={solicitud?.tipo_servicio?.replace(/_/g, " ")}
             />
-            <InfoField
-              label="Fecha Solicitud"
-              value={solicitud?.fecha_solicitud}
-              icon={Calendar}
-            />
+            <InfoField label="Fecha Solicitud" value={solicitud?.fecha_solicitud} icon={Calendar} />
             <InfoField
               label="Fecha Estimada Visita"
               value={solicitud?.fecha_estimada_visita}
               icon={Calendar}
             />
-            <InfoField
-              label="Fecha Visita"
-              value={visita.fecha_visita}
-              icon={Calendar}
-            />
-            <InfoField
-              label="Estado"
-              value={visita.estado_visita.replace(/_/g, " ")}
-            />
-            <InfoField
-              label="Forma de Pago"
-              value={solicitud?.forma_pago}
-            />
+            <InfoField label="Fecha Visita" value={visita.fecha_visita} icon={Calendar} />
+            <InfoField label="Estado" value={visita.estado_visita.replace(/_/g, " ")} />
+            <InfoField label="Forma de Pago" value={solicitud?.forma_pago} />
           </div>
         </CardContent>
       </Card>

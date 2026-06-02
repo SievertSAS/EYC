@@ -46,9 +46,7 @@ export function ImageCaptureSlot({
         <label className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
           <ImageIcon className="w-3.5 h-3.5" />
           {slot.label}
-          {slot.obligatorio && (
-            <span className="text-red-500 text-[10px]">*</span>
-          )}
+          {slot.obligatorio && <span className="text-red-500 text-[10px]">*</span>}
         </label>
         {slot.max_imagenes > 1 && (
           <span className="text-[10px] text-slate-400 font-bold">
@@ -127,11 +125,7 @@ function ImagePreview({
     <div className="relative group rounded-xl overflow-hidden border border-slate-200 w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt="Evidencia"
-          className="w-full h-full object-cover"
-        />
+        <img src={src} alt="Evidencia" className="w-full h-full object-cover" />
       ) : (
         <div className="w-full h-full bg-slate-100 flex items-center justify-center">
           <ImageIcon className="w-6 h-6 text-slate-300" />

@@ -37,20 +37,26 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ModuloStatus } from "@/lib/workflow/module-completeness";
+import { getModules, getDefaultModules } from "@/lib/equipos/registry";
+import type { LucideIcon } from "lucide-react";
 
 // ============================================================
 //  Detalle de revisión — Vista read-only para el ingeniero
 //  Con acciones: Aprobar y Devolver con Observaciones
 // ============================================================
 
-const MODULOS_REVIEW = [
-  { id: "condiciones", nombre: "Condiciones Ambientales", icon: Thermometer, ruta: "condiciones" },
-  { id: "levantamiento", nombre: "Levantamiento Radiométrico", icon: Gauge, ruta: "levantamiento" },
-  { id: "inspeccion", nombre: "Inspección Visual", icon: Eye, ruta: "inspeccion" },
-  { id: "pruebas", nombre: "Pruebas de Control de Calidad", icon: FlaskConical, ruta: "pruebas" },
-  { id: "evidencias", nombre: "Evidencias Fotográficas", icon: Camera, ruta: "evidencias" },
-  { id: "pre-informe", nombre: "Pre-Informe PDF", icon: FileText, ruta: "pre-informe" },
-];
+const ICON_MAP: Record<string, LucideIcon> = {
+  Thermometer,
+  Gauge,
+  Eye,
+  FlaskConical,
+  Camera,
+  FileText,
+};
+
+function resolveIcon(iconName: string): LucideIcon {
+  return ICON_MAP[iconName] ?? FlaskConical;
+}
 
 const STATUS_ICON: Record<ModuloStatus, React.ReactNode> = {
   sin_iniciar: <Circle className="w-4 h-4 text-slate-300" />,
@@ -58,11 +64,7 @@ const STATUS_ICON: Record<ModuloStatus, React.ReactNode> = {
   completado: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
 };
 
-export default function RevisionDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function RevisionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -79,32 +81,21 @@ export default function RevisionDetailPage({
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const equipo = visita.equipo_id
-      ? await db.equipos.get(visita.equipo_id)
-      : undefined;
+    const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
     const ubicacion = visita.ubicacion_id
       ? await db.ubicaciones_rx.get(visita.ubicacion_id)
       : undefined;
     const solicitud = await db.solicitudes.get(visita.solicitud_id);
-    const cliente = solicitud
-      ? await db.clientes.get(solicitud.cliente_id)
-      : undefined;
+    const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
     const sede = ubicacion
-      ? await db.sedes.get(
-          (await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0
-        )
+      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
       : undefined;
-    const tecnico = visita.tecnico_id
-      ? await db.usuarios.get(visita.tecnico_id)
-      : undefined;
+    const tecnico = visita.tecnico_id ? await db.usuarios.get(visita.tecnico_id) : undefined;
 
     const completeness = await getVisitCompleteness(visitaId);
 
     // Datos resumen de pruebas
-    const pruebas = await db.prueba_resultados
-      .where("visita_id")
-      .equals(visitaId)
-      .toArray();
+    const pruebas = await db.prueba_resultados.where("visita_id").equals(visitaId).toArray();
     const mediciones = await db.mediciones_radiometricas
       .where("visita_id")
       .equals(visitaId)
@@ -173,11 +164,7 @@ export default function RevisionDetailPage({
     if (!role) return;
     setLoading("aprobar");
     try {
-      const result = await executeTransition(
-        visitaId,
-        "aprobar",
-        role.cargo
-      );
+      const result = await executeTransition(visitaId, "aprobar", role.cargo);
       if (result.success) {
         // Crear informe automáticamente
         await crearInformeDesdeVisita(
@@ -198,12 +185,9 @@ export default function RevisionDetailPage({
     if (!role || !observaciones.trim()) return;
     setLoading("devolver");
     try {
-      const result = await executeTransition(
-        visitaId,
-        "devolver",
-        role.cargo,
-        { observaciones_revision: observaciones.trim() }
-      );
+      const result = await executeTransition(visitaId, "devolver", role.cargo, {
+        observaciones_revision: observaciones.trim(),
+      });
       if (result.success) {
         router.push("/dashboard/revision");
       }
@@ -278,9 +262,7 @@ export default function RevisionDetailPage({
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
               Favorables
             </p>
-            <p className="text-xl font-black text-emerald-600">
-              {pruebasFavorables}
-            </p>
+            <p className="text-xl font-black text-emerald-600">{pruebasFavorables}</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm rounded-2xl bg-white">
@@ -288,9 +270,7 @@ export default function RevisionDetailPage({
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
               No Favorables
             </p>
-            <p className="text-xl font-black text-red-600">
-              {pruebasNoFavorables}
-            </p>
+            <p className="text-xl font-black text-red-600">{pruebasNoFavorables}</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm rounded-2xl bg-white">
@@ -298,9 +278,7 @@ export default function RevisionDetailPage({
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
               Mediciones
             </p>
-            <p className="text-xl font-black text-slate-900">
-              {medicionesCount}
-            </p>
+            <p className="text-xl font-black text-slate-900">{medicionesCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -311,42 +289,36 @@ export default function RevisionDetailPage({
           Módulos de la visita
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {MODULOS_REVIEW.map((modulo) => {
-            const status =
-              completeness.modules.find((m) => m.id === modulo.id)?.status ??
-              "sin_iniciar";
-            const Icon = modulo.icon;
-            return (
-              <Link
-                key={modulo.id}
-                href={`/dashboard/visitas/${id}/${modulo.ruta}`}
-              >
-                <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 p-2 rounded-xl">
-                          <Icon className="text-primary w-4 h-4" />
+          {(equipo?.tipo_equipo ? getModules(equipo.tipo_equipo) : getDefaultModules()).map(
+            (modulo) => {
+              const status =
+                completeness.modules.find((m) => m.id === modulo.id)?.status ?? "sin_iniciar";
+              const Icon = resolveIcon(modulo.icon);
+              const ruta = modulo.ruta ?? modulo.id;
+              return (
+                <Link key={modulo.id} href={`/dashboard/visitas/${id}/${ruta}`}>
+                  <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-primary/10 p-2 rounded-xl">
+                            <Icon className="text-primary w-4 h-4" />
+                          </div>
+                          <span className="font-bold text-slate-900 text-sm">{modulo.nombre}</span>
                         </div>
-                        <span className="font-bold text-slate-900 text-sm">
-                          {modulo.nombre}
-                        </span>
+                        <div className="flex items-center gap-2">{STATUS_ICON[status]}</div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {STATUS_ICON[status]}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            }
+          )}
         </div>
       </div>
 
       {/* Acciones de revisión */}
-      {(visita.estado_visita === "en_revision" ||
-        visita.estado_visita === "pre_informe") && (
+      {(visita.estado_visita === "en_revision" || visita.estado_visita === "pre_informe") && (
         <div className="space-y-4">
           <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight">
             Decisión

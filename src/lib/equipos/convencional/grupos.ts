@@ -3,7 +3,7 @@
 //  Basado en plantilla TECDOC 1958 / Resolución 1811
 // ============================================================
 
-import type { GrupoPruebaDefinition } from "../types";
+import type { GrupoPruebaDefinition } from "../grupo-types";
 import { TEXTOS } from "./textos";
 
 // ─── Grupo A: Levantamiento radiométrico + Inspección visual ───
@@ -16,21 +16,46 @@ const GRUPO_A: GrupoPruebaDefinition = {
     columnas: [
       { key: "punto", label: "Punto", type: "number", required: true },
       { key: "ubicacion", label: "Ubicación / descripción", type: "text", required: true },
-      { key: "tasa_dosis", label: "Tasa dosis", type: "number", unit: "mSv/h", decimal_places: 4, required: true },
-      { key: "factor_ocupacion", label: "Factor T", type: "select", opciones: ["1", "1/4", "1/16", "1/20", "1/40"], required: true },
-      { key: "tipo_area", label: "Tipo área", type: "select", opciones: ["controlada", "supervisada"], required: true },
+      {
+        key: "tasa_dosis",
+        label: "Tasa dosis",
+        type: "number",
+        unit: "mSv/h",
+        decimal_places: 4,
+        required: true,
+      },
+      {
+        key: "factor_ocupacion",
+        label: "Factor T",
+        type: "select",
+        opciones: ["1", "1/4", "1/16", "1/20", "1/40"],
+        required: true,
+      },
+      {
+        key: "tipo_area",
+        label: "Tipo área",
+        type: "select",
+        opciones: ["controlada", "supervisada"],
+        required: true,
+      },
       { key: "horas_anio", label: "Horas/año", type: "number", placeholder: "2000" },
     ],
   },
   slots_imagen: [
-    { key: "plano_radiometrico", label: "Plano de levantamiento radiométrico", obligatorio: true, max_imagenes: 1 },
+    {
+      key: "plano_radiometrico",
+      label: "Plano de levantamiento radiométrico",
+      obligatorio: true,
+      max_imagenes: 1,
+    },
   ],
   pruebas: [
     {
       codigo: "LEV_CONV",
       numero_tecdoc: "2.1",
       nombre: "Evaluación de condiciones ambientales / Levantamiento radiométrico",
-      descripcion: "Medir tasa de dosis en puntos representativos para verificar protección radiológica",
+      descripcion:
+        "Medir tasa de dosis en puntos representativos para verificar protección radiológica",
       orden_en_grupo: 1,
       orden_global: 1,
       formulas: [
@@ -38,7 +63,8 @@ const GRUPO_A: GrupoPruebaDefinition = {
           campo_resultado: "dosis_anual_msv",
           label: "Dosis anual",
           unit: "mSv",
-          expresion: "row.tasa_dosis * (row.factor_ocupacion === '1' ? 1 : row.factor_ocupacion === '1/4' ? 0.25 : row.factor_ocupacion === '1/16' ? 0.0625 : row.factor_ocupacion === '1/20' ? 0.05 : 0.025) * (row.horas_anio || 2000)",
+          expresion:
+            "row.tasa_dosis * (row.factor_ocupacion === '1' ? 1 : row.factor_ocupacion === '1/4' ? 0.25 : row.factor_ocupacion === '1/16' ? 0.0625 : row.factor_ocupacion === '1/20' ? 0.05 : 0.025) * (row.horas_anio || 2000)",
           dependencias: ["tasa_dosis", "factor_ocupacion", "horas_anio"],
         },
       ],
@@ -81,12 +107,24 @@ const GRUPO_B: GrupoPruebaDefinition = {
   orden: 2,
   schema_mediciones: {
     columnas: [
-      { key: "borde", label: "Borde", type: "select", opciones: ["Superior", "Inferior", "Izquierdo", "Derecho"], required: true },
+      {
+        key: "borde",
+        label: "Borde",
+        type: "select",
+        opciones: ["Superior", "Inferior", "Izquierdo", "Derecho"],
+        required: true,
+      },
       { key: "campo_luz_cm", label: "Campo luz", type: "number", unit: "cm", decimal_places: 1 },
       { key: "campo_rx_cm", label: "Campo RX", type: "number", unit: "cm", decimal_places: 1 },
       { key: "desviacion_cm", label: "Desviación", type: "number", unit: "cm", decimal_places: 1 },
       { key: "dfi_cm", label: "DFI", type: "number", unit: "cm", placeholder: "100" },
-      { key: "resolucion_lp_mm", label: "Resolución", type: "number", unit: "lp/mm", decimal_places: 1 },
+      {
+        key: "resolucion_lp_mm",
+        label: "Resolución",
+        type: "number",
+        unit: "lp/mm",
+        decimal_places: 1,
+      },
       { key: "bajo_contraste_objetos", label: "Objetos bajo contraste", type: "number" },
     ],
   },
@@ -179,7 +217,12 @@ const GRUPO_C: GrupoPruebaDefinition = {
     ],
   },
   slots_imagen: [
-    { key: "montaje_raysafe", label: "Montaje de medición RaySafe", obligatorio: false, max_imagenes: 1 },
+    {
+      key: "montaje_raysafe",
+      label: "Montaje de medición RaySafe",
+      obligatorio: false,
+      max_imagenes: 1,
+    },
   ],
   pruebas: [
     {
@@ -194,14 +237,16 @@ const GRUPO_C: GrupoPruebaDefinition = {
           campo_resultado: "desviacion_tiempo_pct",
           label: "Desviación tiempo",
           unit: "%",
-          expresion: "row.tiempo_set > 0 ? Math.abs(row.tiempo_med - row.tiempo_set) / row.tiempo_set * 100 : 0",
+          expresion:
+            "row.tiempo_set > 0 ? Math.abs(row.tiempo_med - row.tiempo_set) / row.tiempo_set * 100 : 0",
           dependencias: ["tiempo_set", "tiempo_med"],
         },
         {
           campo_resultado: "cv_tiempo_pct",
           label: "CV% tiempo",
           unit: "%",
-          expresion: "stats.cv(rows.filter(r => r.tiempo_set === row.tiempo_set && r.tiempo_med != null).map(r => r.tiempo_med))",
+          expresion:
+            "stats.cv(rows.filter(r => r.tiempo_set === row.tiempo_set && r.tiempo_med != null).map(r => r.tiempo_med))",
           dependencias: ["tiempo_set", "tiempo_med"],
         },
       ],
@@ -238,14 +283,16 @@ const GRUPO_C: GrupoPruebaDefinition = {
           campo_resultado: "desviacion_kvp_pct",
           label: "Desviación kVp",
           unit: "%",
-          expresion: "row.kvp_set > 0 ? Math.abs(row.kvp_med - row.kvp_set) / row.kvp_set * 100 : 0",
+          expresion:
+            "row.kvp_set > 0 ? Math.abs(row.kvp_med - row.kvp_set) / row.kvp_set * 100 : 0",
           dependencias: ["kvp_set", "kvp_med"],
         },
         {
           campo_resultado: "cv_kvp_pct",
           label: "CV% kVp",
           unit: "%",
-          expresion: "stats.cv(rows.filter(r => r.kvp_set === row.kvp_set && r.kvp_med != null).map(r => r.kvp_med))",
+          expresion:
+            "stats.cv(rows.filter(r => r.kvp_set === row.kvp_set && r.kvp_med != null).map(r => r.kvp_med))",
           dependencias: ["kvp_set", "kvp_med"],
         },
       ],
@@ -282,7 +329,8 @@ const GRUPO_C: GrupoPruebaDefinition = {
           campo_resultado: "hvl_promedio",
           label: "HVL promedio",
           unit: "mmAl",
-          expresion: "stats.mean(rows.filter(r => r.hvl_mmal != null && r.hvl_mmal > 0).map(r => r.hvl_mmal))",
+          expresion:
+            "stats.mean(rows.filter(r => r.hvl_mmal != null && r.hvl_mmal > 0).map(r => r.hvl_mmal))",
           dependencias: ["hvl_mmal"],
         },
       ],
@@ -318,7 +366,8 @@ const GRUPO_C: GrupoPruebaDefinition = {
           campo_resultado: "cv_rendimiento_pct",
           label: "CV% rendimiento",
           unit: "%",
-          expresion: "stats.cv(rows.filter(r => r.mas_med > 0 && r.dosis_ugy > 0).map(r => r.dosis_ugy / r.mas_med))",
+          expresion:
+            "stats.cv(rows.filter(r => r.mas_med > 0 && r.dosis_ugy > 0).map(r => r.dosis_ugy / r.mas_med))",
           dependencias: ["dosis_ugy", "mas_med"],
         },
       ],
@@ -403,7 +452,12 @@ const GRUPO_D: GrupoPruebaDefinition = {
     ],
   },
   slots_imagen: [
-    { key: "captura_ddi", label: "Captura de pantalla DDI/EI", obligatorio: false, max_imagenes: 2 },
+    {
+      key: "captura_ddi",
+      label: "Captura de pantalla DDI/EI",
+      obligatorio: false,
+      max_imagenes: 2,
+    },
   ],
   pruebas: [
     {
@@ -418,7 +472,8 @@ const GRUPO_D: GrupoPruebaDefinition = {
           campo_resultado: "desviacion_ddi_pct",
           label: "Desviación DDI",
           unit: "%",
-          expresion: "row.ddi_ref > 0 ? Math.abs(row.ddi_valor - row.ddi_ref) / row.ddi_ref * 100 : 0",
+          expresion:
+            "row.ddi_ref > 0 ? Math.abs(row.ddi_valor - row.ddi_ref) / row.ddi_ref * 100 : 0",
           dependencias: ["ddi_valor", "ddi_ref"],
         },
       ],
@@ -475,8 +530,19 @@ const GRUPO_E: GrupoPruebaDefinition = {
   orden: 5,
   schema_mediciones: {
     columnas: [
-      { key: "roi", label: "ROI", type: "select", opciones: ["Centro", "Superior", "Inferior", "Izquierda", "Derecha"], required: true },
-      { key: "orientacion", label: "Orientación", type: "select", opciones: ["Horizontal", "Vertical"] },
+      {
+        key: "roi",
+        label: "ROI",
+        type: "select",
+        opciones: ["Centro", "Superior", "Inferior", "Izquierda", "Derecha"],
+        required: true,
+      },
+      {
+        key: "orientacion",
+        label: "Orientación",
+        type: "select",
+        opciones: ["Horizontal", "Vertical"],
+      },
       { key: "media_pixel", label: "Media pixel", type: "number", decimal_places: 1 },
       { key: "stddev_pixel", label: "Desv. estándar", type: "number", decimal_places: 1 },
       { key: "snr", label: "SNR", type: "number", decimal_places: 1 },
@@ -485,7 +551,12 @@ const GRUPO_E: GrupoPruebaDefinition = {
     ],
   },
   slots_imagen: [
-    { key: "captura_dicom_uniformidad", label: "Captura DICOM uniformidad", obligatorio: true, max_imagenes: 2 },
+    {
+      key: "captura_dicom_uniformidad",
+      label: "Captura DICOM uniformidad",
+      obligatorio: true,
+      max_imagenes: 2,
+    },
     { key: "captura_dicom_mtf", label: "Captura DICOM MTF", obligatorio: false, max_imagenes: 2 },
   ],
   pruebas: [
@@ -501,7 +572,7 @@ const GRUPO_E: GrupoPruebaDefinition = {
           campo_resultado: "variacion_uniformidad_pct",
           label: "Variación uniformidad",
           unit: "%",
-          expresion: "(() => { const centro = rows.find(r => r.roi === 'Centro'); if (!centro || !centro.media_pixel) return 0; return stats.max(rows.filter(r => r.media_pixel > 0).map(r => Math.abs(r.media_pixel - centro.media_pixel) / centro.media_pixel * 100)); })()",
+          expresion: "helpers.variacionVsCentro(rows, 'media_pixel')",
           dependencias: ["roi", "media_pixel"],
         },
       ],
@@ -553,12 +624,22 @@ const GRUPO_F: GrupoPruebaDefinition = {
       { key: "cassette_id", label: "Identificación chasis/IP", type: "text", required: true },
       { key: "tamano", label: "Tamaño", type: "text", placeholder: "35x43 cm" },
       { key: "estado", label: "Estado", type: "select", opciones: ["Bueno", "Regular", "Malo"] },
-      { key: "artefactos", label: "Artefactos", type: "select", opciones: ["Sin artefactos", "Artefactos leves", "Artefactos severos"] },
+      {
+        key: "artefactos",
+        label: "Artefactos",
+        type: "select",
+        opciones: ["Sin artefactos", "Artefactos leves", "Artefactos severos"],
+      },
       { key: "ddi_valor", label: "DDI/EI", type: "number", decimal_places: 1 },
     ],
   },
   slots_imagen: [
-    { key: "foto_cassettes", label: "Fotografía de chasis/IPs", obligatorio: false, max_imagenes: 2 },
+    {
+      key: "foto_cassettes",
+      label: "Fotografía de chasis/IPs",
+      obligatorio: false,
+      max_imagenes: 2,
+    },
   ],
   pruebas: [
     {
@@ -585,7 +666,7 @@ const GRUPO_F: GrupoPruebaDefinition = {
           campo_resultado: "variacion_sensibilidad_pct",
           label: "Variación sensibilidad",
           unit: "%",
-          expresion: "(() => { const vals = rows.filter(r => r.ddi_valor > 0).map(r => r.ddi_valor); if (vals.length < 2) return 0; const m = stats.mean(vals); return stats.max(vals.map(v => Math.abs(v - m) / m * 100)); })()",
+          expresion: "helpers.variacionVsMedia(rows, 'ddi_valor')",
           dependencias: ["ddi_valor"],
         },
       ],
@@ -620,7 +701,12 @@ const GRUPO_G: GrupoPruebaDefinition = {
       { key: "dosis_ugy", label: "Dosis (µGy)", type: "number", decimal_places: 1 },
       { key: "ddi_valor", label: "DDI/EI", type: "number", decimal_places: 1 },
       { key: "ddi_ref", label: "DDI/EI ref.", type: "number", decimal_places: 1 },
-      { key: "tipo_prueba_cae", label: "Tipo prueba", type: "select", opciones: ["sensibilidad", "consistencia", "repetibilidad", "compensacion"] },
+      {
+        key: "tipo_prueba_cae",
+        label: "Tipo prueba",
+        type: "select",
+        opciones: ["sensibilidad", "consistencia", "repetibilidad", "compensacion"],
+      },
     ],
   },
   slots_imagen: [
@@ -639,7 +725,8 @@ const GRUPO_G: GrupoPruebaDefinition = {
           campo_resultado: "desviacion_cae_sen_pct",
           label: "Desviación sensibilidad",
           unit: "%",
-          expresion: "row.ddi_ref > 0 ? Math.abs(row.ddi_valor - row.ddi_ref) / row.ddi_ref * 100 : 0",
+          expresion:
+            "row.ddi_ref > 0 ? Math.abs(row.ddi_valor - row.ddi_ref) / row.ddi_ref * 100 : 0",
           dependencias: ["ddi_valor", "ddi_ref"],
         },
       ],
@@ -668,7 +755,8 @@ const GRUPO_G: GrupoPruebaDefinition = {
           campo_resultado: "variacion_consistencia_pct",
           label: "Variación consistencia",
           unit: "%",
-          expresion: "(() => { const vals = rows.filter(r => r.tipo_prueba_cae === 'consistencia' && r.ddi_valor > 0).map(r => r.ddi_valor); if (vals.length < 2) return 0; const m = stats.mean(vals); return stats.max(vals.map(v => Math.abs(v - m) / m * 100)); })()",
+          expresion:
+            "helpers.variacionVsMedia(rows, 'ddi_valor', 'tipo_prueba_cae', 'consistencia')",
           dependencias: ["ddi_valor", "tipo_prueba_cae"],
         },
       ],
@@ -697,7 +785,8 @@ const GRUPO_G: GrupoPruebaDefinition = {
           campo_resultado: "cv_cae_rep_pct",
           label: "CV% CAE",
           unit: "%",
-          expresion: "stats.cv(rows.filter(r => r.tipo_prueba_cae === 'repetibilidad' && r.ddi_valor > 0).map(r => r.ddi_valor))",
+          expresion:
+            "stats.cv(rows.filter(r => r.tipo_prueba_cae === 'repetibilidad' && r.ddi_valor > 0).map(r => r.ddi_valor))",
           dependencias: ["ddi_valor", "tipo_prueba_cae"],
         },
       ],
@@ -726,7 +815,8 @@ const GRUPO_G: GrupoPruebaDefinition = {
           campo_resultado: "desviacion_compensacion_pct",
           label: "Desviación compensación",
           unit: "%",
-          expresion: "row.ddi_ref > 0 ? Math.abs(row.ddi_valor - row.ddi_ref) / row.ddi_ref * 100 : 0",
+          expresion:
+            "row.ddi_ref > 0 ? Math.abs(row.ddi_valor - row.ddi_ref) / row.ddi_ref * 100 : 0",
           dependencias: ["ddi_valor", "ddi_ref"],
         },
       ],

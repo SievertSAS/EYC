@@ -42,10 +42,7 @@ const PIPELINE_TABS: { id: PipelineTab; label: string; short: string }[] = [
   { id: "enviado", label: "Enviado", short: "Env." },
 ];
 
-const ESTADO_BADGE: Record<
-  string,
-  { bg: string; text: string; border: string }
-> = {
+const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
   solicitudes: {
     bg: "bg-slate-100",
     text: "text-slate-600",
@@ -115,27 +112,15 @@ export default function SolicitudesPage() {
 
   // Filter + counts
   const filtered =
-    activeTab === "todas"
-      ? data
-      : data.filter((d) => d.solicitud.pipeline_estado === activeTab);
+    activeTab === "todas" ? data : data.filter((d) => d.solicitud.pipeline_estado === activeTab);
 
   const counts: Record<PipelineTab, number> = {
     todas: data.length,
-    solicitudes: data.filter(
-      (d) => d.solicitud.pipeline_estado === "solicitudes"
-    ).length,
-    programacion: data.filter(
-      (d) => d.solicitud.pipeline_estado === "programacion"
-    ).length,
-    ejecutado: data.filter(
-      (d) => d.solicitud.pipeline_estado === "ejecutado"
-    ).length,
-    notificado: data.filter(
-      (d) => d.solicitud.pipeline_estado === "notificado"
-    ).length,
-    enviado: data.filter(
-      (d) => d.solicitud.pipeline_estado === "enviado"
-    ).length,
+    solicitudes: data.filter((d) => d.solicitud.pipeline_estado === "solicitudes").length,
+    programacion: data.filter((d) => d.solicitud.pipeline_estado === "programacion").length,
+    ejecutado: data.filter((d) => d.solicitud.pipeline_estado === "ejecutado").length,
+    notificado: data.filter((d) => d.solicitud.pipeline_estado === "notificado").length,
+    enviado: data.filter((d) => d.solicitud.pipeline_estado === "enviado").length,
   };
 
   return (
@@ -163,10 +148,16 @@ export default function SolicitudesPage() {
       </div>
 
       {/* Pipeline tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+        role="tablist"
+        aria-label="Filtro de solicitudes"
+      >
         {PIPELINE_TABS.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 ${
               activeTab === tab.id
@@ -200,87 +191,79 @@ export default function SolicitudesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(
-            ({ solicitud, cliente, ubicacion, tecnico }) => {
-              const estado = solicitud.pipeline_estado ?? "solicitudes";
-              const badge = ESTADO_BADGE[estado] ?? ESTADO_BADGE.solicitudes;
+          {filtered.map(({ solicitud, cliente, ubicacion, tecnico }) => {
+            const estado = solicitud.pipeline_estado ?? "solicitudes";
+            const badge = ESTADO_BADGE[estado] ?? ESTADO_BADGE.solicitudes;
 
-              return (
-                <Link
-                  key={solicitud.id}
-                  href={`/dashboard/solicitudes/${solicitud.id}`}
-                >
-                  <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
-                    <CardContent className="p-4 sm:p-5 md:p-6">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0 space-y-2">
-                          {/* Cliente */}
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-primary flex-shrink-0" />
-                            <p className="font-black text-slate-900 text-sm sm:text-base truncate">
-                              {cliente?.nombre_cliente ?? "—"}
-                            </p>
-                          </div>
-
-                          {/* Metadata */}
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
-                            {ubicacion && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {ubicacion.nombre_servicio}
-                              </span>
-                            )}
-                            {tecnico && (
-                              <span className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {tecnico.nombre.split(" ").slice(0, 2).join(" ")}
-                              </span>
-                            )}
-                            {solicitud.fecha_estimada_visita && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {solicitud.fecha_estimada_visita}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Badges */}
-                          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.bg} ${badge.text} border ${badge.border}`}
-                            >
-                              {estado.replace("_", " ")}
-                            </span>
-                            {solicitud.tipo_servicio && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">
-                                {solicitud.tipo_servicio.replace("_", " ")}
-                              </span>
-                            )}
-                            {solicitud.pago_recibido && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center gap-0.5">
-                                <DollarSign className="w-3 h-3" />
-                                Pagado
-                              </span>
-                            )}
-                          </div>
+            return (
+              <Link key={solicitud.id} href={`/dashboard/solicitudes/${solicitud.id}`}>
+                <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
+                  <CardContent className="p-4 sm:p-5 md:p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {/* Cliente */}
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-primary flex-shrink-0" />
+                          <p className="font-black text-slate-900 text-sm sm:text-base truncate">
+                            {cliente?.nombre_cliente ?? "—"}
+                          </p>
                         </div>
 
-                        <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-2 group-hover:text-primary transition-colors" />
+                        {/* Metadata */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
+                          {ubicacion && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {ubicacion.nombre_servicio}
+                            </span>
+                          )}
+                          {tecnico && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {tecnico.nombre.split(" ").slice(0, 2).join(" ")}
+                            </span>
+                          )}
+                          {solicitud.fecha_estimada_visita && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {solicitud.fecha_estimada_visita}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.bg} ${badge.text} border ${badge.border}`}
+                          >
+                            {estado.replace("_", " ")}
+                          </span>
+                          {solicitud.tipo_servicio && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">
+                              {solicitud.tipo_servicio.replace("_", " ")}
+                            </span>
+                          )}
+                          {solicitud.pago_recibido && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center gap-0.5">
+                              <DollarSign className="w-3 h-3" />
+                              Pagado
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            }
-          )}
+
+                      <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-2 group-hover:text-primary transition-colors" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
 
       {/* Dialog */}
-      <SolicitudFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      <SolicitudFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

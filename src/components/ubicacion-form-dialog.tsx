@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { UbicacionRx } from "@/lib/db/types";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
   DialogContent,
@@ -39,13 +40,9 @@ export function UbicacionFormDialog({
 
   const [nombre, setNombre] = useState(ubicacion?.nombre_servicio ?? "");
   const [licencia, setLicencia] = useState(ubicacion?.licencia ?? "");
-  const [fechaExp, setFechaExp] = useState(
-    ubicacion?.fecha_expiracion_licencia ?? ""
-  );
+  const [fechaExp, setFechaExp] = useState(ubicacion?.fecha_expiracion_licencia ?? "");
   const [codigo, setCodigo] = useState(ubicacion?.codigo_habilitacion ?? "");
-  const [horas, setHoras] = useState(
-    ubicacion?.horas_x_dia?.toString() ?? ""
-  );
+  const [horas, setHoras] = useState(ubicacion?.horas_x_dia?.toString() ?? "");
   const [saving, setSaving] = useState(false);
 
   function resetForm() {
@@ -60,6 +57,7 @@ export function UbicacionFormDialog({
     if (!nombre.trim()) return;
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const data: Omit<UbicacionRx, "id"> = {
         sede_id: sedeId,
         nombre_servicio: nombre.trim(),
@@ -67,18 +65,24 @@ export function UbicacionFormDialog({
         fecha_expiracion_licencia: fechaExp || undefined,
         codigo_habilitacion: codigo || undefined,
         horas_x_dia: horas ? parseInt(horas, 10) : undefined,
-        creado_en: new Date().toISOString(),
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
       };
 
+      let savedId: number;
       if (isEdit && ubicacion?.id) {
         await db.ubicaciones_rx.update(ubicacion.id, data);
+        savedId = ubicacion.id;
       } else {
-        await db.ubicaciones_rx.add(data as UbicacionRx);
+        savedId = (await db.ubicaciones_rx.add(data as UbicacionRx)) as number;
       }
 
       resetForm();
       onOpenChange(false);
       onSaved?.();
+
+      pushSingle("ubicaciones_rx", savedId);
     } catch (err) {
       console.error("[UbicacionForm] Error:", err);
     } finally {

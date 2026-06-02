@@ -63,19 +63,13 @@ function strToNum(val: string): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
-export default function CondicionesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function CondicionesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
 
   const [form, setForm] = useState<CondicionesForm>(EMPTY_FORM);
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [initialized, setInitialized] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -176,9 +170,7 @@ export default function CondicionesPage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Visita no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
         </div>
       </div>
     );
@@ -251,9 +243,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 22.5"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.temperatura_c}
-                onChange={(e) =>
-                  handleChange("temperatura_c", e.target.value)
-                }
+                onChange={(e) => handleChange("temperatura_c", e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -266,9 +256,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 1013.25"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.presion_hpa}
-                onChange={(e) =>
-                  handleChange("presion_hpa", e.target.value)
-                }
+                onChange={(e) => handleChange("presion_hpa", e.target.value)}
               />
             </div>
           </div>
@@ -304,9 +292,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 5"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.dias_laborados_semana}
-                onChange={(e) =>
-                  handleChange("dias_laborados_semana", e.target.value)
-                }
+                onChange={(e) => handleChange("dias_laborados_semana", e.target.value)}
               />
             </div>
 
@@ -321,9 +307,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 120"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.pacientes_por_semana}
-                onChange={(e) =>
-                  handleChange("pacientes_por_semana", e.target.value)
-                }
+                onChange={(e) => handleChange("pacientes_por_semana", e.target.value)}
               />
             </div>
 
@@ -337,9 +321,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 200"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.radiografias_por_semana}
-                onChange={(e) =>
-                  handleChange("radiografias_por_semana", e.target.value)
-                }
+                onChange={(e) => handleChange("radiografias_por_semana", e.target.value)}
               />
             </div>
           </div>
@@ -375,9 +357,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 80"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.kv_maximo_usado}
-                onChange={(e) =>
-                  handleChange("kv_maximo_usado", e.target.value)
-                }
+                onChange={(e) => handleChange("kv_maximo_usado", e.target.value)}
               />
             </div>
 
@@ -392,9 +372,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 32"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.mas_maximo_usado}
-                onChange={(e) =>
-                  handleChange("mas_maximo_usado", e.target.value)
-                }
+                onChange={(e) => handleChange("mas_maximo_usado", e.target.value)}
               />
             </div>
 
@@ -408,9 +386,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 3"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.max_disparos_paciente}
-                onChange={(e) =>
-                  handleChange("max_disparos_paciente", e.target.value)
-                }
+                onChange={(e) => handleChange("max_disparos_paciente", e.target.value)}
               />
             </div>
 
@@ -426,9 +402,7 @@ export default function CondicionesPage({
                 placeholder="Ej: 5"
                 className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
                 value={form.porcentaje_rechazo}
-                onChange={(e) =>
-                  handleChange("porcentaje_rechazo", e.target.value)
-                }
+                onChange={(e) => handleChange("porcentaje_rechazo", e.target.value)}
               />
             </div>
           </div>
@@ -443,9 +417,7 @@ export default function CondicionesPage({
               <FileText className="text-primary w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                Observaciones
-              </h3>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">Observaciones</h3>
               <p className="text-[11px] text-slate-400 font-medium">
                 Notas adicionales sobre las condiciones
               </p>
@@ -458,9 +430,7 @@ export default function CondicionesPage({
               placeholder="Observaciones sobre el estado del equipo, condiciones especiales..."
               className="w-full rounded-xl border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary/20 font-medium p-3 text-sm resize-none outline-none transition-colors"
               value={form.observaciones}
-              onChange={(e) =>
-                handleChange("observaciones", e.target.value)
-              }
+              onChange={(e) => handleChange("observaciones", e.target.value)}
             />
           </div>
         </CardContent>

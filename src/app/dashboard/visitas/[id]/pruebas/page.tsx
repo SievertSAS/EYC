@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { hasPackage } from "@/lib/pruebas";
+import { hasPackage } from "@/lib/equipos";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,11 +21,7 @@ import {
 import Link from "next/link";
 import { ModuleNav } from "@/components/module-nav";
 
-export default function PruebasListPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function PruebasListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -67,15 +63,10 @@ export default function PruebasListPage({
     if (!equipo?.tipo_equipo) return [];
     const todas = await db.prueba_definiciones
       .filter(
-        (p) =>
-          p.activa &&
-          !p.grupo_id &&
-          p.tipos_equipo_aplicables.includes(equipo.tipo_equipo!)
+        (p) => p.activa && !p.grupo_id && p.tipos_equipo_aplicables.includes(equipo.tipo_equipo!)
       )
       .toArray();
-    return todas.sort(
-      (a, b) => (a.orden_sugerido ?? 99) - (b.orden_sugerido ?? 99)
-    );
+    return todas.sort((a, b) => (a.orden_sugerido ?? 99) - (b.orden_sugerido ?? 99));
   }, [equipo?.tipo_equipo]);
 
   // Pruebas agrupadas (para contar por grupo)
@@ -83,10 +74,7 @@ export default function PruebasListPage({
     if (!grupoResultados || grupoResultados.length === 0) return new Map();
     const map = new Map<number, number>();
     for (const gr of grupoResultados) {
-      const count = await db.prueba_resultados
-        .where("grupo_resultado_id")
-        .equals(gr.id!)
-        .count();
+      const count = await db.prueba_resultados.where("grupo_resultado_id").equals(gr.id!).count();
       map.set(gr.grupo_id, count);
     }
     return map;
@@ -189,12 +177,8 @@ export default function PruebasListPage({
     )
       return;
 
-    const existingDefIds = new Set(
-      resultados.map((r) => r.prueba_definicion_id)
-    );
-    const faltantes = pruebasAplicables.filter(
-      (p) => !existingDefIds.has(p.id!)
-    );
+    const existingDefIds = new Set(resultados.map((r) => r.prueba_definicion_id));
+    const faltantes = pruebasAplicables.filter((p) => !existingDefIds.has(p.id!));
 
     if (faltantes.length === 0) return;
 
@@ -251,9 +235,7 @@ export default function PruebasListPage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Visita no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
         </div>
       </div>
     );
@@ -276,8 +258,7 @@ export default function PruebasListPage({
             Pruebas de Control de Calidad
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
-            {equipo?.tipo_equipo?.replace(/_/g, " ")} — {equipo?.gen_marca}{" "}
-            {equipo?.gen_modelo}
+            {equipo?.tipo_equipo?.replace(/_/g, " ")} — {equipo?.gen_marca} {equipo?.gen_modelo}
           </p>
         </div>
         <Badge className="bg-primary/10 text-primary border-primary/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary/10">
@@ -292,20 +273,13 @@ export default function PruebasListPage({
             <ListChecks className="w-3.5 h-3.5" />
             Progreso
           </span>
-          <span>
-            {totalPruebas > 0
-              ? Math.round((completadas / totalPruebas) * 100)
-              : 0}
-            %
-          </span>
+          <span>{totalPruebas > 0 ? Math.round((completadas / totalPruebas) * 100) : 0}%</span>
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all duration-500"
             style={{
-              width: `${
-                totalPruebas > 0 ? (completadas / totalPruebas) * 100 : 0
-              }%`,
+              width: `${totalPruebas > 0 ? (completadas / totalPruebas) * 100 : 0}%`,
             }}
           />
         </div>
@@ -324,20 +298,13 @@ export default function PruebasListPage({
           ? /* ─── Vista por Grupos ─── */
             (grupoDefs ?? []).map((grupo, i) => {
               if (!grupo) return null;
-              const gr = grupoResultados.find(
-                (g) => g.grupo_id === grupo.id
-              );
+              const gr = grupoResultados.find((g) => g.grupo_id === grupo.id);
               const totalEnGrupo = pruebasPorGrupo?.get(grupo.id!) ?? 0;
-              const completadasEnGrupo =
-                pruebasCompletadasPorGrupo?.get(grupo.id!) ?? 0;
-              const allDone =
-                totalEnGrupo > 0 && completadasEnGrupo === totalEnGrupo;
+              const completadasEnGrupo = pruebasCompletadasPorGrupo?.get(grupo.id!) ?? 0;
+              const allDone = totalEnGrupo > 0 && completadasEnGrupo === totalEnGrupo;
 
               return (
-                <Link
-                  key={grupo.id}
-                  href={`/dashboard/visitas/${id}/pruebas/grupo/${grupo.id}`}
-                >
+                <Link key={grupo.id} href={`/dashboard/visitas/${id}/pruebas/grupo/${grupo.id}`}>
                   <Card
                     className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3"
                     style={{ animationDelay: `${i * 40}ms` }}
@@ -350,8 +317,8 @@ export default function PruebasListPage({
                               allDone
                                 ? "bg-emerald-100"
                                 : completadasEnGrupo > 0
-                                ? "bg-amber-100"
-                                : "bg-primary/10"
+                                  ? "bg-amber-100"
+                                  : "bg-primary/10"
                             }`}
                           >
                             {allDone ? (
@@ -359,9 +326,7 @@ export default function PruebasListPage({
                             ) : (
                               <Layers
                                 className={`w-5 h-5 ${
-                                  completadasEnGrupo > 0
-                                    ? "text-amber-600"
-                                    : "text-primary"
+                                  completadasEnGrupo > 0 ? "text-amber-600" : "text-primary"
                                 }`}
                               />
                             )}
@@ -393,9 +358,7 @@ export default function PruebasListPage({
                               allDone ? "bg-emerald-500" : "bg-primary"
                             }`}
                             style={{
-                              width: `${
-                                (completadasEnGrupo / totalEnGrupo) * 100
-                              }%`,
+                              width: `${(completadasEnGrupo / totalEnGrupo) * 100}%`,
                             }}
                           />
                         </div>
@@ -407,17 +370,12 @@ export default function PruebasListPage({
             })
           : /* ─── Vista Legacy (pruebas individuales) ─── */
             (pruebasAplicables ?? []).map((prueba, i) => {
-              const resultado = resultados.find(
-                (r) => r.prueba_definicion_id === prueba.id
-              );
+              const resultado = resultados.find((r) => r.prueba_definicion_id === prueba.id);
               const completado = resultado?.completado ?? false;
               const concepto = resultado?.concepto;
 
               return (
-                <Link
-                  key={prueba.id}
-                  href={`/dashboard/visitas/${id}/pruebas/${prueba.id}`}
-                >
+                <Link key={prueba.id} href={`/dashboard/visitas/${id}/pruebas/${prueba.id}`}>
                   <Card
                     className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3"
                     style={{ animationDelay: `${i * 30}ms` }}
@@ -435,7 +393,7 @@ export default function PruebasListPage({
                             {completado ? (
                               <CheckCircle2 className="w-4 h-4" />
                             ) : (
-                              prueba.orden_sugerido ?? i + 1
+                              (prueba.orden_sugerido ?? i + 1)
                             )}
                           </div>
 
@@ -450,8 +408,8 @@ export default function PruebasListPage({
                                     concepto === "FAVORABLE"
                                       ? "bg-emerald-100 text-emerald-600 border border-emerald-200"
                                       : concepto === "NO_FAVORABLE"
-                                      ? "bg-red-100 text-red-600 border border-red-200"
-                                      : "bg-slate-100 text-slate-500 border border-slate-200"
+                                        ? "bg-red-100 text-red-600 border border-red-200"
+                                        : "bg-slate-100 text-slate-500 border border-slate-200"
                                   }`}
                                 >
                                   {concepto.replace(/_/g, " ")}

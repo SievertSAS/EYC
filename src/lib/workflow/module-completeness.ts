@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
+import { getPackage, getDefaultModules } from "@/lib/equipos/registry";
+import type { ModuloVisita } from "@/lib/equipos/types";
 
 // ============================================================
 //  Motor de completitud de módulos de visita
-//  Centraliza la lógica que antes estaba inline en
-//  visitas/[id]/page.tsx para reusar en state machine y UI
+//  Ahora dinámico: los módulos vienen del EquipmentPackage
 // ============================================================
 
 export type ModuloStatus = "sin_iniciar" | "en_progreso" | "completado";
@@ -24,18 +25,36 @@ export interface VisitCompleteness {
   modules: ModuloInfo[];
 }
 
-/** Módulos que DEBEN completarse para avanzar a "completada" */
-const REQUIRED_MODULES = ["condiciones", "levantamiento", "pruebas"];
+/**
+ * Obtiene los módulos que aplican para una visita (del paquete del equipo).
+ * Excluye "pre-informe" e "info" que no son módulos de captura evaluables.
+ */
+async function getModulosForVisita(visitaId: number): Promise<ModuloVisita[]> {
+  const visita = await db.visitas.get(visitaId);
+  if (!visita) return [];
 
-/** Módulos opcionales — no bloquean transición */
-const OPTIONAL_MODULES = ["inspeccion", "evidencias"];
+  let modulos: ModuloVisita[];
+
+  if (visita.equipo_id) {
+    const equipo = await db.equipos.get(visita.equipo_id);
+    if (equipo?.tipo_equipo) {
+      const pkg = getPackage(equipo.tipo_equipo);
+      modulos = pkg?.modulos ?? getDefaultModules();
+    } else {
+      modulos = getDefaultModules();
+    }
+  } else {
+    modulos = getDefaultModules();
+  }
+
+  // Filtrar módulos que no participan en completitud
+  return modulos.filter((m) => m.id !== "pre-informe" && m.id !== "info");
+}
 
 /**
  * Calcula el estado de cada módulo para una visita.
  */
-export async function getModuleStatuses(
-  visitaId: number
-): Promise<Record<string, ModuloStatus>> {
+export async function getModuleStatuses(visitaId: number): Promise<Record<string, ModuloStatus>> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) return {};
 
@@ -64,7 +83,10 @@ export async function getModuleStatuses(
       .count(),
     db.mediciones_radiometricas.where("visita_id").equals(visitaId).count(),
     db.evidencias.where("visita_id").equals(visitaId).count(),
-    db.partes_equipo.where("equipo_id").equals(visita.equipo_id ?? 0).count(),
+    db.partes_equipo
+      .where("equipo_id")
+      .equals(visita.equipo_id ?? 0)
+      .count(),
     db.elementos_proteccion.where("visita_id").equals(visitaId).count(),
   ]);
 
@@ -81,24 +103,21 @@ export async function getModuleStatuses(
 
 /**
  * Calcula el progreso general de la visita y lista los módulos bloqueantes.
+ * Ahora usa los módulos del paquete del equipo.
  */
-export async function getVisitCompleteness(
-  visitaId: number
-): Promise<VisitCompleteness> {
+export async function getVisitCompleteness(visitaId: number): Promise<VisitCompleteness> {
   const statuses = await getModuleStatuses(visitaId);
+  const modulos = await getModulosForVisita(visitaId);
 
-  const allModuleIds = [...REQUIRED_MODULES, ...OPTIONAL_MODULES];
-  const modules: ModuloInfo[] = allModuleIds.map((id) => ({
-    id,
-    status: statuses[id] ?? "sin_iniciar",
-    required: REQUIRED_MODULES.includes(id),
+  const modules: ModuloInfo[] = modulos.map((m) => ({
+    id: m.id,
+    status: statuses[m.id] ?? "sin_iniciar",
+    required: m.requerido,
   }));
 
   const completed = modules.filter((m) => m.status === "completado").length;
   const total = modules.length;
-  const blocking = modules
-    .filter((m) => m.required && m.status !== "completado")
-    .map((m) => m.id);
+  const blocking = modules.filter((m) => m.required && m.status !== "completado").map((m) => m.id);
 
   return {
     total,
@@ -123,16 +142,11 @@ function getCondicionesStatus(visita: {
 }
 
 function getLevantamientoStatus(medicionesCount: number): ModuloStatus {
-  // Con al menos 1 medición se considera completado
-  // (el técnico decide cuántos puntos medir)
   if (medicionesCount > 0) return "completado";
   return "sin_iniciar";
 }
 
-function getInspeccionStatus(
-  partesCount: number,
-  elementosCount: number
-): ModuloStatus {
+function getInspeccionStatus(partesCount: number, elementosCount: number): ModuloStatus {
   if (partesCount > 0 || elementosCount > 0) return "completado";
   return "sin_iniciar";
 }
@@ -143,7 +157,6 @@ function getPruebasStatus(
   gruposTotal: number,
   gruposCompletados: number
 ): ModuloStatus {
-  // Si hay grupos (paquete nuevo): los grupos Y las pruebas deben estar completos
   if (gruposTotal > 0) {
     if (gruposCompletados === gruposTotal && pruebasCompletadas === pruebasTotal) {
       return "completado";
@@ -151,7 +164,6 @@ function getPruebasStatus(
     if (gruposCompletados > 0 || pruebasCompletadas > 0) return "en_progreso";
     return "sin_iniciar";
   }
-  // Ruta legacy: solo pruebas
   if (pruebasTotal === 0) return "sin_iniciar";
   if (pruebasCompletadas === pruebasTotal) return "completado";
   return "en_progreso";
@@ -160,4 +172,119 @@ function getPruebasStatus(
 function getEvidenciasStatus(count: number): ModuloStatus {
   if (count > 0) return "completado";
   return "sin_iniciar";
+}
+
+/**
+ * Versión batch de getVisitCompleteness para múltiples visitas.
+ * Hace ~6 queries totales en vez de ~8 por visita.
+ */
+export async function getVisitCompletenessBulk(
+  visitaIds: number[]
+): Promise<Map<number, VisitCompleteness>> {
+  if (visitaIds.length === 0) return new Map();
+
+  const visitas = await db.visitas.bulkGet(visitaIds);
+
+  const [allPruebas, allGrupos, allMediciones, allEvidencias] = await Promise.all([
+    db.prueba_resultados.where("visita_id").anyOf(visitaIds).toArray(),
+    db.grupo_resultados.where("visita_id").anyOf(visitaIds).toArray(),
+    db.mediciones_radiometricas.where("visita_id").anyOf(visitaIds).toArray(),
+    db.evidencias.where("visita_id").anyOf(visitaIds).toArray(),
+  ]);
+
+  const equipoIds = [
+    ...new Set(
+      visitas
+        .filter(Boolean)
+        .map((v) => v!.equipo_id)
+        .filter(Boolean)
+    ),
+  ] as number[];
+  const [equipos, allPartes, allElementos] = await Promise.all([
+    db.equipos.bulkGet(equipoIds),
+    equipoIds.length > 0
+      ? db.partes_equipo.where("equipo_id").anyOf(equipoIds).toArray()
+      : Promise.resolve([]),
+    db.elementos_proteccion.where("visita_id").anyOf(visitaIds).toArray(),
+  ]);
+  const equipoMap = new Map(equipoIds.map((id, i) => [id, equipos[i]]));
+
+  const groupBy = <T>(arr: T[], key: (item: T) => number) => {
+    const map = new Map<number, T[]>();
+    for (const item of arr) {
+      const k = key(item);
+      const list = map.get(k);
+      if (list) list.push(item);
+      else map.set(k, [item]);
+    }
+    return map;
+  };
+
+  const pruebasByVisita = groupBy(allPruebas, (p) => p.visita_id);
+  const gruposByVisita = groupBy(allGrupos, (g) => g.visita_id);
+  const medicionesByVisita = groupBy(allMediciones, (m) => m.visita_id);
+  const evidenciasByVisita = groupBy(allEvidencias, (e) => e.visita_id);
+  const partesByEquipo = groupBy(allPartes, (p) => p.equipo_id);
+  const elementosByVisita = groupBy(allElementos, (e) => e.visita_id);
+
+  const result = new Map<number, VisitCompleteness>();
+
+  for (const visita of visitas) {
+    if (!visita) continue;
+    const vid = visita.id!;
+
+    const pruebas = pruebasByVisita.get(vid) ?? [];
+    const grupos = gruposByVisita.get(vid) ?? [];
+    const mediciones = medicionesByVisita.get(vid) ?? [];
+    const evidencias = evidenciasByVisita.get(vid) ?? [];
+    const partes = visita.equipo_id ? (partesByEquipo.get(visita.equipo_id) ?? []) : [];
+    const elementos = elementosByVisita.get(vid) ?? [];
+
+    const statuses: Record<string, ModuloStatus> = {
+      info: "completado",
+      condiciones: getCondicionesStatus(visita),
+      levantamiento: getLevantamientoStatus(mediciones.length),
+      inspeccion: getInspeccionStatus(partes.length, elementos.length),
+      pruebas: getPruebasStatus(
+        pruebas.length,
+        pruebas.filter((p) => p.completado).length,
+        grupos.length,
+        grupos.filter((g) => g.completado).length
+      ),
+      evidencias: getEvidenciasStatus(evidencias.length),
+      "pre-informe": "sin_iniciar",
+    };
+
+    const equipo = visita.equipo_id ? equipoMap.get(visita.equipo_id) : undefined;
+    let modulos: ModuloVisita[];
+    if (equipo?.tipo_equipo) {
+      const pkg = getPackage(equipo.tipo_equipo);
+      modulos = pkg?.modulos ?? getDefaultModules();
+    } else {
+      modulos = getDefaultModules();
+    }
+    modulos = modulos.filter((m) => m.id !== "pre-informe" && m.id !== "info");
+
+    const modules: ModuloInfo[] = modulos.map((m) => ({
+      id: m.id,
+      status: statuses[m.id] ?? "sin_iniciar",
+      required: m.requerido,
+    }));
+
+    const completed = modules.filter((m) => m.status === "completado").length;
+    const total = modules.length;
+    const blocking = modules
+      .filter((m) => m.required && m.status !== "completado")
+      .map((m) => m.id);
+
+    result.set(vid, {
+      total,
+      completed,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+      blocking,
+      modules,
+    });
+  }
+
+  return result;
 }

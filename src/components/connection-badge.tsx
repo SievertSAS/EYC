@@ -12,7 +12,7 @@ export function ConnectionBadge() {
   const { isReady, error } = useDb();
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap" role="status" aria-live="polite">
       {/* Estado de red */}
       {isOnline ? (
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 border border-emerald-200">

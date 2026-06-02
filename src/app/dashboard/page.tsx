@@ -27,18 +27,12 @@ export default function DashboardPage() {
 
     const allVisitas = await db.visitas.toArray();
 
-    const asignadas = allVisitas.filter(
-      (v) => v.estado_visita === "asignada"
-    ).length;
-    const enProgreso = allVisitas.filter(
-      (v) => v.estado_visita === "en_progreso"
-    ).length;
+    const asignadas = allVisitas.filter((v) => v.estado_visita === "asignada").length;
+    const enProgreso = allVisitas.filter((v) => v.estado_visita === "en_progreso").length;
     const pendientesRevision = allVisitas.filter((v) =>
       ["pre_informe", "en_revision"].includes(v.estado_visita)
     ).length;
-    const aprobadas = allVisitas.filter(
-      (v) => v.estado_visita === "aprobada"
-    ).length;
+    const aprobadas = allVisitas.filter((v) => v.estado_visita === "aprobada").length;
 
     const informesCount = await db.informes.count();
 
@@ -75,44 +69,34 @@ export default function DashboardPage() {
           label="Servicios Asignados"
           labelShort="Asignados"
           value={String(kpis.asignadas)}
-          icon={
-            <ClipboardCheck className="text-primary w-5 h-5 md:w-7 md:h-7" />
-          }
+          icon={<ClipboardCheck className="text-primary w-5 h-5 md:w-7 md:h-7" />}
         />
         <KpiCard
           label="En Progreso"
           labelShort="Progreso"
           value={String(kpis.enProgreso)}
-          icon={
-            <Activity className="text-primary w-5 h-5 md:w-7 md:h-7" />
-          }
+          icon={<Activity className="text-primary w-5 h-5 md:w-7 md:h-7" />}
         />
         {hasPermission("revision") ? (
           <KpiCard
             label="Pendientes Revisión"
             labelShort="Revisión"
             value={String(kpis.pendientesRevision)}
-            icon={
-              <ShieldCheck className="text-primary w-5 h-5 md:w-7 md:h-7" />
-            }
+            icon={<ShieldCheck className="text-primary w-5 h-5 md:w-7 md:h-7" />}
           />
         ) : (
           <KpiCard
             label="Informes Generados"
             labelShort="Informes"
             value={String(kpis.informesCount)}
-            icon={
-              <FileText className="text-primary w-5 h-5 md:w-7 md:h-7" />
-            }
+            icon={<FileText className="text-primary w-5 h-5 md:w-7 md:h-7" />}
           />
         )}
         <KpiCard
           label="Aprobadas"
           labelShort="Aprobadas"
           value={String(kpis.aprobadas)}
-          icon={
-            <BadgeCheck className="text-primary w-5 h-5 md:w-7 md:h-7" />
-          }
+          icon={<BadgeCheck className="text-primary w-5 h-5 md:w-7 md:h-7" />}
         />
       </div>
 
@@ -126,35 +110,27 @@ export default function DashboardPage() {
             title="Mis Visitas"
             description="Ver servicios asignados"
             href="/dashboard/visitas"
-            icon={
-              <ClipboardCheck className="text-primary w-4 h-4 sm:w-5 sm:h-5" />
-            }
+            icon={<ClipboardCheck className="text-primary w-4 h-4 sm:w-5 sm:h-5" />}
           />
           {hasPermission("revision") && (
             <ActionCard
               title="Revisión"
               description={`${kpis.pendientesRevision} pendiente${kpis.pendientesRevision !== 1 ? "s" : ""}`}
               href="/dashboard/revision"
-              icon={
-                <ShieldCheck className="text-primary w-4 h-4 sm:w-5 sm:h-5" />
-              }
+              icon={<ShieldCheck className="text-primary w-4 h-4 sm:w-5 sm:h-5" />}
             />
           )}
           <ActionCard
             title="Informes"
             description="Informes técnicos emitidos"
             href="/dashboard/informes"
-            icon={
-              <FileText className="text-primary w-4 h-4 sm:w-5 sm:h-5" />
-            }
+            icon={<FileText className="text-primary w-4 h-4 sm:w-5 sm:h-5" />}
           />
           <ActionCard
             title="Sincronización"
             description="Estado de datos offline"
             href="/dashboard/sync"
-            icon={
-              <Radio className="text-primary w-4 h-4 sm:w-5 sm:h-5" />
-            }
+            icon={<Radio className="text-primary w-4 h-4 sm:w-5 sm:h-5" />}
           />
         </div>
       </div>
@@ -212,16 +188,10 @@ function ActionCard({
         <CardContent className="p-4 sm:p-5 md:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="bg-primary/10 p-2 sm:p-2.5 rounded-xl flex-shrink-0">
-                {icon}
-              </div>
+              <div className="bg-primary/10 p-2 sm:p-2.5 rounded-xl flex-shrink-0">{icon}</div>
               <div className="min-w-0">
-                <p className="font-black text-slate-900 text-sm sm:text-base truncate">
-                  {title}
-                </p>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {description}
-                </p>
+                <p className="font-black text-slate-900 text-sm sm:text-base truncate">{title}</p>
+                <p className="text-[11px] text-slate-400 font-medium">{description}</p>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0 group-hover:text-primary transition-colors" />

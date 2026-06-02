@@ -44,9 +44,7 @@ const MODULE_ERRORS: Record<string, string> = {
  * Valida si la visita cumple los requisitos para completarse.
  * Retorna errores descriptivos con rutas de navegación.
  */
-export async function validateForCompletion(
-  visitaId: number
-): Promise<ValidationResult> {
+export async function validateForCompletion(visitaId: number): Promise<ValidationResult> {
   const completeness = await getVisitCompleteness(visitaId);
 
   const errors: ValidationError[] = completeness.blocking.map((moduleId) => ({

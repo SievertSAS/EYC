@@ -27,11 +27,7 @@ interface ModuloCheck {
   detalle: string;
 }
 
-export default function PreInformePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function PreInformePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const visitaId = parseInt(id, 10);
   const { isReady } = useDb();
@@ -54,9 +50,10 @@ export default function PreInformePage({
     moduloChecks.push({
       nombre: "Condiciones Ambientales",
       completado: tieneTemp && tienePresion,
-      detalle: tieneTemp && tienePresion
-        ? `${visita.temperatura_c}°C / ${visita.presion_hpa} hPa`
-        : "Faltan datos de temperatura y/o presión",
+      detalle:
+        tieneTemp && tienePresion
+          ? `${visita.temperatura_c}°C / ${visita.presion_hpa} hPa`
+          : "Faltan datos de temperatura y/o presión",
     });
 
     // Levantamiento
@@ -75,10 +72,7 @@ export default function PreInformePage({
 
     // Inspección
     const partes = visita.equipo_id
-      ? await db.partes_equipo
-          .where("equipo_id")
-          .equals(visita.equipo_id)
-          .count()
+      ? await db.partes_equipo.where("equipo_id").equals(visita.equipo_id).count()
       : 0;
     moduloChecks.push({
       nombre: "Inspección Visual",
@@ -90,10 +84,7 @@ export default function PreInformePage({
     });
 
     // Pruebas
-    const pruebasTotal = await db.prueba_resultados
-      .where("visita_id")
-      .equals(visitaId)
-      .count();
+    const pruebasTotal = await db.prueba_resultados.where("visita_id").equals(visitaId).count();
     const pruebasCompletadas = await db.prueba_resultados
       .where("visita_id")
       .equals(visitaId)
@@ -109,10 +100,7 @@ export default function PreInformePage({
     });
 
     // Evidencias
-    const evidencias = await db.evidencias
-      .where("visita_id")
-      .equals(visitaId)
-      .count();
+    const evidencias = await db.evidencias.where("visita_id").equals(visitaId).count();
     moduloChecks.push({
       nombre: "Evidencias Fotográficas",
       completado: evidencias > 0,
@@ -141,11 +129,7 @@ export default function PreInformePage({
       setPdfUrl(url);
     } catch (err) {
       console.error("Error generando PDF:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al generar el PDF"
-      );
+      setError(err instanceof Error ? err.message : "Error desconocido al generar el PDF");
     } finally {
       setGenerating(false);
     }
@@ -181,9 +165,7 @@ export default function PreInformePage({
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">
-            Visita no encontrada
-          </p>
+          <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
         </div>
       </div>
     );
@@ -238,12 +220,8 @@ export default function PreInformePage({
                   <Circle className="w-4 h-4 text-slate-300 flex-shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-700">
-                    {check.nombre}
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-medium">
-                    {check.detalle}
-                  </p>
+                  <p className="text-sm font-bold text-slate-700">{check.nombre}</p>
+                  <p className="text-[11px] text-slate-400 font-medium">{check.detalle}</p>
                 </div>
               </div>
             ))}
@@ -253,9 +231,8 @@ export default function PreInformePage({
             <div className="flex items-start gap-2 bg-amber-50 rounded-xl p-3 border border-amber-200">
               <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 font-medium">
-                Puedes generar el pre-informe con los datos disponibles, pero
-                el informe estará incompleto. Se recomienda completar todos los
-                módulos antes de generar.
+                Puedes generar el pre-informe con los datos disponibles, pero el informe estará
+                incompleto. Se recomienda completar todos los módulos antes de generar.
               </p>
             </div>
           )}
@@ -311,9 +288,7 @@ export default function PreInformePage({
                 <Eye className="text-emerald-600 w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                  Vista previa
-                </h3>
+                <h3 className="font-black text-slate-900 text-sm sm:text-base">Vista previa</h3>
                 <p className="text-[11px] text-slate-400 font-medium">
                   Pre-informe generado exitosamente
                 </p>

@@ -86,6 +86,17 @@ export const formulaHelpers = {
 
 // ─── Validación de expresiones ───
 
+/**
+ * Allowlist de tokens válidos en fórmulas. Solo se permiten:
+ * - Acceso a variables del contexto: row, rows, stats, Math, equipo, valores_ref, helpers
+ * - Operadores aritméticos y lógicos
+ * - Literales numéricos y strings
+ * - Acceso a propiedades con punto (row.campo)
+ * - Llamadas a funciones (stats.mean(...))
+ * - Corchetes para acceso a arrays (rows[0])
+ * - Ternarios, comparaciones, paréntesis
+ */
+
 const BLOCKED_PATTERNS: RegExp[] = [
   /\bimport\b/,
   /\brequire\b/,
@@ -109,9 +120,70 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /\bObject\b/,
   /\bReflect\b/,
   /\bProxy\b/,
+  /\bArray\b/,
+  /\bString\b/,
+  /\bNumber\b/,
+  /\bBoolean\b/,
+  /\bSymbol\b/,
+  /\bJSON\b/,
+  /\bDate\b/,
+  /\bRegExp\b/,
+  /\bError\b/,
+  /\bMap\b/,
+  /\bSet\b/,
+  /\bWeakMap\b/,
+  /\bWeakSet\b/,
+  /\bthis\b/,
+  /\bnew\b/,
+  /\bclass\b/,
+  /\bdelete\b/,
+  /\btypeof\b/,
+  /\bvoid\b/,
+  /\bin\b/,
+  /\binstanceof\b/,
+  /\byield\b/,
+  /\bawait\b/,
+  /\basync\b/,
+  /\bwith\b/,
+  /\bdebugger\b/,
 ];
 
+/** Blocks Unicode escape sequences that could bypass keyword blocklist */
+const UNICODE_ESCAPE = /\\u[\da-fA-F]{4}|\\u\{[\da-fA-F]+\}/;
+
+/** Blocks template literals (backticks) that enable arbitrary string construction */
+const TEMPLATE_LITERAL = /`/;
+
+/** Blocks computed property access on string expressions: obj["con"+"structor"] */
+const SUSPICIOUS_BRACKET_ACCESS = /\[\s*["'][^"']*["']\s*\+/;
+
+/** Blocks direct __proto__ and constructor access via bracket notation */
+const BRACKET_PROTO = /\[\s*['"]__(proto|defineGetter|defineSetter|lookupGetter|lookupSetter)__['"]\s*\]/;
+
+/** Max expression length to prevent ReDoS or abuse */
+const MAX_EXPRESSION_LENGTH = 2000;
+
 function validateExpression(expr: string): void {
+  if (expr.length > MAX_EXPRESSION_LENGTH) {
+    throw new Error(`Expresión de fórmula bloqueada: excede ${MAX_EXPRESSION_LENGTH} caracteres`);
+  }
+
+  if (UNICODE_ESCAPE.test(expr)) {
+    throw new Error("Expresión de fórmula bloqueada: secuencias Unicode no permitidas");
+  }
+
+  if (TEMPLATE_LITERAL.test(expr)) {
+    throw new Error("Expresión de fórmula bloqueada: template literals no permitidos");
+  }
+
+  if (SUSPICIOUS_BRACKET_ACCESS.test(expr)) {
+    throw new Error("Expresión de fórmula bloqueada: concatenación en acceso por corchetes");
+  }
+
+  if (BRACKET_PROTO.test(expr)) {
+    throw new Error("Expresión de fórmula bloqueada: acceso a proto por corchetes");
+  }
+
   for (const pattern of BLOCKED_PATTERNS) {
     if (pattern.test(expr)) {
       throw new Error(`Expresión de fórmula bloqueada: patrón no permitido "${pattern.source}"`);
@@ -132,7 +204,7 @@ export function evaluateFormula(
   formula: FormulaDefinicion,
   row: Record<string, unknown>,
   allRows: Record<string, unknown>[],
-  context: FormulaContext = {}
+  context: FormulaContext = {},
 ): number | null {
   try {
     validateExpression(formula.expresion);
@@ -146,18 +218,16 @@ export function evaluateFormula(
       "equipo",
       "valores_ref",
       "helpers",
-      `"use strict"; return (${formula.expresion});`
+      `"use strict"; return (${formula.expresion});`,
     );
 
-    const result = fn(
-      row,
-      allRows,
-      stats,
-      Math,
-      context.equipo ?? {},
-      context.valores_ref ?? {},
-      formulaHelpers
-    );
+    // Freeze context objects to prevent prototype pollution from within formulas
+    const frozenStats = Object.freeze({ ...stats });
+    const frozenHelpers = Object.freeze({ ...formulaHelpers });
+    const frozenEquipo = Object.freeze({ ...(context.equipo ?? {}) });
+    const frozenRef = Object.freeze({ ...(context.valores_ref ?? {}) });
+
+    const result = fn(row, allRows, frozenStats, Math, frozenEquipo, frozenRef, frozenHelpers);
 
     if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
       return result;

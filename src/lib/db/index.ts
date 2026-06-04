@@ -27,6 +27,7 @@ import type {
   Informe,
   InformeVersion,
   ChangeLog,
+  SyncMeta,
 } from "./types";
 
 class EyCDatabase extends Dexie {
@@ -57,6 +58,7 @@ class EyCDatabase extends Dexie {
   informes!: EntityTable<Informe, "id">;
   informe_versiones!: EntityTable<InformeVersion, "id">;
   change_logs!: EntityTable<ChangeLog, "id">;
+  sync_meta!: EntityTable<SyncMeta, "table_name">;
 
   constructor() {
     super("SievertEyC");
@@ -128,8 +130,9 @@ class EyCDatabase extends Dexie {
         }
       });
 
-    // v5: agregar sync_status a tablas maestras editables localmente
+    // v5: agregar sync_status a tablas maestras editables localmente + sync_meta
     this.version(5).stores({
+      sync_meta: "&table_name",
       clientes: "++id, nit, nombre_cliente, sync_status",
       contactos: "++id, cliente_id, cargo, sync_status",
       sedes: "++id, cliente_id, sync_status",

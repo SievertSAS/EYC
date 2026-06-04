@@ -552,6 +552,13 @@ export interface ChangeLog {
   fecha: string;
 }
 
+// ─── Metadatos de sincronización ───
+
+export interface SyncMeta {
+  table_name: string;
+  last_pulled_at: string;
+}
+
 // ─── Informes con versionamiento ───
 
 export type EstadoInforme =

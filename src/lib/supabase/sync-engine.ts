@@ -2,6 +2,21 @@ import { db } from "@/lib/db";
 import { createClient } from "./client";
 import type { SyncStatus } from "@/lib/db/types";
 import { logger } from "@/lib/logger";
+import type { EntityTable } from "dexie";
+
+type SyncableRecord = { id?: number; sync_status?: SyncStatus; [key: string]: unknown };
+
+/**
+ * Accede a una tabla de Dexie por nombre dinámico con tipo seguro.
+ * Retorna undefined si la tabla no existe en el schema.
+ */
+function getDexieTable(name: string): EntityTable<SyncableRecord, "id"> | undefined {
+  const record = db as unknown as Record<string, unknown>;
+  if (name in record && typeof record[name] === "object") {
+    return record[name] as EntityTable<SyncableRecord, "id">;
+  }
+  return undefined;
+}
 
 // ============================================================
 //  Motor de sincronización Dexie ↔ Supabase
@@ -159,9 +174,9 @@ export async function fullSync(): Promise<SyncResult> {
 
   // Verificar sesión
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     result.errors.push({
       table: "_auth",
       recordId: 0,
@@ -242,8 +257,7 @@ async function pushTable(
   localTable: string,
   remoteTable: string
 ): Promise<PushResult> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dexieTable = (db as any)[localTable];
+  const dexieTable = getDexieTable(localTable);
   if (!dexieTable) return { pushed: 0, errors: [] };
 
   const pending = await dexieTable.where("sync_status").equals("pending").toArray();
@@ -317,12 +331,11 @@ export async function pushSingle(localTable: string, localId: number): Promise<b
   try {
     const supabase = createClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return false;
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return false;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dexieTable = (db as any)[localTable];
+    const dexieTable = getDexieTable(localTable);
     if (!dexieTable) return false;
 
     const record = await dexieTable.get(localId);
@@ -366,9 +379,9 @@ export async function pushAllPending(): Promise<{ pushed: number; errors: number
 
   const supabase = createClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return { pushed: 0, errors: 0 };
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { pushed: 0, errors: 0 };
 
   let totalPushed = 0;
   let totalErrors = 0;
@@ -395,8 +408,7 @@ async function pullMasterTable(
   supabase: any,
   tableName: string
 ): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dexieTable = (db as any)[tableName === "ubicaciones_rx" ? "ubicaciones_rx" : tableName];
+  const dexieTable = getDexieTable(tableName);
   if (!dexieTable) return 0;
 
   const { data, error } = await supabase.from(tableName).select("*");
@@ -420,8 +432,7 @@ async function pullSyncTable(
   localTable: string,
   remoteTable: string
 ): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dexieTable = (db as any)[localTable];
+  const dexieTable = getDexieTable(localTable);
   if (!dexieTable) return 0;
 
   // Obtener la última fecha de modificación local sincronizada
@@ -475,16 +486,12 @@ async function pullSyncTable(
   return pulled;
 }
 
-// ─── Timestamp tracking ───
-
-const SYNC_TIMESTAMPS_KEY = "sievert_sync_timestamps";
+// ─── Timestamp tracking (stored in Dexie, not localStorage) ───
 
 async function getLastSyncTimestamp(table: string): Promise<string | null> {
   try {
-    const stored = localStorage.getItem(SYNC_TIMESTAMPS_KEY);
-    if (!stored) return null;
-    const timestamps = JSON.parse(stored);
-    return timestamps[table] ?? null;
+    const entry = await db.sync_meta.get(table);
+    return entry?.last_pulled_at ?? null;
   } catch (err) {
     logger.error("sync:timestamp", `Error leyendo timestamp de ${table}`, err);
     return null;
@@ -493,10 +500,7 @@ async function getLastSyncTimestamp(table: string): Promise<string | null> {
 
 async function setLastSyncTimestamp(table: string, timestamp: string): Promise<void> {
   try {
-    const stored = localStorage.getItem(SYNC_TIMESTAMPS_KEY);
-    const timestamps = stored ? JSON.parse(stored) : {};
-    timestamps[table] = timestamp;
-    localStorage.setItem(SYNC_TIMESTAMPS_KEY, JSON.stringify(timestamps));
+    await db.sync_meta.put({ table_name: table, last_pulled_at: timestamp });
   } catch (err) {
     logger.error("sync:timestamp", `Error guardando timestamp de ${table}`, err);
   }
@@ -520,18 +524,18 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
 
   for (const table of SYNC_TABLES) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dexieTable = (db as any)[table.local];
+      const dexieTable = getDexieTable(table.local);
       if (!dexieTable) continue;
 
       const errored = await dexieTable.where("sync_status").equals("error").toArray();
       for (const rec of errored) {
+        const id = rec.id ?? 0;
         results.push({
           table: table.local,
           tableLabel: tableLabel(table.local),
-          id: rec.id,
+          id,
           preview:
-            rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? `#${rec.id}`,
+            String(rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? `#${id}`),
         });
       }
     } catch {
@@ -549,8 +553,7 @@ export async function retryErrorRecords(): Promise<number> {
   let count = 0;
   for (const table of SYNC_TABLES) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dexieTable = (db as any)[table.local];
+      const dexieTable = getDexieTable(table.local);
       if (!dexieTable) continue;
 
       const errored = await dexieTable.where("sync_status").equals("error").toArray();
@@ -583,9 +586,9 @@ export async function checkSyncStatus(): Promise<{
     try {
       const supabase = createClient();
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      authenticated = !!session;
+        data: { user },
+      } = await supabase.auth.getUser();
+      authenticated = !!user;
     } catch (err) {
       logger.warn("sync:status", "No se pudo verificar sesión (posiblemente offline)", err);
     }
@@ -596,8 +599,7 @@ export async function checkSyncStatus(): Promise<{
   let errorCount = 0;
   for (const table of SYNC_TABLES) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dexieTable = (db as any)[table.local];
+      const dexieTable = getDexieTable(table.local);
       if (dexieTable) {
         pendingCount += await dexieTable.where("sync_status").equals("pending").count();
         errorCount += await dexieTable.where("sync_status").equals("error").count();

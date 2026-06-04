@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createUsuarioSchema } from "@/lib/validation/schemas";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import { clientEnv, getServerEnv } from "@/lib/env";
 
 const supabaseAdmin = createClient(
@@ -31,8 +31,8 @@ async function getAuthenticatedUser(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
-  const { allowed } = rateLimit(`create-user:${ip}`, 5, 60_000);
+  const key = await getRateLimitKey("create-user");
+  const { allowed } = rateLimit(key, 5, 60_000);
   if (!allowed) {
     return NextResponse.json(
       { error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." },

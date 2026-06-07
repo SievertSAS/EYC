@@ -54,7 +54,7 @@ export interface Contacto extends Partial<SyncFields> {
   id?: number;
   cliente_id: number;
   nombre: string;
-  cargo?: "medico_responsable" | "tecnologo" | "opr" | "representante" | "otro";
+  cargo?: "medico_responsable" | "tecnologo" | "opr" | "representante" | "responsable_visita" | "otro";
   cedula?: string;
   telefono?: string;
   email?: string;
@@ -507,8 +507,14 @@ export interface MedicionRadiometrica extends SyncFields {
   visita_id: number;
   punto_numero: number;
   ubicacion_descripcion: string;
+  /** Lectura cruda en μSv/h (entrada del físico) */
+  tasa_dosis_usv_h?: number;
+  /** Lectura convertida a mSv/h (= usv_h / 1000) */
   tasa_dosis_msv_h?: number;
+  /** @deprecated usar factor_ocupacion_t */
   factor_ocupacion?: string;
+  /** Factor de ocupación T (numérico) */
+  factor_ocupacion_t?: number;
   tipo_area?: "controlada" | "supervisada";
   dosis_anual_msv?: number;
   concepto?: "Conforme" | "No_conforme";

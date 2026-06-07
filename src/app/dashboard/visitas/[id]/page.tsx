@@ -13,7 +13,7 @@ import { VisitActionBar } from "@/components/visit-action-bar";
 import {
   getModuleStatuses,
   getVisitCompleteness,
-  type ModuloStatus,
+  type ModuleProgress,
 } from "@/lib/workflow/module-completeness";
 import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
 import { getModules, getDefaultModules } from "@/lib/equipos/registry";
@@ -30,12 +30,15 @@ import {
   FlaskConical,
   Camera,
   FileText,
-  CheckCircle2,
-  Circle,
   Loader2,
   AlertCircle,
   Lock,
   MessageSquareWarning,
+  ClipboardList,
+  Target,
+  Zap,
+  MonitorCheck,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,6 +52,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FlaskConical,
   Camera,
   FileText,
+  ClipboardList,
+  Target,
+  Zap,
+  MonitorCheck,
+  SlidersHorizontal,
 };
 
 function resolveIcon(iconName: string): LucideIcon {
@@ -68,11 +76,17 @@ const INFO_MODULE = {
   tipo: "readonly" as const,
 };
 
-const STATUS_ICON = {
-  sin_iniciar: <Circle className="w-4 h-4 text-slate-300" />,
-  en_progreso: <AlertCircle className="w-4 h-4 text-amber-500" />,
-  completado: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
-};
+function PercentBadge({ value }: { value: number }) {
+  const color =
+    value === 100
+      ? "bg-emerald-100 text-emerald-700"
+      : value > 0
+        ? "bg-amber-100 text-amber-700"
+        : "bg-slate-100 text-slate-400";
+  return (
+    <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${color}`}>{value}%</span>
+  );
+}
 
 export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -247,7 +261,10 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           {MODULOS.map((modulo) => {
-            const status: ModuloStatus = moduleStatuses[modulo.id] ?? "sin_iniciar";
+            const progress = moduleStatuses[modulo.id] ?? {
+              status: "sin_iniciar" as const,
+              percentage: 0,
+            };
             const Icon = resolveIcon(modulo.icon);
             const ruta = modulo.ruta ?? modulo.id;
             const locked = isLocked && modulo.id !== "info";
@@ -282,7 +299,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
                         <Lock className="w-4 h-4 text-slate-300" />
                       ) : (
                         <>
-                          {STATUS_ICON[status]}
+                          <PercentBadge value={progress.percentage} />
                           <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors" />
                         </>
                       )}

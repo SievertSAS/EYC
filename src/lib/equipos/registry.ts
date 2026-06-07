@@ -10,7 +10,6 @@ import { CONVENCIONAL_PACKAGE } from "./convencional";
 /** Paquetes disponibles — agregar nuevos tipos aquí */
 const PACKAGES: Partial<Record<TipoEquipo, EquipmentPackage>> = {
   CONVENCIONAL: CONVENCIONAL_PACKAGE,
-  // Futuros:
   // CT: CT_PACKAGE,
   // MAMOGRAFO: MAMOGRAFO_PACKAGE,
   // PANORAMICO: PANORAMICO_PACKAGE,

@@ -9,9 +9,10 @@ describe("getAvailableActions", () => {
     expect(actions[0].target).toBe("en_progreso");
   });
 
-  it("coordinador cannot start an assigned visit", () => {
+  it("coordinador can start an assigned visit", () => {
     const actions = getAvailableActions("asignada", "coordinador");
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("iniciar_visita");
   });
 
   it("tecnico can complete a visit in progress", () => {

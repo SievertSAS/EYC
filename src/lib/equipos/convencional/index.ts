@@ -1,9 +1,3 @@
-// ============================================================
-//  Paquete completo: CONVENCIONAL
-//  21 pruebas en 7 grupos — TECDOC 1958 / Res. 1811
-//  6 módulos de visita
-// ============================================================
-
 import type { EquipmentPackage } from "../types";
 import { MODULOS_CONVENCIONAL } from "./modulos";
 import { GRUPOS_CONVENCIONAL } from "./grupos";

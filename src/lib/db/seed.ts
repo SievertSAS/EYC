@@ -2,7 +2,6 @@ import { db } from "./index";
 import type { PruebaDefinicion, TipoEquipo, RolUsuario, ModuloApp, RolPermiso } from "./types";
 import { ROLES_DISPONIBLES, MODULOS_APP } from "./types";
 import type { EquipmentPackage } from "@/lib/equipos/types";
-import { CONVENCIONAL_PACKAGE } from "@/lib/equipos/convencional";
 
 // ============================================================
 //  Seed: Catálogo de pruebas de control de calidad
@@ -314,7 +313,8 @@ export async function seedPruebaDefiniciones(): Promise<void> {
   console.log(`[Seed] ${records.length} pruebas genéricas cargadas`);
 
   // 2. Seed paquetes de pruebas agrupadas
-  await seedFromPackage(CONVENCIONAL_PACKAGE);
+  // TODO: descomentar cuando se reconstruya el paquete CONVENCIONAL
+  // await seedFromPackage(CONVENCIONAL_PACKAGE);
 }
 
 /**

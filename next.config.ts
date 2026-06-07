@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
-  },
   // El SW debe servirse sin cache agresivo para que las actualizaciones se detecten
   async headers() {
     return [

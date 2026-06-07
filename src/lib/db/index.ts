@@ -29,6 +29,26 @@ import type {
   ChangeLog,
   SyncMeta,
 } from "./types";
+import type {
+  ConvLevantamientoSetup,
+  ConvMedicionRadiometrica,
+  ConvInspeccionItem,
+  ConvElementoProteccion,
+  ConvRaysafeSetup,
+  ConvRaysafeMedicion,
+  ConvCaeMedicion,
+  ConvDdiMedicion,
+  ConvCassetteInspeccion,
+  ConvUniformidadCr,
+  ConvColimacion,
+  ConvUniformidadDetector,
+  ConvResolucion,
+  ConvBajoContraste,
+  ConvMtf,
+  ConvInformeSeccion,
+  ConvResultadoPrueba,
+  ConvEvidencia,
+} from "@/lib/equipos/convencional/db/types";
 
 class EyCDatabase extends Dexie {
   clientes!: EntityTable<Cliente, "id">;
@@ -59,6 +79,26 @@ class EyCDatabase extends Dexie {
   informe_versiones!: EntityTable<InformeVersion, "id">;
   change_logs!: EntityTable<ChangeLog, "id">;
   sync_meta!: EntityTable<SyncMeta, "table_name">;
+
+  // ─── Convencional (tablas dedicadas) ───
+  conv_levantamiento_setup!: EntityTable<ConvLevantamientoSetup, "id">;
+  conv_mediciones!: EntityTable<ConvMedicionRadiometrica, "id">;
+  conv_inspeccion_items!: EntityTable<ConvInspeccionItem, "id">;
+  conv_elementos_proteccion!: EntityTable<ConvElementoProteccion, "id">;
+  conv_raysafe_setup!: EntityTable<ConvRaysafeSetup, "id">;
+  conv_raysafe_mediciones!: EntityTable<ConvRaysafeMedicion, "id">;
+  conv_cae_mediciones!: EntityTable<ConvCaeMedicion, "id">;
+  conv_ddi_mediciones!: EntityTable<ConvDdiMedicion, "id">;
+  conv_cassette_inspeccion!: EntityTable<ConvCassetteInspeccion, "id">;
+  conv_uniformidad_cr!: EntityTable<ConvUniformidadCr, "id">;
+  conv_colimacion!: EntityTable<ConvColimacion, "id">;
+  conv_uniformidad_detector!: EntityTable<ConvUniformidadDetector, "id">;
+  conv_resolucion!: EntityTable<ConvResolucion, "id">;
+  conv_bajo_contraste!: EntityTable<ConvBajoContraste, "id">;
+  conv_mtf!: EntityTable<ConvMtf, "id">;
+  conv_informe_secciones!: EntityTable<ConvInformeSeccion, "id">;
+  conv_resultados_prueba!: EntityTable<ConvResultadoPrueba, "id">;
+  conv_evidencias!: EntityTable<ConvEvidencia, "id">;
 
   constructor() {
     super("SievertEyC");
@@ -143,6 +183,45 @@ class EyCDatabase extends Dexie {
       gantry: "++id, equipo_id, sync_status",
       solicitudes:
         "++id, cliente_id, ubicacion_id, tecnico_asignado_id, pipeline_estado, suitecrm_id, sync_status",
+    });
+
+    // v6: tablas dedicadas del equipo convencional — Grupo A
+    this.version(6).stores({
+      conv_levantamiento_setup: "++id, &visita_id",
+      conv_mediciones: "++id, visita_id, punto_numero",
+      conv_inspeccion_items: "++id, visita_id, [visita_id+seccion]",
+      conv_elementos_proteccion: "++id, visita_id",
+      conv_raysafe_mediciones: "++id, visita_id, grupo_medicion",
+      conv_resultados_prueba: "++id, visita_id, prueba_codigo, [visita_id+prueba_codigo]",
+      conv_evidencias: "++id, visita_id, prueba_codigo, [visita_id+prueba_codigo]",
+    });
+
+    // v7: tablas Grupo B (RaySafe) y Grupo C (CAE)
+    this.version(7).stores({
+      conv_raysafe_setup: "++id, &visita_id",
+      conv_raysafe_mediciones: "++id, visita_id, tipo_medicion, [visita_id+tipo_medicion]",
+      conv_cae_mediciones: "++id, visita_id, toma_numero",
+    });
+
+    // v8: tablas Grupo D (DDI/EI + Cassettes CR)
+    this.version(8).stores({
+      conv_ddi_mediciones: "++id, visita_id, grupo, toma_numero",
+      conv_cassette_inspeccion: "++id, visita_id, item_numero",
+      conv_uniformidad_cr: "++id, visita_id, item_numero",
+    });
+
+    // v9: tablas Grupo E (Colimación, Uniformidad detector, Resolución, Bajo contraste, MTF)
+    this.version(9).stores({
+      conv_colimacion: "++id, &visita_id",
+      conv_uniformidad_detector: "++id, visita_id, item_numero",
+      conv_resolucion: "++id, &visita_id",
+      conv_bajo_contraste: "++id, &visita_id",
+      conv_mtf: "++id, &visita_id",
+    });
+
+    // v10: configuración del pre-informe
+    this.version(10).stores({
+      conv_informe_secciones: "++id, visita_id, prueba_codigo, [visita_id+prueba_codigo]",
     });
   }
 }

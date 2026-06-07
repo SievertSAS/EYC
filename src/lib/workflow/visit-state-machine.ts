@@ -50,7 +50,7 @@ const TRANSITIONS: Record<EstadoVisita, ActionDefinition[]> = {
       label: "Iniciar Visita",
       description: "Comenzar la ejecución del servicio",
       target: "en_progreso",
-      roles: ["tecnico"],
+      roles: ["tecnico", "coordinador"],
       hasGate: false,
       variant: "primary",
       icon: "Play",

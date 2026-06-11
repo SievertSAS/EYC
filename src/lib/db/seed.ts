@@ -1,6 +1,6 @@
 import { db } from "./index";
-import type { PruebaDefinicion, TipoEquipo, RolUsuario, ModuloApp, RolPermiso } from "./types";
-import { ROLES_DISPONIBLES, MODULOS_APP } from "./types";
+import type { PruebaDefinicion, TipoEquipo, RolPermiso } from "./types";
+import { ROLES_DISPONIBLES, MODULOS_APP, permisoDefault } from "./types";
 import type { EquipmentPackage } from "@/lib/equipos/types";
 
 // ============================================================
@@ -253,22 +253,6 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   },
 ];
 
-const PERMISOS_DEFAULT: Record<RolUsuario, ModuloApp[]> = {
-  coordinador: [...MODULOS_APP],
-  programador: [
-    "dashboard",
-    "clientes",
-    "solicitudes",
-    "visitas",
-    "revision",
-    "equipos",
-    "informes",
-    "sync",
-  ],
-  tecnico: ["dashboard", "visitas", "revision", "equipos", "informes", "sync"],
-  comercial: ["dashboard", "clientes", "solicitudes"],
-};
-
 export async function seedRolPermisos(): Promise<void> {
   const count = await db.rol_permisos.count();
   if (count > 0) return;
@@ -277,12 +261,15 @@ export async function seedRolPermisos(): Promise<void> {
   const records: Omit<RolPermiso, "id">[] = [];
 
   for (const rol of ROLES_DISPONIBLES) {
-    const modulosActivos = PERMISOS_DEFAULT[rol];
     for (const modulo of MODULOS_APP) {
+      const acciones = permisoDefault(rol, modulo);
       records.push({
         rol,
         modulo,
-        activo: modulosActivos.includes(modulo),
+        activo: acciones.ver,
+        crear: acciones.crear,
+        editar: acciones.editar,
+        eliminar: acciones.eliminar,
         modificado_en: now,
       });
     }

@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Radio,
   Search,
@@ -15,9 +17,12 @@ import {
   Calendar,
   ArrowRight,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { TIPOS_EQUIPO } from "@/lib/db/types";
+import type { Equipo } from "@/lib/db/types";
+import { EquipoFormDialog } from "@/components/equipo-form-dialog";
 
 // ============================================================
 //  Inventario general de equipos — vista consolidada
@@ -28,8 +33,12 @@ type FilterType = "todos" | string;
 
 export default function EquiposPage() {
   const { isReady } = useDb();
+  const { hasPermission } = useRole();
+  const canEditEquipo = hasPermission("equipos", "editar");
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState<FilterType>("todos");
+  const [editEquipo, setEditEquipo] = useState<Equipo | undefined>();
+  const [equipoDialogOpen, setEquipoDialogOpen] = useState(false);
 
   const data = useLiveQuery(async () => {
     if (!isReady) return undefined;
@@ -238,13 +247,42 @@ export default function EquiposPage() {
                       </div>
                     </div>
 
-                    <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-2 group-hover:text-primary transition-colors" />
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      {canEditEquipo && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-lg text-slate-400 hover:text-primary"
+                          aria-label={`Editar equipo ${equipo.gen_marca ?? ""} ${equipo.gen_modelo ?? ""}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditEquipo(equipo);
+                            setEquipoDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
+      )}
+
+      {/* Dialog de edición — key fuerza remount para reinicializar el form */}
+      {editEquipo && (
+        <EquipoFormDialog
+          key={editEquipo.id}
+          open={equipoDialogOpen}
+          onOpenChange={setEquipoDialogOpen}
+          ubicacionId={editEquipo.ubicacion_id}
+          equipo={editEquipo}
+        />
       )}
     </div>
   );

@@ -129,6 +129,9 @@ export interface Database {
           rol: "coordinador" | "programador" | "tecnico" | "comercial";
           modulo: string;
           activo: boolean;
+          crear: boolean | null;
+          editar: boolean | null;
+          eliminar: boolean | null;
           modificado_en: string;
         };
         Insert: Omit<

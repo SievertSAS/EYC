@@ -54,7 +54,13 @@ export interface Contacto extends Partial<SyncFields> {
   id?: number;
   cliente_id: number;
   nombre: string;
-  cargo?: "medico_responsable" | "tecnologo" | "opr" | "representante" | "responsable_visita" | "otro";
+  cargo?:
+    | "medico_responsable"
+    | "tecnologo"
+    | "opr"
+    | "representante"
+    | "responsable_visita"
+    | "otro";
   cedula?: string;
   telefono?: string;
   email?: string;
@@ -270,12 +276,127 @@ export interface Usuario {
   creado_en?: string;
 }
 
+// ─── Acciones de permiso por módulo ───
+
+export type AccionPermiso = "ver" | "crear" | "editar" | "eliminar";
+
+export const ACCIONES_PERMISO: AccionPermiso[] = ["ver", "crear", "editar", "eliminar"];
+
+export const ACCION_LABELS: Record<AccionPermiso, string> = {
+  ver: "Ver",
+  crear: "Crear",
+  editar: "Editar",
+  eliminar: "Eliminar",
+};
+
+export interface AccionesPermiso {
+  ver: boolean;
+  crear: boolean;
+  editar: boolean;
+  eliminar: boolean;
+}
+
 export interface RolPermiso {
   id?: number;
   rol: RolUsuario;
   modulo: ModuloApp;
+  /** Permiso de ver el módulo (nombre legacy, equivale a la acción "ver") */
   activo: boolean;
+  /** null/undefined = usar el default del rol (permisoDefault) */
+  crear?: boolean | null;
+  editar?: boolean | null;
+  eliminar?: boolean | null;
   modificado_en?: string;
+}
+
+const ACCESO_TOTAL: AccionesPermiso = { ver: true, crear: true, editar: true, eliminar: true };
+const SOLO_VER: AccionesPermiso = { ver: true, crear: false, editar: false, eliminar: false };
+const SIN_ACCESO: AccionesPermiso = { ver: false, crear: false, editar: false, eliminar: false };
+const GESTIONAR: AccionesPermiso = { ver: true, crear: true, editar: true, eliminar: false };
+const EJECUTAR: AccionesPermiso = { ver: true, crear: false, editar: true, eliminar: false };
+
+/**
+ * Matriz de permisos por defecto. Se usa para sembrar `rol_permisos`
+ * y como fallback cuando un registro no tiene definida una acción
+ * (datos anteriores a la migración de permisos granulares).
+ */
+const PERMISOS_DEFAULT_MATRIZ: Record<RolUsuario, Partial<Record<ModuloApp, AccionesPermiso>>> = {
+  coordinador: {
+    dashboard: ACCESO_TOTAL,
+    clientes: ACCESO_TOTAL,
+    solicitudes: ACCESO_TOTAL,
+    visitas: ACCESO_TOTAL,
+    revision: ACCESO_TOTAL,
+    equipos: ACCESO_TOTAL,
+    informes: ACCESO_TOTAL,
+    sync: ACCESO_TOTAL,
+    configuracion: ACCESO_TOTAL,
+  },
+  programador: {
+    dashboard: SOLO_VER,
+    clientes: SOLO_VER,
+    solicitudes: GESTIONAR,
+    visitas: GESTIONAR,
+    revision: SOLO_VER,
+    equipos: SOLO_VER,
+    informes: SOLO_VER,
+    sync: SOLO_VER,
+  },
+  tecnico: {
+    dashboard: SOLO_VER,
+    visitas: EJECUTAR,
+    revision: SOLO_VER,
+    equipos: EJECUTAR,
+    informes: SOLO_VER,
+    sync: SOLO_VER,
+  },
+  comercial: {
+    dashboard: SOLO_VER,
+    clientes: GESTIONAR,
+    solicitudes: GESTIONAR,
+  },
+};
+
+/** Permisos por defecto de un rol sobre un módulo */
+export function permisoDefault(rol: RolUsuario, modulo: ModuloApp): AccionesPermiso {
+  return PERMISOS_DEFAULT_MATRIZ[rol][modulo] ?? SIN_ACCESO;
+}
+
+/**
+ * Estado efectivo de las 4 acciones de un registro de permiso:
+ * el valor guardado, o el default del rol cuando la acción no está
+ * definida (null/undefined, datos previos a permisos granulares).
+ * Nota: no aplica la regla "sin ver no hay acciones" — eso lo hace
+ * `resolverPermiso`; aquí se exponen los valores crudos para que la
+ * UI de configuración pueda editarlos sin perder overrides.
+ */
+export function accionesEfectivas(
+  permiso: RolPermiso | undefined,
+  rol: RolUsuario,
+  modulo: ModuloApp
+): AccionesPermiso {
+  const defaults = permisoDefault(rol, modulo);
+  return {
+    ver: permiso?.activo ?? false,
+    crear: permiso?.crear ?? defaults.crear,
+    editar: permiso?.editar ?? defaults.editar,
+    eliminar: permiso?.eliminar ?? defaults.eliminar,
+  };
+}
+
+/**
+ * Resuelve si un rol puede realizar una acción sobre un módulo.
+ * Sin permiso de ver el módulo, ninguna acción está permitida.
+ */
+export function resolverPermiso(
+  permiso: RolPermiso | undefined,
+  rol: RolUsuario,
+  modulo: ModuloApp,
+  accion: AccionPermiso = "ver"
+): boolean {
+  const efectivas = accionesEfectivas(permiso, rol, modulo);
+  if (!efectivas.ver) return false;
+  return efectivas[accion];
 }
 
 // ─── Comercial ───

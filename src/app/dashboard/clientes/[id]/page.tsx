@@ -412,6 +412,11 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                               {[sede.ciudad, sede.departamento].filter(Boolean).join(", ") ||
                                 sede.direccion_sede}
                             </p>
+                            {(sede.telefono || sede.email) && (
+                              <p className="text-[11px] text-slate-400 font-medium truncate">
+                                {[sede.telefono, sede.email].filter(Boolean).join(" · ")}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">

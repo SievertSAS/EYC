@@ -1,11 +1,20 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { createClient } from "@/lib/supabase/client";
-import type { RolUsuario, RolPermiso } from "@/lib/db/types";
+import type { RolUsuario, RolPermiso, AccionPermiso, ModuloApp } from "@/lib/db/types";
+import { resolverPermiso } from "@/lib/db/types";
 
 export interface ActiveRole {
   usuarioId: number;
@@ -17,7 +26,8 @@ interface RoleContextValue {
   role: ActiveRole | null;
   isAdmin: boolean;
   isReady: boolean;
-  hasPermission: (modulo: string) => boolean;
+  /** Permiso del rol activo sobre un módulo. Sin acción = "ver". */
+  hasPermission: (modulo: string, accion?: AccionPermiso) => boolean;
 }
 
 const RoleContext = createContext<RoleContextValue>({
@@ -33,8 +43,6 @@ export function useRole() {
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { isReady: dbReady } = useDb();
-  const [role, setRole] = useState<ActiveRole | null>(null);
-  const [providerReady, setProviderReady] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
@@ -82,52 +90,40 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       } else if (navigator.onLine) {
         setAuthUid(null);
         setAuthEmail(null);
-        setRole(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!dbReady || usuarios.length === 0 || !authChecked) return;
+  // El rol activo es estado derivado: usuario de Dexie que coincide
+  // con la sesión de Supabase (por auth_uid, o por email como fallback)
+  const role = useMemo<ActiveRole | null>(() => {
+    if (!authUid || usuarios.length === 0) return null;
 
-    if (authUid) {
-      const byUid = usuarios.find((u) => u.auth_uid === authUid);
-      if (byUid) {
-        setRole({
-          usuarioId: byUid.id!,
-          nombre: byUid.nombre,
-          cargo: byUid.cargo,
-        });
-        setProviderReady(true);
-        return;
-      }
-
-      if (authEmail) {
-        const byEmail = usuarios.find((u) => u.email?.toLowerCase() === authEmail.toLowerCase());
-        if (byEmail) {
-          setRole({
-            usuarioId: byEmail.id!,
-            nombre: byEmail.nombre,
-            cargo: byEmail.cargo,
-          });
-          setProviderReady(true);
-          return;
-        }
-      }
-
-      console.warn("[Role] No se encontró usuario por auth_uid ni email");
+    const byUid = usuarios.find((u) => u.auth_uid === authUid);
+    if (byUid) {
+      return { usuarioId: byUid.id!, nombre: byUid.nombre, cargo: byUid.cargo };
     }
 
-    setProviderReady(true);
-  }, [dbReady, usuarios, authUid, authEmail, authChecked]);
+    if (authEmail) {
+      const byEmail = usuarios.find((u) => u.email?.toLowerCase() === authEmail.toLowerCase());
+      if (byEmail) {
+        return { usuarioId: byEmail.id!, nombre: byEmail.nombre, cargo: byEmail.cargo };
+      }
+    }
+
+    console.warn("[Role] No se encontró usuario por auth_uid ni email");
+    return null;
+  }, [usuarios, authUid, authEmail]);
+
+  const providerReady = dbReady && authChecked && usuarios.length > 0;
 
   const hasPermission = useCallback(
-    (modulo: string): boolean => {
+    (modulo: string, accion: AccionPermiso = "ver"): boolean => {
       if (!role) return false;
       const permiso = permisos.find((p: RolPermiso) => p.rol === role.cargo && p.modulo === modulo);
-      return permiso?.activo ?? false;
+      return resolverPermiso(permiso, role.cargo, modulo as ModuloApp, accion);
     },
     [role, permisos]
   );

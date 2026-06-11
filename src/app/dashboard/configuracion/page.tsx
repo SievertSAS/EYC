@@ -18,9 +18,19 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Settings, Users, Shield, Plus, Loader2, UserCheck, UserX, Pencil } from "lucide-react";
-import type { RolUsuario, ModuloApp } from "@/lib/db/types";
-import { ROLES_DISPONIBLES, ROL_LABELS, MODULOS_APP, MODULO_LABELS } from "@/lib/db/types";
+import { Users, Shield, Plus, Loader2, UserCheck, UserX, Pencil, Eye, Trash2 } from "lucide-react";
+import type { RolUsuario, ModuloApp, AccionPermiso, RolPermiso } from "@/lib/db/types";
+import {
+  ROLES_DISPONIBLES,
+  ROL_LABELS,
+  MODULOS_APP,
+  MODULO_LABELS,
+  ACCIONES_PERMISO,
+  ACCION_LABELS,
+  accionesEfectivas,
+} from "@/lib/db/types";
+import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 
 export default function ConfiguracionPage() {
   const { isReady } = useDb();
@@ -377,47 +387,122 @@ function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: n
 //  Tab: Roles y Permisos
 // ============================================================
 
+const ACCION_ICONS: Record<AccionPermiso, typeof Eye> = {
+  ver: Eye,
+  crear: Plus,
+  editar: Pencil,
+  eliminar: Trash2,
+};
+
+/**
+ * Persiste el permiso en Supabase (best-effort). `rol_permisos` es una
+ * tabla master que el sync solo descarga, así que sin esto los cambios
+ * locales se revertirían en el siguiente pull.
+ */
+async function persistirPermisoRemoto(record: Omit<RolPermiso, "id">) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    logger.warn("Permisos", "Sin conexión — el permiso se aplicó solo localmente", record);
+    return;
+  }
+  try {
+    // Los tipos manuales de Database no soportan la inferencia de supabase-js
+    // (mismo patrón que sync-engine.ts)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
+    const { data, error } = await supabase
+      .from("rol_permisos")
+      .select("id")
+      .eq("rol", record.rol)
+      .eq("modulo", record.modulo)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (data?.id) {
+      const { error: updateError } = await supabase
+        .from("rol_permisos")
+        .update(record)
+        .eq("id", data.id);
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await supabase.from("rol_permisos").insert(record);
+      if (insertError) throw insertError;
+    }
+  } catch (err) {
+    logger.warn(
+      "Permisos",
+      "No se pudo guardar el permiso en Supabase (se aplicó localmente)",
+      err
+    );
+  }
+}
+
 function RolesTab() {
   const permisos = useLiveQuery(() => db.rol_permisos.toArray());
   const [saving, setSaving] = useState<string | null>(null);
 
   if (!permisos) return null;
 
-  function isActive(rol: RolUsuario, modulo: ModuloApp): boolean {
-    return permisos?.some((p) => p.rol === rol && p.modulo === modulo && p.activo) ?? false;
+  function getPermiso(rol: RolUsuario, modulo: ModuloApp): RolPermiso | undefined {
+    return permisos?.find((p) => p.rol === rol && p.modulo === modulo);
   }
 
-  async function togglePermiso(rol: RolUsuario, modulo: ModuloApp) {
-    const key = `${rol}-${modulo}`;
+  /** Estado efectivo de las 4 acciones (registro + fallback a defaults) */
+  function acciones(rol: RolUsuario, modulo: ModuloApp) {
+    return accionesEfectivas(getPermiso(rol, modulo), rol, modulo);
+  }
+
+  async function togglePermiso(rol: RolUsuario, modulo: ModuloApp, accion: AccionPermiso) {
+    const key = `${rol}-${modulo}-${accion}`;
     setSaving(key);
     try {
-      const existing = permisos?.find((p) => p.rol === rol && p.modulo === modulo);
+      const existing = getPermiso(rol, modulo);
+      const next = acciones(rol, modulo);
+      next[accion] = !next[accion];
+
+      const record: Omit<RolPermiso, "id"> = {
+        rol,
+        modulo,
+        activo: next.ver,
+        crear: next.crear,
+        editar: next.editar,
+        eliminar: next.eliminar,
+        modificado_en: new Date().toISOString(),
+      };
+
       if (existing) {
-        await db.rol_permisos.update(existing.id!, {
-          activo: !existing.activo,
-          modificado_en: new Date().toISOString(),
-        });
+        await db.rol_permisos.update(existing.id!, record);
       } else {
-        await db.rol_permisos.add({
-          rol,
-          modulo,
-          activo: true,
-          modificado_en: new Date().toISOString(),
-        });
+        await db.rol_permisos.add(record as RolPermiso);
       }
+
+      // No bloquear la UI con la escritura remota
+      persistirPermisoRemoto(record);
     } finally {
       setSaving(null);
     }
   }
 
-  const isLocked = (rol: RolUsuario, modulo: ModuloApp) =>
-    rol === "coordinador" && modulo === "configuracion";
+  const isLocked = (rol: RolUsuario, modulo: ModuloApp, accion: AccionPermiso) =>
+    rol === "coordinador" && modulo === "configuracion" && accion === "ver";
 
   return (
     <div className="space-y-4 mt-4">
       <p className="text-sm text-slate-500 font-medium">
-        Configura qué módulos puede ver cada rol. Los cambios se aplican inmediatamente.
+        Configura qué puede hacer cada rol en cada módulo. Los cambios se aplican inmediatamente.
       </p>
+
+      {/* Leyenda */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 font-bold">
+        {ACCIONES_PERMISO.map((accion) => {
+          const Icon = ACCION_ICONS[accion];
+          return (
+            <span key={accion} className="flex items-center gap-1">
+              <Icon className="w-3.5 h-3.5 text-primary" />
+              {ACCION_LABELS[accion]}
+            </span>
+          );
+        })}
+      </div>
 
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-0">
@@ -446,44 +531,47 @@ function RolesTab() {
                   >
                     <td className="p-3 sm:p-4 font-bold text-slate-700">{MODULO_LABELS[modulo]}</td>
                     {ROLES_DISPONIBLES.map((rol) => {
-                      const locked = isLocked(rol, modulo);
-                      const active = locked || isActive(rol, modulo);
-                      const key = `${rol}-${modulo}`;
+                      const estado = acciones(rol, modulo);
 
                       return (
-                        <td key={rol} className="text-center p-3 sm:p-4">
-                          <button
-                            role="switch"
-                            aria-checked={active}
-                            aria-label={`${MODULO_LABELS[modulo]} para ${ROL_LABELS[rol]}`}
-                            onClick={() => !locked && togglePermiso(rol, modulo)}
-                            disabled={locked || saving === key}
-                            className={`w-7 h-7 rounded-lg transition-all ${
-                              active
-                                ? "bg-primary text-white shadow-sm"
-                                : "bg-slate-100 text-slate-300 hover:bg-slate-200"
-                            } ${
-                              locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
-                            } flex items-center justify-center mx-auto`}
-                          >
-                            {saving === key ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : active ? (
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                            ) : null}
-                          </button>
+                        <td key={rol} className="text-center p-2 sm:p-3">
+                          <div className="flex items-center justify-center gap-1">
+                            {ACCIONES_PERMISO.map((accion) => {
+                              const locked = isLocked(rol, modulo, accion);
+                              const active = locked || estado[accion];
+                              // Sin "ver", las demás acciones no aplican
+                              const inert = accion !== "ver" && !estado.ver;
+                              const key = `${rol}-${modulo}-${accion}`;
+                              const Icon = ACCION_ICONS[accion];
+
+                              return (
+                                <button
+                                  key={accion}
+                                  role="switch"
+                                  aria-checked={active}
+                                  title={`${ACCION_LABELS[accion]} — ${MODULO_LABELS[modulo]} (${ROL_LABELS[rol]})`}
+                                  aria-label={`${ACCION_LABELS[accion]} ${MODULO_LABELS[modulo]} para ${ROL_LABELS[rol]}`}
+                                  onClick={() =>
+                                    !locked && !inert && togglePermiso(rol, modulo, accion)
+                                  }
+                                  disabled={locked || inert || saving === key}
+                                  className={`w-6 h-6 rounded-md transition-all flex items-center justify-center ${
+                                    inert
+                                      ? "bg-slate-50 text-slate-200 cursor-not-allowed"
+                                      : active
+                                        ? "bg-primary text-white shadow-sm"
+                                        : "bg-slate-100 text-slate-300 hover:bg-slate-200"
+                                  } ${locked ? "cursor-not-allowed opacity-70" : ""}`}
+                                >
+                                  {saving === key ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Icon className="w-3 h-3" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </td>
                       );
                     })}
@@ -496,7 +584,8 @@ function RolesTab() {
       </Card>
 
       <p className="text-[11px] text-slate-400 font-medium">
-        El rol Coordinador siempre tiene acceso a Configuración y no puede ser desactivado.
+        El rol Coordinador siempre puede ver Configuración. Si un rol no puede ver un módulo, las
+        demás acciones quedan deshabilitadas.
       </p>
     </div>
   );

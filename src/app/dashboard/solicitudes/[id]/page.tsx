@@ -71,7 +71,9 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const solicitudId = parseInt(id, 10);
   const { isReady } = useDb();
-  const { isAdmin } = useRole();
+  const { hasPermission } = useRole();
+  const canEditSolicitud = hasPermission("solicitudes", "editar");
+  const canCrearVisitas = hasPermission("visitas", "crear");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creatingVisita, setCreatingVisita] = useState(false);
   const [tecnicoSel, setTecnicoSel] = useState("");
@@ -225,7 +227,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
               >
                 {estado.replace("_", " ")}
               </span>
-              {isAdmin && (
+              {canEditSolicitud && (
                 <Button
                   variant="outline"
                   className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-9 px-3 text-xs"
@@ -365,7 +367,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       )}
 
       {/* Crear visitas para todos los equipos pendientes */}
-      {isAdmin && equiposSinVisita.length > 0 && (
+      {canCrearVisitas && equiposSinVisita.length > 0 && (
         <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-2xl bg-primary/5 overflow-hidden">
           <CardContent className="p-5 space-y-4">
             <div>

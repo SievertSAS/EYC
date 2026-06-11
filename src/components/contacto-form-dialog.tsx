@@ -33,7 +33,9 @@ interface ContactoFormDialogProps {
   onOpenChange: (open: boolean) => void;
   clienteId: number;
   contacto?: Contacto;
-  onSaved?: () => void;
+  onSaved?: (id: number) => void;
+  /** Valor inicial del checkbox "para programar" al crear */
+  defaultParaProgramar?: boolean;
 }
 
 const CARGO_OPTIONS = [
@@ -50,6 +52,7 @@ export function ContactoFormDialog({
   clienteId,
   contacto,
   onSaved,
+  defaultParaProgramar = false,
 }: ContactoFormDialogProps) {
   const isEdit = !!contacto;
 
@@ -58,7 +61,9 @@ export function ContactoFormDialog({
   const [cedula, setCedula] = useState(contacto?.cedula ?? "");
   const [telefono, setTelefono] = useState(contacto?.telefono ?? "");
   const [email, setEmail] = useState(contacto?.email ?? "");
-  const [paraProgramar, setParaProgramar] = useState(contacto?.para_programar ?? false);
+  const [paraProgramar, setParaProgramar] = useState(
+    contacto?.para_programar ?? defaultParaProgramar
+  );
   const [saving, setSaving] = useState(false);
 
   function resetForm() {
@@ -67,7 +72,7 @@ export function ContactoFormDialog({
     setCedula(contacto?.cedula ?? "");
     setTelefono(contacto?.telefono ?? "");
     setEmail(contacto?.email ?? "");
-    setParaProgramar(contacto?.para_programar ?? false);
+    setParaProgramar(contacto?.para_programar ?? defaultParaProgramar);
   }
 
   async function handleSave() {
@@ -98,7 +103,7 @@ export function ContactoFormDialog({
 
       resetForm();
       onOpenChange(false);
-      onSaved?.();
+      onSaved?.(savedId);
 
       pushSingle("contactos", savedId);
     } catch (err) {

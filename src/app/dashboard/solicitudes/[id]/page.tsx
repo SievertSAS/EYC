@@ -7,9 +7,18 @@ import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
-  Building2,
   MapPin,
   User,
   Calendar,
@@ -65,6 +74,8 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   const { isAdmin } = useRole();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creatingVisita, setCreatingVisita] = useState(false);
+  const [tecnicoSel, setTecnicoSel] = useState("");
+  const [fechaVisitaSel, setFechaVisitaSel] = useState("");
   const [resultado, setResultado] = useState<{
     total: number;
     exitosas: number;
@@ -100,6 +111,12 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
     return { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas };
   }, [isReady, solicitudId]);
 
+  const tecnicos = useLiveQuery(
+    () => (isReady ? db.usuarios.filter((t) => t.activo && t.cargo === "tecnico").toArray() : []),
+    [isReady],
+    []
+  );
+
   if (!isReady || data === undefined) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -134,11 +151,25 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   const equiposConVisita = new Set(visitas.map((v) => v.equipo_id));
   const equiposSinVisita = equipos.filter((e) => !equiposConVisita.has(e.id!));
 
+  // Valores efectivos para programar: lo seleccionado, o lo ya guardado en la solicitud
+  const tecnicoValue =
+    tecnicoSel || (solicitud.tecnico_asignado_id ? String(solicitud.tecnico_asignado_id) : "");
+  const fechaVisitaValue = fechaVisitaSel || solicitud.fecha_estimada_visita || "";
+
   async function handleCrearVisitas() {
-    if (equiposSinVisita.length === 0) return;
+    if (equiposSinVisita.length === 0 || !tecnicoValue) return;
     setCreatingVisita(true);
     setResultado(null);
     try {
+      // Guardar técnico y fecha en la solicitud; la visita los hereda
+      const now = new Date().toISOString();
+      await db.solicitudes.update(solicitudId, {
+        tecnico_asignado_id: parseInt(tecnicoValue, 10),
+        fecha_estimada_visita: fechaVisitaValue || undefined,
+        sync_status: "pending",
+        last_modified: now,
+      });
+
       let exitosas = 0;
       let pruebasTotal = 0;
       const errores: string[] = [];
@@ -159,6 +190,8 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
         pruebasCreadas: pruebasTotal,
         errores,
       });
+
+      pushSingle("solicitudes", solicitudId);
     } catch (err) {
       console.error("[SolicitudDetail] Error:", err);
     } finally {
@@ -271,22 +304,24 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             )}
           </div>
 
-          {/* Pago */}
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-slate-400" />
-            <span className="text-sm font-medium text-slate-600">
-              {solicitud.forma_pago ?? "Sin definir"}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                solicitud.pago_recibido
-                  ? "bg-emerald-100 text-emerald-600"
-                  : "bg-red-100 text-red-500"
-              }`}
-            >
-              {solicitud.pago_recibido ? "Pagado" : "Pendiente"}
-            </span>
-          </div>
+          {/* Pago (solo para solicitudes con datos de pago registrados) */}
+          {(solicitud.forma_pago || solicitud.pago_recibido) && (
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-slate-400" />
+              <span className="text-sm font-medium text-slate-600">
+                {solicitud.forma_pago ?? "Sin definir"}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  solicitud.pago_recibido
+                    ? "bg-emerald-100 text-emerald-600"
+                    : "bg-red-100 text-red-500"
+                }`}
+              >
+                {solicitud.pago_recibido ? "Pagado" : "Pendiente"}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -333,22 +368,54 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       {isAdmin && equiposSinVisita.length > 0 && (
         <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-2xl bg-primary/5 overflow-hidden">
           <CardContent className="p-5 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
-                  <Radio className="w-5 h-5 text-primary" />
-                  Programar Visitas
-                </h3>
-                <p className="text-sm text-slate-500 font-medium mt-1">
-                  {equiposSinVisita.length === 1
-                    ? `1 equipo pendiente: ${equiposSinVisita[0].gen_marca ?? ""} ${equiposSinVisita[0].gen_modelo ?? ""} ${equiposSinVisita[0].tipo_equipo ? `(${equiposSinVisita[0].tipo_equipo})` : ""}`.trim()
-                    : `${equiposSinVisita.length} equipos pendientes en esta ubicación.`}
-                </p>
-              </div>
+            <div>
+              <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <Radio className="w-5 h-5 text-primary" />
+                Programar Visitas
+              </h3>
+              <p className="text-sm text-slate-500 font-medium mt-1">
+                {equiposSinVisita.length === 1
+                  ? `1 equipo pendiente: ${equiposSinVisita[0].gen_marca ?? ""} ${equiposSinVisita[0].gen_modelo ?? ""} ${equiposSinVisita[0].tipo_equipo ? `(${equiposSinVisita[0].tipo_equipo})` : ""}`.trim()
+                  : `${equiposSinVisita.length} equipos pendientes en esta ubicación.`}
+              </p>
+            </div>
 
+            {/* Técnico y fecha de la visita */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                  Técnico Asignado *
+                </Label>
+                <Select value={tecnicoValue} onValueChange={(v) => setTecnicoSel(v ?? "")}>
+                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium bg-white">
+                    <SelectValue placeholder="Seleccionar técnico..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tecnicos.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        {t.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                  Fecha de Visita
+                </Label>
+                <Input
+                  type="date"
+                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11 bg-white"
+                  value={fechaVisitaValue}
+                  onChange={(e) => setFechaVisitaSel(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
               <Button
                 className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
-                disabled={creatingVisita}
+                disabled={creatingVisita || !tecnicoValue}
                 onClick={handleCrearVisitas}
               >
                 {creatingVisita ? (
@@ -359,7 +426,9 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                 ) : (
                   <>
                     <ClipboardCheck className="w-4 h-4 mr-2" />
-                    {equiposSinVisita.length === 1 ? "Crear Visita" : `Crear ${equiposSinVisita.length} Visitas`}
+                    {equiposSinVisita.length === 1
+                      ? "Crear Visita"
+                      : `Crear ${equiposSinVisita.length} Visitas`}
                   </>
                 )}
               </Button>
@@ -391,17 +460,23 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>
-                      {resultado.exitosas} {resultado.exitosas === 1 ? "visita creada" : "visitas creadas"} con {resultado.pruebasCreadas} pruebas en total.
+                      {resultado.exitosas}{" "}
+                      {resultado.exitosas === 1 ? "visita creada" : "visitas creadas"} con{" "}
+                      {resultado.pruebasCreadas} pruebas en total.
                     </span>
                   </div>
                 ) : (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
-                      <span>{resultado.exitosas}/{resultado.total} visitas creadas.</span>
+                      <span>
+                        {resultado.exitosas}/{resultado.total} visitas creadas.
+                      </span>
                     </div>
                     {resultado.errores.map((err, i) => (
-                      <p key={i} className="text-xs ml-6">{err}</p>
+                      <p key={i} className="text-xs ml-6">
+                        {err}
+                      </p>
                     ))}
                   </div>
                 )}

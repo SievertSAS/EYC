@@ -26,7 +26,7 @@ interface UbicacionFormDialogProps {
   onOpenChange: (open: boolean) => void;
   sedeId: number;
   ubicacion?: UbicacionRx;
-  onSaved?: () => void;
+  onSaved?: (id: number) => void;
 }
 
 export function UbicacionFormDialog({
@@ -80,7 +80,7 @@ export function UbicacionFormDialog({
 
       resetForm();
       onOpenChange(false);
-      onSaved?.();
+      onSaved?.(savedId);
 
       pushSingle("ubicaciones_rx", savedId);
     } catch (err) {

@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -23,15 +22,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ChevronRight } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { updateWithTracking } from "@/lib/workflow/change-tracker";
+import { ClienteFormDialog } from "@/components/cliente-form-dialog";
+import { SedeFormDialog } from "@/components/sede-form-dialog";
+import { UbicacionFormDialog } from "@/components/ubicacion-form-dialog";
+import { ContactoFormDialog } from "@/components/contacto-form-dialog";
 
 // ============================================================
 //  Dialog para crear una solicitud — flujo guiado paso a paso
 //  1. Cliente → 2. Sede → 3. Ubicación → 4. Contacto
-//  5. Técnico → 6. Detalles
+//  Cliente, sede, ubicación y contacto pueden crearse inline
+//  con los botones "+ Nuevo" si no existen aún.
+//  Técnico y fecha de visita se asignan al programar la visita.
 // ============================================================
 
 interface SolicitudFormDialogProps {
@@ -57,25 +62,27 @@ export function SolicitudFormDialog({
   const [sedeId, setSedeId] = useState("");
   const [ubicacionId, setUbicacionId] = useState("");
   const [contactoId, setContactoId] = useState("");
-  const [tecnicoId, setTecnicoId] = useState("");
-  const [tipoServicio, setTipoServicio] = useState("CONTROL_CALIDAD");
-  const [fechaSolicitud, setFechaSolicitud] = useState(new Date().toISOString().split("T")[0]);
-  const [fechaEstimada, setFechaEstimada] = useState("");
-  const [formaPago, setFormaPago] = useState("");
-  const [pagoRecibido, setPagoRecibido] = useState(false);
 
   const [saving, setSaving] = useState(false);
 
-  // Reset cascading selects
-  useEffect(() => {
+  // Dialogs para crear entidades auxiliares inline
+  const [clienteDialogOpen, setClienteDialogOpen] = useState(false);
+  const [sedeDialogOpen, setSedeDialogOpen] = useState(false);
+  const [ubicacionDialogOpen, setUbicacionDialogOpen] = useState(false);
+  const [contactoDialogOpen, setContactoDialogOpen] = useState(false);
+
+  // Reset cascading selects al cambiar el padre
+  function selectCliente(id: string) {
+    setClienteId(id);
     setSedeId("");
     setUbicacionId("");
     setContactoId("");
-  }, [clienteId]);
+  }
 
-  useEffect(() => {
+  function selectSede(id: string) {
+    setSedeId(id);
     setUbicacionId("");
-  }, [sedeId]);
+  }
 
   // Data queries
   const clientes = useLiveQuery(() => (isReady ? db.clientes.toArray() : []), [isReady], []);
@@ -111,38 +118,23 @@ export function SolicitudFormDialog({
     []
   );
 
-  const tecnicos = useLiveQuery(
-    () => (isReady ? db.usuarios.filter((t) => t.activo && t.cargo === "tecnico").toArray() : []),
-    [isReady],
-    []
-  );
-
   // Populate form from editSolicitud when dialog opens in edit mode
   useEffect(() => {
     if (!open || !editSolicitud) return;
-    setClienteId(editSolicitud.cliente_id ? String(editSolicitud.cliente_id) : "");
-    setContactoId(
-      editSolicitud.contacto_programar_id ? String(editSolicitud.contacto_programar_id) : ""
-    );
-    setTecnicoId(
-      editSolicitud.tecnico_asignado_id ? String(editSolicitud.tecnico_asignado_id) : ""
-    );
-    setTipoServicio(editSolicitud.tipo_servicio ?? "CONTROL_CALIDAD");
-    setFechaSolicitud(editSolicitud.fecha_solicitud ?? new Date().toISOString().split("T")[0]);
-    setFechaEstimada(editSolicitud.fecha_estimada_visita ?? "");
-    setFormaPago(editSolicitud.forma_pago ?? "");
-    setPagoRecibido(editSolicitud.pago_recibido ?? false);
+    void (async () => {
+      const ubicacion = editSolicitud.ubicacion_id
+        ? await db.ubicaciones_rx.get(editSolicitud.ubicacion_id)
+        : undefined;
 
-    // Load sede/ubicacion from the existing solicitud
-    if (editSolicitud.ubicacion_id) {
-      db.ubicaciones_rx.get(editSolicitud.ubicacion_id).then((ub) => {
-        if (ub?.sede_id) {
-          setSedeId(String(ub.sede_id));
-          setUbicacionId(String(editSolicitud.ubicacion_id));
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      setClienteId(editSolicitud.cliente_id ? String(editSolicitud.cliente_id) : "");
+      setSedeId(ubicacion?.sede_id ? String(ubicacion.sede_id) : "");
+      setUbicacionId(
+        ubicacion?.sede_id && editSolicitud.ubicacion_id ? String(editSolicitud.ubicacion_id) : ""
+      );
+      setContactoId(
+        editSolicitud.contacto_programar_id ? String(editSolicitud.contacto_programar_id) : ""
+      );
+    })();
   }, [open, editSolicitud]);
 
   function resetForm() {
@@ -150,12 +142,6 @@ export function SolicitudFormDialog({
     setSedeId("");
     setUbicacionId("");
     setContactoId("");
-    setTecnicoId("");
-    setTipoServicio("CONTROL_CALIDAD");
-    setFechaSolicitud(new Date().toISOString().split("T")[0]);
-    setFechaEstimada("");
-    setFormaPago("");
-    setPagoRecibido(false);
   }
 
   async function handleSave() {
@@ -170,12 +156,6 @@ export function SolicitudFormDialog({
           cliente_id: parseInt(clienteId, 10),
           contacto_programar_id: contactoId ? parseInt(contactoId, 10) : undefined,
           ubicacion_id: ubicacionId ? parseInt(ubicacionId, 10) : undefined,
-          tecnico_asignado_id: tecnicoId ? parseInt(tecnicoId, 10) : undefined,
-          tipo_servicio: tipoServicio || undefined,
-          forma_pago: formaPago || undefined,
-          pago_recibido: pagoRecibido,
-          fecha_solicitud: fechaSolicitud || undefined,
-          fecha_estimada_visita: fechaEstimada || undefined,
           sync_status: "pending",
           last_modified: now,
         };
@@ -198,13 +178,9 @@ export function SolicitudFormDialog({
           cliente_id: parseInt(clienteId, 10),
           contacto_programar_id: contactoId ? parseInt(contactoId, 10) : undefined,
           ubicacion_id: ubicacionId ? parseInt(ubicacionId, 10) : undefined,
-          tecnico_asignado_id: tecnicoId ? parseInt(tecnicoId, 10) : undefined,
-          tipo_servicio: tipoServicio || undefined,
           pipeline_estado: "solicitudes",
-          forma_pago: formaPago || undefined,
-          pago_recibido: pagoRecibido,
-          fecha_solicitud: fechaSolicitud || undefined,
-          fecha_estimada_visita: fechaEstimada || undefined,
+          pago_recibido: false,
+          fecha_solicitud: now.split("T")[0],
           creado_en: now,
           sync_status: "pending",
           last_modified: now,
@@ -229,219 +205,205 @@ export function SolicitudFormDialog({
     onOpenChange(next);
   }
 
+  const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
+  const addButtonClass = "h-7 rounded-lg text-primary font-black text-xs hover:bg-primary/5";
+  const selectTriggerClass = "w-full rounded-xl border-slate-200 h-11 font-medium";
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-lg">
-        <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
-            {isEditing ? "Editar Solicitud" : "Nueva Solicitud"}
-          </DialogTitle>
-          <DialogDescription className="text-slate-500 font-medium text-sm">
-            {isEditing
-              ? "Modifica los campos necesarios y guarda los cambios."
-              : "Selecciona cliente, ubicación y técnico para crear la solicitud."}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-lg">
+          <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
+            <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+              {isEditing ? "Editar Solicitud" : "Nueva Solicitud"}
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 font-medium text-sm">
+              {isEditing
+                ? "Modifica los campos necesarios y guarda los cambios."
+                : "Selecciona cliente, sede, ubicación y contacto, o créalos aquí mismo si no existen."}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* 1. Cliente */}
-          <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Cliente *
-            </Label>
-            <Select value={clienteId} onValueChange={(v) => setClienteId(v ?? "")}>
-              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
-                <SelectValue placeholder="Seleccionar cliente..." />
-              </SelectTrigger>
-              <SelectContent>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.nombre_cliente}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 2. Sede (filtrada por cliente) */}
-          {clienteId && (
+          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* 1. Cliente */}
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Sede
-              </Label>
-              <Select value={sedeId} onValueChange={(v) => setSedeId(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
-                  <SelectValue placeholder="Seleccionar sede..." />
+              <div className="flex items-center justify-between">
+                <Label className={labelClass}>Cliente *</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={addButtonClass}
+                  onClick={() => setClienteDialogOpen(true)}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Nuevo
+                </Button>
+              </div>
+              <Select value={clienteId} onValueChange={(v) => selectCliente(v ?? "")}>
+                <SelectTrigger className={selectTriggerClass}>
+                  <SelectValue placeholder="Seleccionar cliente..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {sedes.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.nombre_sede}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* 3. Ubicación (filtrada por sede) */}
-          {sedeId && (
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Ubicación RX
-              </Label>
-              <Select value={ubicacionId} onValueChange={(v) => setUbicacionId(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
-                  <SelectValue placeholder="Seleccionar ubicación..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {ubicaciones.map((u) => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.nombre_servicio}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* 4. Contacto para programar */}
-          {clienteId && (
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Contacto para Programar
-              </Label>
-              <Select value={contactoId} onValueChange={(v) => setContactoId(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
-                  <SelectValue placeholder="Seleccionar contacto..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {contactos.map((c) => (
+                  {clientes.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
-                      {c.nombre}
-                      {c.telefono ? ` — ${c.telefono}` : ""}
+                      {c.nombre_cliente}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          {/* 5. Técnico */}
-          <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Técnico Asignado
-            </Label>
-            <Select value={tecnicoId} onValueChange={(v) => setTecnicoId(v ?? "")}>
-              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
-                <SelectValue placeholder="Seleccionar técnico..." />
-              </SelectTrigger>
-              <SelectContent>
-                {tecnicos.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
-                    {t.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 6. Detalles */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Tipo de Servicio
-              </Label>
-              <Select
-                value={tipoServicio}
-                onValueChange={(v) => setTipoServicio(v ?? "CONTROL_CALIDAD")}
-              >
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CONTROL_CALIDAD">Control de Calidad</SelectItem>
-                  <SelectItem value="LEVANTAMIENTO">Levantamiento</SelectItem>
-                  <SelectItem value="ASESORIA">Asesoría</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Forma de Pago
-              </Label>
-              <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
-                placeholder="Ej: Transferencia"
-                value={formaPago}
-                onChange={(e) => setFormaPago(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Fecha Solicitud
-              </Label>
-              <Input
-                type="date"
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
-                value={fechaSolicitud}
-                onChange={(e) => setFechaSolicitud(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Fecha Estimada Visita
-              </Label>
-              <Input
-                type="date"
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
-                value={fechaEstimada}
-                onChange={(e) => setFechaEstimada(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Pago recibido */}
-          <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
-            <input
-              type="checkbox"
-              checked={pagoRecibido}
-              onChange={(e) => setPagoRecibido(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-            />
-            <span className="text-sm font-bold text-slate-700">Pago recibido</span>
-          </label>
-        </div>
-
-        <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
-          <Button
-            variant="ghost"
-            className="rounded-xl font-black"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancelar
-          </Button>
-          <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
-            disabled={saving || !clienteId}
-            onClick={handleSave}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Creando...
-              </>
-            ) : isEditing ? (
-              "Guardar Cambios"
-            ) : (
-              "Crear Solicitud"
+            {/* 2. Sede (filtrada por cliente) */}
+            {clienteId && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className={labelClass}>Sede</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={addButtonClass}
+                    onClick={() => setSedeDialogOpen(true)}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Nueva
+                  </Button>
+                </div>
+                <Select value={sedeId} onValueChange={(v) => selectSede(v ?? "")}>
+                  <SelectTrigger className={selectTriggerClass}>
+                    <SelectValue placeholder="Seleccionar sede..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sedes.map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.nombre_sede}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+            {/* 3. Ubicación (filtrada por sede) */}
+            {sedeId && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className={labelClass}>Ubicación RX</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={addButtonClass}
+                    onClick={() => setUbicacionDialogOpen(true)}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Nueva
+                  </Button>
+                </div>
+                <Select value={ubicacionId} onValueChange={(v) => setUbicacionId(v ?? "")}>
+                  <SelectTrigger className={selectTriggerClass}>
+                    <SelectValue placeholder="Seleccionar ubicación..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ubicaciones.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.nombre_servicio}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* 4. Contacto para programar */}
+            {clienteId && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className={labelClass}>Contacto para Programar</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={addButtonClass}
+                    onClick={() => setContactoDialogOpen(true)}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Nuevo
+                  </Button>
+                </div>
+                <Select value={contactoId} onValueChange={(v) => setContactoId(v ?? "")}>
+                  <SelectTrigger className={selectTriggerClass}>
+                    <SelectValue placeholder="Seleccionar contacto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contactos.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.nombre}
+                        {c.telefono ? ` — ${c.telefono}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
+            <Button
+              variant="ghost"
+              className="rounded-xl font-black"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+              disabled={saving || !clienteId}
+              onClick={handleSave}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Creando...
+                </>
+              ) : isEditing ? (
+                "Guardar Cambios"
+              ) : (
+                "Crear Solicitud"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogs de creación inline (se apilan sobre el dialog principal) */}
+      <ClienteFormDialog
+        open={clienteDialogOpen}
+        onOpenChange={setClienteDialogOpen}
+        onSaved={(id) => selectCliente(String(id))}
+      />
+      {clienteId && (
+        <SedeFormDialog
+          open={sedeDialogOpen}
+          onOpenChange={setSedeDialogOpen}
+          clienteId={parseInt(clienteId, 10)}
+          onSaved={(id) => selectSede(String(id))}
+        />
+      )}
+      {sedeId && (
+        <UbicacionFormDialog
+          open={ubicacionDialogOpen}
+          onOpenChange={setUbicacionDialogOpen}
+          sedeId={parseInt(sedeId, 10)}
+          onSaved={(id) => setUbicacionId(String(id))}
+        />
+      )}
+      {clienteId && (
+        <ContactoFormDialog
+          open={contactoDialogOpen}
+          onOpenChange={setContactoDialogOpen}
+          clienteId={parseInt(clienteId, 10)}
+          defaultParaProgramar
+          onSaved={(id) => setContactoId(String(id))}
+        />
+      )}
+    </>
   );
 }

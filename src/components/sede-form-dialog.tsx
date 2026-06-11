@@ -26,7 +26,7 @@ interface SedeFormDialogProps {
   onOpenChange: (open: boolean) => void;
   clienteId: number;
   sede?: Sede;
-  onSaved?: () => void;
+  onSaved?: (id: number) => void;
 }
 
 export function SedeFormDialog({
@@ -77,7 +77,7 @@ export function SedeFormDialog({
 
       resetForm();
       onOpenChange(false);
-      onSaved?.();
+      onSaved?.(savedId);
 
       pushSingle("sedes", savedId);
     } catch (err) {

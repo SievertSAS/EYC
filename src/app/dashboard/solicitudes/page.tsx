@@ -72,7 +72,8 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
 
 export default function SolicitudesPage() {
   const { isReady } = useDb();
-  const { isAdmin } = useRole();
+  const { role, isAdmin } = useRole();
+  const canCreate = isAdmin || role?.cargo === "comercial";
   const [activeTab, setActiveTab] = useState<PipelineTab>("todas");
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -135,7 +136,7 @@ export default function SolicitudesPage() {
             Pipeline de servicios
           </p>
         </div>
-        {isAdmin && (
+        {canCreate && (
           <Button
             className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-5"
             onClick={() => setDialogOpen(true)}

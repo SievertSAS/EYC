@@ -3,6 +3,8 @@ import type {
   Cliente,
   Contacto,
   Sede,
+  Departamento,
+  Municipio,
   UbicacionRx,
   Equipo,
   EquipoMovimiento,
@@ -54,6 +56,8 @@ class EyCDatabase extends Dexie {
   clientes!: EntityTable<Cliente, "id">;
   contactos!: EntityTable<Contacto, "id">;
   sedes!: EntityTable<Sede, "id">;
+  departamentos!: EntityTable<Departamento, "id">;
+  municipios!: EntityTable<Municipio, "id">;
   ubicaciones_rx!: EntityTable<UbicacionRx, "id">;
   equipos!: EntityTable<Equipo, "id">;
   equipo_movimientos!: EntityTable<EquipoMovimiento, "id">;
@@ -222,6 +226,12 @@ class EyCDatabase extends Dexie {
     // v10: configuración del pre-informe
     this.version(10).stores({
       conv_informe_secciones: "++id, visita_id, prueba_codigo, [visita_id+prueba_codigo]",
+    });
+
+    // v11: catálogo DIVIPOLA (departamentos y municipios, ids = código DANE)
+    this.version(11).stores({
+      departamentos: "id",
+      municipios: "id, departamento_id",
     });
   }
 }

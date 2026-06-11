@@ -73,9 +73,30 @@ export interface Sede extends Partial<SyncFields> {
   cliente_id: number;
   nombre_sede: string;
   direccion_sede?: string;
+  /** Nombre denormalizado del municipio (informes/listados) */
   ciudad?: string;
+  /** Nombre denormalizado del departamento (informes/listados) */
   departamento?: string;
+  email?: string;
+  telefono?: string;
+  departamento_id?: number;
+  municipio_id?: number;
   creado_en?: string;
+}
+
+/** Catálogo DIVIPOLA — id = código DANE numérico */
+export interface Departamento {
+  id: number;
+  codigo_dane: string;
+  nombre: string;
+}
+
+/** Catálogo DIVIPOLA — id = código DANE numérico (incluye depto) */
+export interface Municipio {
+  id: number;
+  departamento_id: number;
+  codigo_dane: string;
+  nombre: string;
 }
 
 export interface UbicacionRx extends Partial<SyncFields> {

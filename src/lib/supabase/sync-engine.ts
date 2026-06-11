@@ -53,6 +53,8 @@ const TABLE_LABELS: Record<string, string> = {
   clientes: "Clientes",
   contactos: "Contactos",
   sedes: "Sedes",
+  departamentos: "Departamentos",
+  municipios: "Municipios",
   ubicaciones_rx: "Ubicaciones",
   equipos: "Equipos",
   tubos: "Tubos",
@@ -96,7 +98,12 @@ const LOCAL_ONLY_FIELDS = ["id", "sync_status", "blob_local", "last_modified", "
 // Campos extra por tabla que existen en Dexie pero no en Supabase
 const EXTRA_LOCAL_FIELDS: Record<string, string[]> = {
   solicitudes: ["suitecrm_id"],
-  prueba_resultados: ["grupo_resultado_id", "resultados_calculados", "evaluacion_criterios", "imagenes"],
+  prueba_resultados: [
+    "grupo_resultado_id",
+    "resultados_calculados",
+    "evaluacion_criterios",
+    "imagenes",
+  ],
 };
 
 // Tablas que se sincronizan bidireccionalmente (tienen sync_status)
@@ -146,6 +153,8 @@ function stripLocalFields(
 
 // Tablas maestras que se descargan del servidor (read-only para sync)
 const MASTER_TABLES = [
+  "departamentos",
+  "municipios",
   "sala_dimensiones",
   "partes_equipo",
   "valores_referencia",
@@ -349,10 +358,7 @@ export async function pushSingle(localTable: string, localId: number): Promise<b
       const { error } = await table.update(data).eq("id", remoteId);
       if (error) throw error;
     } else {
-      const { data: inserted, error } = await table
-        .insert(data)
-        .select("id")
-        .single();
+      const { data: inserted, error } = await table.insert(data).select("id").single();
       if (error) throw error;
       await dexieTable.update(lid, { _remote_id: inserted.id });
     }
@@ -534,8 +540,9 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
           table: table.local,
           tableLabel: tableLabel(table.local),
           id,
-          preview:
-            String(rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? `#${id}`),
+          preview: String(
+            rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? `#${id}`
+          ),
         });
       }
     } catch {

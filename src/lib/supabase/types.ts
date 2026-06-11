@@ -55,6 +55,10 @@ export interface Database {
           direccion_sede: string | null;
           ciudad: string | null;
           departamento: string | null;
+          email: string | null;
+          telefono: string | null;
+          departamento_id: number | null;
+          municipio_id: number | null;
           creado_en: string;
         };
         Insert: Omit<Database["public"]["Tables"]["sedes"]["Row"], "id" | "creado_en"> & {
@@ -62,6 +66,25 @@ export interface Database {
           creado_en?: string;
         };
         Update: Partial<Database["public"]["Tables"]["sedes"]["Insert"]>;
+      };
+      departamentos: {
+        Row: {
+          id: number;
+          codigo_dane: string;
+          nombre: string;
+        };
+        Insert: Database["public"]["Tables"]["departamentos"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["departamentos"]["Row"]>;
+      };
+      municipios: {
+        Row: {
+          id: number;
+          departamento_id: number;
+          codigo_dane: string;
+          nombre: string;
+        };
+        Insert: Database["public"]["Tables"]["municipios"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["municipios"]["Row"]>;
       };
       ubicaciones_rx: {
         Row: {

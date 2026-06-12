@@ -161,7 +161,7 @@ export default function VisitasPage() {
       {/* Header */}
       <div>
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Mis Visitas
+          Visitas
         </h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Servicios asignados y en progreso

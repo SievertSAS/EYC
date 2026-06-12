@@ -207,7 +207,8 @@ export function SolicitudFormDialog({
 
   const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
   const addButtonClass = "h-7 rounded-lg text-primary font-black text-xs hover:bg-primary/5";
-  const selectTriggerClass = "w-full rounded-xl border-slate-200 h-11 font-medium";
+  const selectTriggerClass =
+    "w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium";
 
   return (
     <>

@@ -212,7 +212,7 @@ export function SedeFormDialog({
                     setMunicipioIdState("");
                   }}
                 >
-                  <SelectTrigger className={`${inputClass} w-full`}>
+                  <SelectTrigger className={`${inputClass} w-full data-[size=default]:h-11`}>
                     <SelectValue placeholder="Seleccionar..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -231,7 +231,7 @@ export function SedeFormDialog({
                   onValueChange={(v) => setMunicipioIdState(v ?? "")}
                   disabled={!departamentoId}
                 >
-                  <SelectTrigger className={`${inputClass} w-full`}>
+                  <SelectTrigger className={`${inputClass} w-full data-[size=default]:h-11`}>
                     <SelectValue
                       placeholder={departamentoId ? "Seleccionar..." : "Elige departamento"}
                     />

@@ -55,7 +55,7 @@ const menuItems: MenuGroup[] = [
         icon: Briefcase,
         module: "solicitudes",
       },
-      { title: "Mis Visitas", href: "/dashboard/visitas", icon: ClipboardCheck, module: "visitas" },
+      { title: "Visitas", href: "/dashboard/visitas", icon: ClipboardCheck, module: "visitas" },
       { title: "Revisión", href: "/dashboard/revision", icon: ShieldCheck, module: "revision" },
     ],
   },

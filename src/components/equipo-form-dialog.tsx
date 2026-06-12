@@ -259,7 +259,7 @@ export function EquipoFormDialog({
                 Tipo de Equipo
               </Label>
               <Select value={tipoEquipo} onValueChange={(v) => setTipoEquipo(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
+                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                   <SelectValue placeholder="Seleccionar tipo..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -278,13 +278,15 @@ export function EquipoFormDialog({
                   Sistema Adquisición
                 </Label>
                 <Select value={sistemaAdq} onValueChange={(v) => setSistemaAdq(v ?? "")}>
-                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
+                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                     <SelectValue placeholder="Seleccionar..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Digital">Digital</SelectItem>
                     <SelectItem value="Digitalizado">Digitalizado</SelectItem>
-                    <SelectItem value="Análogo: Revelado manual">Análogo: Revelado manual</SelectItem>
+                    <SelectItem value="Análogo: Revelado manual">
+                      Análogo: Revelado manual
+                    </SelectItem>
                     <SelectItem value="Análogo: Revelado automático">
                       Análogo: Revelado automático
                     </SelectItem>
@@ -298,7 +300,7 @@ export function EquipoFormDialog({
                   Bucky
                 </Label>
                 <Select value={bucky} onValueChange={(v) => setBucky(v ?? "")}>
-                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
+                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                     <SelectValue placeholder="Seleccionar..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,7 +324,6 @@ export function EquipoFormDialog({
                 onChange={(e) => setDistanciaFoco(e.target.value)}
               />
             </div>
-
           </CollapsibleSection>
 
           {/* Generador */}
@@ -380,7 +381,7 @@ export function EquipoFormDialog({
                 Fase
               </Label>
               <Select value={genFase} onValueChange={(v) => setGenFase(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
+                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                   <SelectValue placeholder="Seleccionar fase..." />
                 </SelectTrigger>
                 <SelectContent>

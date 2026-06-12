@@ -107,7 +107,7 @@ export default function DashboardPage() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           <ActionCard
-            title="Mis Visitas"
+            title="Visitas"
             description="Ver servicios asignados"
             href="/dashboard/visitas"
             icon={<ClipboardCheck className="text-primary w-4 h-4 sm:w-5 sm:h-5" />}

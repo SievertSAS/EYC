@@ -391,7 +391,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
@@ -409,7 +409,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   async function removeImage(pruebaCodigo: string, slot: string) {
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) await db.conv_evidencias.delete(existing.id);
   }
@@ -435,7 +435,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   const inspeccionEquipo = (data?.inspeccion ?? []).filter((i) => i.seccion === "equipo");
   const condicionesOp = (data?.inspeccion ?? []).filter(
-    (i) => i.seccion === "condiciones_operacion",
+    (i) => i.seccion === "condiciones_operacion"
   );
 
   function getEvidencia(prueba: string, slot: string) {
@@ -659,7 +659,10 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                   W estándar (mA·min/sem)
                 </label>
                 <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
-                  {W_ESTANDAR} <span className="ml-2 text-[10px] text-slate-400 font-medium">fija — TECDOC-1958</span>
+                  {W_ESTANDAR}{" "}
+                  <span className="ml-2 text-[10px] text-slate-400 font-medium">
+                    fija — TECDOC-1958
+                  </span>
                 </div>
               </div>
               <div className="space-y-1">
@@ -757,8 +760,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                           defaultValue={m.ubicacion_descripcion}
                           placeholder="Ej: Puerta principal"
                           onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, { ubicacion_descripcion: e.target.value })
+                            m.id && updateMedicion(m.id, { ubicacion_descripcion: e.target.value })
                           }
                         />
                       </td>
@@ -814,8 +816,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                           className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
                           defaultValue={m.tipo_area ?? ""}
                           onChange={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, { tipo_area: e.target.value || undefined })
+                            m.id && updateMedicion(m.id, { tipo_area: e.target.value || undefined })
                           }
                         >
                           <option value="">—</option>
@@ -1026,14 +1027,14 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                     </td>
                     <td className="py-1.5 px-1.5">
                       <select
-                        className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
+                        className="rounded-xl font-bold text-xs h-9 px-2 border border-slate-200 bg-white text-slate-600 min-w-[110px]"
                         defaultValue={elem.tipo_paciente ?? ""}
                         onChange={(e) =>
                           elem.id &&
                           updateElemento(elem.id, { tipo_paciente: e.target.value || undefined })
                         }
                       >
-                        <option value="">—</option>
+                        <option value="">Seleccionar</option>
                         <option value="adulto">Adulto</option>
                         <option value="pediatrico">Pediátrico</option>
                       </select>

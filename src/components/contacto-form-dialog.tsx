@@ -148,7 +148,7 @@ export function ContactoFormDialog({
               Cargo
             </Label>
             <Select value={cargo} onValueChange={(v) => setCargo(v ?? "")}>
-              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
+              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                 <SelectValue placeholder="Seleccionar cargo..." />
               </SelectTrigger>
               <SelectContent>

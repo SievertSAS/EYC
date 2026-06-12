@@ -38,18 +38,26 @@ type PipelineTab =
   | "todas"
   | "solicitudes"
   | "programacion"
-  | "ejecutado"
+  | "ejecucion"
   | "notificado"
   | "enviado";
 
 const PIPELINE_TABS: { id: PipelineTab; label: string; short: string }[] = [
   { id: "todas", label: "Todas", short: "Todas" },
-  { id: "solicitudes", label: "Solicitudes", short: "Solic." },
+  { id: "solicitudes", label: "Por programar", short: "Por prog." },
   { id: "programacion", label: "Programación", short: "Prog." },
-  { id: "ejecutado", label: "Ejecutado", short: "Ejec." },
+  { id: "ejecucion", label: "Ejecución", short: "Ejec." },
   { id: "notificado", label: "Notificado", short: "Notif." },
   { id: "enviado", label: "Enviado", short: "Env." },
 ];
+
+const ESTADO_LABEL: Record<string, string> = {
+  solicitudes: "Por programar",
+  programacion: "Programación",
+  ejecucion: "Ejecución",
+  notificado: "Notificado",
+  enviado: "Enviado",
+};
 
 const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
   solicitudes: {
@@ -62,7 +70,7 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
     text: "text-amber-700",
     border: "border-amber-200",
   },
-  ejecutado: {
+  ejecucion: {
     bg: "bg-primary/10",
     text: "text-primary",
     border: "border-primary/20",
@@ -129,7 +137,7 @@ export default function SolicitudesPage() {
     todas: data.length,
     solicitudes: data.filter((d) => d.solicitud.pipeline_estado === "solicitudes").length,
     programacion: data.filter((d) => d.solicitud.pipeline_estado === "programacion").length,
-    ejecutado: data.filter((d) => d.solicitud.pipeline_estado === "ejecutado").length,
+    ejecucion: data.filter((d) => d.solicitud.pipeline_estado === "ejecucion").length,
     notificado: data.filter((d) => d.solicitud.pipeline_estado === "notificado").length,
     enviado: data.filter((d) => d.solicitud.pipeline_estado === "enviado").length,
   };
@@ -261,7 +269,7 @@ export default function SolicitudesPage() {
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${badge.bg} ${badge.text} border ${badge.border}`}
                             >
-                              {estado.replace("_", " ")}
+                              {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
                             </span>
                             {solicitud.pago_recibido && (
                               <span className="px-1.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-600 border border-emerald-200">
@@ -328,7 +336,7 @@ export default function SolicitudesPage() {
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.bg} ${badge.text} border ${badge.border}`}
                             >
-                              {estado.replace("_", " ")}
+                              {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
                             </span>
                             {solicitud.tipo_servicio && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">

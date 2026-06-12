@@ -39,6 +39,14 @@ import { SolicitudFormDialog } from "@/components/solicitud-form-dialog";
 //  Detalle de solicitud + botón "Programar Visita"
 // ============================================================
 
+const ESTADO_LABEL: Record<string, string> = {
+  solicitudes: "Por programar",
+  programacion: "Programación",
+  ejecucion: "Ejecución",
+  notificado: "Notificado",
+  enviado: "Enviado",
+};
+
 const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
   solicitudes: {
     bg: "bg-slate-100",
@@ -50,7 +58,7 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
     text: "text-amber-700",
     border: "border-amber-200",
   },
-  ejecutado: {
+  ejecucion: {
     bg: "bg-primary/10",
     text: "text-primary",
     border: "border-primary/20",
@@ -225,7 +233,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
               <span
                 className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.bg} ${badge.text} border ${badge.border}`}
               >
-                {estado.replace("_", " ")}
+                {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
               </span>
               {canEditSolicitud && (
                 <Button

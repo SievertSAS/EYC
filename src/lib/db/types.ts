@@ -442,7 +442,7 @@ export interface Solicitud extends Partial<SyncFields> {
   tecnico_asignado_id?: number;
   suitecrm_id?: string;
   tipo_servicio?: string;
-  pipeline_estado?: "solicitudes" | "programacion" | "ejecutado" | "notificado" | "enviado";
+  pipeline_estado?: "solicitudes" | "programacion" | "ejecucion" | "notificado" | "enviado";
   forma_pago?: string;
   pago_recibido: boolean;
   fecha_solicitud?: string;

@@ -63,15 +63,17 @@ const CATALOGO_ELEMENTOS_PROTECCION = [
   "Protector gonadal",
   "Biombo plomado / mampara móvil",
   "Falda plomada",
-  "Delantal plomado pediátrico",
+  "Delantal plomado",
   "Porta-sueros plomado",
   "Otro",
 ];
 
 const SLOTS_IMAGEN_21 = [
-  { slot: "montaje", label: "Fotografía del montaje experimental" },
   { slot: "plano_radiometrico", label: "Plano / Croquis radiométrico de la sala" },
 ];
+
+/** Carga de trabajo estándar para radiografía convencional (mA·min/sem) — piso del cálculo, metodología IAEA-TECDOC-1958 */
+const W_ESTANDAR = 160;
 
 type Concepto = "Conforme" | "No_conforme" | "No_aplica";
 
@@ -284,7 +286,6 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     db.conv_levantamiento_setup.add({
       visita_id: visitaId,
       w_estandar: 160,
-      factor_uso_u: 1,
       semanas_laborales: 50,
       creado_en: new Date().toISOString(),
     });
@@ -329,6 +330,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
       punto_numero: next,
       ubicacion_descripcion: "",
       factor_ocupacion_t: 1,
+      factor_uso_u: 1,
       creado_en: new Date().toISOString(),
     });
   }
@@ -341,11 +343,11 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     const merged = { ...current, ...fields };
     const usvH = num(merged.tasa_dosis_usv_h);
     const t = num(merged.factor_ocupacion_t) || 1;
-    const u = factorUso;
+    const u = num(merged.factor_uso_u) || 1;
     const w = wUsado;
     const i = corrientePrueba;
     const msvH = usvH / 1000;
-    const dosis = i > 0 ? (msvH * (1 / 60) * t * u * w * 50) / i : 0;
+    const dosis = i > 0 ? (msvH * (1 / 60) * t * u * w * semanasLaborales) / i : 0;
     const tipoArea = (merged.tipo_area ?? "") as string;
     let concepto: "Conforme" | "No_conforme" | undefined;
     if (tipoArea === "controlada") concepto = dosis <= 5 ? "Conforme" : "No_conforme";
@@ -417,10 +419,19 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   const nrSemana = data?.visita?.radiografias_por_semana ?? 0;
   const masMaxClinico = data?.visita?.mas_maximo_usado ?? 0;
   const wEstimada = (nrSemana * masMaxClinico) / 60;
-  const wEstandar = num(setup?.w_estandar);
-  const wUsado = Math.max(wEstimada, wEstandar);
+  const wUsado = Math.max(wEstimada, W_ESTANDAR);
   const corrientePrueba = num(setup?.tecnica_ma);
-  const factorUso = num(setup?.factor_uso_u);
+  const semanasLaborales = num(setup?.semanas_laborales) || 50;
+
+  // Recalcular todas las mediciones cuando cambia un parámetro global del cálculo
+  // (W, corriente I, semanas) — si no, las filas conservan la dosis vieja.
+  useEffect(() => {
+    if (!data?.mediciones?.length) return;
+    for (const m of data.mediciones) {
+      if (m.id != null) updateMedicion(m.id, {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wUsado, corrientePrueba, semanasLaborales]);
 
   const inspeccionEquipo = (data?.inspeccion ?? []).filter((i) => i.seccion === "equipo");
   const condicionesOp = (data?.inspeccion ?? []).filter(
@@ -500,8 +511,8 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
       {/* Imágenes de la prueba 2.1 */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.1 — Imágenes" title="Montaje y plano radiométrico" icon={ImageIcon}>
-            Captura la foto del montaje y el croquis/plano de la sala con los puntos de medición.
+          <StepHeader step="Prueba 2.1 — Imágenes" title="Plano radiométrico" icon={ImageIcon}>
+            Captura el croquis/plano de la sala con los puntos de medición.
           </StepHeader>
           <Tip>
             Usa planos anteriores si están vigentes. Lo ideal es solicitar un plano de la sala al
@@ -615,8 +626,8 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
           <CollapsibleSection title="Carga de trabajo">
             <Tip>
-              Se usa el mayor entre W estimada y W estándar (160 mA·min/sem). El factor de uso U = 1
-              porque en esta práctica solo se tiene radiación dispersa.
+              Se usa el mayor entre W estimada y W estándar (160 mA·min/sem). El factor de uso U se
+              selecciona por punto en la tabla de mediciones.
             </Tip>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -647,14 +658,9 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   W estándar (mA·min/sem)
                 </label>
-                <Input
-                  type="number"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  defaultValue={setup?.w_estandar ?? 160}
-                  onBlur={(e) =>
-                    updateSetup({ w_estandar: e.target.value ? parseFloat(e.target.value) : 160 })
-                  }
-                />
+                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
+                  {W_ESTANDAR} <span className="ml-2 text-[10px] text-slate-400 font-medium">fija — TECDOC-1958</span>
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -674,20 +680,6 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Factor de uso (U)
-                </label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  defaultValue={setup?.factor_uso_u ?? 1}
-                  onBlur={(e) =>
-                    updateSetup({ factor_uso_u: e.target.value ? parseFloat(e.target.value) : 1 })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Semanas laborales
                 </label>
                 <Input
@@ -700,6 +692,11 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                     })
                   }
                 />
+                {semanasLaborales < 50 && (
+                  <p className="text-[10px] font-bold text-amber-600">
+                    Menos de 50 semanas reduce la dosis anual calculada — justifícalo en el informe.
+                  </p>
+                )}
               </div>
             </div>
           </CollapsibleSection>
@@ -714,8 +711,8 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
           </StepHeader>
 
           <Tip>
-            Fórmula: H*(10) = Lectura(mSv/h) × (1/60) × T × U × W × 50 / I. Área controlada ≤ 5
-            mSv/año, supervisada ≤ 0.5 mSv/año.
+            Fórmula: H*(10) = Lectura(mSv/h) × (1/60) × T × U × W × semanas laborales / I. Área
+            controlada ≤ 5 mSv/año, supervisada ≤ 0.5 mSv/año.
           </Tip>
 
           {/* Table header */}
@@ -725,18 +722,19 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                 <tr className="border-b border-slate-200">
                   {[
                     ["#", "w-10"],
-                    ["Punto de medición", "min-w-[160px]"],
-                    ["μSv/h", "w-20"],
-                    ["mSv/h", "w-24"],
+                    ["PUNTO DE MEDICIÓN", "min-w-[160px]"],
+                    ["LECTURA (μSv/h)", "w-24"],
+                    ["DOSIS (mSv/h)", "w-24"],
                     ["T", "w-16"],
-                    ["Tipo área", "w-28"],
-                    ["H*(10) mSv/año", "w-28"],
-                    ["Concepto", "w-24"],
+                    ["U", "w-16"],
+                    ["TIPO ÁREA", "w-28"],
+                    ["H*(10) (mSv/año)", "w-28"],
+                    ["CONCEPTO", "w-24"],
                     ["", "w-8"],
                   ].map(([label, cls]) => (
                     <th
                       key={label}
-                      className={`text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5 ${cls}`}
+                      className={`text-[9px] font-black text-slate-400 tracking-widest text-left py-2 px-1.5 ${cls}`}
                     >
                       {label}
                     </th>
@@ -782,18 +780,34 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                         {(usvH / 1000).toFixed(5)}
                       </td>
                       <td className="py-1.5 px-1.5">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
+                        <select
+                          className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
                           defaultValue={m.factor_ocupacion_t ?? 1}
-                          onBlur={(e) =>
+                          onChange={(e) =>
                             m.id &&
-                            updateMedicion(m.id, {
-                              factor_ocupacion_t: e.target.value ? parseFloat(e.target.value) : 1,
-                            })
+                            updateMedicion(m.id, { factor_ocupacion_t: parseFloat(e.target.value) })
                           }
-                        />
+                        >
+                          <option value={1}>1</option>
+                          <option value={0.5}>0.5</option>
+                          <option value={0.2}>0.2</option>
+                          <option value={0.05}>0.05</option>
+                          <option value={0.025}>0.025</option>
+                        </select>
+                      </td>
+                      <td className="py-1.5 px-1.5">
+                        <select
+                          className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
+                          defaultValue={m.factor_uso_u ?? 1}
+                          onChange={(e) =>
+                            m.id &&
+                            updateMedicion(m.id, { factor_uso_u: parseFloat(e.target.value) })
+                          }
+                        >
+                          <option value={0.3}>0.3</option>
+                          <option value={0.7}>0.7</option>
+                          <option value={1}>1</option>
+                        </select>
                       </td>
                       <td className="py-1.5 px-1.5">
                         <select
@@ -822,7 +836,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                                 : "text-slate-300"
                           }`}
                         >
-                          {isConf ? "OK" : isNoConf ? "NC" : "—"}
+                          {isConf ? "Conforme" : isNoConf ? "No conforme" : "—"}
                         </span>
                       </td>
                       <td className="py-1.5 px-1.5">
@@ -963,6 +977,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                     ["#", "w-8"],
                     ["Elemento", "min-w-[200px]"],
                     ["Cant.", "w-16"],
+                    ["Tipo", "w-24"],
                     ["Concepto", "w-28"],
                     ["Observaciones", "min-w-[160px]"],
                     ["", "w-8"],
@@ -1008,6 +1023,20 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                           })
                         }
                       />
+                    </td>
+                    <td className="py-1.5 px-1.5">
+                      <select
+                        className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
+                        defaultValue={elem.tipo_paciente ?? ""}
+                        onChange={(e) =>
+                          elem.id &&
+                          updateElemento(elem.id, { tipo_paciente: e.target.value || undefined })
+                        }
+                      >
+                        <option value="">—</option>
+                        <option value="adulto">Adulto</option>
+                        <option value="pediatrico">Pediátrico</option>
+                      </select>
                     </td>
                     <td className="py-1.5 px-1.5">
                       <ConceptoSelect

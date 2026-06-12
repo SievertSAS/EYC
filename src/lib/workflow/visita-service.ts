@@ -141,6 +141,8 @@ export async function crearVisitaDesdeSolicitud(
         // Actualizar pipeline de la solicitud
         await db.solicitudes.update(solicitudId, {
           pipeline_estado: "programacion" as Solicitud["pipeline_estado"],
+          sync_status: "pending" as Solicitud["sync_status"],
+          last_modified: now,
         });
       }
     );

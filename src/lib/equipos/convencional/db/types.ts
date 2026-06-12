@@ -72,6 +72,7 @@ export interface ConvElementoProteccion {
   visita_id: number;
   descripcion: string;
   cantidad?: number;
+  tipo_paciente?: "adulto" | "pediatrico";
   concepto?: "Conforme" | "No_conforme" | "No_aplica";
   observacion?: string;
   creado_en?: string;

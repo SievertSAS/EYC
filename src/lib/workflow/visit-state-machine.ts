@@ -173,10 +173,10 @@ export const ESTADO_CONFIG: Record<
 // ─── Mapeo visita → solicitud pipeline ───
 
 const SOLICITUD_SYNC: Partial<Record<EstadoVisita, string>> = {
-  en_progreso: "ejecutado",
-  completada: "ejecutado",
-  pre_informe: "ejecutado",
-  en_revision: "ejecutado",
+  en_progreso: "ejecucion",
+  completada: "ejecucion",
+  pre_informe: "ejecucion",
+  en_revision: "ejecucion",
   aprobada: "notificado",
 };
 
@@ -256,6 +256,7 @@ export async function executeTransition(
   // Actualizar estado de la visita
   const updateData: Record<string, unknown> = {
     estado_visita: actionDef.target,
+    sync_status: "pending",
     last_modified: new Date().toISOString(),
   };
 
@@ -277,7 +278,16 @@ export async function executeTransition(
   if (newPipelineEstado && visita.solicitud_id) {
     await db.solicitudes.update(visita.solicitud_id, {
       pipeline_estado: newPipelineEstado as Solicitud["pipeline_estado"],
+      sync_status: "pending",
+      last_modified: new Date().toISOString(),
     });
+  }
+
+  // Push inmediato (import dinámico para no cargar el cliente Supabase en tests)
+  const { pushSingle } = await import("@/lib/supabase/sync-engine");
+  pushSingle("visitas", visitaId);
+  if (newPipelineEstado && visita.solicitud_id) {
+    pushSingle("solicitudes", visita.solicitud_id);
   }
 
   return { success: true, newState: actionDef.target };

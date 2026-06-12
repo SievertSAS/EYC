@@ -98,7 +98,6 @@ export function EquipoFormDialog({
 
   // ─── Equipo fields ───
   const [tipoEquipo, setTipoEquipo] = useState<string>(equipo?.tipo_equipo ?? "");
-  const [planillaEspacial, setPlanillaEspacial] = useState(equipo?.planilla_espacial ?? false);
   const [sistemaAdq, setSistemaAdq] = useState(equipo?.sistema_adquisicion ?? "");
   const [distanciaFoco, setDistanciaFoco] = useState(
     equipo?.distancia_foco_paciente?.toString() ?? ""
@@ -149,7 +148,7 @@ export function EquipoFormDialog({
       const equipoData: Omit<Equipo, "id"> = {
         ubicacion_id: ubicacionId,
         tipo_equipo: (tipoEquipo as TipoEquipo) || undefined,
-        planilla_espacial: planillaEspacial,
+        planilla_espacial: equipo?.planilla_espacial ?? false,
         sistema_adquisicion: sistemaAdq || undefined,
         distancia_foco_paciente: distanciaFoco ? parseFloat(distanciaFoco) : undefined,
         bucky: (bucky as Equipo["bucky"]) || undefined,
@@ -284,8 +283,13 @@ export function EquipoFormDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Digital">Digital</SelectItem>
-                    <SelectItem value="CR">CR</SelectItem>
-                    <SelectItem value="Analógico">Analógico</SelectItem>
+                    <SelectItem value="Digitalizado">Digitalizado</SelectItem>
+                    <SelectItem value="Análogo: Revelado manual">Análogo: Revelado manual</SelectItem>
+                    <SelectItem value="Análogo: Revelado automático">
+                      Análogo: Revelado automático
+                    </SelectItem>
+                    <SelectItem value="Monitor análogo">Monitor análogo</SelectItem>
+                    <SelectItem value="No Aplica">No Aplica</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -319,15 +323,6 @@ export function EquipoFormDialog({
               />
             </div>
 
-            <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
-              <input
-                type="checkbox"
-                checked={planillaEspacial}
-                onChange={(e) => setPlanillaEspacial(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-              />
-              <span className="text-sm font-bold text-slate-700">Requiere planilla espacial</span>
-            </label>
           </CollapsibleSection>
 
           {/* Generador */}

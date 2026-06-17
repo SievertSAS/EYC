@@ -16,6 +16,15 @@ import type {
   ElementoProteccion,
   ParteEquipo,
 } from "@/lib/db/types";
+import { hasPackage } from "@/lib/equipos/registry";
+import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
+import {
+  recopilarDatosConv,
+  renderResultadosSeccion,
+  renderDiagramaRadiometrico,
+  type InformeCtx,
+} from "./secciones-convencional";
+
 let _logoCache: string | null = null;
 
 async function getLogoBase64(): Promise<string> {
@@ -52,11 +61,11 @@ interface DatosInforme {
 
 // ─── Constantes de estilo ───
 
-const COLOR_PRIMARY: [number, number, number] = [130, 90, 242];
-const COLOR_HEADER_BG: [number, number, number] = [245, 241, 255];
+const COLOR_PRIMARY: [number, number, number] = [51, 65, 85];
+const COLOR_HEADER_BG: [number, number, number] = [241, 245, 249];
 const COLOR_GRAY: [number, number, number] = [100, 116, 139];
 const COLOR_BLACK: [number, number, number] = [30, 30, 30];
-const COLOR_ALT_ROW: [number, number, number] = [250, 248, 255];
+const COLOR_ALT_ROW: [number, number, number] = [248, 250, 252];
 const MARGIN = 20;
 const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
@@ -252,6 +261,10 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
   const datosRaw = await recopilarDatos(visitaId);
   if (!datosRaw) return null;
   const datos: DatosInforme = datosRaw;
+
+  // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
+  const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
+  const conv = esConv ? await recopilarDatosConv(visitaId) : null;
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let y = MARGIN;
@@ -646,8 +659,149 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
   y += 4;
   y = addSectionTitle(doc, "2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL", y);
 
-  // ─── Para cada prueba ───
-  const pruebasOrdenadas = datos.pruebas.filter((p) => p.completado);
+  // ─── Acumuladores para el resumen final (ambos flujos) ───
+  const resumenRows: [string, string][] = [];
+  const accionesPendientes: string[] = [];
+  let conceptoGeneralOk = true;
+
+  // ═══ Flujo CONVENCIONAL: secciones desde conv_informe_secciones (estructura CE_NIT) ═══
+  if (conv) {
+    const ctx: InformeCtx = {
+      doc,
+      autoTable,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage,
+      addParagraph,
+      addSubsectionTitle,
+    };
+
+    const incluidas = conv.secciones.filter((s) => s.incluida).sort((a, b) => a.orden - b.orden);
+
+    for (const seccion of incluidas) {
+      const cat = getCatalogoSeccion(seccion.prueba_codigo);
+      if (!cat) continue;
+      const codigo = seccion.prueba_codigo;
+
+      // Título de la prueba
+      checkPage(60);
+      y += 2;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...COLOR_PRIMARY);
+      const tituloLines = doc.splitTextToSize(`${codigo} ${cat.nombre}`, CONTENT_WIDTH);
+      doc.text(tituloLines, MARGIN, y);
+      y += (tituloLines.length - 1) * 5 + 2;
+      doc.setDrawColor(...COLOR_PRIMARY);
+      doc.setLineWidth(0.3);
+      doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
+      y += 6;
+
+      addSubsectionTitle(`${codigo}.1.`, "Objetivo");
+      addParagraph(cat.objetivo);
+      addSubsectionTitle(`${codigo}.2.`, "Instrumentación");
+      addParagraph(cat.instrumentacion);
+      addSubsectionTitle(`${codigo}.3.`, "Metodología");
+      addParagraph(cat.metodologia);
+
+      // Resultados (+ análisis en 2.1, descripción en 2.2)
+      let nextSub: number;
+      if (seccion.concepto === "No_aplica") {
+        addSubsectionTitle(`${codigo}.4.`, "Resultados");
+        addParagraph("NO APLICA.");
+        nextSub = 5;
+      } else {
+        nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.sala);
+      }
+
+      // Criterio de aceptación
+      addSubsectionTitle(`${codigo}.${nextSub}.`, "Criterio de aceptación");
+      addParagraph(cat.criterio);
+      nextSub++;
+
+      // Diagrama radiométrico (solo 2.1)
+      if (codigo === "2.1" && seccion.concepto !== "No_aplica") {
+        renderDiagramaRadiometrico(ctx, conv);
+        nextSub = 8;
+      }
+
+      // Concepto — en la 2.1 se deriva de las mediciones (el físico solo decide "No aplica")
+      checkPage(15);
+      addSubsectionTitle(`${codigo}.${nextSub}.`, "Concepto");
+      nextSub++;
+      const c = seccion.concepto;
+      const esAuto21 = codigo === "2.1" && c !== "No_aplica";
+
+      let conceptoLabel: string;
+      let conceptoParrafo: string | undefined;
+      let esNoConforme = c === "No_conforme";
+      let accionesTexto = seccion.acciones_correctivas?.trim()
+        ? seccion.acciones_correctivas
+        : "No se requieren acciones correctivas.";
+
+      if (esAuto21) {
+        const hayMediciones = conv.mediciones.length > 0;
+        esNoConforme = hayMediciones && conv.mediciones.some((m) => m.concepto === "No_conforme");
+        if (!hayMediciones) {
+          conceptoLabel = "PENDIENTE";
+        } else if (esNoConforme) {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo =
+            "Las dosis equivalentes anuales estimadas en algunas áreas evaluadas superan los niveles de restricción de dosis establecidos para áreas supervisadas, por lo que las condiciones radiológicas de la instalación requieren evaluación y adopción de medidas correctivas.";
+          accionesTexto =
+            "Se recomienda evaluar las condiciones de blindaje de la instalación, revisar la carga de trabajo del equipo y adoptar las medidas de protección radiológica necesarias para garantizar el cumplimiento de los niveles de restricción de dosis establecidos. Una vez subsanada la condición identificada, se deberá repetir el estudio radiométrico para verificar el cumplimiento de los criterios establecidos.";
+        } else {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo =
+            "Las dosis equivalentes anuales estimadas en las áreas evaluadas se encuentran por debajo de los niveles de restricción de dosis establecidos para áreas controladas y supervisadas, por lo que las condiciones radiológicas de la instalación se consideran aceptables para la operación del equipo evaluado.";
+          accionesTexto = "No se requieren acciones correctivas.";
+        }
+      } else {
+        conceptoLabel =
+          c === "Conforme"
+            ? "CONFORME"
+            : c === "No_conforme"
+              ? "NO CONFORME"
+              : c === "No_aplica"
+                ? "NO APLICA"
+                : "PENDIENTE";
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      if (conceptoLabel === "CONFORME" || conceptoLabel === "FAVORABLE")
+        doc.setTextColor(16, 150, 80);
+      else if (conceptoLabel === "NO CONFORME" || conceptoLabel === "NO FAVORABLE")
+        doc.setTextColor(220, 50, 50);
+      else doc.setTextColor(...COLOR_GRAY);
+      doc.text(conceptoLabel, MARGIN, y);
+      y += 6;
+      if (conceptoParrafo) {
+        addParagraph(conceptoParrafo);
+      }
+      if (seccion.observaciones?.trim()) {
+        addParagraph(seccion.observaciones);
+      }
+
+      // Acciones correctivas
+      addSubsectionTitle(`${codigo}.${nextSub}.`, "Acciones Correctivas");
+      addParagraph(accionesTexto);
+      y += 4;
+
+      resumenRows.push([`${codigo} ${cat.nombre}`, conceptoLabel]);
+      if (esNoConforme) {
+        conceptoGeneralOk = false;
+        accionesPendientes.push(`• ${cat.nombre}: ${accionesTexto}`);
+      }
+    }
+  }
+
+  // ─── Para cada prueba (flujo legacy — equipos sin paquete dedicado) ───
+  const pruebasOrdenadas = conv ? [] : datos.pruebas.filter((p) => p.completado);
 
   for (let idx = 0; idx < pruebasOrdenadas.length; idx++) {
     const prueba = pruebasOrdenadas[idx];
@@ -855,6 +1009,14 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     );
 
     y += 4;
+
+    resumenRows.push([`${numPrueba} ${nombre}`, conceptoText]);
+    if (prueba.concepto === "NO_FAVORABLE") {
+      conceptoGeneralOk = false;
+      accionesPendientes.push(
+        `• ${nombre}: ${prueba.acciones_correctivas ?? "Se requieren acciones correctivas."}`
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -867,14 +1029,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     startY: y,
     margin: { left: MARGIN, right: MARGIN },
     head: [["Prueba realizada", "Concepto"]],
-    body: pruebasOrdenadas.map((p, i) => [
-      `2.${i + 1} ${p.definicion?.nombre ?? "—"}`,
-      p.concepto === "FAVORABLE"
-        ? "FAVORABLE"
-        : p.concepto === "NO_FAVORABLE"
-          ? "NO FAVORABLE"
-          : "NO APLICA",
-    ]),
+    body: resumenRows,
     theme: "grid",
     headStyles: {
       fillColor: COLOR_PRIMARY,
@@ -888,10 +1043,10 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 1) {
         const val = String(data.cell.raw);
-        if (val === "FAVORABLE") {
+        if (val === "FAVORABLE" || val === "CONFORME") {
           data.cell.styles.textColor = [16, 150, 80];
           data.cell.styles.fontStyle = "bold";
-        } else if (val === "NO FAVORABLE") {
+        } else if (val === "NO FAVORABLE" || val === "NO CONFORME") {
           data.cell.styles.textColor = [220, 50, 50];
           data.cell.styles.fontStyle = "bold";
         } else {
@@ -907,10 +1062,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
   checkPage(30);
   y = addSectionTitle(doc, "CONCEPTO", y);
 
-  const todosF = pruebasOrdenadas.every(
-    (p) => p.concepto === "FAVORABLE" || p.concepto === "NO_APLICA"
-  );
-  const conceptoGeneral = todosF ? "FAVORABLE" : "NO FAVORABLE";
+  const conceptoGeneral = conceptoGeneralOk ? "FAVORABLE" : "NO FAVORABLE";
 
   addParagraph(
     "Con base en los resultados obtenidos en las pruebas de control de calidad realizadas al equipo de radiografía general, y de acuerdo con los criterios establecidos en los protocolos de control de calidad aplicables, se concluye que el desempeño del equipo evaluado es:"
@@ -918,21 +1070,22 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(todosF ? 16 : 220, todosF ? 150 : 50, todosF ? 80 : 50);
+  doc.setTextColor(
+    conceptoGeneralOk ? 16 : 220,
+    conceptoGeneralOk ? 150 : 50,
+    conceptoGeneralOk ? 80 : 50
+  );
   doc.text(conceptoGeneral, PAGE_WIDTH / 2, y, { align: "center" });
   y += 10;
 
   // ACCIONES CORRECTIVAS
   y = addSectionTitle(doc, "ACCIONES CORRECTIVAS", y);
 
-  const pruebasNoFav = pruebasOrdenadas.filter((p) => p.concepto === "NO_FAVORABLE");
-  if (pruebasNoFav.length === 0) {
+  if (accionesPendientes.length === 0) {
     addParagraph("No se requieren acciones correctivas.");
   } else {
-    for (const p of pruebasNoFav) {
-      addParagraph(
-        `• ${p.definicion?.nombre ?? ""}: ${p.acciones_correctivas ?? "Se requieren acciones correctivas."}`
-      );
+    for (const accion of accionesPendientes) {
+      addParagraph(accion);
     }
   }
 

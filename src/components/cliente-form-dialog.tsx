@@ -186,7 +186,7 @@ export function ClienteFormDialog({
               value={form.naturaleza ?? ""}
               onValueChange={(val) => update("naturaleza", (val ?? "") as string)}
             >
-              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium">
+              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                 <SelectValue placeholder="Seleccionar..." />
               </SelectTrigger>
               <SelectContent>

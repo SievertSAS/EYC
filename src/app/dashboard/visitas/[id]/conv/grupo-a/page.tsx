@@ -32,27 +32,10 @@ import type { ConvInspeccionItem } from "@/lib/equipos/convencional/db/types";
 
 // ─── Constants ───
 
-const ITEMS_INSPECCION_EQUIPO = [
-  "Inspección del estado de los accesorios del equipo: mesa radiográfica, soporte del tubo de rayos X, consola del generador y cables de alimentación y control, verificando ausencia de desgaste o deterioro.",
-  "Verificación de la estabilidad del cabezal del tubo y del funcionamiento mecánico del sistema de colimación, así como de los movimientos y frenos del soporte del tubo, mesa radiográfica y Bucky vertical.",
-  "Inspección visual del cabezal del tubo para identificar posibles fugas de aceite o deterioro del encapsulado.",
-  "Verificación del funcionamiento de los indicadores del panel del generador: indicador de exposición, selección de punto focal y parámetros de irradiación (kV, mA, tiempo o mAs).",
-];
-
-const ITEMS_CONDICIONES_OPERACION = [
-  "Indicadores de parámetros técnicos visibles y con funcionamiento adecuado.",
-  "Existe señal luminosa y/o sonora en el panel durante el disparo.",
-  "Instalación eléctrica en buen estado (luces indicadoras, cables, conectores).",
-  "Existe indicación visible del tubo seleccionado.",
-  "Demarcación de áreas visible.",
-  "Señales de protección al paciente con indicaciones de radioprotección.",
-  "Disparador fuera de la sala.",
-  "Las puertas son plomadas.",
-  "Las puertas permiten cierre total.",
-  "Señales de advertencia externas durante la realización de un examen.",
-  "La información de parámetros técnicos del equipo está completa (mA, T, kV, rectificación y punto focal).",
-  "Número de equipos en funcionamiento en la sala.",
-];
+import {
+  ITEMS_INSPECCION_EQUIPO,
+  ITEMS_CONDICIONES_OPERACION,
+} from "@/lib/equipos/convencional/inspeccion-items";
 
 /** Catálogo de elementos de protección radiológica estandarizados */
 const CATALOGO_ELEMENTOS_PROTECCION = [
@@ -314,12 +297,18 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   // ─── Save helpers ───
   const setupTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Acumula los campos pendientes — con un solo timer, editar varios campos
+  // seguidos descartaba todos menos el último.
+  const setupPending = useRef<Record<string, unknown>>({});
 
   function updateSetup(fields: Record<string, unknown>) {
     if (!data?.setup?.id) return;
+    Object.assign(setupPending.current, fields);
     if (setupTimer.current) clearTimeout(setupTimer.current);
     setupTimer.current = setTimeout(() => {
-      db.conv_levantamiento_setup.update(data.setup!.id!, fields);
+      const payload = setupPending.current;
+      setupPending.current = {};
+      db.conv_levantamiento_setup.update(data.setup!.id!, payload);
     }, 600);
   }
 
@@ -391,7 +380,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
@@ -409,7 +398,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   async function removeImage(pruebaCodigo: string, slot: string) {
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) await db.conv_evidencias.delete(existing.id);
   }
@@ -435,7 +424,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   const inspeccionEquipo = (data?.inspeccion ?? []).filter((i) => i.seccion === "equipo");
   const condicionesOp = (data?.inspeccion ?? []).filter(
-    (i) => i.seccion === "condiciones_operacion",
+    (i) => i.seccion === "condiciones_operacion"
   );
 
   function getEvidencia(prueba: string, slot: string) {
@@ -659,7 +648,10 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                   W estándar (mA·min/sem)
                 </label>
                 <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
-                  {W_ESTANDAR} <span className="ml-2 text-[10px] text-slate-400 font-medium">fija — TECDOC-1958</span>
+                  {W_ESTANDAR}{" "}
+                  <span className="ml-2 text-[10px] text-slate-400 font-medium">
+                    fija — TECDOC-1958
+                  </span>
                 </div>
               </div>
               <div className="space-y-1">
@@ -757,8 +749,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                           defaultValue={m.ubicacion_descripcion}
                           placeholder="Ej: Puerta principal"
                           onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, { ubicacion_descripcion: e.target.value })
+                            m.id && updateMedicion(m.id, { ubicacion_descripcion: e.target.value })
                           }
                         />
                       </td>
@@ -814,8 +805,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                           className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
                           defaultValue={m.tipo_area ?? ""}
                           onChange={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, { tipo_area: e.target.value || undefined })
+                            m.id && updateMedicion(m.id, { tipo_area: e.target.value || undefined })
                           }
                         >
                           <option value="">—</option>
@@ -824,7 +814,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                         </select>
                       </td>
                       <td className="py-1.5 px-1.5 font-black text-primary font-mono">
-                        {dosis > 0 ? dosis.toFixed(4) : "—"}
+                        {dosis > 0 ? dosis.toFixed(6) : "—"}
                       </td>
                       <td className="py-1.5 px-1.5">
                         <span
@@ -895,11 +885,24 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                   <div className="flex flex-col sm:flex-row gap-2 pl-9">
                     <ConceptoSelect
                       value={item?.concepto}
-                      onChange={(v) => item?.id && updateInspeccionItem(item.id, { concepto: v })}
+                      onChange={(v) =>
+                        item?.id &&
+                        updateInspeccionItem(item.id, {
+                          concepto: v,
+                          // La observación solo aplica a no conformidades — limpiar al cambiar
+                          ...(v !== "No_conforme" ? { observacion: undefined } : {}),
+                        })
+                      }
                     />
                     <Input
-                      className="rounded-xl h-9 text-xs font-medium flex-1"
-                      placeholder="Observaciones (opcional)"
+                      key={`${item?.id}-${item?.concepto}`}
+                      className="rounded-xl h-9 text-xs font-medium flex-1 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      placeholder={
+                        item?.concepto === "No_conforme"
+                          ? "Describe la no conformidad"
+                          : "Solo aplica si es no conforme"
+                      }
+                      disabled={item?.concepto !== "No_conforme"}
                       defaultValue={item?.observacion ?? ""}
                       onBlur={(e) =>
                         item?.id && updateInspeccionItem(item.id, { observacion: e.target.value })
@@ -939,11 +942,24 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                   <div className="flex flex-col sm:flex-row gap-2 pl-9">
                     <ConceptoSelect
                       value={item?.concepto}
-                      onChange={(v) => item?.id && updateInspeccionItem(item.id, { concepto: v })}
+                      onChange={(v) =>
+                        item?.id &&
+                        updateInspeccionItem(item.id, {
+                          concepto: v,
+                          // La observación solo aplica a no conformidades — limpiar al cambiar
+                          ...(v !== "No_conforme" ? { observacion: undefined } : {}),
+                        })
+                      }
                     />
                     <Input
-                      className="rounded-xl h-9 text-xs font-medium flex-1"
-                      placeholder="Observaciones (opcional)"
+                      key={`${item?.id}-${item?.concepto}`}
+                      className="rounded-xl h-9 text-xs font-medium flex-1 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      placeholder={
+                        item?.concepto === "No_conforme"
+                          ? "Describe la no conformidad"
+                          : "Solo aplica si es no conforme"
+                      }
+                      disabled={item?.concepto !== "No_conforme"}
                       defaultValue={item?.observacion ?? ""}
                       onBlur={(e) =>
                         item?.id && updateInspeccionItem(item.id, { observacion: e.target.value })
@@ -1026,14 +1042,14 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                     </td>
                     <td className="py-1.5 px-1.5">
                       <select
-                        className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
+                        className="rounded-xl font-bold text-xs h-9 px-2 border border-slate-200 bg-white text-slate-600 min-w-[110px]"
                         defaultValue={elem.tipo_paciente ?? ""}
                         onChange={(e) =>
                           elem.id &&
                           updateElemento(elem.id, { tipo_paciente: e.target.value || undefined })
                         }
                       >
-                        <option value="">—</option>
+                        <option value="">Seleccionar</option>
                         <option value="adulto">Adulto</option>
                         <option value="pediatrico">Pediátrico</option>
                       </select>

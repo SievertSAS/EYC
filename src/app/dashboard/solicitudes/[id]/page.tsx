@@ -344,6 +344,11 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
           <div className="space-y-2">
             {visitas.map((visita) => {
               const eq = equipos.find((e) => e.id === visita.equipo_id);
+              const eqNombre = eq
+                ? [eq.gen_marca, eq.gen_modelo].filter(Boolean).join(" ") ||
+                  eq.tipo_equipo ||
+                  `Equipo #${eq.id}`
+                : null;
               return (
                 <Link key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
                   <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
@@ -356,7 +361,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                           <div className="min-w-0">
                             <p className="text-sm font-black text-slate-900 truncate">
                               Visita #{visita.id}
-                              {eq ? ` — ${eq.gen_marca} ${eq.gen_modelo}` : ""}
+                              {eqNombre ? ` — ${eqNombre}` : ""}
                             </p>
                             <p className="text-[11px] text-slate-400 font-medium">
                               Estado: {visita.estado_visita.replace("_", " ")}
@@ -397,7 +402,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   Técnico Asignado *
                 </Label>
                 <Select value={tecnicoValue} onValueChange={(v) => setTecnicoSel(v ?? "")}>
-                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 font-medium bg-white">
+                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium bg-white">
                     <SelectValue placeholder="Seleccionar técnico..." />
                   </SelectTrigger>
                   <SelectContent>

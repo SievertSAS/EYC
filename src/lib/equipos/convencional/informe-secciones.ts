@@ -30,7 +30,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion:
       "Sistema dosimetrico calibrado para mediciones en proteccion radiologica (camara de ionizacion o detector de estado solido), material equivalente simulador de radiacion dispersa y cinta metrica.",
     metodologia:
-      "Se realizo el levantamiento radiometrico mediante mediciones de radiacion dispersa en puntos representativos del area donde se encuentra instalado el equipo de radiologia general. Las mediciones se efectuaron utilizando una camara de ionizacion o un detector de estado solido calibrado en terminos de dosis equivalente ambiental H*(10).",
+      "Se realizó el levantamiento radiométrico mediante mediciones de radiación dispersa en puntos representativos del área donde se encuentra instalado el equipo de radiología general. Las mediciones se efectuaron utilizando una cámara de ionización o un detector de estado sólido calibrado en términos de dosis equivalente ambiental H*(10), posicionando un simulador de dispersión en la ubicación habitual del paciente durante la exposición, aplicando la técnica máxima utilizada en la práctica clínica. Los puntos de medición evaluados se presentan en el diagrama radiométrico de la instalación.",
     criterio:
       "Area controlada (trabajadores): H*(10) <= 5 mSv/ano. Area supervisada (publico): H*(10) <= 0.5 mSv/ano.",
   },

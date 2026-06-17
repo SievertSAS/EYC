@@ -680,12 +680,15 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       addSubsectionTitle,
     };
 
-    const incluidas = conv.secciones.filter((s) => s.incluida).sort((a, b) => a.orden - b.orden);
+    // Todas las pruebas aparecen en el informe; el switch (incluida) decide si
+    // la prueba APLICA (se evalúa) o NO APLICA (se documenta como no aplicable).
+    const todasSecciones = [...conv.secciones].sort((a, b) => a.orden - b.orden);
 
-    for (const seccion of incluidas) {
+    for (const seccion of todasSecciones) {
       const cat = getCatalogoSeccion(seccion.prueba_codigo);
       if (!cat) continue;
       const codigo = seccion.prueba_codigo;
+      const aplica = seccion.incluida;
 
       // Título de la prueba
       checkPage(60);
@@ -710,7 +713,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
       // Resultados (+ análisis en 2.1, descripción en 2.2)
       let nextSub: number;
-      if (seccion.concepto === "No_aplica") {
+      if (!aplica) {
         addSubsectionTitle(`${codigo}.4.`, "Resultados");
         addParagraph("NO APLICA.");
         nextSub = 5;
@@ -724,17 +727,17 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       nextSub++;
 
       // Diagrama radiométrico (solo 2.1)
-      if (codigo === "2.1" && seccion.concepto !== "No_aplica") {
+      if (codigo === "2.1" && aplica) {
         renderDiagramaRadiometrico(ctx, conv);
         nextSub = 8;
       }
 
-      // Concepto — en la 2.1 se deriva de las mediciones (el físico solo decide "No aplica")
+      // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
       addSubsectionTitle(`${codigo}.${nextSub}.`, "Concepto");
       nextSub++;
       const c = seccion.concepto;
-      const esAuto21 = codigo === "2.1" && c !== "No_aplica";
+      const esAuto21 = codigo === "2.1" && aplica;
 
       let conceptoLabel: string;
       let conceptoParrafo: string | undefined;
@@ -760,15 +763,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
             "Las dosis equivalentes anuales estimadas en las áreas evaluadas se encuentran por debajo de los niveles de restricción de dosis establecidos para áreas controladas y supervisadas, por lo que las condiciones radiológicas de la instalación se consideran aceptables para la operación del equipo evaluado.";
           accionesTexto = "No se requieren acciones correctivas.";
         }
+      } else if (!aplica) {
+        conceptoLabel = "NO APLICA";
+        esNoConforme = false;
       } else {
         conceptoLabel =
-          c === "Conforme"
-            ? "CONFORME"
-            : c === "No_conforme"
-              ? "NO CONFORME"
-              : c === "No_aplica"
-                ? "NO APLICA"
-                : "PENDIENTE";
+          c === "Conforme" ? "CONFORME" : c === "No_conforme" ? "NO CONFORME" : "PENDIENTE";
       }
 
       doc.setFont("helvetica", "bold");
@@ -783,7 +783,8 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       if (conceptoParrafo) {
         addParagraph(conceptoParrafo);
       }
-      if (seccion.observaciones?.trim()) {
+      // La 2.1 no lleva observaciones (concepto automático)
+      if (codigo !== "2.1" && seccion.observaciones?.trim()) {
         addParagraph(seccion.observaciones);
       }
 

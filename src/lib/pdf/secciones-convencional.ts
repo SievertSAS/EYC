@@ -195,23 +195,40 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
   // .4 Resultados
   ctx.addSubsectionTitle(`${cod}.4.`, "Resultados");
   ctx.addParagraph(
-    "Se registraron las lecturas de tasa de dosis equivalente ambiental H*(10) en los puntos de medición definidos en el diagrama radiométrico de la instalación."
+    "Se registraron las lecturas de tasa de dosis equivalente ambiental H*(10) en los puntos de medición definidos en el diagrama radiométrico. Las mediciones se realizaron utilizando la técnica radiográfica máxima empleada en la práctica clínica del equipo evaluado."
   );
 
-  const tecnica = [
-    `Tensión (kV): ${fmt(setup?.tecnica_kv, 0)}`,
-    `Corriente (mA): ${fmt(setup?.tecnica_ma, 0)}`,
-    `Tiempo (s): ${fmt(setup?.tecnica_tiempo_s, 2)}`,
-    `Exposición (mAs): ${fmt(setup?.tecnica_mas, 0)}`,
-  ].join("    ");
-  ctx.addParagraph(`Técnica utilizada:    ${tecnica}`);
+  // Técnica utilizada y fondo natural — tabla compacta de 4 columnas (clave/valor)
+  ctx.checkPage(24);
+  addCaption(ctx, "Técnica radiográfica utilizada en la prueba");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Tensión (kV)", fmt(setup?.tecnica_kv, 0), "Tiempo (s)", fmt(setup?.tecnica_tiempo_s, 2)],
+      ["Corriente (mA)", fmt(setup?.tecnica_ma, 0), "Exposición (mAs)", fmt(setup?.tecnica_mas, 0)],
+      [
+        "Fondo natural (mSv/h)",
+        {
+          content:
+            setup?.fondo_natural_usv_h != null
+              ? (setup.fondo_natural_usv_h / 1000).toFixed(5)
+              : "—",
+          colSpan: 3,
+          styles: { fontStyle: "normal", fillColor: [255, 255, 255] },
+        },
+      ],
+    ],
+    columnStyles: {
+      0: { cellWidth: 45, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 45, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      3: { cellWidth: 40 },
+    },
+  });
+  ctx.y = finalY(doc) + 4;
   ctx.addParagraph(
-    `Fondo natural de radiación ionizante (mSv/h): ${
-      setup?.fondo_natural_usv_h != null ? (setup.fondo_natural_usv_h / 1000).toFixed(5) : "—"
-    }`
-  );
-  ctx.addParagraph(
-    "En cada punto se realizaron varias mediciones consecutivas, registrándose el valor máximo obtenido para su posterior análisis."
+    "En cada punto se realizaron varias mediciones consecutivas, registrándose el valor máximo obtenido para su posterior análisis. Los resultados se presentan a continuación."
   );
 
   if (conv.mediciones.length === 0) {
@@ -323,9 +340,7 @@ export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencio
   try {
     const x = MARGIN + (170 - w) / 2;
     ctx.doc.addImage(plano.dataUrl, x, ctx.y, w, h);
-    ctx.y += h + 4;
-    addCaption(ctx, "Figura 2.1.1. Diagrama radiométrico de la instalación");
-    ctx.y += 2;
+    ctx.y += h + 6;
   } catch {
     ctx.addParagraph("No fue posible incluir la imagen del plano radiométrico.");
   }

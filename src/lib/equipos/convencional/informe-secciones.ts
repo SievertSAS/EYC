@@ -17,6 +17,8 @@ export interface SeccionInfoCatalogo {
   metodologia: string;
   /** Texto del criterio de aceptación para el PDF */
   criterio: string;
+  /** Texto por defecto del análisis (editable por el físico, p.ej. 2.2) */
+  analisis?: string;
 }
 
 export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
@@ -36,17 +38,19 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
   },
   {
     codigo: "2.2",
-    nombre: "Inspeccion visual, descripcion de la instalacion y blindajes",
+    nombre: "Inspección visual, descripción de la instalación y blindajes",
     grupo: "A",
     orden: 2,
     objetivo:
-      "Verificar mediante inspeccion visual el estado fisico y las condiciones de seguridad del equipo de radiografia general y de su instalacion.",
+      "Verificar mediante inspección visual el estado físico y las condiciones de seguridad del equipo de radiografía general y de su instalación, con el fin de identificar posibles deterioros, defectos mecánicos o condiciones que puedan afectar la protección radiológica del operador, los pacientes o el público.",
     instrumentacion:
-      "Inspeccion visual directa del equipo y de la instalacion, utilizando herramientas basicas de verificacion cuando aplica.",
+      "Inspección visual directa del equipo y de la instalación, utilizando herramientas básicas de verificación cuando aplica.",
     metodologia:
-      "Se realizo una inspeccion visual del equipo y de las condiciones de operacion de la instalacion mediante una lista de verificacion basada en los lineamientos del IAEA-TECDOC-1958.",
+      "Se realizó una inspección visual del equipo y de las condiciones de operación de la instalación mediante una lista de verificación basada en los lineamientos del IAEA-TECDOC-1958 y en los criterios de seguridad aplicables a equipos de radiología general.",
     criterio:
-      "La inspeccion visual se considera aceptable cuando los componentes visibles del equipo y las condiciones de operacion se encuentran en buen estado fisico.",
+      "La inspección visual se considera aceptable cuando los componentes visibles del equipo y las condiciones de operación de la instalación se encuentran en buen estado físico, sin deterioros, fugas o defectos que puedan comprometer la protección radiológica del operador, los pacientes o el público.",
+    analisis:
+      "La inspección visual realizada al equipo de radiografía general y a las condiciones de operación de la instalación permitió verificar que los componentes visibles del sistema de rayos X se encuentran en adecuado estado físico, con el fin de identificar deterioros, fugas de aceite, daños mecánicos o anomalías en los cables de alimentación y control.\n\nAsimismo, se revisaron las condiciones de operación del equipo, la señalización de radioprotección y los elementos de seguridad presentes en la instalación para determinar si son consistentes con los requerimientos para la operación segura del equipo evaluado.",
   },
   {
     codigo: "2.3",
@@ -98,8 +102,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnostico.",
     metodologia:
       "Se posiciono el medidor no invasivo sobre la mesa, en el centro del haz de radiacion. Se realizaron exposiciones registrando la CHR reportada por el analizador.",
-    criterio:
-      "CHR a 60 kVp >= 1.8 mm Al, a 70 kVp >= 2.1, a 80 kVp >= 2.3, a 90 kVp >= 2.5.",
+    criterio: "CHR a 60 kVp >= 1.8 mm Al, a 70 kVp >= 2.1, a 80 kVp >= 2.3, a 90 kVp >= 2.5.",
   },
   {
     codigo: "2.7",
@@ -111,8 +114,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnostico.",
     metodologia:
       "Se posiciono el detector del sistema dosimetrico a aproximadamente 100 cm del foco del tubo de rayos X. Se selecciono un valor de 80 kV como tension de referencia.",
-    criterio:
-      "CV de repetibilidad <= 5%. Desviacion de linealidad <= 10%.",
+    criterio: "CV de repetibilidad <= 5%. Desviacion de linealidad <= 10%.",
   },
   {
     codigo: "2.8",
@@ -121,8 +123,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     orden: 8,
     objetivo:
       "Verificar si el medidor de dosis-area (DAP meter) del equipo esta calibrado correctamente, calculando un factor de correccion.",
-    instrumentacion:
-      "Sensor RaySafe X2 RF, cinta metrica, regla para medir campo de irradiacion.",
+    instrumentacion: "Sensor RaySafe X2 RF, cinta metrica, regla para medir campo de irradiacion.",
     metodologia:
       "Se usaron los mismos programas clinicos (Extremidad, Torax, Columna). Se midio el Kerma en aire con el sensor y el area del campo de irradiacion.",
     criterio:
@@ -181,8 +182,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Umbral de sensibilidad a bajo contraste",
     grupo: "E",
     orden: 13,
-    objetivo:
-      "Evaluar la capacidad del sistema para detectar diferencias sutiles de contraste.",
+    objetivo: "Evaluar la capacidad del sistema para detectar diferencias sutiles de contraste.",
     instrumentacion:
       "Patron de bajo contraste (phantom con insertos de diferente densidad), Detector de imagen.",
     metodologia:

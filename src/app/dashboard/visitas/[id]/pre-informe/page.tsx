@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -20,6 +20,7 @@ import {
   ChevronUp,
   ToggleLeft,
   ToggleRight,
+  RotateCcw,
   Zap,
   Gauge,
   SlidersHorizontal,
@@ -79,6 +80,7 @@ function SeccionCard({
   isDragging: boolean;
 }) {
   const Icon = GRUPO_ICONS[catalogo.grupo] ?? FileText;
+  const analisisRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <div
@@ -161,9 +163,9 @@ function SeccionCard({
           {autoConcepto ? (
             <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
               <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                El concepto (Conforme / No conforme) se calcula automáticamente a partir de las
-                mediciones radiométricas. Usa el interruptor para marcar la prueba como no
-                aplicable.
+                {catalogo.codigo === "2.2"
+                  ? "El concepto (Favorable / No favorable) se calcula automáticamente a partir de la inspección visual, las condiciones de operación y los elementos de protección. Usa el interruptor para marcar la prueba como no aplicable."
+                  : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de las mediciones radiométricas. Usa el interruptor para marcar la prueba como no aplicable."}
               </p>
             </div>
           ) : (
@@ -208,16 +210,42 @@ function SeccionCard({
             </div>
           )}
 
-          {/* Observaciones — no aplican a la 2.1 (concepto automático) */}
-          {!autoConcepto && (
+          {/* Observaciones — no aplican a la 2.1 (concepto automático).
+              Para secciones con texto de análisis (2.2) el campo se llama
+              "Análisis" y trae el texto por defecto editable, y se muestra
+              aunque el concepto sea automático. */}
+          {(catalogo.analisis || !autoConcepto) && (
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Observaciones (opcional)
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {catalogo.analisis ? "Análisis" : "Observaciones (opcional)"}
+                </label>
+                {catalogo.analisis && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const def = catalogo.analisis ?? "";
+                      if (analisisRef.current) analisisRef.current.value = def;
+                      onUpdateObservaciones(def);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Restaurar predeterminado
+                  </button>
+                )}
+              </div>
               <textarea
-                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-16 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                defaultValue={seccion.observaciones ?? ""}
-                placeholder="Notas adicionales para esta prueba..."
+                ref={analisisRef}
+                className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                  catalogo.analisis ? "h-40" : "h-16"
+                }`}
+                defaultValue={seccion.observaciones ?? catalogo.analisis ?? ""}
+                placeholder={
+                  catalogo.analisis
+                    ? "Análisis de la inspección visual..."
+                    : "Notas adicionales para esta prueba..."
+                }
                 onBlur={(e) => onUpdateObservaciones(e.target.value)}
               />
             </div>
@@ -300,7 +328,14 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     // Mediciones de la 2.1 — su concepto se deriva de aquí, no del campo manual
     const mediciones = await db.conv_mediciones.where("visita_id").equals(visitaId).toArray();
 
-    return { visita, secciones, mediciones };
+    // Inspección y elementos de la 2.2 — su concepto también se deriva de aquí
+    const inspeccion = await db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray();
+    const elementos = await db.conv_elementos_proteccion
+      .where("visita_id")
+      .equals(visitaId)
+      .toArray();
+
+    return { visita, secciones, mediciones, inspeccion, elementos };
   }, [isReady, visitaId]);
 
   // Concepto calculado de la 2.1: No conforme si algún punto lo es; Conforme
@@ -310,6 +345,16 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     if (mediciones.length === 0) return undefined;
     return mediciones.some((m) => m.concepto === "No_conforme") ? "No_conforme" : "Conforme";
   }, [data?.mediciones]);
+
+  // Concepto calculado de la 2.2: No conforme si algún ítem de inspección o
+  // elemento de protección lo es; Conforme en caso contrario (FAVORABLE por
+  // defecto, igual que la fórmula de la plantilla).
+  const concepto22 = useMemo<ConceptoType>(() => {
+    const hayNoConforme =
+      (data?.inspeccion ?? []).some((i) => i.concepto === "No_conforme") ||
+      (data?.elementos ?? []).some((e) => e.concepto === "No_conforme");
+    return hayNoConforme ? "No_conforme" : "Conforme";
+  }, [data?.inspeccion, data?.elementos]);
 
   // ─── Initialize secciones from catalog ───
   useEffect(() => {
@@ -375,7 +420,9 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     // Para la 2.1 el concepto se deriva de las mediciones, no del campo manual.
     const conceptoDe = (s: ConvInformeSeccion): ConceptoType | undefined => {
       if (!s.incluida) return "No_aplica";
-      return s.prueba_codigo === "2.1" ? concepto21 : s.concepto;
+      if (s.prueba_codigo === "2.1") return concepto21;
+      if (s.prueba_codigo === "2.2") return concepto22;
+      return s.concepto;
     };
     const conformes = secciones.filter((s) => conceptoDe(s) === "Conforme").length;
     const noConformes = secciones.filter((s) => conceptoDe(s) === "No_conforme").length;
@@ -559,13 +606,15 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
               key={seccion.id}
               seccion={seccion}
               catalogo={cat}
-              autoConcepto={seccion.prueba_codigo === "2.1"}
+              autoConcepto={seccion.prueba_codigo === "2.1" || seccion.prueba_codigo === "2.2"}
               conceptoEfectivo={
                 !seccion.incluida
                   ? "No_aplica"
                   : seccion.prueba_codigo === "2.1"
                     ? concepto21
-                    : seccion.concepto
+                    : seccion.prueba_codigo === "2.2"
+                      ? concepto22
+                      : seccion.concepto
               }
               expanded={expandedCodigo === seccion.prueba_codigo}
               onToggleExpand={() =>

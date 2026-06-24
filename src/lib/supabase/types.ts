@@ -95,6 +95,15 @@ export interface Database {
           fecha_expiracion_licencia: string | null;
           codigo_habilitacion: string | null;
           horas_x_dia: number | null;
+          ubicacion_fisica: string | null;
+          ancho_m: number | null;
+          largo_m: number | null;
+          alto_m: number | null;
+          area_m2: number | null;
+          zona_a_desc: string | null;
+          zona_b_desc: string | null;
+          zona_c_desc: string | null;
+          zona_d_desc: string | null;
           creado_en: string;
         };
         Insert: Omit<Database["public"]["Tables"]["ubicaciones_rx"]["Row"], "id" | "creado_en"> & {

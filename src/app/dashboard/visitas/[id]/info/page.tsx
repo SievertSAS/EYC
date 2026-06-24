@@ -5,6 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -82,7 +83,7 @@ function EditableField({
         setTimeout(() => setSaved(false), 1500);
       }, 800);
     },
-    [onSave],
+    [onSave]
   );
 
   return (
@@ -147,6 +148,55 @@ function SelectField({
   );
 }
 
+function EditableTextArea({
+  label,
+  value,
+  onSave,
+  placeholder = "—",
+}: {
+  label: string;
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [local, setLocal] = useState(value);
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+
+  const handleChange = useCallback(
+    (v: string) => {
+      setLocal(v);
+      setSaved(false);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        onSave(v);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+      }, 800);
+    },
+    [onSave]
+  );
+
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+        {label}
+        {saved && <Check className="w-3 h-3 text-emerald-500" />}
+      </p>
+      <textarea
+        className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        value={local}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
 function ReadonlyField({
   label,
   value,
@@ -171,8 +221,7 @@ function ReadonlyField({
 // ─── Progress bar ───
 
 function ProgressBar({ percent, label }: { percent: number; label: string }) {
-  const color =
-    percent === 100 ? "bg-emerald-500" : percent >= 50 ? "bg-amber-400" : "bg-red-400";
+  const color = percent === 100 ? "bg-emerald-500" : percent >= 50 ? "bg-amber-400" : "bg-red-400";
   return (
     <div className="flex items-center gap-3">
       <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -262,10 +311,6 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
       : [];
     const tubo = tubos[0];
 
-    const sala = visita.ubicacion_id
-      ? await db.sala_dimensiones.where("ubicacion_id").equals(visita.ubicacion_id).first()
-      : undefined;
-
     const contactos = cliente?.id
       ? await db.contactos.where("cliente_id").equals(cliente.id).toArray()
       : [];
@@ -279,7 +324,6 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
       solicitud,
       tubo,
       nroTubos: tubos.length,
-      sala,
       contactos,
     };
   }, [isReady, visitaId]);
@@ -290,37 +334,73 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
     return data?.contactos?.find((c) => c.cargo === cargo);
   }
 
+  const now = () => new Date().toISOString();
+
   async function saveCliente(field: string, value: string) {
     const id = data?.cliente?.id;
     if (!id) return;
-    await db.clientes.update(id, { [field]: value || undefined });
+    await db.clientes.update(id, {
+      [field]: value || undefined,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("clientes", id);
   }
 
   async function saveSede(field: string, value: string) {
     const id = data?.sede?.id;
     if (!id) return;
-    await db.sedes.update(id, { [field]: value || undefined });
+    await db.sedes.update(id, {
+      [field]: value || undefined,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("sedes", id);
   }
 
   async function saveUbicacion(field: string, value: string, numeric = false) {
     const id = data?.ubicacion?.id;
     if (!id) return;
     const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
-    await db.ubicaciones_rx.update(id, { [field]: parsed });
+    await db.ubicaciones_rx.update(id, {
+      [field]: parsed,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("ubicaciones_rx", id);
+  }
+
+  // Guarda una dimensión de la sala y recalcula el área (ancho × largo)
+  async function saveUbicacionDim(field: "ancho_m" | "largo_m" | "alto_m", value: string) {
+    const id = data?.ubicacion?.id;
+    if (!id) return;
+    const parsed = value === "" ? undefined : parseFloat(value);
+    const ancho = field === "ancho_m" ? parsed : data?.ubicacion?.ancho_m;
+    const largo = field === "largo_m" ? parsed : data?.ubicacion?.largo_m;
+    const area = ancho && largo ? Math.round(ancho * largo * 100) / 100 : undefined;
+    await db.ubicaciones_rx.update(id, {
+      [field]: parsed,
+      area_m2: area,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("ubicaciones_rx", id);
   }
 
   async function saveEquipo(field: string, value: string, numeric = false) {
     const id = data?.equipo?.id;
     if (!id) return;
     const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
-    await db.equipos.update(id, { [field]: parsed });
+    await db.equipos.update(id, { [field]: parsed, sync_status: "pending", last_modified: now() });
+    pushSingle("equipos", id);
   }
 
   async function saveTubo(field: string, value: string, numeric = false) {
     const id = data?.tubo?.id;
     if (!id) return;
     const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
-    await db.tubos.update(id, { [field]: parsed });
+    await db.tubos.update(id, { [field]: parsed, sync_status: "pending", last_modified: now() });
+    pushSingle("tubos", id);
   }
 
   async function saveVisita(field: string, value: string, numeric = false) {
@@ -331,26 +411,35 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
       last_modified: new Date().toISOString(),
       sync_status: "pending",
     });
+    pushSingle("visitas", visitaId);
   }
 
   async function saveContacto(
     cargo: "medico_responsable" | "tecnologo" | "opr" | "responsable_visita",
     field: string,
-    value: string,
+    value: string
   ) {
     const clienteId = data?.cliente?.id;
     if (!clienteId) return;
     const existing = getContacto(cargo);
     if (existing?.id) {
-      await db.contactos.update(existing.id, { [field]: value || undefined });
+      await db.contactos.update(existing.id, {
+        [field]: value || undefined,
+        sync_status: "pending",
+        last_modified: now(),
+      });
+      pushSingle("contactos", existing.id);
     } else {
-      await db.contactos.add({
+      const newId = (await db.contactos.add({
         cliente_id: clienteId,
         nombre: field === "nombre" ? value : "",
         cargo,
         ...(field !== "nombre" ? { [field]: value || undefined } : {}),
         para_programar: false,
-      });
+        sync_status: "pending",
+        last_modified: now(),
+      })) as number;
+      pushSingle("contactos", newId);
     }
   }
 
@@ -384,8 +473,7 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const { visita, equipo, ubicacion, sede, cliente, solicitud, tubo, nroTubos, sala, contactos } =
-    data;
+  const { visita, equipo, ubicacion, sede, cliente, solicitud, tubo, nroTubos, contactos } = data;
 
   const medico = getContacto("medico_responsable");
   const tecnologo = getContacto("tecnologo");
@@ -464,7 +552,7 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
     sede?.departamento,
   ]);
 
-  const progSala = computeProgress([sala?.ancho_m, sala?.largo_m, sala?.alto_m]);
+  const progSala = computeProgress([ubicacion?.ancho_m, ubicacion?.largo_m, ubicacion?.alto_m]);
 
   const allValues = [
     progInfoGeneral,
@@ -974,44 +1062,57 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
         </div>
       </SectionCard>
 
-      {/* 7. Dimensiones de la Sala */}
-      {sala && (
+      {/* 7. Dimensiones de la Sala (editable; también se captura en la ubicación RX) */}
+      {ubicacion && (
         <SectionCard
           icon={Ruler}
           title="Sala — Dimensiones y Blindaje"
           subtitle="Características del recinto"
           progress={progSala}
         >
+          <EditableField
+            label="Ubicación física del equipo"
+            value={toStr(ubicacion.ubicacion_fisica)}
+            onSave={(v) => saveUbicacion("ubicacion_fisica", v)}
+          />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <ReadonlyField label="Ancho (m)" value={sala.ancho_m} />
-            <ReadonlyField label="Largo (m)" value={sala.largo_m} />
-            <ReadonlyField label="Alto (m)" value={sala.alto_m} />
-            <ReadonlyField label="Área (m²)" value={sala.area_m2} />
+            <EditableField
+              label="Ancho (m)"
+              value={toStr(ubicacion.ancho_m)}
+              type="number"
+              onSave={(v) => saveUbicacionDim("ancho_m", v)}
+            />
+            <EditableField
+              label="Largo (m)"
+              value={toStr(ubicacion.largo_m)}
+              type="number"
+              onSave={(v) => saveUbicacionDim("largo_m", v)}
+            />
+            <EditableField
+              label="Alto (m)"
+              value={toStr(ubicacion.alto_m)}
+              type="number"
+              onSave={(v) => saveUbicacionDim("alto_m", v)}
+            />
+            <ReadonlyField label="Área (m²)" value={ubicacion.area_m2} />
           </div>
 
-          {(sala.zona_a_desc || sala.zona_b_desc || sala.zona_c_desc || sala.zona_d_desc) && (
-            <div className="space-y-3 pt-3 border-t border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Descripción de zonas
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(["a", "b", "c", "d"] as const).map((z) => {
-                  const desc = sala[`zona_${z}_desc` as keyof typeof sala];
-                  if (!desc) return null;
-                  return (
-                    <div key={z} className="bg-slate-50 rounded-xl p-3 space-y-1">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">
-                        Zona {z.toUpperCase()}
-                      </p>
-                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                        {String(desc)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Descripción de zonas
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(["a", "b", "c", "d"] as const).map((z) => (
+                <EditableTextArea
+                  key={z}
+                  label={`Zona ${z.toUpperCase()}`}
+                  value={toStr(ubicacion[`zona_${z}_desc` as keyof typeof ubicacion] as string)}
+                  placeholder="Limita con… / puertas / barreras"
+                  onSave={(v) => saveUbicacion(`zona_${z}_desc`, v)}
+                />
+              ))}
             </div>
-          )}
+          </div>
         </SectionCard>
       )}
     </div>

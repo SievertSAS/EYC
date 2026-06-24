@@ -1,7 +1,7 @@
 import type { jsPDF } from "jspdf";
 import type autoTableType from "jspdf-autotable";
 import { db } from "@/lib/db";
-import type { VisitaEjecucion, SalaDimensiones } from "@/lib/db/types";
+import type { VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
 import type {
   ConvLevantamientoSetup,
   ConvMedicionRadiometrica,
@@ -68,6 +68,8 @@ export interface DatosConvencional {
   resultados: Map<string, ConvResultadoPrueba>;
   /** Imagen del plano radiométrico (2.1) como dataURL, si existe */
   planoRadiometrico?: { dataUrl: string; width: number; height: number };
+  /** Fotografías de la 2.2 (equipo, consola, avisos, elementos) para la sección 2.2.8 */
+  fotos22?: { label: string; dataUrl: string; width: number; height: number }[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -119,6 +121,28 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     (e) => e.prueba_codigo === "2.1" && e.slot === "plano_radiometrico"
   );
 
+  // Fotografías de la 2.2 (sección 2.2.8): orden fijo + una por elemento
+  const SLOTS_FOTOS_22: [string, string][] = [
+    ["equipo_rayos_x", "Equipo de rayos X"],
+    ["consola", "Consola del equipo"],
+    ["aviso_proteccion_1", "Aviso de protección radiológica"],
+    ["aviso_proteccion_2", "Aviso de protección radiológica"],
+    ["aviso_proteccion_3", "Aviso de protección radiológica"],
+  ];
+  const fotos22: NonNullable<DatosConvencional["fotos22"]> = [];
+  for (const [slot, label] of SLOTS_FOTOS_22) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.2" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos22.push({ label, ...img });
+  }
+  for (const elem of elementos) {
+    const ev = evidencias.find(
+      (e) => e.prueba_codigo === "2.2" && e.slot === `elemento_${elem.id}`
+    );
+    const img = await cargarImagen(ev);
+    if (img) fotos22.push({ label: elem.descripcion?.trim() || "Elemento de protección", ...img });
+  }
+
   return {
     secciones: seccionesEfectivas,
     setup,
@@ -127,6 +151,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     elementos,
     resultados: new Map(resultadosArr.map((r) => [r.prueba_codigo, r])),
     planoRadiometrico: await cargarImagen(planoEv),
+    fotos22,
   };
 }
 
@@ -195,23 +220,40 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
   // .4 Resultados
   ctx.addSubsectionTitle(`${cod}.4.`, "Resultados");
   ctx.addParagraph(
-    "Se registraron las lecturas de tasa de dosis equivalente ambiental H*(10) en los puntos de medición definidos en el diagrama radiométrico de la instalación."
+    "Se registraron las lecturas de tasa de dosis equivalente ambiental H*(10) en los puntos de medición definidos en el diagrama radiométrico. Las mediciones se realizaron utilizando la técnica radiográfica máxima empleada en la práctica clínica del equipo evaluado."
   );
 
-  const tecnica = [
-    `Tensión (kV): ${fmt(setup?.tecnica_kv, 0)}`,
-    `Corriente (mA): ${fmt(setup?.tecnica_ma, 0)}`,
-    `Tiempo (s): ${fmt(setup?.tecnica_tiempo_s, 2)}`,
-    `Exposición (mAs): ${fmt(setup?.tecnica_mas, 0)}`,
-  ].join("    ");
-  ctx.addParagraph(`Técnica utilizada:    ${tecnica}`);
+  // Técnica utilizada y fondo natural — tabla compacta de 4 columnas (clave/valor)
+  ctx.checkPage(24);
+  addCaption(ctx, "Técnica radiográfica utilizada en la prueba");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Tensión (kV)", fmt(setup?.tecnica_kv, 0), "Tiempo (s)", fmt(setup?.tecnica_tiempo_s, 2)],
+      ["Corriente (mA)", fmt(setup?.tecnica_ma, 0), "Exposición (mAs)", fmt(setup?.tecnica_mas, 0)],
+      [
+        "Fondo natural (mSv/h)",
+        {
+          content:
+            setup?.fondo_natural_usv_h != null
+              ? (setup.fondo_natural_usv_h / 1000).toFixed(5)
+              : "—",
+          colSpan: 3,
+          styles: { fontStyle: "normal", fillColor: [255, 255, 255] },
+        },
+      ],
+    ],
+    columnStyles: {
+      0: { cellWidth: 45, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 45, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      3: { cellWidth: 40 },
+    },
+  });
+  ctx.y = finalY(doc) + 4;
   ctx.addParagraph(
-    `Fondo natural de radiación ionizante (mSv/h): ${
-      setup?.fondo_natural_usv_h != null ? (setup.fondo_natural_usv_h / 1000).toFixed(5) : "—"
-    }`
-  );
-  ctx.addParagraph(
-    "En cada punto se realizaron varias mediciones consecutivas, registrándose el valor máximo obtenido para su posterior análisis."
+    "En cada punto se realizaron varias mediciones consecutivas, registrándose el valor máximo obtenido para su posterior análisis. Los resultados se presentan a continuación."
   );
 
   if (conv.mediciones.length === 0) {
@@ -323,11 +365,48 @@ export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencio
   try {
     const x = MARGIN + (170 - w) / 2;
     ctx.doc.addImage(plano.dataUrl, x, ctx.y, w, h);
-    ctx.y += h + 4;
-    addCaption(ctx, "Figura 2.1.1. Diagrama radiométrico de la instalación");
-    ctx.y += 2;
+    ctx.y += h + 6;
   } catch {
     ctx.addParagraph("No fue posible incluir la imagen del plano radiométrico.");
+  }
+}
+
+/** Subsección 2.2.8: fotografías de la inspección (equipo, consola, avisos, elementos) */
+export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos22 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntaron fotografías de la inspección visual.");
+    return;
+  }
+
+  const colW = 82; // ancho por columna (mm)
+  const gap = 6;
+  const maxImgH = 55;
+
+  for (let i = 0; i < fotos.length; i += 2) {
+    const pair = fotos.slice(i, i + 2).map((f) => {
+      const scale = Math.min(colW / f.width, maxImgH / f.height);
+      return { ...f, w: f.width * scale, h: f.height * scale };
+    });
+    const rowH = Math.max(...pair.map((r) => r.h)) + 7; // imagen + rótulo
+    ctx.checkPage(rowH + 2);
+    const startY = ctx.y;
+
+    pair.forEach((r, idx) => {
+      const x = MARGIN + idx * (colW + gap);
+      try {
+        doc.addImage(r.dataUrl, x, startY, r.w, r.h);
+      } catch {
+        // imagen no renderizable — se omite el cuadro
+      }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      doc.text(`Fig. ${r.label}`, x, startY + r.h + 4);
+    });
+
+    ctx.y = startY + rowH + 2;
   }
 }
 
@@ -336,7 +415,7 @@ export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencio
 function render22(
   ctx: InformeCtx,
   conv: DatosConvencional,
-  sala: SalaDimensiones | undefined
+  ubicacion: UbicacionRx | undefined
 ): number {
   const { doc, autoTable } = ctx;
   const cod = "2.2";
@@ -344,16 +423,63 @@ function render22(
   // .4 Descripción de la instalación y blindajes
   ctx.addSubsectionTitle(`${cod}.4.`, "Descripción de la instalación y blindajes");
   ctx.addParagraph(
-    "La distribución de las áreas colindantes y de las barreras estructurales de protección radiológica se presenta en el diagrama radiométrico de la instalación (Figura 2.1.1)."
+    "La distribución de las áreas colindantes y de las barreras estructurales de protección radiológica se presenta en el diagrama radiométrico de la instalación."
   );
-  if (sala?.ancho_m || sala?.largo_m || sala?.alto_m) {
+  if (ubicacion?.ubicacion_fisica?.trim()) {
+    ctx.addParagraph(`El equipo se encuentra ubicado en el ${ubicacion.ubicacion_fisica.trim()}.`);
+  }
+
+  // Zonas colindantes en tabla (en vez de párrafos sueltos)
+  const zonas = (
+    [
+      ["A", ubicacion?.zona_a_desc],
+      ["B", ubicacion?.zona_b_desc],
+      ["C", ubicacion?.zona_c_desc],
+      ["D", ubicacion?.zona_d_desc],
+    ] as const
+  )
+    .filter(([, desc]) => desc?.trim())
+    .map(([z, desc]) => [z, desc!.trim()]);
+
+  if (zonas.length > 0) {
+    ctx.checkPage(14 + zonas.length * 8);
+    addCaption(ctx, "Áreas colindantes y barreras estructurales");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Zona", "Descripción de la colindancia y barreras"]],
+      body: zonas,
+      columnStyles: { 0: { cellWidth: 16, halign: "center", fontStyle: "bold" } },
+    });
+    ctx.y = finalY(doc) + 4;
+  }
+
+  // Dimensiones de la sala en mini-tabla horizontal
+  if (ubicacion?.ancho_m || ubicacion?.largo_m || ubicacion?.alto_m) {
     const area =
-      sala.ancho_m && sala.largo_m ? ` — Área: ${(sala.ancho_m * sala.largo_m).toFixed(2)} m²` : "";
-    ctx.addParagraph(
-      `Las dimensiones de la sala son: Ancho: ${fmt(sala.ancho_m)} m — Largo: ${fmt(
-        sala.largo_m
-      )} m — Altura: ${fmt(sala.alto_m)} m${area}.`
-    );
+      ubicacion.area_m2 != null
+        ? `${ubicacion.area_m2.toFixed(2)} m²`
+        : ubicacion.ancho_m && ubicacion.largo_m
+          ? `${(ubicacion.ancho_m * ubicacion.largo_m).toFixed(2)} m²`
+          : "—";
+    ctx.checkPage(20);
+    addCaption(ctx, "Dimensiones de la sala");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Ancho", "Largo", "Altura", "Área"]],
+      body: [
+        [
+          `${fmt(ubicacion.ancho_m)} m`,
+          `${fmt(ubicacion.largo_m)} m`,
+          `${fmt(ubicacion.alto_m)} m`,
+          area,
+        ],
+      ],
+      bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" },
+      headStyles: { ...TABLE_STYLE.headStyles, halign: "center" },
+    });
+    ctx.y = finalY(doc) + 4;
   }
 
   // .5 Resultados
@@ -474,13 +600,13 @@ export function renderResultadosSeccion(
   codigo: string,
   visita: VisitaEjecucion,
   conv: DatosConvencional,
-  sala: SalaDimensiones | undefined
+  ubicacion: UbicacionRx | undefined
 ): number {
   switch (codigo) {
     case "2.1":
       return render21(ctx, visita, conv);
     case "2.2":
-      return render22(ctx, conv, sala);
+      return render22(ctx, conv, ubicacion);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

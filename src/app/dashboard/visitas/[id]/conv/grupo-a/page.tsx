@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback, useRef, useEffect } from "react";
+import { use, useState, useRef, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -18,7 +18,6 @@ import {
   ChevronDown,
   ChevronUp,
   Camera,
-  Check,
   ImageIcon,
   BookOpen,
 } from "lucide-react";
@@ -53,6 +52,15 @@ const CATALOGO_ELEMENTOS_PROTECCION = [
 
 const SLOTS_IMAGEN_21 = [
   { slot: "plano_radiometrico", label: "Plano / Croquis radiométrico de la sala" },
+];
+
+/** Slots de fotografías de la prueba 2.2 (van a la sección 2.2.8 del informe) */
+const SLOTS_FOTOS_22 = [
+  { slot: "equipo_rayos_x", label: "Equipo de rayos X" },
+  { slot: "consola", label: "Consola del equipo" },
+  { slot: "aviso_proteccion_1", label: "Aviso de protección 1" },
+  { slot: "aviso_proteccion_2", label: "Aviso de protección 2" },
+  { slot: "aviso_proteccion_3", label: "Aviso de protección 3" },
 ];
 
 /** Carga de trabajo estándar para radiografía convencional (mA·min/sem) — piso del cálculo, metodología IAEA-TECDOC-1958 */
@@ -236,6 +244,72 @@ function ImageSlot({
   );
 }
 
+/** Captura compacta de foto para una fila de tabla (elementos de protección) */
+function ElementoFotoCell({
+  evidencia,
+  onCapture,
+  onRemove,
+}: {
+  evidencia?: { id?: number; blob_local?: Blob };
+  onCapture: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (evidencia?.blob_local) {
+      const url = URL.createObjectURL(evidencia.blob_local);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreview(null);
+  }, [evidencia?.blob_local]);
+
+  return (
+    <>
+      {preview ? (
+        <div className="relative w-10 h-10">
+          <img
+            src={preview}
+            alt="Foto"
+            className="w-10 h-10 object-cover rounded-lg border border-slate-200"
+          />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+            aria-label="Quitar foto"
+          >
+            <Trash2 className="w-2.5 h-2.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="w-10 h-10 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          aria-label="Tomar foto del elemento"
+        >
+          <Camera className="w-4 h-4" />
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onCapture(file);
+          e.target.value = "";
+        }}
+      />
+    </>
+  );
+}
+
 // ─── Main Page ───
 
 export default function GrupoAPage({ params }: { params: Promise<{ id: string }> }) {
@@ -375,6 +449,11 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   async function removeElemento(id: number) {
     await db.conv_elementos_proteccion.delete(id);
+    // Limpiar la foto asociada al elemento para no dejar evidencias huérfanas
+    const foto = data?.evidencias?.find(
+      (e) => e.prueba_codigo === "2.2" && e.slot === `elemento_${id}`
+    );
+    if (foto?.id) await db.conv_evidencias.delete(foto.id);
   }
 
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
@@ -497,15 +576,22 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
           PRUEBA 2.1 — LEVANTAMIENTO RADIOMÉTRICO
           ════════════════════════════════════════════ */}
 
-      {/* Imágenes de la prueba 2.1 */}
+      {/* Imágenes y fotografías (plano 2.1 + fotos 2.2) */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.1 — Imágenes" title="Plano radiométrico" icon={ImageIcon}>
-            Captura el croquis/plano de la sala con los puntos de medición.
+          <StepHeader
+            step="Pruebas 2.1 y 2.2 — Imágenes"
+            title="Imágenes y fotografías"
+            icon={ImageIcon}
+          >
+            Captura el plano radiométrico de la sala, el equipo de rayos X, la consola y los avisos
+            de protección radiológica. Las fotos de los elementos de protección se cargan en su
+            tabla más abajo.
           </StepHeader>
           <Tip>
-            Usa planos anteriores si están vigentes. Lo ideal es solicitar un plano de la sala al
-            cliente antes de la visita.
+            Usa planos anteriores si están vigentes; lo ideal es solicitar el plano al cliente antes
+            de la visita. Los avisos de protección pueden ser varios: usa los tres espacios
+            disponibles.
           </Tip>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {SLOTS_IMAGEN_21.map((s) => (
@@ -515,6 +601,15 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                 evidencia={getEvidencia("2.1", s.slot)}
                 onCapture={(file) => captureImage("2.1", s.slot, file)}
                 onRemove={() => removeImage("2.1", s.slot)}
+              />
+            ))}
+            {SLOTS_FOTOS_22.map((s) => (
+              <ImageSlot
+                key={s.slot}
+                label={s.label}
+                evidencia={getEvidencia("2.2", s.slot)}
+                onCapture={(file) => captureImage("2.2", s.slot, file)}
+                onRemove={() => removeImage("2.2", s.slot)}
               />
             ))}
           </div>
@@ -986,7 +1081,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
           </StepHeader>
 
           <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
-            <table className="w-full min-w-[700px] text-xs">
+            <table className="w-full min-w-[760px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
                   {[
@@ -996,6 +1091,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                     ["Tipo", "w-24"],
                     ["Concepto", "w-28"],
                     ["Observaciones", "min-w-[160px]"],
+                    ["Foto", "w-16"],
                     ["", "w-8"],
                   ].map(([label, cls]) => (
                     <th
@@ -1069,6 +1165,15 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
                           elem.id && updateElemento(elem.id, { observacion: e.target.value })
                         }
                       />
+                    </td>
+                    <td className="py-1.5 px-1.5">
+                      {elem.id && (
+                        <ElementoFotoCell
+                          evidencia={getEvidencia("2.2", `elemento_${elem.id}`)}
+                          onCapture={(file) => captureImage("2.2", `elemento_${elem.id}`, file)}
+                          onRemove={() => removeImage("2.2", `elemento_${elem.id}`)}
+                        />
+                      )}
                     </td>
                     <td className="py-1.5 px-1.5">
                       <button

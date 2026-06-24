@@ -22,6 +22,7 @@ import {
   recopilarDatosConv,
   renderResultadosSeccion,
   renderDiagramaRadiometrico,
+  renderFotos22,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -680,12 +681,15 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       addSubsectionTitle,
     };
 
-    const incluidas = conv.secciones.filter((s) => s.incluida).sort((a, b) => a.orden - b.orden);
+    // Todas las pruebas aparecen en el informe; el switch (incluida) decide si
+    // la prueba APLICA (se evalúa) o NO APLICA (se documenta como no aplicable).
+    const todasSecciones = [...conv.secciones].sort((a, b) => a.orden - b.orden);
 
-    for (const seccion of incluidas) {
+    for (const seccion of todasSecciones) {
       const cat = getCatalogoSeccion(seccion.prueba_codigo);
       if (!cat) continue;
       const codigo = seccion.prueba_codigo;
+      const aplica = seccion.incluida;
 
       // Título de la prueba
       checkPage(60);
@@ -710,12 +714,20 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
       // Resultados (+ análisis en 2.1, descripción en 2.2)
       let nextSub: number;
-      if (seccion.concepto === "No_aplica") {
+      if (!aplica) {
         addSubsectionTitle(`${codigo}.4.`, "Resultados");
         addParagraph("NO APLICA.");
         nextSub = 5;
       } else {
-        nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.sala);
+        nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.ubicacion);
+      }
+
+      // Análisis (solo 2.2) — usa el campo observaciones como texto editable,
+      // con el texto por defecto del catálogo si el físico no lo modificó.
+      if (codigo === "2.2" && aplica) {
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Análisis");
+        addParagraph(seccion.observaciones?.trim() || cat.analisis || "");
+        nextSub++;
       }
 
       // Criterio de aceptación
@@ -724,17 +736,26 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       nextSub++;
 
       // Diagrama radiométrico (solo 2.1)
-      if (codigo === "2.1" && seccion.concepto !== "No_aplica") {
+      if (codigo === "2.1" && aplica) {
         renderDiagramaRadiometrico(ctx, conv);
         nextSub = 8;
       }
 
-      // Concepto — en la 2.1 se deriva de las mediciones (el físico solo decide "No aplica")
+      // Fotografías (solo 2.2) — entre Criterio y Concepto
+      if (codigo === "2.2" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Fotografías");
+        renderFotos22(ctx, conv);
+        nextSub++;
+      }
+
+      // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
       addSubsectionTitle(`${codigo}.${nextSub}.`, "Concepto");
       nextSub++;
       const c = seccion.concepto;
-      const esAuto21 = codigo === "2.1" && c !== "No_aplica";
+      const esAuto21 = codigo === "2.1" && aplica;
+      const esAuto22 = codigo === "2.2" && aplica;
 
       let conceptoLabel: string;
       let conceptoParrafo: string | undefined;
@@ -743,7 +764,26 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         ? seccion.acciones_correctivas
         : "No se requieren acciones correctivas.";
 
-      if (esAuto21) {
+      if (esAuto22) {
+        // Concepto derivado de la inspección visual: NO FAVORABLE si hay algún
+        // "No conforme" en inspección del equipo, condiciones de operación o
+        // elementos de protección.
+        esNoConforme =
+          conv.inspeccion.some((i) => i.concepto === "No_conforme") ||
+          conv.elementos.some((e) => e.concepto === "No_conforme");
+        if (esNoConforme) {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo =
+            "La inspección visual evidenció condiciones que requieren corrección, al identificarse elementos que no cumplen con los criterios de aceptación establecidos para el estado físico del equipo, las condiciones de operación o los elementos de protección radiológica.";
+          accionesTexto =
+            "Se recomienda corregir las condiciones no conformes identificadas durante la inspección visual y verificar nuevamente el cumplimiento de los criterios establecidos antes de continuar con la operación del equipo.";
+        } else {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo =
+            "La inspección visual evidenció que el estado físico del equipo, las condiciones de operación de la instalación y los elementos de protección radiológica cumplen con los criterios establecidos para la operación segura del equipo evaluado.";
+          accionesTexto = "No se requieren acciones correctivas.";
+        }
+      } else if (esAuto21) {
         const hayMediciones = conv.mediciones.length > 0;
         esNoConforme = hayMediciones && conv.mediciones.some((m) => m.concepto === "No_conforme");
         if (!hayMediciones) {
@@ -760,15 +800,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
             "Las dosis equivalentes anuales estimadas en las áreas evaluadas se encuentran por debajo de los niveles de restricción de dosis establecidos para áreas controladas y supervisadas, por lo que las condiciones radiológicas de la instalación se consideran aceptables para la operación del equipo evaluado.";
           accionesTexto = "No se requieren acciones correctivas.";
         }
+      } else if (!aplica) {
+        conceptoLabel = "NO APLICA";
+        esNoConforme = false;
       } else {
         conceptoLabel =
-          c === "Conforme"
-            ? "CONFORME"
-            : c === "No_conforme"
-              ? "NO CONFORME"
-              : c === "No_aplica"
-                ? "NO APLICA"
-                : "PENDIENTE";
+          c === "Conforme" ? "CONFORME" : c === "No_conforme" ? "NO CONFORME" : "PENDIENTE";
       }
 
       doc.setFont("helvetica", "bold");
@@ -783,7 +820,9 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       if (conceptoParrafo) {
         addParagraph(conceptoParrafo);
       }
-      if (seccion.observaciones?.trim()) {
+      // La 2.1 no lleva observaciones (concepto automático); la 2.2 usa el
+      // campo observaciones como Análisis (renderizado arriba), no aquí.
+      if (codigo !== "2.1" && codigo !== "2.2" && seccion.observaciones?.trim()) {
         addParagraph(seccion.observaciones);
       }
 

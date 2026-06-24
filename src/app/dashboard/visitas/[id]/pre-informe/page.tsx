@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -20,6 +20,7 @@ import {
   ChevronUp,
   ToggleLeft,
   ToggleRight,
+  RotateCcw,
   Zap,
   Gauge,
   SlidersHorizontal,
@@ -47,6 +48,8 @@ type ConceptoType = "Conforme" | "No_conforme" | "No_aplica";
 function SeccionCard({
   seccion,
   catalogo,
+  autoConcepto,
+  conceptoEfectivo,
   expanded,
   onToggleExpand,
   onToggleIncluida,
@@ -60,10 +63,15 @@ function SeccionCard({
 }: {
   seccion: ConvInformeSeccion;
   catalogo: (typeof CATALOGO_SECCIONES)[0];
+  /** Si true, el concepto se calcula automáticamente (prueba 2.1) y el físico
+   *  solo decide si la prueba aplica. */
+  autoConcepto: boolean;
+  /** Concepto a mostrar en el badge (calculado para 2.1, manual para el resto). */
+  conceptoEfectivo?: ConceptoType;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleIncluida: () => void;
-  onUpdateConcepto: (v: ConceptoType) => void;
+  onUpdateConcepto: (v: ConceptoType | undefined) => void;
   onUpdateAcciones: (v: string) => void;
   onUpdateObservaciones: (v: string) => void;
   onDragStart: () => void;
@@ -72,6 +80,7 @@ function SeccionCard({
   isDragging: boolean;
 }) {
   const Icon = GRUPO_ICONS[catalogo.grupo] ?? FileText;
+  const analisisRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <div
@@ -94,11 +103,7 @@ function SeccionCard({
         </div>
 
         {/* Toggle */}
-        <button
-          type="button"
-          onClick={onToggleIncluida}
-          className="flex-shrink-0"
-        >
+        <button type="button" onClick={onToggleIncluida} className="flex-shrink-0">
           {seccion.incluida ? (
             <ToggleRight className="w-6 h-6 text-primary" />
           ) : (
@@ -138,10 +143,8 @@ function SeccionCard({
           </p>
         </div>
 
-        {/* Concepto badge */}
-        {seccion.incluida && (
-          <ConceptoBadgeSmall concepto={seccion.concepto} />
-        )}
+        {/* Concepto badge — incluye el estado del switch (apagado = No aplica) */}
+        <ConceptoBadgeSmall concepto={conceptoEfectivo} />
 
         {/* Expand */}
         <button type="button" onClick={onToggleExpand} className="p-1 flex-shrink-0">
@@ -157,31 +160,40 @@ function SeccionCard({
       {expanded && seccion.incluida && (
         <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3 ml-8">
           {/* Concepto selector */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Concepto
-            </label>
-            <div className="flex gap-2">
-              {(
-                [
-                  ["Conforme", "bg-emerald-50 border-emerald-300 text-emerald-700"],
-                  ["No_conforme", "bg-red-50 border-red-300 text-red-700"],
-                  ["No_aplica", "bg-slate-50 border-slate-300 text-slate-500"],
-                ] as const
-              ).map(([val, cls]) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => onUpdateConcepto(val)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
-                    seccion.concepto === val ? cls : "bg-white border-slate-200 text-slate-400"
-                  }`}
-                >
-                  {val === "Conforme" ? "Conforme" : val === "No_conforme" ? "No conforme" : "No aplica"}
-                </button>
-              ))}
+          {autoConcepto ? (
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
+              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                {catalogo.codigo === "2.2"
+                  ? "El concepto (Favorable / No favorable) se calcula automáticamente a partir de la inspección visual, las condiciones de operación y los elementos de protección. Usa el interruptor para marcar la prueba como no aplicable."
+                  : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de las mediciones radiométricas. Usa el interruptor para marcar la prueba como no aplicable."}
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Concepto
+              </label>
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["Conforme", "bg-emerald-50 border-emerald-300 text-emerald-700"],
+                    ["No_conforme", "bg-red-50 border-red-300 text-red-700"],
+                  ] as const
+                ).map(([val, cls]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => onUpdateConcepto(val)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                      seccion.concepto === val ? cls : "bg-white border-slate-200 text-slate-400"
+                    }`}
+                  >
+                    {val === "Conforme" ? "Conforme" : "No conforme"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Acciones correctivas */}
           {seccion.concepto === "No_conforme" && (
@@ -198,18 +210,46 @@ function SeccionCard({
             </div>
           )}
 
-          {/* Observaciones */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Observaciones (opcional)
-            </label>
-            <textarea
-              className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-16 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              defaultValue={seccion.observaciones ?? ""}
-              placeholder="Notas adicionales para esta prueba..."
-              onBlur={(e) => onUpdateObservaciones(e.target.value)}
-            />
-          </div>
+          {/* Observaciones — no aplican a la 2.1 (concepto automático).
+              Para secciones con texto de análisis (2.2) el campo se llama
+              "Análisis" y trae el texto por defecto editable, y se muestra
+              aunque el concepto sea automático. */}
+          {(catalogo.analisis || !autoConcepto) && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {catalogo.analisis ? "Análisis" : "Observaciones (opcional)"}
+                </label>
+                {catalogo.analisis && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const def = catalogo.analisis ?? "";
+                      if (analisisRef.current) analisisRef.current.value = def;
+                      onUpdateObservaciones(def);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Restaurar predeterminado
+                  </button>
+                )}
+              </div>
+              <textarea
+                ref={analisisRef}
+                className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                  catalogo.analisis ? "h-40" : "h-16"
+                }`}
+                defaultValue={seccion.observaciones ?? catalogo.analisis ?? ""}
+                placeholder={
+                  catalogo.analisis
+                    ? "Análisis de la inspección visual..."
+                    : "Notas adicionales para esta prueba..."
+                }
+                onBlur={(e) => onUpdateObservaciones(e.target.value)}
+              />
+            </div>
+          )}
 
           {/* Preview de textos TECDOC (colapsado) */}
           <details className="group">
@@ -285,8 +325,36 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
       .equals(visitaId)
       .sortBy("orden");
 
-    return { visita, secciones };
+    // Mediciones de la 2.1 — su concepto se deriva de aquí, no del campo manual
+    const mediciones = await db.conv_mediciones.where("visita_id").equals(visitaId).toArray();
+
+    // Inspección y elementos de la 2.2 — su concepto también se deriva de aquí
+    const inspeccion = await db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray();
+    const elementos = await db.conv_elementos_proteccion
+      .where("visita_id")
+      .equals(visitaId)
+      .toArray();
+
+    return { visita, secciones, mediciones, inspeccion, elementos };
   }, [isReady, visitaId]);
+
+  // Concepto calculado de la 2.1: No conforme si algún punto lo es; Conforme
+  // si hay puntos y todos pasan; indefinido (pendiente) si aún no hay puntos.
+  const concepto21 = useMemo<ConceptoType | undefined>(() => {
+    const mediciones = data?.mediciones ?? [];
+    if (mediciones.length === 0) return undefined;
+    return mediciones.some((m) => m.concepto === "No_conforme") ? "No_conforme" : "Conforme";
+  }, [data?.mediciones]);
+
+  // Concepto calculado de la 2.2: No conforme si algún ítem de inspección o
+  // elemento de protección lo es; Conforme en caso contrario (FAVORABLE por
+  // defecto, igual que la fórmula de la plantilla).
+  const concepto22 = useMemo<ConceptoType>(() => {
+    const hayNoConforme =
+      (data?.inspeccion ?? []).some((i) => i.concepto === "No_conforme") ||
+      (data?.elementos ?? []).some((e) => e.concepto === "No_conforme");
+    return hayNoConforme ? "No_conforme" : "Conforme";
+  }, [data?.inspeccion, data?.elementos]);
 
   // ─── Initialize secciones from catalog ───
   useEffect(() => {
@@ -333,26 +401,35 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     arr.splice(targetIdx, 0, moved);
 
     // Update order for all affected
-    await Promise.all(arr.map((s, i) => s.id && db.conv_informe_secciones.update(s.id, { orden: i + 1 })));
+    await Promise.all(
+      arr.map((s, i) => s.id && db.conv_informe_secciones.update(s.id, { orden: i + 1 }))
+    );
     setDragIdx(null);
   }
 
   // ─── Toggle all ───
   async function toggleAll(incluida: boolean) {
     await Promise.all(
-      secciones.map((s) => s.id && db.conv_informe_secciones.update(s.id, { incluida })),
+      secciones.map((s) => s.id && db.conv_informe_secciones.update(s.id, { incluida }))
     );
   }
 
   // ─── Stats ───
   const stats = useMemo(() => {
-    const incluidas = secciones.filter((s) => s.incluida);
-    const conformes = incluidas.filter((s) => s.concepto === "Conforme").length;
-    const noConformes = incluidas.filter((s) => s.concepto === "No_conforme").length;
-    const noAplica = incluidas.filter((s) => s.concepto === "No_aplica").length;
-    const sinConcepto = incluidas.filter((s) => !s.concepto).length;
-    return { total: incluidas.length, conformes, noConformes, noAplica, sinConcepto };
-  }, [secciones]);
+    // Todas las pruebas van al informe; el switch apagado = No aplica.
+    // Para la 2.1 el concepto se deriva de las mediciones, no del campo manual.
+    const conceptoDe = (s: ConvInformeSeccion): ConceptoType | undefined => {
+      if (!s.incluida) return "No_aplica";
+      if (s.prueba_codigo === "2.1") return concepto21;
+      if (s.prueba_codigo === "2.2") return concepto22;
+      return s.concepto;
+    };
+    const conformes = secciones.filter((s) => conceptoDe(s) === "Conforme").length;
+    const noConformes = secciones.filter((s) => conceptoDe(s) === "No_conforme").length;
+    const noAplica = secciones.filter((s) => conceptoDe(s) === "No_aplica").length;
+    const sinConcepto = secciones.filter((s) => !conceptoDe(s)).length;
+    return { total: secciones.length, conformes, noConformes, noAplica, sinConcepto };
+  }, [secciones, concepto21]);
 
   // ─── Generate PDF ───
   const handleGenerar = useCallback(async () => {
@@ -423,9 +500,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
 
       {/* Header */}
       <div>
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">
-          Pre-Informe
-        </p>
+        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Pre-Informe</p>
         <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
           Editor del Informe
         </h2>
@@ -441,7 +516,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
             <div className="flex gap-4">
               <div className="text-center">
                 <p className="text-lg font-black text-primary">{stats.total}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Incluidas</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase">Pruebas</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-black text-emerald-600">{stats.conformes}</p>
@@ -492,7 +567,10 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
         </p>
         {[
           { label: "Portada", desc: "Identificacion del equipo e instalacion" },
-          { label: "Informacion de la practica", desc: "Datos generales, generador, tubo, colimador" },
+          {
+            label: "Informacion de la practica",
+            desc: "Datos generales, generador, tubo, colimador",
+          },
           { label: "Introduccion", desc: "Texto TECDOC normativo" },
         ].map((s) => (
           <div
@@ -528,18 +606,26 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
               key={seccion.id}
               seccion={seccion}
               catalogo={cat}
+              autoConcepto={seccion.prueba_codigo === "2.1" || seccion.prueba_codigo === "2.2"}
+              conceptoEfectivo={
+                !seccion.incluida
+                  ? "No_aplica"
+                  : seccion.prueba_codigo === "2.1"
+                    ? concepto21
+                    : seccion.prueba_codigo === "2.2"
+                      ? concepto22
+                      : seccion.concepto
+              }
               expanded={expandedCodigo === seccion.prueba_codigo}
               onToggleExpand={() =>
                 setExpandedCodigo(
-                  expandedCodigo === seccion.prueba_codigo ? null : seccion.prueba_codigo,
+                  expandedCodigo === seccion.prueba_codigo ? null : seccion.prueba_codigo
                 )
               }
               onToggleIncluida={() =>
                 seccion.id && updateSeccion(seccion.id, { incluida: !seccion.incluida })
               }
-              onUpdateConcepto={(v) =>
-                seccion.id && updateSeccion(seccion.id, { concepto: v })
-              }
+              onUpdateConcepto={(v) => seccion.id && updateSeccion(seccion.id, { concepto: v })}
               onUpdateAcciones={(v) =>
                 seccion.id && updateSeccion(seccion.id, { acciones_correctivas: v || undefined })
               }
@@ -642,7 +728,11 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
             </div>
 
             <div className="rounded-xl overflow-hidden border border-slate-200">
-              <iframe src={pdfUrl} className="w-full h-[600px] sm:h-[700px]" title="Pre-informe PDF" />
+              <iframe
+                src={pdfUrl}
+                className="w-full h-[600px] sm:h-[700px]"
+                title="Pre-informe PDF"
+              />
             </div>
           </CardContent>
         </Card>

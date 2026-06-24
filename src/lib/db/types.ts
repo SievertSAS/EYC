@@ -107,6 +107,18 @@ export interface UbicacionRx extends Partial<SyncFields> {
   fecha_expiracion_licencia?: string;
   codigo_habilitacion?: string;
   horas_x_dia?: number;
+  // Sala y blindaje (precarga del informe 2.2)
+  /** Ubicación física del equipo: "primer piso de las instalaciones..." */
+  ubicacion_fisica?: string;
+  ancho_m?: number;
+  largo_m?: number;
+  alto_m?: number;
+  /** Área en m² — calculada al guardar (ancho × largo) */
+  area_m2?: number;
+  zona_a_desc?: string;
+  zona_b_desc?: string;
+  zona_c_desc?: string;
+  zona_d_desc?: string;
   creado_en?: string;
 }
 

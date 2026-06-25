@@ -1265,6 +1265,31 @@ export function renderTablaChrRef(ctx: InformeCtx) {
   ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
 }
 
+export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc, autoTable } = ctx;
+  const toma1 = conv.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+  const kv = toma1?.kv_nominal ?? null;
+  const mas = toma1?.carga_mas ?? null;
+  const eiBase = toma1?.ei_base ?? null;
+  const diBase = toma1?.di_base ?? null;
+  ctx.checkPage(30);
+  addCaption(ctx, "Valores base de referencia");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI", "D.I."]],
+    body: [
+      [
+        kv != null ? kv.toFixed(1) : "—",
+        mas != null ? mas.toFixed(1) : "—",
+        eiBase != null ? String(eiBase) : "—",
+        diBase != null ? diBase.toFixed(2) : "NA",
+      ],
+    ],
+  });
+  ctx.y = finalY(doc) + 4;
+}
+
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
   const shots80 = conv.raysafeMediciones.filter(
@@ -1567,25 +1592,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
-  // 2.9.6 Valores base de referencia
-  ctx.addSubsectionTitle("2.9.6.", "Valores base de referencia");
-  addCaption(ctx, "Tabla 2.9.3. Valores base de referencia establecidos para la prueba DDI/EI.");
-  autoTable(doc, {
-    ...TABLE_STYLE,
-    startY: ctx.y,
-    head: [["Tensión (kVp)", "Carga (mAs)", "EI base", "D.I. base"]],
-    body: [
-      [
-        kv ? String(kv) : "—",
-        mas ? String(mas) : "—",
-        eiBase != null ? String(eiBase) : "—",
-        diBase != null ? diBase.toFixed(2) : "—",
-      ],
-    ],
-  });
-  ctx.y = finalY(doc) + 4;
-
-  return 7; // 2.9.4, 2.9.5, 2.9.6 renderizados; caller inicia en 7 (Criterio)
+  return 6; // 2.9.4 y 2.9.5 renderizados; caller inicia en 6 (Criterio)
 }
 
 function render210(ctx: InformeCtx, conv: DatosConvencional): number {

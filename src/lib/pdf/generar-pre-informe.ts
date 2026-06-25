@@ -32,6 +32,7 @@ import {
   renderFotos29,
   renderFotos210,
   renderTablaChrRef,
+  renderTablaBaseRef29,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -748,6 +749,11 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       // Tabla de valores mínimos de referencia CHR (solo 2.6)
       if (codigo === "2.6" && aplica) {
         renderTablaChrRef(ctx);
+        y = ctx.y;
+      }
+      // Tabla de valores base de referencia DDI/EI (solo 2.9)
+      if (codigo === "2.9" && aplica) {
+        renderTablaBaseRef29(ctx, conv);
         y = ctx.y;
       }
       nextSub++;

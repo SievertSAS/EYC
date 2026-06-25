@@ -18,7 +18,7 @@ import {
   BookOpen,
   CheckCircle2,
 } from "lucide-react";
-import { parseRaysafeTsv, type RaysafeRow } from "@/lib/equipos/convencional/raysafe-parser";
+import { parseRaysafeFile, type RaysafeRow } from "@/lib/equipos/convencional/raysafe-parser";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -123,15 +123,17 @@ function CollapsibleSection({
 function RaysafeUploadBtn({
   label,
   onRows,
+  plantillaHoja,
 }: {
   label: string;
   onRows: (rows: RaysafeRow[]) => void;
+  plantillaHoja?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <Button
         variant="outline"
         size="sm"
@@ -142,16 +144,23 @@ function RaysafeUploadBtn({
         {label}
       </Button>
       {loaded && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+      <a
+        href="/plantillas/plantilla-raysafe.xlsx"
+        download
+        className="text-[10px] text-primary/70 underline underline-offset-2 hover:text-primary font-medium"
+        title={plantillaHoja ? `Hoja: ${plantillaHoja}` : undefined}
+      >
+        Descargar plantilla
+      </a>
       <input
         ref={ref}
         type="file"
-        accept=".txt,.tsv,.csv"
+        accept=".txt,.tsv,.csv,.xlsx,.xls"
         className="hidden"
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          const text = await file.text();
-          const rows = parseRaysafeTsv(text);
+          const rows = await parseRaysafeFile(file);
           if (rows.length > 0) {
             onRows(rows);
             setLoaded(true);
@@ -501,6 +510,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             </StepHeader>
             <RaysafeUploadBtn
               label="Cargar RaySafe"
+              plantillaHoja="Paso2_Principales"
               onRows={(rows) => importarRaysafe(rows, principales)}
             />
           </div>
@@ -721,6 +731,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             </StepHeader>
             <RaysafeUploadBtn
               label="Cargar RaySafe"
+              plantillaHoja="Paso3_ConRejilla"
               onRows={(rows) => importarRaysafe(rows, conRejilla)}
             />
           </div>
@@ -811,6 +822,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             </StepHeader>
             <RaysafeUploadBtn
               label="Cargar RaySafe"
+              plantillaHoja="Paso4_SinRejilla"
               onRows={(rows) => importarRaysafe(rows, sinRejilla)}
             />
           </div>
@@ -940,6 +952,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             </StepHeader>
             <RaysafeUploadBtn
               label="Cargar RaySafe"
+              plantillaHoja="Paso5_Kerma"
               onRows={(rows) => importarRaysafe(rows, kerma)}
             />
           </div>

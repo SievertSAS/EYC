@@ -28,6 +28,7 @@ import {
   renderFotos25,
   renderFotos26,
   renderFotos27,
+  renderFotos28,
   renderTablaChrRef,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -794,6 +795,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos27(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.8" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos28(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1015,6 +1022,11 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
           conceptoParrafo = "La prueba de rendimiento del tubo de rayos X, repetibilidad y linealidad se considera conforme, ya que el coeficiente de variación obtenido para las exposiciones repetidas y las desviaciones observadas en la linealidad del rendimiento se encuentran dentro de los criterios de aceptación establecidos.";
           accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
         }
+      } else if (codigo === "2.8" && aplica) {
+        conceptoLabel = "NO APLICA";
+        conceptoParrafo = "La prueba no define tolerancias, debido a que es de carácter descriptivo y de referencia técnica.";
+        accionesTexto = "No Aplica";
+        esNoConforme = false;
       } else if (!aplica) {
         conceptoLabel = "NO APLICA";
         esNoConforme = false;

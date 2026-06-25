@@ -84,6 +84,8 @@ export interface DatosConvencional {
   fotos26?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje RaySafe para la sección 2.7.7 (misma imagen que 2.4) */
   fotos27?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.8.7 (misma imagen que 2.4) */
+  fotos28?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
@@ -186,6 +188,8 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   if (img24) fotos26.push({ label: "Fig 2.6.1 Implementación de instrumentación en la prueba", ...img24 });
   const fotos27: NonNullable<DatosConvencional["fotos27"]> = [];
   if (img24) fotos27.push({ label: "Fig 2.7.1 Implementación de instrumentación en la prueba", ...img24 });
+  const fotos28: NonNullable<DatosConvencional["fotos28"]> = [];
+  if (img24) fotos28.push({ label: "Fig 2.1.8 Implementación de instrumentación en la prueba", ...img24 });
 
   return {
     secciones: seccionesEfectivas,
@@ -202,6 +206,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos25,
     fotos26,
     fotos27,
+    fotos28,
     raysafeSetup,
     raysafeMediciones,
   };
@@ -511,6 +516,37 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.8.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos28 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -1325,26 +1361,20 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
   if (mediciones.length === 0) return SIN_DATOS(ctx);
 
-  const d1 = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
-  const d2 = conv.raysafeSetup?.distancia_foco_detector_d2_cm ?? d1;
-  const factorDist = (d2 / d1) ** 2;
+  const d1Setup = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
+  const d2Setup = conv.raysafeSetup?.distancia_foco_detector_d2_cm ?? d1Setup;
 
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  // kv_nominal/mas_nominal no se almacenan en kerma; se buscan en con_rejilla del mismo programa
-  const conRejillaMap = new Map(
-    conv.raysafeMediciones
-      .filter((m) => m.tipo_medicion === "con_rejilla" && m.programa_clinico)
-      .map((m) => [m.programa_clinico!, m]),
-  );
-
   const rows = mediciones.map((m) => {
-    const ref = m.programa_clinico ? conRejillaMap.get(m.programa_clinico) : undefined;
-    const kvNom = m.kv_nominal ?? ref?.kv_nominal;
-    const masNom = m.mas_nominal ?? ref?.mas_nominal;
+    const kvNom = m.kv_nominal;
+    const masNom = m.mas_nominal;
     const kerma = m.dosis_medida_mgy!;
     const ancho = m.ancho_irradiacion_cm ?? 0;
     const largo = m.largo_irradiacion_cm ?? 0;
+    const d1 = m.distancia_foco_sensor_cm ?? d1Setup;
+    const d2 = m.distancia_foco_detector_cm ?? d2Setup;
+    const factorDist = (d2 / d1) ** 2;
     const areaCorr = ancho * largo * factorDist;
     const kermaCorr = kerma * factorDist;
     const dapEst = kermaCorr * areaCorr;

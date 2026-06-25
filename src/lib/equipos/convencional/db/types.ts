@@ -131,6 +131,8 @@ export interface ConvRaysafeMedicion {
   dap_nominal?: number;
   ancho_irradiacion_cm?: number;
   largo_irradiacion_cm?: number;
+  distancia_foco_sensor_cm?: number;
+  distancia_foco_detector_cm?: number;
   creado_en?: string;
 }
 

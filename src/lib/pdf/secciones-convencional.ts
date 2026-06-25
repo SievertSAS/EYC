@@ -1097,6 +1097,21 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+/** Tabla de valores mínimos de referencia CHR para sección 2.6.6 */
+export function renderTablaChrRef(ctx: InformeCtx) {
+  const { doc, autoTable } = ctx;
+  ctx.checkPage(36);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kV)", "CHR mínima (mm Al)"]],
+    body: [["60", "1,8"], ["70", "2,1"], ["80", "2,3"], ["90", "2,5"]],
+    columnStyles: { 0: { halign: "center" as const, cellWidth: 45 }, 1: { halign: "center" as const, cellWidth: 45 } },
+    margin: { left: MARGIN + (170 - 90) / 2 },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+}
+
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
   const shots80 = conv.raysafeMediciones.filter(

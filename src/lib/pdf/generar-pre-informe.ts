@@ -27,6 +27,7 @@ import {
   renderFotos24,
   renderFotos25,
   renderFotos26,
+  renderTablaChrRef,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -742,17 +743,8 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       addParagraph(cat.criterio);
       // Tabla de valores mínimos de referencia CHR (solo 2.6)
       if (codigo === "2.6" && aplica) {
-        checkPage(36);
-        autoTable(doc, {
-          startY: y,
-          head: [["Tensión (kV)", "CHR mínima (mm Al)"]],
-          body: [["60", "1,8"], ["70", "2,1"], ["80", "2,3"], ["90", "2,5"]],
-          styles: { fontSize: 8, cellPadding: 2, halign: "center" as const },
-          headStyles: { fillColor: [109, 40, 217] as [number, number, number], textColor: 255, fontStyle: "bold" as const },
-          columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 50 } },
-          margin: { left: MARGIN + (CONTENT_WIDTH - 90) / 2 },
-        });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+        renderTablaChrRef(ctx);
+        y = ctx.y;
       }
       nextSub++;
 

@@ -1331,7 +1331,17 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
+  // kv_nominal/mas_nominal no se almacenan en kerma; se buscan en con_rejilla del mismo programa
+  const conRejillaMap = new Map(
+    conv.raysafeMediciones
+      .filter((m) => m.tipo_medicion === "con_rejilla" && m.programa_clinico)
+      .map((m) => [m.programa_clinico!, m]),
+  );
+
   const rows = mediciones.map((m) => {
+    const ref = m.programa_clinico ? conRejillaMap.get(m.programa_clinico) : undefined;
+    const kvNom = m.kv_nominal ?? ref?.kv_nominal;
+    const masNom = m.mas_nominal ?? ref?.mas_nominal;
     const kerma = m.dosis_medida_mgy!;
     const ancho = m.ancho_irradiacion_cm ?? 0;
     const largo = m.largo_irradiacion_cm ?? 0;
@@ -1341,8 +1351,8 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
     const dapNom = m.dap_nominal;
     const fc = dapNom != null && dapNom > 0 ? dapEst / dapNom : null;
     return {
-      kv: m.kv_nominal != null ? m.kv_nominal.toFixed(1) : "—",
-      mas: m.mas_nominal != null ? m.mas_nominal.toFixed(1) : "—",
+      kv: kvNom != null ? kvNom.toFixed(1) : "—",
+      mas: masNom != null ? masNom.toFixed(1) : "—",
       dapNom: dapNom != null ? dapNom.toFixed(0) : "—",
       dapEst: dapEst > 0 ? dapEst.toFixed(2) : "—",
       fc: fc != null ? fc.toFixed(1) : "—",

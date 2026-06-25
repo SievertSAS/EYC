@@ -78,6 +78,8 @@ export interface DatosConvencional {
   fotos23?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje RaySafe para la sección 2.4.7 */
   fotos24?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.5.7 (misma imagen que 2.4) */
+  fotos25?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
@@ -169,11 +171,13 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos23.push({ label, ...img });
   }
 
-  // Fotografía de montaje RaySafe (sección 2.4.7)
-  const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
+  // Fotografía de montaje RaySafe (secciones 2.4.7 y 2.5.7 — misma imagen)
   const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
   const img24 = await cargarImagen(ev24);
+  const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
   if (img24) fotos24.push({ label: "Fig. Implementación de instrumentación en la prueba", ...img24 });
+  const fotos25: NonNullable<DatosConvencional["fotos25"]> = [];
+  if (img24) fotos25.push({ label: "Fig 2.5.1. Implementación de instrumentación en la prueba", ...img24 });
 
   return {
     secciones: seccionesEfectivas,
@@ -187,6 +191,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos22,
     fotos23,
     fotos24,
+    fotos25,
     raysafeSetup,
     raysafeMediciones,
   };
@@ -496,6 +501,37 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.5.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos25 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -942,6 +978,13 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
     didParseCell: colorearConcepto(5),
   });
   ctx.y = finalY(doc) + 4;
+
+  ctx.addParagraph(
+    "La exactitud de la tensión del tubo se evaluó mediante la desviación máxima porcentual entre la tensión nominal seleccionada y la tensión medida con mayor desviación.",
+  );
+  ctx.addParagraph(
+    "La repetibilidad del sistema de generación de alta tensión se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada valor de tensión nominal.",
+  );
 
   ctx.addSubsectionTitle("2.5.5.", "Análisis");
   const todosConformes = rows.every((r) => r[5] === "Conforme");

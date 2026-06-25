@@ -120,16 +120,19 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
   },
   {
     codigo: "2.8",
-    nombre: "Determinacion del factor de correccion del producto kerma-area (PKA)",
+    nombre: "Determinación del factor de corrección del producto kerma-área (PKA)",
     grupo: "B",
     orden: 8,
-    objetivo:
-      "Verificar si el medidor de dosis-area (DAP meter) del equipo esta calibrado correctamente, calculando un factor de correccion.",
-    instrumentacion: "Sensor RaySafe X2 RF, cinta metrica, regla para medir campo de irradiacion.",
+    objetivo: "Determinar el factor de corrección del sistema medidor de PKA.",
+    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
-      "Se usaron los mismos programas clinicos (Extremidad, Torax, Columna). Se midio el Kerma en aire con el sensor y el area del campo de irradiacion.",
+      "Se posicionó el detector del sistema dosimétrico en el centro del haz de radiación, manteniendo una distancia conocida entre el foco del tubo de rayos X y el detector.\n\n" +
+      "Se realizó una exposición con parámetros técnicos representativos de la práctica clínica y se registró el kerma en aire mediante el sistema dosimétrico.\n\n" +
+      "Posteriormente, se estimó el producto kerma-área (PkA) multiplicando el kerma en aire medido por el área del campo de irradiación corregida a la distancia del detector.\n\n" +
+      "Finalmente, el valor obtenido se comparó con el PkA reportado por el sistema del equipo, calculando el factor de corrección del indicador de PkA.",
     criterio:
-      "Se registra como referencia. Un factor muy diferente de 1.0 indica que el medidor DAP del equipo necesita recalibracion.",
+      "De acuerdo con el protocolo IAEA-TECDOC-1958, esta prueba tiene como objetivo determinar el factor de corrección del indicador de producto kerma-área (PKA) o DAP del equipo.\n" +
+      "Por lo tanto, no se establece un criterio de aceptación ni tolerancia para emitir concepto de conformidad o no conformidad. El resultado de esta prueba es el factor de corrección obtenido, el cual deberá aplicarse en las evaluaciones dosimétricas posteriores del equipo.",
   },
   {
     codigo: "2.9",

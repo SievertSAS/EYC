@@ -1327,94 +1327,44 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const d1 = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
   const d2 = conv.raysafeSetup?.distancia_foco_detector_d2_cm ?? d1;
-  const factorDist = (d2 / d1) ** 2; // factor de corrección geométrica
+  const factorDist = (d2 / d1) ** 2;
 
-  ctx.addParagraph(
-    `Las mediciones se realizaron con el sensor ubicado a ${d1} cm del foco. ` +
-      (d2 !== d1
-        ? `La distancia foco-detector de imagen es ${d2} cm. Las mediciones de kerma y área se corrigen al plano del detector mediante el factor (${d2}/${d1})² = ${factorDist.toFixed(4)}.`
-        : "No se aplicó corrección de distancia (sensor en el plano del detector)."),
-  );
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
   const rows = mediciones.map((m) => {
     const kerma = m.dosis_medida_mgy!;
     const ancho = m.ancho_irradiacion_cm ?? 0;
     const largo = m.largo_irradiacion_cm ?? 0;
-    const areaMed = ancho * largo;
-    const areaCorr = areaMed * factorDist;
+    const areaCorr = ancho * largo * factorDist;
     const kermaCorr = kerma * factorDist;
-    const dapEst = kermaCorr * areaCorr; // mGy·cm²
+    const dapEst = kermaCorr * areaCorr;
     const dapNom = m.dap_nominal;
     const fc = dapNom != null && dapNom > 0 ? dapEst / dapNom : null;
-
     return {
-      toma: m.toma_numero,
-      kv: m.kv_nominal ?? "—",
+      kv: m.kv_nominal != null ? m.kv_nominal.toFixed(1) : "—",
       mas: m.mas_nominal != null ? m.mas_nominal.toFixed(1) : "—",
       dapNom: dapNom != null ? dapNom.toFixed(0) : "—",
-      ancho: ancho > 0 ? ancho.toFixed(1) : "—",
-      largo: largo > 0 ? largo.toFixed(1) : "—",
-      areaCorr: areaCorr > 0 ? areaCorr.toFixed(0) : "—",
-      kermaCorr: kermaCorr.toFixed(5),
       dapEst: dapEst > 0 ? dapEst.toFixed(2) : "—",
-      fc: fc != null ? fc.toFixed(2) : "—",
+      fc: fc != null ? fc.toFixed(1) : "—",
     };
   });
 
-  ctx.checkPage(50);
-  addCaption(ctx, "Tabla 2.8.1. Estimación del DAP y factor de corrección del medidor PKA");
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.8.1 Determinación del factor de corrección del PKA");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [
-      [
-        "Toma",
-        "Tensión (kV)",
-        "Exp. (mAs)",
-        "DAP nominal (mGy·cm²)",
-        "Ancho (cm)",
-        "Largo (cm)",
-        "Área corregida (cm²)",
-        "Kerma corregido (mGy)",
-        "DAP estimado (mGy·cm²)",
-        "Factor de corrección",
-      ],
-    ],
-    body: rows.map((r) => [
-      r.toma,
-      r.kv,
-      r.mas,
-      r.dapNom,
-      r.ancho,
-      r.largo,
-      r.areaCorr,
-      r.kermaCorr,
-      r.dapEst,
-      r.fc,
-    ]),
-    styles: { fontSize: 6.5, cellPadding: 1.5 },
-    headStyles: { fillColor: COLOR_PRIMARY, textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold", fontSize: 6 },
+    head: [["Tensión (kV)", "Carga (mAs)", "DAP nominal (mGy·cm²)", "DAP estimado (mGy·cm²)", "Factor de corrección"]],
+    body: rows.map((r) => [r.kv, r.mas, r.dapNom, r.dapEst, r.fc]),
+    columnStyles: { 4: { cellWidth: 32 } },
   });
   ctx.y = finalY(doc) + 4;
 
   // ── 2.8.5 Análisis ──
   ctx.addSubsectionTitle("2.8.5.", "Análisis");
-
-  const fcs = rows.map((r) => parseFloat(r.fc)).filter((v) => !isNaN(v));
-  if (fcs.length === 0) {
-    ctx.addParagraph("No se registraron datos suficientes para calcular el factor de corrección.");
-    return 6;
-  }
-  const fcMean = mean(fcs);
-  const fcMin = Math.min(...fcs);
-  const fcMax = Math.max(...fcs);
-  const lejos = fcs.some((f) => Math.abs(f - 1.0) > 0.2);
-
   ctx.addParagraph(
-    `Los factores de corrección del medidor PKA calculados para las técnicas evaluadas presentan valores entre ${fcMin.toFixed(2)} y ${fcMax.toFixed(2)}, con un promedio de ${fcMean.toFixed(2)}. ` +
-      (lejos
-        ? "Se observa una desviación significativa con respecto a la unidad, lo que sugiere que el medidor de producto kerma-área del equipo requiere revisión de su calibración."
-        : "Los valores obtenidos son cercanos a la unidad, lo que indica que el medidor de producto kerma-área del equipo presenta una respuesta adecuada bajo las condiciones evaluadas."),
+    "Se evidencian diferencias entre los valores estimados de PkA o DAP y los reportados por el equipo, " +
+      "lo que permite determinar un factor de corrección aplicable en evaluaciones dosimétricas posteriores.",
   );
 
   return 6;

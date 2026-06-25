@@ -855,7 +855,10 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
           accionesTexto = "No se requieren acciones correctivas.";
         }
       } else if (codigo === "2.4" && aplica) {
-        const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+        const GRUPOS_TKC = new Set([1, 2, 6]);
+        const principales = conv.raysafeMediciones.filter(
+          (m) => m.tipo_medicion === "principal" && GRUPOS_TKC.has(m.grupo_numero ?? -1),
+        );
         const grupos = new Map<number, typeof principales>();
         for (const m of principales) {
           if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
@@ -865,7 +868,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         const conformes = [...grupos.entries()].map(([nom, ms]) => {
           const medidos = ms.map((m) => m.tiempo_medido_s!);
           const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
-          const desv = Math.max(...medidos.map((m) => (Math.abs(m - nom) / nom) * 100));
+          const desv = (Math.abs(prom - nom) / nom) * 100;
           const std = Math.sqrt(medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / Math.max(medidos.length - 1, 1));
           const cv = prom > 0 ? (std / prom) * 100 : 0;
           return desv <= 10 && cv <= 10;
@@ -883,7 +886,10 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
           accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
         }
       } else if (codigo === "2.5" && aplica) {
-        const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+        const GRUPOS_TKC = new Set([1, 2, 6]);
+        const principales = conv.raysafeMediciones.filter(
+          (m) => m.tipo_medicion === "principal" && GRUPOS_TKC.has(m.grupo_numero ?? -1),
+        );
         const grupos = new Map<number, typeof principales>();
         for (const m of principales) {
           if (m.kv_nominal == null || m.kv_medido == null) continue;
@@ -893,7 +899,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         const conformes = [...grupos.entries()].map(([nom, ms]) => {
           const medidos = ms.map((m) => m.kv_medido!);
           const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
-          const desv = Math.max(...medidos.map((m) => (Math.abs(m - nom) / nom) * 100));
+          const desv = (Math.abs(prom - nom) / nom) * 100;
           const std = Math.sqrt(medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / Math.max(medidos.length - 1, 1));
           const cv = prom > 0 ? (std / prom) * 100 : 0;
           return desv <= 10 && cv <= 5;

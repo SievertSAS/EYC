@@ -765,9 +765,11 @@ function stdDev(arr: number[]): number {
   return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
 }
 
-function maxDesv(medidos: number[], nominal: number): number {
-  if (nominal === 0) return 0;
-  return Math.max(...medidos.map((m) => (Math.abs(m - nominal) / nominal) * 100));
+// Desviación según TECDOC: |promedio - nominal| / nominal × 100
+function desvNominal(medidos: number[], nominal: number): number {
+  if (nominal === 0 || medidos.length === 0) return 0;
+  const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
+  return (Math.abs(prom - nominal) / nominal) * 100;
 }
 
 // ─── Renderizadores 2.4–2.7 (pruebas RaySafe) ───
@@ -777,14 +779,18 @@ const SIN_DATOS = (ctx: InformeCtx) => {
   return 6;
 };
 
+// Grupos 1, 2, 6: los tres tiempos nominales distintos (60kV/80kV/90kV)
+const GRUPOS_TIEMPO_KV_CHR = new Set([1, 2, 6]);
+
 function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+  const principales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1),
+  );
 
   ctx.addSubsectionTitle("2.4.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  // Agrupar por tiempo_nominal_s
   const grupos = new Map<number, typeof principales>();
   for (const m of principales) {
     if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
@@ -800,7 +806,7 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
     .map(([nom, ms]) => {
       const medidos = ms.map((m) => m.tiempo_medido_s!);
       const prom = mean(medidos);
-      const desv = maxDesv(medidos, nom);
+      const desv = desvNominal(medidos, nom);
       const std = stdDev(medidos);
       const cv = prom > 0 ? (std / prom) * 100 : 0;
       return [
@@ -843,7 +849,9 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render25(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+  const principales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1),
+  );
 
   ctx.addSubsectionTitle("2.5.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
@@ -863,7 +871,7 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
     .map(([nom, ms]) => {
       const medidos = ms.map((m) => m.kv_medido!);
       const prom = mean(medidos);
-      const desv = maxDesv(medidos, nom);
+      const desv = desvNominal(medidos, nom);
       const std = stdDev(medidos);
       const cv = prom > 0 ? (std / prom) * 100 : 0;
       return [
@@ -906,7 +914,9 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render26(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+  const principales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1),
+  );
 
   ctx.addSubsectionTitle("2.6.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");

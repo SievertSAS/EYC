@@ -18,7 +18,11 @@ import {
   BookOpen,
   CheckCircle2,
 } from "lucide-react";
-import { parseRaysafeFile, type RaysafeRow } from "@/lib/equipos/convencional/raysafe-parser";
+import {
+  parseRaysafeFile,
+  parseRaysafeXlsx,
+  type RaysafeRow,
+} from "@/lib/equipos/convencional/raysafe-parser";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -120,54 +124,87 @@ function CollapsibleSection({
   );
 }
 
-function RaysafeUploadBtn({
-  label,
-  onRows,
-  plantillaHoja,
+function RaysafeUploadCard({
+  onImport,
 }: {
-  label: string;
-  onRows: (rows: RaysafeRow[]) => void;
-  plantillaHoja?: string;
+  onImport: (result: Awaited<ReturnType<typeof parseRaysafeXlsx>> | { tipo: "tsv"; data: RaysafeRow[] }) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [loaded, setLoaded] = useState(false);
+  const [count, setCount] = useState(0);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Button
-        variant="outline"
-        size="sm"
-        className="rounded-xl font-bold text-xs border-dashed gap-1.5 h-8"
-        onClick={() => ref.current?.click()}
-      >
-        <FileSpreadsheet className="w-3.5 h-3.5" />
-        {label}
-      </Button>
-      {loaded && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-      <a
-        href="/plantillas/plantilla-raysafe.xlsx"
-        download
-        className="text-[10px] text-primary/70 underline underline-offset-2 hover:text-primary font-medium"
-        title={plantillaHoja ? `Hoja: ${plantillaHoja}` : undefined}
-      >
-        Descargar plantilla
-      </a>
-      <input
-        ref={ref}
-        type="file"
-        accept=".txt,.tsv,.csv,.xlsx,.xls"
-        className="hidden"
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const rows = await parseRaysafeFile(file);
-          if (rows.length > 0) {
-            onRows(rows);
-            setLoaded(true);
-          }
-          e.target.value = "";
-        }}
-      />
+    <div className="flex items-center justify-between gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+      <div className="flex items-center gap-3">
+        <FileSpreadsheet className="w-5 h-5 text-primary flex-shrink-0" />
+        <div>
+          <p className="text-xs font-black text-slate-700">Importar datos RaySafe</p>
+          <p className="text-[10px] text-slate-400 font-medium">
+            Sube la plantilla Excel completa o un archivo TSV del sensor.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {loaded && (
+          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {count} filas
+          </span>
+        )}
+        <a
+          href="/plantillas/plantilla-raysafe.xlsx"
+          download
+          className="text-[10px] text-primary/70 underline underline-offset-2 hover:text-primary font-medium"
+        >
+          Descargar plantilla
+        </a>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl font-bold text-xs gap-1.5 h-8"
+          onClick={() => ref.current?.click()}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          Cargar
+        </Button>
+        <input
+          ref={ref}
+          type="file"
+          accept=".txt,.tsv,.csv,.xlsx,.xls"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+              const result = await parseRaysafeXlsx(file);
+              const total =
+                result.tipo === "plantilla"
+                  ? result.data.principales.length +
+                    result.data.conRejilla.length +
+                    result.data.sinRejilla.length +
+                    result.data.kerma.length
+                  : result.data.length;
+              if (total > 0) {
+                onImport(result);
+                setCount(total);
+                setLoaded(true);
+              }
+            } else {
+              const text = await file.text();
+              const { parseRaysafeTsv } = await import(
+                "@/lib/equipos/convencional/raysafe-parser"
+              );
+              const rows = parseRaysafeTsv(text);
+              if (rows.length > 0) {
+                onImport({ tipo: "tsv", data: rows });
+                setCount(rows.length);
+                setLoaded(true);
+              }
+            }
+            e.target.value = "";
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -345,6 +382,21 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     }
   }
 
+  async function importarPlantilla(
+    result: Awaited<ReturnType<typeof parseRaysafeXlsx>> | { tipo: "tsv"; data: RaysafeRow[] },
+  ) {
+    if (result.tipo === "plantilla") {
+      await Promise.all([
+        importarRaysafe(result.data.principales, principales),
+        importarRaysafe(result.data.conRejilla, conRejilla),
+        importarRaysafe(result.data.sinRejilla, sinRejilla),
+        importarRaysafe(result.data.kerma, kerma),
+      ]);
+    } else {
+      await importarRaysafe(result.data, principales);
+    }
+  }
+
   // ─── Save helpers ───
   const setupTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -456,6 +508,9 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
         </Button>
       </div>
 
+      {/* ═══ CARGA RAYSAFE ═══ */}
+      <RaysafeUploadCard onImport={importarPlantilla} />
+
       {/* ═══ SETUP ═══ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
@@ -503,17 +558,10 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       {/* ═══ DISPAROS PRINCIPALES ═══ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <div className="flex items-start justify-between gap-3">
-            <StepHeader step="Paso 2" title="Disparos principales (sin rejilla)" icon={Zap}>
-              {principales.length} tomas en 8 grupos. Configura los valores nominales e ingresa los
-              valores medidos por el sensor.
-            </StepHeader>
-            <RaysafeUploadBtn
-              label="Cargar RaySafe"
-              plantillaHoja="Paso2_Principales"
-              onRows={(rows) => importarRaysafe(rows, principales)}
-            />
-          </div>
+          <StepHeader step="Paso 2" title="Disparos principales (sin rejilla)" icon={Zap}>
+            {principales.length} tomas en 8 grupos. Configura los valores nominales e ingresa los
+            valores medidos por el sensor.
+          </StepHeader>
 
           <Alert>
             No confundir con los valores de la precarga. Estos son los parámetros que configuras en
@@ -721,20 +769,13 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       {/* ═══ MEDICIONES CON REJILLA ═══ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <div className="flex items-start justify-between gap-3">
-            <StepHeader
-              step="Paso 3 — Prueba 2.21"
-              title="Mediciones CON rejilla (programas clínicos)"
-              icon={Zap}
-            >
-              Dispara con los programas clínicos reales del equipo, con la rejilla puesta.
-            </StepHeader>
-            <RaysafeUploadBtn
-              label="Cargar RaySafe"
-              plantillaHoja="Paso3_ConRejilla"
-              onRows={(rows) => importarRaysafe(rows, conRejilla)}
-            />
-          </div>
+          <StepHeader
+            step="Paso 3 — Prueba 2.21"
+            title="Mediciones CON rejilla (programas clínicos)"
+            icon={Zap}
+          >
+            Dispara con los programas clínicos reales del equipo, con la rejilla puesta.
+          </StepHeader>
 
           <Alert>
             Retire el filtro de cobre. Ubique el sensor RaySafe debajo de la rejilla y ajuste la
@@ -812,20 +853,13 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       {/* ═══ MEDICIONES SIN REJILLA ═══ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <div className="flex items-start justify-between gap-3">
-            <StepHeader
-              step="Paso 4 — Prueba 2.21"
-              title="Mediciones SIN rejilla (programas clínicos)"
-              icon={Zap}
-            >
-              Mismos programas pero sin rejilla. Necesario para calcular la dosis al receptor.
-            </StepHeader>
-            <RaysafeUploadBtn
-              label="Cargar RaySafe"
-              plantillaHoja="Paso4_SinRejilla"
-              onRows={(rows) => importarRaysafe(rows, sinRejilla)}
-            />
-          </div>
+          <StepHeader
+            step="Paso 4 — Prueba 2.21"
+            title="Mediciones SIN rejilla (programas clínicos)"
+            icon={Zap}
+          >
+            Mismos programas pero sin rejilla. Necesario para calcular la dosis al receptor.
+          </StepHeader>
 
           <Tip>
             Ubique: Detector Flat DR o CR → Profluoro 150 → Sensor RF RaySafe → Tubo. Registre las
@@ -942,20 +976,13 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       {/* ═══ KERMA EN AIRE (Prueba 2.8) ═══ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <div className="flex items-start justify-between gap-3">
-            <StepHeader
-              step="Paso 5 — Prueba 2.8"
-              title="Mediciones de Kerma en aire y estimación DAP"
-              icon={Zap}
-            >
-              Mide el Kerma en aire y calcula el factor de corrección del producto dosis-área (PKA).
-            </StepHeader>
-            <RaysafeUploadBtn
-              label="Cargar RaySafe"
-              plantillaHoja="Paso5_Kerma"
-              onRows={(rows) => importarRaysafe(rows, kerma)}
-            />
-          </div>
+          <StepHeader
+            step="Paso 5 — Prueba 2.8"
+            title="Mediciones de Kerma en aire y estimación DAP"
+            icon={Zap}
+          >
+            Mide el Kerma en aire y calcula el factor de corrección del producto dosis-área (PKA).
+          </StepHeader>
 
           <Alert>Retire el filtro de cobre antes de estas mediciones.</Alert>
 

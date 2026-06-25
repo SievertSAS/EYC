@@ -1148,10 +1148,10 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   let linMaxPct = 0;
   let prevRend: number | null = null;
 
+  ctx.checkPage(8);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
-  ctx.checkPage(8);
   doc.text("a) Evaluación del rendimiento del tubo de rayos X y linealidad", MARGIN, ctx.y);
   ctx.y += 6;
 
@@ -1207,10 +1207,10 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const conformeRep = kermasRep.length === 0 || cvRep <= 5;
   const conformeLin = gruposArr.length <= 1 || linMaxPct <= 10;
 
+  ctx.checkPage(8);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
-  ctx.checkPage(8);
   doc.text("b) Evaluación de la repetibilidad de la radiación de salida", MARGIN, ctx.y);
   ctx.y += 6;
 

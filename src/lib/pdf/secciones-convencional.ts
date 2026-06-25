@@ -10,6 +10,7 @@ import type {
   ConvEvidencia,
   ConvResultadoPrueba,
   ConvInformeSeccion,
+  ConvColimacion,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -66,10 +67,13 @@ export interface DatosConvencional {
   inspeccion: ConvInspeccionItem[];
   elementos: ConvElementoProteccion[];
   resultados: Map<string, ConvResultadoPrueba>;
+  colimacion?: ConvColimacion;
   /** Imagen del plano radiométrico (2.1) como dataURL, si existe */
   planoRadiometrico?: { dataUrl: string; width: number; height: number };
   /** Fotografías de la 2.2 (equipo, consola, avisos, elementos) para la sección 2.2.8 */
   fotos22?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Imágenes de la 2.3 (montaje y patrón) para la sección 2.3.7 */
+  fotos23?: { label: string; dataUrl: string; width: number; height: number }[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -95,7 +99,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -104,6 +108,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_elementos_proteccion.where("visita_id").equals(visitaId).toArray(),
       db.conv_resultados_prueba.where("visita_id").equals(visitaId).toArray(),
       db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
+      db.conv_colimacion.where("visita_id").equals(visitaId).first(),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -143,6 +148,18 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos22.push({ label: elem.descripcion?.trim() || "Elemento de protección", ...img });
   }
 
+  // Fotografías de la 2.3 (sección 2.3.7): montaje y patrón de colimación
+  const SLOTS_FOTOS_23: [string, string][] = [
+    ["montaje_colimacion", "Fig. 2.3.1. Montaje experimental para la verificación del sistema de colimación"],
+    ["patron_colimacion", "Fig. 2.3.2. Imagen radiográfica del patrón de colimación con la posición del rayo central"],
+  ];
+  const fotos23: NonNullable<DatosConvencional["fotos23"]> = [];
+  for (const [slot, label] of SLOTS_FOTOS_23) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.3" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos23.push({ label, ...img });
+  }
+
   return {
     secciones: seccionesEfectivas,
     setup,
@@ -150,8 +167,10 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     inspeccion,
     elementos,
     resultados: new Map(resultadosArr.map((r) => [r.prueba_codigo, r])),
+    colimacion,
     planoRadiometrico: await cargarImagen(planoEv),
     fotos22,
+    fotos23,
   };
 }
 
@@ -410,6 +429,46 @@ export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional) {
   }
 }
 
+/** Subsección 2.3.7: montaje experimental y patrón radiográfico de colimación */
+export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos23 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+
+  const colW = 82;
+  const gap = 6;
+  const maxImgH = 70;
+
+  for (let i = 0; i < fotos.length; i += 2) {
+    const pair = fotos.slice(i, i + 2).map((f) => {
+      const scale = Math.min(colW / f.width, maxImgH / f.height);
+      return { ...f, w: f.width * scale, h: f.height * scale };
+    });
+    const rowH = Math.max(...pair.map((r) => r.h)) + 10;
+    ctx.checkPage(rowH + 2);
+    const startY = ctx.y;
+
+    pair.forEach((r, idx) => {
+      const x = MARGIN + idx * (colW + gap);
+      try {
+        doc.addImage(r.dataUrl, x, startY, r.w, r.h);
+      } catch {
+        // imagen no renderizable
+      }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      const caption = doc.splitTextToSize(r.label, colW);
+      doc.text(caption, x, startY + r.h + 4);
+    });
+
+    ctx.y = startY + rowH + 2;
+  }
+}
+
 // ─── Renderizador 2.2: Inspección visual ───
 
 function render22(
@@ -559,6 +618,130 @@ function render22(
   return 6;
 }
 
+// ─── Renderizador 2.3: Colimación y perpendicularidad ───
+
+function render23(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const c = conv.colimacion;
+
+  ctx.addSubsectionTitle("2.3.4.", "Resultados");
+
+  if (!c) {
+    ctx.addParagraph("Sin datos registrados para esta prueba.");
+    return 5;
+  }
+
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+  ctx.checkPage(14);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Tensión (kV)", fmt(c.tecnica_kv, 0), "Exposición (mAs)", fmt(c.tecnica_mas, 1), "Distancia foco-receptor, SID (cm)", fmt(c.sid_cm, 0)],
+    ],
+    columnStyles: {
+      0: { cellWidth: 28, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 32, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 52, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      5: { cellWidth: 18 },
+    },
+  });
+  ctx.y = finalY(doc) + 4;
+
+  const sid = c.sid_cm || 100;
+  const DIRS = [
+    { label: "Ánodo (cabeza)", nom: c.anodo_nominal, med: c.anodo_medido },
+    { label: "Cátodo (pies)", nom: c.catodo_nominal, med: c.catodo_medido },
+    { label: "Izquierda",     nom: c.izquierda_nominal, med: c.izquierda_medido },
+    { label: "Derecha",       nom: c.derecha_nominal,   med: c.derecha_medido },
+  ];
+
+  const rows = DIRS.map(({ label, nom, med }) => {
+    const diff = Math.abs(num(med) - num(nom));
+    const varPct = (diff * 100) / sid;
+    const concepto = varPct < 2 ? "Conforme" : "No conforme";
+    return [label, fmt(nom, 0), fmt(med, 0), diff.toFixed(1), varPct.toFixed(1) + " %", "< 2 %", concepto];
+  });
+
+  const totalVar = rows.reduce((s, r) => s + parseFloat(r[4]), 0);
+  const conceptoTotal = rows.every((r) => parseFloat(r[4]) < 2) && totalVar < 4 ? "Conforme" : "No conforme";
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.3.1. Registro de mediciones para la coincidencia del campo luminoso con el campo de radiación");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Dirección", "Campo luminoso (cm)", "Campo de radiación (cm)", "Diferencia (cm)", "Variación (%)", "Tolerancia", "Concepto"]],
+    body: [
+      ...rows,
+      ["Total (suma de desviaciones opuestas)", "", "", "", totalVar.toFixed(1) + " %", "< 4 %", conceptoTotal],
+    ],
+    columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 } },
+    didParseCell: colorearConcepto(6),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  const esfera = c.posicion_esfera;
+  const CRITERIO_ESFERA: Record<string, string> = {
+    "Centro": "Perpendicularidad del rayo central menor a 3°",
+    "Primer circulo": "Perpendicularidad del rayo central menor a 3°",
+    "Segundo circulo": "Perpendicularidad del rayo central menor a 3°",
+    "Fuera del circulo externo": "Perpendicularidad del rayo central mayor a 3°",
+  };
+  const perpConcepto =
+    esfera === "Centro" || esfera === "Primer circulo" || esfera === "Segundo circulo"
+      ? "Conforme"
+      : esfera === "Fuera del circulo externo"
+        ? "No conforme"
+        : null;
+
+  ctx.checkPage(28);
+  addCaption(ctx, "Tabla 2.3.2: Registro de mediciones para la perpendicularidad del campo de radiación");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Campo", "Valor"]],
+    body: [
+      ["Posición observada de la esfera", esfera ?? "—"],
+      ["Criterio de interpretación", esfera ? CRITERIO_ESFERA[esfera] ?? "—" : "—"],
+      ["Concepto", perpConcepto ?? "—"],
+    ],
+    columnStyles: { 0: { cellWidth: 70, fontStyle: "bold", fillColor: COLOR_ALT_ROW } },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.row.index === 2 && data.column.index === 1) {
+        const val = String(data.cell.raw);
+        if (val === "Conforme") { data.cell.styles.textColor = [16, 150, 80]; data.cell.styles.fontStyle = "bold"; }
+        else if (val === "No conforme") { data.cell.styles.textColor = [220, 50, 50]; data.cell.styles.fontStyle = "bold"; }
+      }
+    },
+  });
+  ctx.y = finalY(doc) + 4;
+
+  // .5 Análisis — texto auto-generado según la fórmula del Excel
+  ctx.addSubsectionTitle("2.3.5.", "Análisis");
+
+  const totalVarStr = totalVar.toFixed(0);
+  let analisisTexto: string;
+  if (conceptoTotal === "Conforme" && perpConcepto === "Conforme") {
+    analisisTexto =
+      `Los resultados obtenidos evidencian que la coincidencia entre el campo luminoso y el campo de radiación cumple con los criterios de aceptación establecidos, ya que las desviaciones individuales fueron inferiores al 2 % y la desviación total fue de ${totalVarStr} %. Adicionalmente, la perpendicularidad del rayo central presentó una desviación angular menor o igual a 3°, por lo que la prueba se considera conforme.`;
+  } else if (conceptoTotal === "No conforme" && perpConcepto === "Conforme") {
+    analisisTexto =
+      "Los resultados obtenidos evidencian incumplimiento en la coincidencia entre el campo luminoso y el campo de radiación, debido a que una o más desviaciones superaron las tolerancias establecidas. No obstante, la perpendicularidad del rayo central presentó una desviación angular menor o igual a 3°. Por lo anterior, la prueba se considera no conforme.";
+  } else if (conceptoTotal === "Conforme" && perpConcepto === "No conforme") {
+    analisisTexto =
+      `Los resultados obtenidos evidencian que la coincidencia entre el campo luminoso y el campo de radiación cumple con los criterios de aceptación establecidos, con una desviación total de ${totalVarStr} %. Sin embargo, la perpendicularidad del rayo central presentó una desviación angular superior a 3°, por lo que la prueba se considera no conforme.`;
+  } else {
+    analisisTexto =
+      "Los resultados obtenidos evidencian incumplimiento tanto en la coincidencia entre el campo luminoso y el campo de radiación como en la perpendicularidad del rayo central, por lo que la prueba se considera no conforme.";
+  }
+  ctx.addParagraph(analisisTexto);
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -607,6 +790,8 @@ export function renderResultadosSeccion(
       return render21(ctx, visita, conv);
     case "2.2":
       return render22(ctx, conv, ubicacion);
+    case "2.3":
+      return render23(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

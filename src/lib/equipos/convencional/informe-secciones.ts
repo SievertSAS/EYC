@@ -54,17 +54,17 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
   },
   {
     codigo: "2.3",
-    nombre: "Sistema de colimacion del haz y perpendicularidad del rayo central",
+    nombre: "Sistema de colimación del haz y perpendicularidad del rayo central",
     grupo: "E",
     orden: 3,
     objetivo:
-      "Evaluar la desviacion entre el campo luminoso y el campo real de radiacion y la perpendicularidad del eje central del haz de radiacion.",
+      "Evaluar la desviación entre el campo luminoso y el campo real de radiación y la perpendicularidad del eje central del haz de radiación con relación al plano del receptor de imagen.",
     instrumentacion:
-      "Detector CR o DR, dispositivo de verificacion de colimacion y alineacion del rayo central y cinta metrica.",
+      "Detector CR o DR, dispositivo de verificación de colimación y alineación del rayo central y cinta métrica.",
     metodologia:
-      "Se ubico el dispositivo de verificacion de colimacion sobre el receptor de imagen y se ajusto el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba.",
+      "Se ubicó el dispositivo de verificación de colimación sobre el receptor de imagen y se ajustó el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba. Posteriormente, se realizó una exposición radiográfica con una técnica adecuada para visualizar el campo irradiado y la posición del rayo central.\n\nA partir de la imagen obtenida se evaluó la coincidencia entre el campo luminoso y el campo de radiación, así como la perpendicularidad del rayo central respecto al plano del receptor, de acuerdo con los criterios establecidos en el IAEA-TECDOC-1958.",
     criterio:
-      "La desviacion entre el campo luminoso y el campo de radiacion no debe exceder el 2% de la distancia foco-receptor en cada borde ni el 4% en total. La perpendicularidad del rayo central debe presentar una desviacion angular <= 3 grados.",
+      "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular menor o igual a 3°.",
   },
   {
     codigo: "2.4",

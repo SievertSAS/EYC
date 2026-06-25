@@ -32,17 +32,26 @@ function wsToRows(ws: import("xlsx").WorkSheet): RaysafeRow[] {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const XLSX = require("xlsx") as typeof import("xlsx");
   const raw = XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1, defval: "" });
+
+  // Detectar si es la plantilla Sievert: col A = "Grupo" o número de grupo (1-8),
+  // col G = No. RaySafe. En ese caso los datos empiezan en offset 6.
+  const hasNominals =
+    raw.length > 1 &&
+    (String(raw[0]?.[0] ?? "").toLowerCase().includes("grupo") ||
+      String(raw[1]?.[0] ?? "").toLowerCase().includes("grupo"));
+  const off = hasNominals ? 6 : 0; // offset hacia col G en plantilla Sievert
+
   const rows: RaysafeRow[] = [];
   for (const row of raw) {
-    const no = parseInt(String(row[0]), 10);
+    const no = parseInt(String(row[off] ?? ""), 10);
     if (isNaN(no) || no <= 0) continue;
     rows.push({
       numero: no,
-      kv: toNum(row[4]),
-      dosis_mgy: toNum(row[6]),
-      tiempo_s: toNum(row[8]),
-      chr_mmal: toNum(row[10]),
-      rendimiento_mgy_min: toNum(row[12]),
+      kv: toNum(row[off + 4]),           // col K (kVp)
+      dosis_mgy: toNum(row[off + 6]),     // col M (mGy)
+      tiempo_s: toNum(row[off + 8]),      // col O (s)
+      chr_mmal: toNum(row[off + 10]),     // col Q (mm Al HVL)
+      rendimiento_mgy_min: toNum(row[off + 12]), // col S (mGy/min)
     });
   }
   return rows;

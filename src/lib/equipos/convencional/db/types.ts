@@ -177,6 +177,10 @@ export interface ConvDdiMedicion {
   ei?: number;
   di?: number;
   tei?: number;
+  /** Valor base del EI para comparación 2.9 (precarga de visita anterior) */
+  ei_base?: number;
+  /** Valor base del D.I. para comparación 2.9 */
+  di_base?: number;
   creado_en?: string;
 }
 

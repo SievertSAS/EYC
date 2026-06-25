@@ -13,6 +13,7 @@ import type {
   ConvColimacion,
   ConvRaysafeSetup,
   ConvRaysafeMedicion,
+  ConvDdiMedicion,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -86,9 +87,15 @@ export interface DatosConvencional {
   fotos27?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje RaySafe para la sección 2.8.7 (misma imagen que 2.4) */
   fotos28?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje DDI para la sección 2.9.7 */
+  fotos29?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje DDI para la sección 2.10.7 (misma imagen que 2.9) */
+  fotos210?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
+  /** Mediciones DDI/EI (pruebas 2.9 y 2.10) */
+  ddiMediciones: ConvDdiMedicion[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -114,7 +121,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -126,6 +133,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_colimacion.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+      db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -191,6 +199,14 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   const fotos28: NonNullable<DatosConvencional["fotos28"]> = [];
   if (img24) fotos28.push({ label: "Fig 2.1.8 Implementación de instrumentación en la prueba", ...img24 });
 
+  // Fotografía de montaje DDI (secciones 2.9.7 y 2.10.7)
+  const ev29 = evidencias.find((e) => e.prueba_codigo === "2.9" && e.slot === "montaje_ddi");
+  const img29 = await cargarImagen(ev29);
+  const fotos29: NonNullable<DatosConvencional["fotos29"]> = [];
+  if (img29) fotos29.push({ label: "Fig. 2.9.1 Montaje experimental para la prueba DDI/EI", ...img29 });
+  const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
+  if (img29) fotos210.push({ label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI", ...img29 });
+
   return {
     secciones: seccionesEfectivas,
     setup,
@@ -207,8 +223,11 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos26,
     fotos27,
     fotos28,
+    fotos29,
+    fotos210,
     raysafeSetup,
     raysafeMediciones,
+    ddiMediciones,
   };
 }
 
@@ -542,6 +561,68 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
 export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional) {
   const { doc } = ctx;
   const fotos = conv.fotos28 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.9.7: fotografía del montaje DDI/EI */
+export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos29 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.10.7: fotografía del montaje DDI/EI (repetibilidad) */
+export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos210 ?? [];
   if (fotos.length === 0) {
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
@@ -1410,6 +1491,151 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+function render29(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+
+  const grupo1 = conv.ddiMediciones
+    .filter((m) => m.grupo === 1)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+  const toma1 = grupo1.find((m) => m.toma_numero === 1);
+
+  ctx.addSubsectionTitle("2.9.4.", "Resultados");
+
+  if (!toma1) return SIN_DATOS(ctx);
+
+  const kv = toma1.kv_nominal ?? 0;
+  const mas = toma1.carga_mas ?? 0;
+  const ei = toma1.ei ?? null;
+  const di = toma1.di ?? null;
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.9.1. Resultado de la medición del indicador de exposición.");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI"]],
+    body: [[kv ? String(kv) : "—", mas ? String(mas) : "—", ei != null ? String(ei) : "—"]],
+  });
+  ctx.y = finalY(doc) + 4;
+
+  const eiBase = toma1.ei_base ?? null;
+  const diBase = toma1.di_base ?? null;
+  const eiDev =
+    eiBase != null && eiBase > 0 && ei != null
+      ? (Math.abs(ei - eiBase) / eiBase) * 100
+      : null;
+  const diDev =
+    diBase != null && diBase !== 0 && di != null
+      ? (Math.abs(di - diBase) / Math.abs(diBase)) * 100
+      : null;
+  const eiConf = eiDev != null ? (eiDev <= 20 ? "Conforme" : "No conforme") : "—";
+  const diConf = diDev != null ? (diDev <= 20 ? "Conforme" : "No conforme") : "—";
+
+  addCaption(ctx, "Tabla 2.9.2. Análisis del indicador de exposición.");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Parámetro", "Valor medido", "Valor Base", "Desviación (%)", "Concepto"]],
+    body: [
+      [
+        "EI",
+        ei != null ? String(ei) : "—",
+        eiBase != null ? String(eiBase) : "—",
+        eiDev != null ? eiDev.toFixed(1) : "—",
+        eiConf,
+      ],
+      [
+        "D.I.",
+        di != null ? di.toFixed(2) : "—",
+        diBase != null ? diBase.toFixed(2) : "—",
+        diDev != null ? diDev.toFixed(1) : "—",
+        diConf,
+      ],
+    ],
+    didParseCell: colorearConcepto(4),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.9.5.", "Análisis");
+  ctx.addParagraph(
+    "Se evaluó la desviación del indicador de exposición (EI) y del índice de dosis (D.I.) respecto a los valores base de referencia. " +
+      "Los resultados se consideran conformes cuando la desviación no supera el ± 20 % del valor base establecido.",
+  );
+
+  return 6;
+}
+
+function render210(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+
+  const grupo1 = conv.ddiMediciones
+    .filter((m) => m.grupo === 1)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+
+  ctx.addSubsectionTitle("2.10.4.", "Resultados");
+
+  if (grupo1.length === 0) return SIN_DATOS(ctx);
+
+  const eiVals = grupo1.map((m) => m.ei).filter((v): v is number => v != null);
+  const diVals = grupo1.map((m) => m.di).filter((v): v is number => v != null);
+
+  function ddiAvg(arr: number[]): number | null {
+    return arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+  }
+  function ddiStd(arr: number[]): number | null {
+    if (arr.length < 2) return null;
+    const m = ddiAvg(arr)!;
+    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
+  }
+
+  const eiAvg = ddiAvg(eiVals);
+  const eiStd = ddiStd(eiVals);
+  const eiCv = eiAvg != null && eiAvg > 0 && eiStd != null ? (eiStd / eiAvg) * 100 : null;
+  const diAvg = ddiAvg(diVals);
+  const diStd = ddiStd(diVals);
+  const diCv =
+    diAvg != null && diAvg !== 0 && diStd != null
+      ? (diStd / Math.abs(diAvg)) * 100
+      : null;
+
+  const eiConf = eiCv != null ? (eiCv <= 20 ? "Conforme" : "No conforme") : "—";
+  const diConf = diCv != null ? (diCv <= 20 ? "Conforme" : "No conforme") : "—";
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.10.1. Análisis de la repetibilidad del indicador de exposición.");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Parámetro", "Valor Promedio", "Desviación estándar", "CV (%)", "Concepto"]],
+    body: [
+      [
+        "EI",
+        eiAvg != null ? eiAvg.toFixed(1) : "—",
+        eiStd != null ? eiStd.toFixed(2) : "—",
+        eiCv != null ? eiCv.toFixed(1) : "—",
+        eiConf,
+      ],
+      [
+        "D.I.",
+        diAvg != null ? diAvg.toFixed(2) : "—",
+        diStd != null ? diStd.toFixed(2) : "—",
+        diCv != null ? diCv.toFixed(1) : "—",
+        diConf,
+      ],
+    ],
+    didParseCell: colorearConcepto(4),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.10.5.", "Análisis");
+  ctx.addParagraph(
+    "Se evaluó la repetibilidad del indicador de exposición (EI) y del índice de dosis (D.I.) mediante el cálculo del coeficiente de variación (CV) " +
+      "sobre las exposiciones consecutivas realizadas bajo las mismas condiciones. Los resultados se consideran conformes cuando el CV es ≤ 20 %.",
+  );
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -1470,6 +1696,10 @@ export function renderResultadosSeccion(
       return render27(ctx, conv);
     case "2.8":
       return render28(ctx, conv);
+    case "2.9":
+      return render29(ctx, conv);
+    case "2.10":
+      return render210(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

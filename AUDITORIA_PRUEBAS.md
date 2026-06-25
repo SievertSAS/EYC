@@ -200,6 +200,8 @@ El texto de `conceptoParrafo` se imprime en párrafo debajo del label. El label 
 | Prueba | Estado | Ajustes realizados |
 |---|---|---|
 | 2.8 | ✅ Completa | Fórmula DAP corregida (d1/d2 por fila); agregadas 2.8.7 evidencia gráfica, 2.8.8 concepto "No aplica" automático, 2.8.9 acciones "No Aplica" |
+| 2.9 | ✅ Completa | Textos corregidos; render29 con Tabla 2.9.1 y 2.9.2 (desviación vs base); 2.9.7 evidencia gráfica; 2.9.8 concepto FAVORABLE/NO FAVORABLE; valores base ei_base/di_base persistidos en DB |
+| 2.10 | ✅ Completa | Textos corregidos; render210 con Tabla 2.10.1 (CV); 2.10.7 evidencia gráfica; 2.10.8 concepto FAVORABLE/NO FAVORABLE basado en CV del EI |
 
 ## Pruebas pendientes
 
@@ -210,8 +212,6 @@ El texto de `conceptoParrafo` se imprime en párrafo debajo del label. El label 
 - [ ] 2.5 — Exactitud y repetibilidad de la tensión
 - [ ] 2.6 — Capa hemirreductora (CHR)
 - [ ] 2.7 — Rendimiento, repetibilidad y linealidad
-- [ ] 2.9 — Control de calidad DDI/EI en CR
-- [ ] 2.10 — Repetibilidad DDI/EI
 - [ ] 2.11 — Uniformidad y artefactos del detector
 - [ ] 2.12 — Resolución espacial de alto contraste
 - [ ] 2.13 — Umbral de sensibilidad a bajo contraste

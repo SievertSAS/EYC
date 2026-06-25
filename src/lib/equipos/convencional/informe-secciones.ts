@@ -140,11 +140,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "D",
     orden: 9,
     objetivo:
-      "Verificar que el indicador de dosis digital (DDI) y el indice de exposicion (EI) del sistema de imagen reportan valores correctos.",
-    instrumentacion: "Placas de cobre (1 mm), Detector de imagen (DR o CR).",
+      "Determinar la desviación de los índices de dosis para DR (DDI: detector dose index) y en los índices de exposición para CR (EI: exposure index), respecto a sus valores base.",
+    instrumentacion: "Cassette CR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
-      "Se configuro una tecnica estandar (70 kVp, Cu 1mm). Se realizo una exposicion con el detector de imagen en posicion y se comparo el EI/DI con los valores base.",
-    criterio: "Desviacion del EI y D.I. respecto a base <= 20%.",
+      "De acuerdo con el protocolo IAEA-TECDOC-1958, esta prueba consiste en registrar el valor del indicador de exposición (EI o DDI) del sistema bajo condiciones de exposición reproducibles y compararlo con el valor base definido por el fabricante o por el programa de control de calidad.",
+    criterio: "La desviación no debe exceder ± 20 % de los valores base.",
   },
   {
     codigo: "2.10",
@@ -152,11 +152,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "D",
     orden: 10,
     objetivo:
-      "Verificar que al repetir exposiciones con la misma tecnica, el DDI/EI reportado es consistente.",
-    instrumentacion: "Placas de cobre (1 mm), Detector de imagen.",
+      "Determinar la desviación de los índices de dosis para DR (DDI: detector dose index) y en los índices de exposición para CR (EI: exposure index), respecto a sus valores base.",
+    instrumentacion: "Cassette CR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
-      "Se repitio la misma exposicion 3 veces y se registro el EI y D.I. de cada exposicion.",
-    criterio: "CV del EI y D.I. <= 20%.",
+      "De acuerdo con el protocolo IAEA-TECDOC-1958, la repetibilidad del indicador de exposición se evalúa realizando varias exposiciones consecutivas bajo las mismas condiciones de irradiación y registrando el valor del indicador de exposición (DDI o EI) reportado por el sistema.",
+    criterio: "El valor del coeficiente de variación debe ser ≤ 20 %.",
   },
   {
     codigo: "2.11",

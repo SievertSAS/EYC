@@ -29,6 +29,8 @@ import {
   renderFotos26,
   renderFotos27,
   renderFotos28,
+  renderFotos29,
+  renderFotos210,
   renderTablaChrRef,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -801,6 +803,18 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos28(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.9" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos29(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.10" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos210(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1027,6 +1041,65 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         conceptoParrafo = "La prueba no define tolerancias, debido a que es de carácter descriptivo y de referencia técnica.";
         accionesTexto = "No Aplica";
         esNoConforme = false;
+      } else if (codigo === "2.9" && aplica) {
+        const toma1 = conv.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+        const ei = toma1?.ei ?? null;
+        const eiBase = toma1?.ei_base ?? null;
+        const di = toma1?.di ?? null;
+        const diBase = toma1?.di_base ?? null;
+        const hayDatos = ei != null;
+        const hayBase = eiBase != null;
+        if (!hayDatos || !hayBase) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const eiDev = eiBase > 0 ? Math.abs(ei - eiBase) / eiBase : Infinity;
+          const diDev =
+            di != null && diBase != null && diBase !== 0
+              ? Math.abs(di - diBase) / Math.abs(diBase)
+              : null;
+          const conforme = eiDev <= 0.2 && (diDev == null || diDev <= 0.2);
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "Los indicadores de exposición evaluados cumplen con el criterio de aceptación establecido, presentando desviaciones dentro del límite del ± 20 % respecto a los valores base.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "Uno o más indicadores de exposición evaluados presentan desviaciones superiores al ± 20 % respecto a los valores base establecidos.";
+            accionesTexto =
+              "Se recomienda verificar las condiciones de exposición y los parámetros del sistema de imagen. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el restablecimiento de los valores dentro de las tolerancias.";
+          }
+        }
+      } else if (codigo === "2.10" && aplica) {
+        const grupo1 = conv.ddiMediciones.filter((m) => m.grupo === 1);
+        const eiVals = grupo1.map((m) => m.ei).filter((v): v is number => v != null);
+        if (eiVals.length < 2) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const eiAvg = eiVals.reduce((s, v) => s + v, 0) / eiVals.length;
+          const eiStd = Math.sqrt(
+            eiVals.reduce((s, v) => s + (v - eiAvg) ** 2, 0) / (eiVals.length - 1),
+          );
+          const eiCv = eiAvg > 0 ? eiStd / eiAvg : Infinity;
+          const conforme = eiCv <= 0.2;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El sistema presenta adecuada repetibilidad del indicador de exposición bajo condiciones de irradiación reproducibles, con un coeficiente de variación dentro del límite del 20 %.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
+            accionesTexto =
+              "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
       } else if (!aplica) {
         conceptoLabel = "NO APLICA";
         esNoConforme = false;

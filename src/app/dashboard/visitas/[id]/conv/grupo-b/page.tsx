@@ -364,6 +364,28 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     db.conv_raysafe_mediciones.bulkAdd(rows);
   }, [data, visitaId]);
 
+  // ─── Copiar nominales de con_rejilla → kerma (una sola vez) ───
+  useEffect(() => {
+    if (!data) return;
+    const conRejillaMap = new Map(
+      data.mediciones
+        .filter((m) => m.tipo_medicion === "con_rejilla" && m.programa_clinico)
+        .map((m) => [m.programa_clinico!, m]),
+    );
+    for (const k of data.mediciones.filter((m) => m.tipo_medicion === "kerma")) {
+      if (!k.id || !k.programa_clinico) continue;
+      const ref = conRejillaMap.get(k.programa_clinico);
+      if (!ref) continue;
+      const updates: Record<string, unknown> = {};
+      if (k.kv_nominal == null && ref.kv_nominal != null) updates.kv_nominal = ref.kv_nominal;
+      if (k.ma_nominal == null && ref.ma_nominal != null) updates.ma_nominal = ref.ma_nominal;
+      if (k.tiempo_nominal_s == null && ref.tiempo_nominal_s != null)
+        updates.tiempo_nominal_s = ref.tiempo_nominal_s;
+      if (k.mas_nominal == null && ref.mas_nominal != null) updates.mas_nominal = ref.mas_nominal;
+      if (Object.keys(updates).length > 0) db.conv_raysafe_mediciones.update(k.id, updates);
+    }
+  }, [data, visitaId]);
+
   // ─── RaySafe import handlers ───
   async function importarRaysafe(
     rows: RaysafeRow[],
@@ -1023,14 +1045,10 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                     <td className="py-1.5 px-1 font-medium text-slate-700">
                       {m.programa_clinico}
                     </td>
-                    <td className="py-1.5 px-1 text-slate-500 font-mono">
-                      {m.kv_nominal ?? "—"}
-                    </td>
-                    <td className="py-1.5 px-1 text-slate-500 font-mono">
-                      {m.mas_nominal ?? "—"}
-                    </td>
                     {(
                       [
+                        "kv_nominal",
+                        "mas_nominal",
                         "dap_nominal",
                         "distancia_foco_sensor_cm" as "dap_nominal",
                         "distancia_foco_detector_cm" as "dap_nominal",

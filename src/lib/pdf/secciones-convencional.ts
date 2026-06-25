@@ -82,6 +82,8 @@ export interface DatosConvencional {
   fotos25?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje RaySafe para la sección 2.6.7 (misma imagen que 2.4) */
   fotos26?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.7.7 (misma imagen que 2.4) */
+  fotos27?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
@@ -182,6 +184,8 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   if (img24) fotos25.push({ label: "Fig 2.5.1. Implementación de instrumentación en la prueba", ...img24 });
   const fotos26: NonNullable<DatosConvencional["fotos26"]> = [];
   if (img24) fotos26.push({ label: "Fig 2.6.1 Implementación de instrumentación en la prueba", ...img24 });
+  const fotos27: NonNullable<DatosConvencional["fotos27"]> = [];
+  if (img24) fotos27.push({ label: "Fig 2.7.1 Implementación de instrumentación en la prueba", ...img24 });
 
   return {
     secciones: seccionesEfectivas,
@@ -197,6 +201,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos24,
     fotos25,
     fotos26,
+    fotos27,
     raysafeSetup,
     raysafeMediciones,
   };
@@ -506,6 +511,37 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.7.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos27 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -1256,15 +1292,20 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
   const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;
 
+  const cvStr = cvRep.toFixed(2).replace(".", ",");
+  const linStr = linMaxPct.toFixed(2).replace(".", ",");
+  const rMinStr = rendMin.toFixed(1).replace(".", ",");
+  const rMaxStr = rendMax.toFixed(1).replace(".", ",");
+
   if (conformeRep && conformeLin) {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rendMin.toFixed(1)} y ${rendMax.toFixed(1)} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvRep.toFixed(2)} % y la linealidad del rendimiento presenta una desviación máxima de ${linMaxPct.toFixed(2)} %, ambos dentro de los criterios de aceptación establecidos.`,
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados a 80 kV, lo que indica un comportamiento consistente del sistema de generación de radiación. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} %, valor inferior al límite establecido. Asimismo, la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %, lo que indica un comportamiento proporcional entre la radiación de salida y la carga seleccionada. En conjunto, los resultados indican que el generador de rayos X presenta un comportamiento estable, reproducible y lineal bajo las condiciones de irradiación evaluadas.`,
     );
   } else {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta un CV de repetibilidad de ${cvRep.toFixed(2)} % y una linealidad máxima de ${linMaxPct.toFixed(2)} %. ` +
-        (!conformeRep ? "La repetibilidad supera el criterio de aceptación del 5 %. " : "") +
-        (!conformeLin ? "La linealidad supera el criterio de aceptación del 10 %. " : ""),
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} % y la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %.` +
+        (!conformeRep ? ` La repetibilidad supera el criterio de aceptación del 5 %.` : "") +
+        (!conformeLin ? ` La linealidad supera el criterio de aceptación del 10 %.` : ""),
     );
   }
 

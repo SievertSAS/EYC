@@ -27,6 +27,7 @@ import {
   renderFotos24,
   renderFotos25,
   renderFotos26,
+  renderFotos27,
   renderTablaChrRef,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -785,6 +786,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         checkPage(20);
         addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
         renderFotos26(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.7" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos27(ctx, conv);
         nextSub++;
       }
 

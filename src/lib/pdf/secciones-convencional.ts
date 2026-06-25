@@ -80,6 +80,8 @@ export interface DatosConvencional {
   fotos24?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje RaySafe para la sección 2.5.7 (misma imagen que 2.4) */
   fotos25?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.6.7 (misma imagen que 2.4) */
+  fotos26?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
@@ -178,6 +180,8 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   if (img24) fotos24.push({ label: "Fig. Implementación de instrumentación en la prueba", ...img24 });
   const fotos25: NonNullable<DatosConvencional["fotos25"]> = [];
   if (img24) fotos25.push({ label: "Fig 2.5.1. Implementación de instrumentación en la prueba", ...img24 });
+  const fotos26: NonNullable<DatosConvencional["fotos26"]> = [];
+  if (img24) fotos26.push({ label: "Fig 2.6.1 Implementación de instrumentación en la prueba", ...img24 });
 
   return {
     secciones: seccionesEfectivas,
@@ -192,6 +196,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos23,
     fotos24,
     fotos25,
+    fotos26,
     raysafeSetup,
     raysafeMediciones,
   };
@@ -501,6 +506,37 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.6.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos26 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -1041,6 +1077,10 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
     didParseCell: colorearConcepto(3),
   });
   ctx.y = finalY(doc) + 4;
+
+  ctx.addParagraph(
+    "Para la evaluación del cumplimiento se compararon los valores medidos con los valores mínimos de referencia de capa hemirreductora correspondientes a cada nivel de tensión.",
+  );
 
   ctx.addSubsectionTitle("2.6.5.", "Análisis");
   const todosConformes = rows.every((r) => r[3] === "Conforme");

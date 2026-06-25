@@ -24,6 +24,7 @@ import {
   renderDiagramaRadiometrico,
   renderFotos22,
   renderFotos23,
+  renderFotos24,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -753,11 +754,17 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         nextSub++;
       }
 
-      // Evidencia gráfica (solo 2.3) — entre Criterio y Concepto
+      // Evidencia gráfica (2.3 y 2.4) — entre Criterio y Concepto
       if (codigo === "2.3" && aplica) {
         checkPage(20);
         addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
         renderFotos23(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.4" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos24(ctx, conv);
         nextSub++;
       }
 

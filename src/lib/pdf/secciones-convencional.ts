@@ -76,6 +76,8 @@ export interface DatosConvencional {
   fotos22?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Imágenes de la 2.3 (montaje y patrón) para la sección 2.3.7 */
   fotos23?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.4.7 */
+  fotos24?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
@@ -167,6 +169,12 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos23.push({ label, ...img });
   }
 
+  // Fotografía de montaje RaySafe (sección 2.4.7)
+  const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
+  const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
+  const img24 = await cargarImagen(ev24);
+  if (img24) fotos24.push({ label: "Fig. Implementación de instrumentación en la prueba", ...img24 });
+
   return {
     secciones: seccionesEfectivas,
     setup,
@@ -178,6 +186,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     planoRadiometrico: await cargarImagen(planoEv),
     fotos22,
     fotos23,
+    fotos24,
     raysafeSetup,
     raysafeMediciones,
   };
@@ -475,6 +484,37 @@ export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional) {
     });
 
     ctx.y = startY + rowH + 2;
+  }
+}
+
+/** Subsección 2.4.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos24 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
   }
 }
 

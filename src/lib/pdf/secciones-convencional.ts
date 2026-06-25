@@ -10,6 +10,9 @@ import type {
   ConvEvidencia,
   ConvResultadoPrueba,
   ConvInformeSeccion,
+  ConvColimacion,
+  ConvRaysafeSetup,
+  ConvRaysafeMedicion,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -66,10 +69,18 @@ export interface DatosConvencional {
   inspeccion: ConvInspeccionItem[];
   elementos: ConvElementoProteccion[];
   resultados: Map<string, ConvResultadoPrueba>;
+  colimacion?: ConvColimacion;
   /** Imagen del plano radiométrico (2.1) como dataURL, si existe */
   planoRadiometrico?: { dataUrl: string; width: number; height: number };
   /** Fotografías de la 2.2 (equipo, consola, avisos, elementos) para la sección 2.2.8 */
   fotos22?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Imágenes de la 2.3 (montaje y patrón) para la sección 2.3.7 */
+  fotos23?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.4.7 */
+  fotos24?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
+  raysafeSetup?: ConvRaysafeSetup;
+  raysafeMediciones: ConvRaysafeMedicion[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -95,7 +106,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -104,6 +115,9 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_elementos_proteccion.where("visita_id").equals(visitaId).toArray(),
       db.conv_resultados_prueba.where("visita_id").equals(visitaId).toArray(),
       db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
+      db.conv_colimacion.where("visita_id").equals(visitaId).first(),
+      db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
+      db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -143,6 +157,24 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos22.push({ label: elem.descripcion?.trim() || "Elemento de protección", ...img });
   }
 
+  // Fotografías de la 2.3 (sección 2.3.7): montaje y patrón de colimación
+  const SLOTS_FOTOS_23: [string, string][] = [
+    ["montaje_colimacion", "Fig. 2.3.1. Montaje experimental para la verificación del sistema de colimación"],
+    ["patron_colimacion", "Fig. 2.3.2. Imagen radiográfica del patrón de colimación con la posición del rayo central"],
+  ];
+  const fotos23: NonNullable<DatosConvencional["fotos23"]> = [];
+  for (const [slot, label] of SLOTS_FOTOS_23) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.3" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos23.push({ label, ...img });
+  }
+
+  // Fotografía de montaje RaySafe (sección 2.4.7)
+  const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
+  const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
+  const img24 = await cargarImagen(ev24);
+  if (img24) fotos24.push({ label: "Fig. Implementación de instrumentación en la prueba", ...img24 });
+
   return {
     secciones: seccionesEfectivas,
     setup,
@@ -150,8 +182,13 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     inspeccion,
     elementos,
     resultados: new Map(resultadosArr.map((r) => [r.prueba_codigo, r])),
+    colimacion,
     planoRadiometrico: await cargarImagen(planoEv),
     fotos22,
+    fotos23,
+    fotos24,
+    raysafeSetup,
+    raysafeMediciones,
   };
 }
 
@@ -410,6 +447,77 @@ export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional) {
   }
 }
 
+/** Subsección 2.3.7: montaje experimental y patrón radiográfico de colimación */
+export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos23 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+
+  const colW = 82;
+  const gap = 6;
+  const maxImgH = 70;
+
+  for (let i = 0; i < fotos.length; i += 2) {
+    const pair = fotos.slice(i, i + 2).map((f) => {
+      const scale = Math.min(colW / f.width, maxImgH / f.height);
+      return { ...f, w: f.width * scale, h: f.height * scale };
+    });
+    const rowH = Math.max(...pair.map((r) => r.h)) + 10;
+    ctx.checkPage(rowH + 2);
+    const startY = ctx.y;
+
+    pair.forEach((r, idx) => {
+      const x = MARGIN + idx * (colW + gap);
+      try {
+        doc.addImage(r.dataUrl, x, startY, r.w, r.h);
+      } catch {
+        // imagen no renderizable
+      }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      const caption = doc.splitTextToSize(r.label, colW);
+      doc.text(caption, x, startY + r.h + 4);
+    });
+
+    ctx.y = startY + rowH + 2;
+  }
+}
+
+/** Subsección 2.4.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos24 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
 // ─── Renderizador 2.2: Inspección visual ───
 
 function render22(
@@ -559,6 +667,477 @@ function render22(
   return 6;
 }
 
+// ─── Renderizador 2.3: Colimación y perpendicularidad ───
+
+function render23(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const c = conv.colimacion;
+
+  ctx.addSubsectionTitle("2.3.4.", "Resultados");
+
+  if (!c) {
+    ctx.addParagraph("Sin datos registrados para esta prueba.");
+    return 5;
+  }
+
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+  ctx.checkPage(14);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Tensión (kV)", fmt(c.tecnica_kv, 0), "Exposición (mAs)", fmt(c.tecnica_mas, 1), "Distancia foco-receptor, SID (cm)", fmt(c.sid_cm, 0)],
+    ],
+    columnStyles: {
+      0: { cellWidth: 28, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 32, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 52, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      5: { cellWidth: 18 },
+    },
+  });
+  ctx.y = finalY(doc) + 4;
+
+  const sid = c.sid_cm || 100;
+  const DIRS = [
+    { label: "Ánodo (cabeza)", nom: c.anodo_nominal, med: c.anodo_medido },
+    { label: "Cátodo (pies)", nom: c.catodo_nominal, med: c.catodo_medido },
+    { label: "Izquierda",     nom: c.izquierda_nominal, med: c.izquierda_medido },
+    { label: "Derecha",       nom: c.derecha_nominal,   med: c.derecha_medido },
+  ];
+
+  const rows = DIRS.map(({ label, nom, med }) => {
+    const diff = Math.abs(num(med) - num(nom));
+    const varPct = (diff * 100) / sid;
+    const concepto = varPct < 2 ? "Conforme" : "No conforme";
+    return [label, fmt(nom, 0), fmt(med, 0), diff.toFixed(1), varPct.toFixed(1) + " %", "< 2 %", concepto];
+  });
+
+  const totalVar = rows.reduce((s, r) => s + parseFloat(r[4]), 0);
+  const conceptoTotal = rows.every((r) => parseFloat(r[4]) < 2) && totalVar < 4 ? "Conforme" : "No conforme";
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.3.1. Registro de mediciones para la coincidencia del campo luminoso con el campo de radiación");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Dirección", "Campo luminoso (cm)", "Campo de radiación (cm)", "Diferencia (cm)", "Variación (%)", "Tolerancia", "Concepto"]],
+    body: [
+      ...rows,
+      ["Total (suma de desviaciones opuestas)", "", "", "", totalVar.toFixed(1) + " %", "< 4 %", conceptoTotal],
+    ],
+    columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 } },
+    didParseCell: colorearConcepto(6),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  const esfera = c.posicion_esfera;
+  const CRITERIO_ESFERA: Record<string, string> = {
+    "Centro": "Perpendicularidad del rayo central menor a 3°",
+    "Primer circulo": "Perpendicularidad del rayo central menor a 3°",
+    "Segundo circulo": "Perpendicularidad del rayo central menor a 3°",
+    "Fuera del circulo externo": "Perpendicularidad del rayo central mayor a 3°",
+  };
+  const perpConcepto =
+    esfera === "Centro" || esfera === "Primer circulo" || esfera === "Segundo circulo"
+      ? "Conforme"
+      : esfera === "Fuera del circulo externo"
+        ? "No conforme"
+        : null;
+
+  ctx.checkPage(28);
+  addCaption(ctx, "Tabla 2.3.2: Registro de mediciones para la perpendicularidad del campo de radiación");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Campo", "Valor"]],
+    body: [
+      ["Posición observada de la esfera", esfera ?? "—"],
+      ["Criterio de interpretación", esfera ? CRITERIO_ESFERA[esfera] ?? "—" : "—"],
+      ["Concepto", perpConcepto ?? "—"],
+    ],
+    columnStyles: { 0: { cellWidth: 70, fontStyle: "bold", fillColor: COLOR_ALT_ROW } },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.row.index === 2 && data.column.index === 1) {
+        const val = String(data.cell.raw);
+        if (val === "Conforme") { data.cell.styles.textColor = [16, 150, 80]; data.cell.styles.fontStyle = "bold"; }
+        else if (val === "No conforme") { data.cell.styles.textColor = [220, 50, 50]; data.cell.styles.fontStyle = "bold"; }
+      }
+    },
+  });
+  ctx.y = finalY(doc) + 4;
+
+  // .5 Análisis — texto auto-generado según la fórmula del Excel
+  ctx.addSubsectionTitle("2.3.5.", "Análisis");
+
+  const totalVarStr = totalVar.toFixed(0);
+  let analisisTexto: string;
+  if (conceptoTotal === "Conforme" && perpConcepto === "Conforme") {
+    analisisTexto =
+      `Los resultados obtenidos evidencian que la coincidencia entre el campo luminoso y el campo de radiación cumple con los criterios de aceptación establecidos, ya que las desviaciones individuales fueron inferiores al 2 % y la desviación total fue de ${totalVarStr} %. Adicionalmente, la perpendicularidad del rayo central presentó una desviación angular menor o igual a 3°, por lo que la prueba se considera conforme.`;
+  } else if (conceptoTotal === "No conforme" && perpConcepto === "Conforme") {
+    analisisTexto =
+      "Los resultados obtenidos evidencian incumplimiento en la coincidencia entre el campo luminoso y el campo de radiación, debido a que una o más desviaciones superaron las tolerancias establecidas. No obstante, la perpendicularidad del rayo central presentó una desviación angular menor o igual a 3°. Por lo anterior, la prueba se considera no conforme.";
+  } else if (conceptoTotal === "Conforme" && perpConcepto === "No conforme") {
+    analisisTexto =
+      `Los resultados obtenidos evidencian que la coincidencia entre el campo luminoso y el campo de radiación cumple con los criterios de aceptación establecidos, con una desviación total de ${totalVarStr} %. Sin embargo, la perpendicularidad del rayo central presentó una desviación angular superior a 3°, por lo que la prueba se considera no conforme.`;
+  } else {
+    analisisTexto =
+      "Los resultados obtenidos evidencian incumplimiento tanto en la coincidencia entre el campo luminoso y el campo de radiación como en la perpendicularidad del rayo central, por lo que la prueba se considera no conforme.";
+  }
+  ctx.addParagraph(analisisTexto);
+
+  return 6;
+}
+
+// ─── Helpers estadísticos ───
+
+const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
+
+function mean(arr: number[]): number {
+  return arr.length === 0 ? 0 : arr.reduce((s, v) => s + v, 0) / arr.length;
+}
+
+function stdDev(arr: number[]): number {
+  if (arr.length <= 1) return 0;
+  const m = mean(arr);
+  return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
+}
+
+// Desviación según TECDOC: |promedio - nominal| / nominal × 100
+function desvNominal(medidos: number[], nominal: number): number {
+  if (nominal === 0 || medidos.length === 0) return 0;
+  const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
+  return (Math.abs(prom - nominal) / nominal) * 100;
+}
+
+// ─── Renderizadores 2.4–2.7 (pruebas RaySafe) ───
+
+const SIN_DATOS = (ctx: InformeCtx) => {
+  ctx.addParagraph("Sin datos registrados para esta prueba.");
+  return 6;
+};
+
+// Grupos 1, 2, 6: los tres tiempos nominales distintos (60kV/80kV/90kV)
+const GRUPOS_TIEMPO_KV_CHR = new Set([1, 2, 6]);
+
+function render24(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const principales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1),
+  );
+
+  ctx.addSubsectionTitle("2.4.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  const grupos = new Map<number, typeof principales>();
+  for (const m of principales) {
+    if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
+    const key = m.tiempo_nominal_s;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key)!.push(m);
+  }
+
+  if (grupos.size === 0) return SIN_DATOS(ctx);
+
+  const rows = [...grupos.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([nom, ms]) => {
+      const medidos = ms.map((m) => m.tiempo_medido_s!);
+      const prom = mean(medidos);
+      const desv = desvNominal(medidos, nom);
+      const std = stdDev(medidos);
+      const cv = prom > 0 ? (std / prom) * 100 : 0;
+      return [
+        nom.toFixed(5).replace(/\.?0+$/, ""),
+        prom.toFixed(3),
+        desv.toFixed(2) + " %",
+        std.toFixed(5),
+        cv.toFixed(2) + " %",
+        desv <= 10 && cv <= 10 ? "Conforme" : "No conforme",
+      ];
+    });
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.4.1. Registro de mediciones para la exactitud y repetibilidad del tiempo de exposición");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tiempo nominal (s)", "Tiempo promedio medido (s)", "Desviación máxima (%)", "Desviación estándar (s)", "CV (%)", "Concepto"]],
+    body: rows,
+    columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
+    didParseCell: colorearConcepto(5),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addParagraph(
+    "La exactitud del tiempo de exposición se evaluó mediante la desviación máxima porcentual entre el tiempo nominal seleccionado y el tiempo medido con mayor desviación.",
+  );
+  ctx.addParagraph(
+    "La repetibilidad del sistema de temporización se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada tiempo nominal.",
+  );
+
+  ctx.addSubsectionTitle("2.4.5.", "Análisis");
+  const todosConformes = rows.every((r) => r[5] === "Conforme");
+  const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
+  const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
+  if (todosConformes) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${maxDv.toFixed(2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${maxCv.toFixed(2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
+    );
+  } else {
+    ctx.addParagraph(
+      "Los resultados obtenidos evidencian que una o más combinaciones de tiempos de exposición evaluadas presentaron desviaciones o variabilidad superiores a los criterios de aceptación establecidos, lo que indica inestabilidad en el sistema de temporización del generador de rayos X."
+    );
+  }
+  return 6;
+}
+
+function render25(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const principales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1),
+  );
+
+  ctx.addSubsectionTitle("2.5.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  const grupos = new Map<number, typeof principales>();
+  for (const m of principales) {
+    if (m.kv_nominal == null || m.kv_medido == null) continue;
+    const key = m.kv_nominal;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key)!.push(m);
+  }
+
+  if (grupos.size === 0) return SIN_DATOS(ctx);
+
+  const rows = [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([nom, ms]) => {
+      const medidos = ms.map((m) => m.kv_medido!);
+      const prom = mean(medidos);
+      const desv = desvNominal(medidos, nom);
+      const std = stdDev(medidos);
+      const cv = prom > 0 ? (std / prom) * 100 : 0;
+      return [
+        nom.toFixed(0),
+        prom.toFixed(1),
+        desv.toFixed(2) + " %",
+        std.toFixed(2),
+        cv.toFixed(2) + " %",
+        desv <= 10 && cv <= 5 ? "Conforme" : "No conforme",
+      ];
+    });
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.5.1. Registro de mediciones para la exactitud y repetibilidad de la tensión del tubo de rayos X");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión nominal (kV)", "Tensión promedio medida (kV)", "Desviación máxima (%)", "Desviación estándar (kV)", "CV (%)", "Concepto"]],
+    body: rows,
+    columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
+    didParseCell: colorearConcepto(5),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.5.5.", "Análisis");
+  const todosConformes = rows.every((r) => r[5] === "Conforme");
+  const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
+  const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
+  if (todosConformes) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que la tensión del tubo medida presenta desviaciones máximas de hasta ${maxDv.toFixed(2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${maxCv.toFixed(2)} %, lo que indica una adecuada estabilidad en la respuesta del generador de rayos X para los valores de tensión evaluados.`
+    );
+  } else {
+    ctx.addParagraph(
+      "Los resultados obtenidos evidencian que una o más tensiones evaluadas presentaron desviaciones o variabilidad superiores a los criterios de aceptación establecidos, indicando inestabilidad en el generador de alta tensión."
+    );
+  }
+  return 6;
+}
+
+function render26(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const principales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1),
+  );
+
+  ctx.addSubsectionTitle("2.6.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  const grupos = new Map<number, typeof principales>();
+  for (const m of principales) {
+    if (m.kv_nominal == null || m.chr_medido_mmal == null) continue;
+    const key = m.kv_nominal;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key)!.push(m);
+  }
+
+  if (grupos.size === 0) return SIN_DATOS(ctx);
+
+  const rows = [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([kv, ms]) => {
+      const chrProm = mean(ms.map((m) => m.chr_medido_mmal!));
+      const chrMin = CHR_MIN[kv] ?? "—";
+      const concepto = typeof chrMin === "number" && chrProm >= chrMin ? "Conforme" : "No conforme";
+      return [kv.toFixed(0), chrProm.toFixed(1), String(chrMin), concepto];
+    });
+
+  ctx.checkPage(36);
+  addCaption(ctx, "Tabla 2.6.1. Registro de mediciones para la capa hemirreductora del haz de rayos X");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión nominal (kV)", "CHR promedio medida (mm Al)", "CHR mínima (mm Al)", "Concepto"]],
+    body: rows,
+    columnStyles: { 0: { cellWidth: 36 }, 3: { cellWidth: 28 } },
+    didParseCell: colorearConcepto(3),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.6.5.", "Análisis");
+  const todosConformes = rows.every((r) => r[3] === "Conforme");
+  const resumen = rows.map((r) => `${r[1]} mm Al a ${r[0]} kV`).join(", ");
+  if (todosConformes) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que la capa hemirreductora (CHR) medida presenta valores de ${resumen}, respectivamente. Al comparar estos valores con los mínimos de referencia establecidos para radiodiagnóstico, se observa que todas las mediciones se encuentran por encima del mínimo requerido, lo que indica que el haz de rayos X presenta una filtración adecuada para las condiciones de operación evaluadas.`
+    );
+  } else {
+    ctx.addParagraph(
+      "Los resultados obtenidos evidencian que uno o más niveles de tensión evaluados presentan valores de CHR inferiores al mínimo de referencia establecido, lo que indica una filtración insuficiente del haz de rayos X."
+    );
+  }
+  return 6;
+}
+
+function render27(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const shots80 = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
+  );
+
+  ctx.addSubsectionTitle("2.7.4.", "Resultados");
+  ctx.addParagraph(
+    "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
+    "Tensión de referencia: 80 kVp\n" +
+    `Distancia foco-detector: ${conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100} cm\n` +
+    "Estimación del rendimiento: normalizado a 100 centímetros"
+  );
+
+  if (shots80.length === 0) return SIN_DATOS(ctx);
+
+  // ── Tabla 2.7.1: Linealidad ──
+  const gruposMas = new Map<number, typeof shots80>();
+  for (const m of shots80) {
+    if (m.mas_nominal == null) continue;
+    if (!gruposMas.has(m.mas_nominal)) gruposMas.set(m.mas_nominal, []);
+    gruposMas.get(m.mas_nominal)!.push(m);
+  }
+
+  if (gruposMas.size > 0) {
+    const entradasOrdenadas = [...gruposMas.entries()].sort(([a], [b]) => a - b);
+    let rendRef: number | null = null;
+    const rowsLin = entradasOrdenadas.map(([mas, ms], idx) => {
+      const kermaProm = mean(ms.map((m) => m.dosis_medida_mgy!));
+      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0; // µGy/mAs
+      if (idx === 0) rendRef = rend;
+      const linPct =
+        rendRef && rendRef > 0 && idx > 0
+          ? ((rend - rendRef) / rendRef) * 100
+          : null;
+      return [
+        mas.toFixed(1),
+        kermaProm.toFixed(3),
+        rend.toFixed(1),
+        linPct != null ? linPct.toFixed(2) + " %" : "—",
+      ];
+    });
+
+    ctx.checkPage(40);
+    addCaption(ctx, "Tabla 2.7.1. Rendimiento del tubo de rayos X y linealidad");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Exposición nominal (mAs)", "Kerma en aire promedio (mGy)", "Rendimiento (µGy/mAs)", "Linealidad (%)"]],
+      body: rowsLin,
+      columnStyles: { 0: { cellWidth: 36 } },
+    });
+    ctx.y = finalY(doc) + 4;
+  }
+
+  // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/10mAs) ──
+  const repShots = shots80
+    .filter((m) => m.grupo_numero === 3)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+
+  if (repShots.length > 0) {
+    const kermas = repShots.map((m) => m.dosis_medida_mgy!);
+    const prom = mean(kermas);
+    const std = stdDev(kermas);
+    const cv = prom > 0 ? (std / prom) * 100 : 0;
+
+    const rowsRep: string[][] = repShots.map((m, i) => [String(i + 1), m.dosis_medida_mgy!.toFixed(4)]);
+
+    ctx.checkPage(40);
+    addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Medición", "Kerma en aire medido (mGy)"]],
+      body: [
+        ...rowsRep,
+        ["Promedio", prom.toFixed(4)],
+        ["Desviación estándar (mGy)", std.toFixed(4)],
+        ["CV (%)", cv.toFixed(2) + " %"],
+      ],
+      columnStyles: {
+        0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      },
+    });
+    ctx.y = finalY(doc) + 4;
+
+    ctx.addSubsectionTitle("2.7.5.", "Análisis");
+    const gruposMasArr = [...gruposMas.entries()].sort(([a], [b]) => a - b);
+    const rendMin = gruposMasArr.length > 0
+      ? Math.min(...gruposMasArr.map(([mas, ms]) => (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000))
+      : 0;
+    const rendMax = gruposMasArr.length > 0
+      ? Math.max(...gruposMasArr.map(([mas, ms]) => (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000))
+      : 0;
+    const linMax = gruposMasArr.length > 1
+      ? (() => {
+          const ref = (mean(gruposMasArr[0][1].map((m) => m.dosis_medida_mgy!)) / gruposMasArr[0][0]) * 1000;
+          return Math.max(...gruposMasArr.slice(1).map(([mas, ms]) => {
+            const r = (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000;
+            return Math.abs((r - ref) / ref) * 100;
+          }));
+        })()
+      : 0;
+    const conformeRep = cv <= 5;
+    const conformeLin = linMax <= 10;
+    if (conformeRep && conformeLin) {
+      ctx.addParagraph(
+        `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rendMin.toFixed(1)} y ${rendMax.toFixed(1)} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cv.toFixed(2)} % y la linealidad del rendimiento presenta una desviación máxima de ${linMax.toFixed(2)} %, ambos dentro de los criterios de aceptación establecidos.`
+      );
+    } else {
+      ctx.addParagraph(
+        `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta un CV de repetibilidad de ${cv.toFixed(2)} % y una linealidad máxima de ${linMax.toFixed(2)} %. ` +
+        (!conformeRep ? "La repetibilidad supera el criterio de aceptación del 5 %. " : "") +
+        (!conformeLin ? "La linealidad supera el criterio de aceptación del 10 %. " : "")
+      );
+    }
+  } else {
+    ctx.addSubsectionTitle("2.7.5.", "Análisis");
+    ctx.addParagraph("Sin datos de repetibilidad registrados.");
+  }
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -607,6 +1186,16 @@ export function renderResultadosSeccion(
       return render21(ctx, visita, conv);
     case "2.2":
       return render22(ctx, conv, ubicacion);
+    case "2.3":
+      return render23(ctx, conv);
+    case "2.4":
+      return render24(ctx, conv);
+    case "2.5":
+      return render25(ctx, conv);
+    case "2.6":
+      return render26(ctx, conv);
+    case "2.7":
+      return render27(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

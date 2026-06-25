@@ -23,6 +23,8 @@ import {
   renderResultadosSeccion,
   renderDiagramaRadiometrico,
   renderFotos22,
+  renderFotos23,
+  renderFotos24,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -284,9 +286,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
   function addParagraph(text: string, fontSize = 9, indent = 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
-    doc.setTextColor(...COLOR_BLACK);
     const lines = doc.splitTextToSize(text, CONTENT_WIDTH - indent);
     checkPage(lines.length * 4.2 + 2);
+    // Re-aplicar estilos: checkPage puede agregar página nueva y addHeader cambia font/color
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    doc.setTextColor(...COLOR_BLACK);
     doc.text(lines, MARGIN + indent, y);
     y += lines.length * 4.2 + 2;
   }
@@ -749,6 +754,20 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         nextSub++;
       }
 
+      // Evidencia gráfica (2.3 y 2.4) — entre Criterio y Concepto
+      if (codigo === "2.3" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos23(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.4" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos24(ctx, conv);
+        nextSub++;
+      }
+
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
       addSubsectionTitle(`${codigo}.${nextSub}.`, "Concepto");
@@ -756,6 +775,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       const c = seccion.concepto;
       const esAuto21 = codigo === "2.1" && aplica;
       const esAuto22 = codigo === "2.2" && aplica;
+      const esAuto23 = codigo === "2.3" && aplica;
 
       let conceptoLabel: string;
       let conceptoParrafo: string | undefined;
@@ -764,7 +784,48 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         ? seccion.acciones_correctivas
         : "No se requieren acciones correctivas.";
 
-      if (esAuto22) {
+      if (esAuto23) {
+        // Deriva concepto de los datos de colimación (misma lógica que render23)
+        const col = conv.colimacion;
+        const sid = col?.sid_cm || 100;
+        const varPcts = [
+          [col?.anodo_nominal, col?.anodo_medido],
+          [col?.catodo_nominal, col?.catodo_medido],
+          [col?.izquierda_nominal, col?.izquierda_medido],
+          [col?.derecha_nominal, col?.derecha_medido],
+        ].map(([nom, med]) => (Math.abs((med ?? 0) - (nom ?? 0)) * 100) / sid);
+        const totalVar = varPcts.reduce((s, v) => s + v, 0);
+        const colimConf = varPcts.every((v) => v < 2) && totalVar < 4;
+        const esfera = col?.posicion_esfera;
+        const perpConf =
+          esfera === "Centro" ||
+          esfera === "Primer circulo" ||
+          esfera === "Segundo circulo";
+
+        esNoConforme = !colimConf || !perpConf;
+
+        if (colimConf && perpConf) {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo =
+            "La prueba del sistema de colimación del haz y perpendicularidad del rayo central se considera conforme, debido a que la coincidencia entre el campo luminoso y el campo de radiación se encontró dentro de las tolerancias establecidas y la perpendicularidad del rayo central presentó una desviación angular aceptable.";
+          accionesTexto =
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+        } else {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo =
+            "La prueba del sistema de colimación del haz y perpendicularidad del rayo central se considera no conforme, debido a que uno o más de los criterios de aceptación evaluados no cumplieron con los valores establecidos.";
+          if (!colimConf && perpConf) {
+            accionesTexto =
+              "Se recomienda verificar y ajustar el sistema de colimación del equipo, revisando la coincidencia entre el campo luminoso y el campo de radiación. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de las tolerancias establecidas.";
+          } else if (colimConf && !perpConf) {
+            accionesTexto =
+              "Se recomienda verificar la alineación del rayo central y el correcto posicionamiento del tubo de rayos X con respecto al receptor de imagen. Posteriormente, deberá repetirse la prueba para confirmar que la desviación angular sea menor o igual a 3°.";
+          } else {
+            accionesTexto =
+              "Se recomienda realizar ajuste técnico del sistema de colimación y de la alineación geométrica del haz de radiación, seguido de la repetición de la prueba para verificar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (esAuto22) {
         // Concepto derivado de la inspección visual: NO FAVORABLE si hay algún
         // "No conforme" en inspección del equipo, condiciones de operación o
         // elementos de protección.
@@ -800,6 +861,133 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
             "Las dosis equivalentes anuales estimadas en las áreas evaluadas se encuentran por debajo de los niveles de restricción de dosis establecidos para áreas controladas y supervisadas, por lo que las condiciones radiológicas de la instalación se consideran aceptables para la operación del equipo evaluado.";
           accionesTexto = "No se requieren acciones correctivas.";
         }
+      } else if (codigo === "2.4" && aplica) {
+        const GRUPOS_TKC = new Set([1, 2, 6]);
+        const principales = conv.raysafeMediciones.filter(
+          (m) => m.tipo_medicion === "principal" && GRUPOS_TKC.has(m.grupo_numero ?? -1),
+        );
+        const grupos = new Map<number, typeof principales>();
+        for (const m of principales) {
+          if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
+          if (!grupos.has(m.tiempo_nominal_s)) grupos.set(m.tiempo_nominal_s, []);
+          grupos.get(m.tiempo_nominal_s)!.push(m);
+        }
+        const conformes = [...grupos.entries()].map(([nom, ms]) => {
+          const medidos = ms.map((m) => m.tiempo_medido_s!);
+          const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
+          const desv = (Math.abs(prom - nom) / nom) * 100;
+          const std = Math.sqrt(medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / Math.max(medidos.length - 1, 1));
+          const cv = prom > 0 ? (std / prom) * 100 : 0;
+          return desv <= 10 && cv <= 10;
+        });
+        const hayDatos = grupos.size > 0;
+        esNoConforme = hayDatos && conformes.some((ok) => !ok);
+        if (!hayDatos) { conceptoLabel = "PENDIENTE"; }
+        else if (esNoConforme) {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo = "La prueba de exactitud y repetibilidad del tiempo de exposición se considera no conforme, ya que una o más combinaciones evaluadas presentaron desviaciones o variabilidad fuera de los criterios de aceptación establecidos.";
+          accionesTexto = "Se recomienda verificar el sistema de temporización del generador de rayos X y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación.";
+        } else {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo = "La prueba de exactitud y repetibilidad del tiempo de exposición se considera conforme, ya que las desviaciones y la variabilidad observadas se encuentran dentro de los criterios de aceptación establecidos.";
+          accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+        }
+      } else if (codigo === "2.5" && aplica) {
+        const GRUPOS_TKC = new Set([1, 2, 6]);
+        const principales = conv.raysafeMediciones.filter(
+          (m) => m.tipo_medicion === "principal" && GRUPOS_TKC.has(m.grupo_numero ?? -1),
+        );
+        const grupos = new Map<number, typeof principales>();
+        for (const m of principales) {
+          if (m.kv_nominal == null || m.kv_medido == null) continue;
+          if (!grupos.has(m.kv_nominal)) grupos.set(m.kv_nominal, []);
+          grupos.get(m.kv_nominal)!.push(m);
+        }
+        const conformes = [...grupos.entries()].map(([nom, ms]) => {
+          const medidos = ms.map((m) => m.kv_medido!);
+          const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
+          const desv = (Math.abs(prom - nom) / nom) * 100;
+          const std = Math.sqrt(medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / Math.max(medidos.length - 1, 1));
+          const cv = prom > 0 ? (std / prom) * 100 : 0;
+          return desv <= 10 && cv <= 5;
+        });
+        const hayDatos = grupos.size > 0;
+        esNoConforme = hayDatos && conformes.some((ok) => !ok);
+        if (!hayDatos) { conceptoLabel = "PENDIENTE"; }
+        else if (esNoConforme) {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo = "La prueba de exactitud y repetibilidad de la tensión del tubo de rayos X se considera no conforme, ya que una o más tensiones evaluadas presentaron desviaciones o variabilidad fuera de los criterios de aceptación establecidos.";
+          accionesTexto = "Se recomienda verificar el sistema generador de alta tensión y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación.";
+        } else {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo = "La prueba de exactitud y repetibilidad de la tensión del tubo de rayos X se considera conforme, ya que las desviaciones y la variabilidad observadas se encuentran dentro de los criterios de aceptación establecidos.";
+          accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+        }
+      } else if (codigo === "2.6" && aplica) {
+        const CHR_MIN_LOCAL: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
+        const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+        const grupos = new Map<number, typeof principales>();
+        for (const m of principales) {
+          if (m.kv_nominal == null || m.chr_medido_mmal == null) continue;
+          if (!grupos.has(m.kv_nominal)) grupos.set(m.kv_nominal, []);
+          grupos.get(m.kv_nominal)!.push(m);
+        }
+        const conformes = [...grupos.entries()].map(([kv, ms]) => {
+          const prom = ms.reduce((s, m) => s + (m.chr_medido_mmal ?? 0), 0) / ms.length;
+          return prom >= (CHR_MIN_LOCAL[kv] ?? 0);
+        });
+        const hayDatos = grupos.size > 0;
+        esNoConforme = hayDatos && conformes.some((ok) => !ok);
+        if (!hayDatos) { conceptoLabel = "PENDIENTE"; }
+        else if (esNoConforme) {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo = "La prueba de capa hemirreductora (CHR) se considera no conforme, ya que uno o más niveles de tensión evaluados presentan valores de CHR inferiores al mínimo de referencia establecido para radiodiagnóstico.";
+          accionesTexto = "Se recomienda verificar la filtración del haz de rayos X y revisar el estado del filtro inherente y adicional del tubo. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el cumplimiento de los valores mínimos de CHR establecidos.";
+        } else {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo = "La prueba de capa hemirreductora (CHR) se considera conforme, ya que los valores medidos para los niveles de tensión evaluados son iguales o superiores a los valores mínimos de referencia establecidos para radiodiagnóstico.";
+          accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+        }
+      } else if (codigo === "2.7" && aplica) {
+        const shots80 = conv.raysafeMediciones.filter(
+          (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
+        );
+        const repShots = shots80.filter((m) => m.grupo_numero === 3);
+        const hayRep = repShots.length > 0;
+        const kermas = repShots.map((m) => m.dosis_medida_mgy!);
+        const prom = hayRep ? kermas.reduce((s, v) => s + v, 0) / kermas.length : 0;
+        const std = hayRep ? Math.sqrt(kermas.reduce((s, v) => s + (v - prom) ** 2, 0) / Math.max(kermas.length - 1, 1)) : 0;
+        const cv = prom > 0 ? (std / prom) * 100 : 0;
+        const gruposMas = new Map<number, typeof shots80>();
+        for (const m of shots80) {
+          if (m.mas_nominal == null) continue;
+          if (!gruposMas.has(m.mas_nominal)) gruposMas.set(m.mas_nominal, []);
+          gruposMas.get(m.mas_nominal)!.push(m);
+        }
+        const entradasLin = [...gruposMas.entries()].sort(([a], [b]) => a - b);
+        let linMax = 0;
+        if (entradasLin.length > 1) {
+          const [mas0, ms0] = entradasLin[0];
+          const ref = (ms0.reduce((s, m) => s + m.dosis_medida_mgy!, 0) / ms0.length / mas0) * 1000;
+          for (const [mas, ms] of entradasLin.slice(1)) {
+            const r = (ms.reduce((s, m) => s + m.dosis_medida_mgy!, 0) / ms.length / mas) * 1000;
+            linMax = Math.max(linMax, Math.abs((r - ref) / ref) * 100);
+          }
+        }
+        const conformeRep = !hayRep || cv <= 5;
+        const conformeLin = entradasLin.length <= 1 || linMax <= 10;
+        const hayDatos = shots80.length > 0;
+        esNoConforme = hayDatos && (!conformeRep || !conformeLin);
+        if (!hayDatos) { conceptoLabel = "PENDIENTE"; }
+        else if (esNoConforme) {
+          conceptoLabel = "NO FAVORABLE";
+          conceptoParrafo = "La prueba de rendimiento del tubo de rayos X, repetibilidad y linealidad se considera no conforme, ya que el coeficiente de variación o las desviaciones de linealidad observadas superan los criterios de aceptación establecidos.";
+          accionesTexto = "Se recomienda verificar el sistema de generación de rayos X y evaluar las posibles causas de inestabilidad en la radiación de salida. Posteriormente, deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+        } else {
+          conceptoLabel = "FAVORABLE";
+          conceptoParrafo = "La prueba de rendimiento del tubo de rayos X, repetibilidad y linealidad se considera conforme, ya que el coeficiente de variación obtenido para las exposiciones repetidas y las desviaciones observadas en la linealidad del rendimiento se encuentran dentro de los criterios de aceptación establecidos.";
+          accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+        }
       } else if (!aplica) {
         conceptoLabel = "NO APLICA";
         esNoConforme = false;
@@ -820,9 +1008,8 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
       if (conceptoParrafo) {
         addParagraph(conceptoParrafo);
       }
-      // La 2.1 no lleva observaciones (concepto automático); la 2.2 usa el
-      // campo observaciones como Análisis (renderizado arriba), no aquí.
-      if (codigo !== "2.1" && codigo !== "2.2" && seccion.observaciones?.trim()) {
+      // Las secciones 2.1, 2.2 y 2.3 tienen concepto automático; no usan observaciones manuales aquí.
+      if (codigo !== "2.1" && codigo !== "2.2" && codigo !== "2.3" && seccion.observaciones?.trim()) {
         addParagraph(seccion.observaciones);
       }
 

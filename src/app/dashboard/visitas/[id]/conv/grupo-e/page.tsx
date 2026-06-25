@@ -171,11 +171,11 @@ function ConceptoBadge({ concepto }: { concepto: "Conforme" | "No_conforme" | nu
   if (!concepto) return <span className="text-[10px] text-slate-300 font-bold">—</span>;
   return concepto === "Conforme" ? (
     <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-      <CheckCircle2 className="w-3 h-3" /> OK
+      <CheckCircle2 className="w-3 h-3" /> Conforme
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
-      <XCircle className="w-3 h-3" /> NC
+      <XCircle className="w-3 h-3" /> No conforme
     </span>
   );
 }
@@ -463,12 +463,20 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
             Coincidencia del campo luminoso con el campo de radiacion. Tolerancia: &lt; 2% por lado, &lt; 4% total.
           </StepHeader>
 
-          <ImageSlot
-            label="Montaje experimental colimacion"
-            evidencia={getEvidencia("2.3", "montaje_colimacion")}
-            onCapture={(file) => captureImage("2.3", "montaje_colimacion", file)}
-            onRemove={() => removeImage("2.3", "montaje_colimacion")}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImageSlot
+              label="Montaje experimental colimacion"
+              evidencia={getEvidencia("2.3", "montaje_colimacion")}
+              onCapture={(file) => captureImage("2.3", "montaje_colimacion", file)}
+              onRemove={() => removeImage("2.3", "montaje_colimacion")}
+            />
+            <ImageSlot
+              label="Imagen del patron de prueba (radiografia)"
+              evidencia={getEvidencia("2.3", "patron_colimacion")}
+              onCapture={(file) => captureImage("2.3", "patron_colimacion", file)}
+              onRemove={() => removeImage("2.3", "patron_colimacion")}
+            />
+          </div>
 
           <CollapsibleSection title="Tecnica y distancia">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

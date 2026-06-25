@@ -54,43 +54,43 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
   },
   {
     codigo: "2.3",
-    nombre: "Sistema de colimacion del haz y perpendicularidad del rayo central",
+    nombre: "Sistema de colimación del haz y perpendicularidad del rayo central",
     grupo: "E",
     orden: 3,
     objetivo:
-      "Evaluar la desviacion entre el campo luminoso y el campo real de radiacion y la perpendicularidad del eje central del haz de radiacion.",
+      "Evaluar la desviación entre el campo luminoso y el campo real de radiación y la perpendicularidad del eje central del haz de radiación con relación al plano del receptor de imagen.",
     instrumentacion:
-      "Detector CR o DR, dispositivo de verificacion de colimacion y alineacion del rayo central y cinta metrica.",
+      "Detector CR o DR, dispositivo de verificación de colimación y alineación del rayo central y cinta métrica.",
     metodologia:
-      "Se ubico el dispositivo de verificacion de colimacion sobre el receptor de imagen y se ajusto el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba.",
+      "Se ubicó el dispositivo de verificación de colimación sobre el receptor de imagen y se ajustó el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba. Posteriormente, se realizó una exposición radiográfica con una técnica adecuada para visualizar el campo irradiado y la posición del rayo central.\n\nA partir de la imagen obtenida se evaluó la coincidencia entre el campo luminoso y el campo de radiación, así como la perpendicularidad del rayo central respecto al plano del receptor, de acuerdo con los criterios establecidos en el IAEA-TECDOC-1958.",
     criterio:
-      "La desviacion entre el campo luminoso y el campo de radiacion no debe exceder el 2% de la distancia foco-receptor en cada borde ni el 4% en total. La perpendicularidad del rayo central debe presentar una desviacion angular <= 3 grados.",
+      "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular menor o igual a 3°.",
   },
   {
     codigo: "2.4",
-    nombre: "Exactitud y repetibilidad del tiempo de exposicion",
+    nombre: "Exactitud y repetibilidad del tiempo de exposición",
     grupo: "B",
     orden: 4,
     objetivo:
-      "Evaluar la exactitud y la repetibilidad del indicador del tiempo de exposicion del generador de rayos X.",
-    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnostico.",
+      "Evaluar la exactitud y la repetibilidad del indicador del tiempo de exposición del generador de rayos X.",
+    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
-      "Se posiciono el medidor no invasivo sobre la mesa, en el centro del haz de radiacion, ajustando el tamano del campo al volumen sensible del instrumento.",
+      "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe seleccionó una combinación representativa de tensión y corriente del generador y se realizaron al menos tres exposiciones para un tiempo de exposición determinado, registrando el tiempo medido en cada exposición. El procedimiento se repitió para otros dos tiempos de exposición seleccionados, manteniendo constantes los demás parámetros de irradiación.",
     criterio:
-      "La desviacion entre el tiempo de exposicion seleccionado y el tiempo medido no debe exceder +/-10%. La repetibilidad (CV) <= 10%.",
+      "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder +/-10 %.\nLa repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 10 %.",
   },
   {
     codigo: "2.5",
-    nombre: "Exactitud y repetibilidad de la tension del tubo (kVp)",
+    nombre: "Exactitud y repetibilidad de la tensión del tubo de rayos X",
     grupo: "B",
     orden: 5,
     objetivo:
-      "Evaluar la exactitud y la repetibilidad del indicador de la tension del tubo de rayos X del generador.",
-    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnostico.",
+      "Evaluar la exactitud y la repetibilidad del indicador de la tensión del tubo de rayos X del generador.",
+    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
-      "Se posiciono el medidor no invasivo sobre la mesa, en el centro del haz de radiacion. Se seleccionaron al menos tres valores representativos de tension del tubo.",
+      "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe seleccionaron al menos tres valores representativos de tensión del tubo de rayos X y se realizaron al menos tres exposiciones para cada valor seleccionado, registrando la tensión medida en cada irradiación. Durante las mediciones se mantuvieron constantes los demás parámetros de irradiación.",
     criterio:
-      "La desviacion entre la tension seleccionada y la tension medida no debe exceder +/-10%. La repetibilidad (CV) <= 5%.",
+      "La desviación entre la tensión seleccionada y la tensión medida no debe exceder +/-10 %.\nLa repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 5 %.",
   },
   {
     codigo: "2.6",
@@ -98,23 +98,25 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "B",
     orden: 6,
     objetivo:
-      "Verificar si el valor de la capa hemirreductora esta de acuerdo con los requisitos minimos.",
-    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnostico.",
+      "Verificar si el valor de la capa hemirreductora está de acuerdo con los requisitos mínimos.",
+    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
-      "Se posiciono el medidor no invasivo sobre la mesa, en el centro del haz de radiacion. Se realizaron exposiciones registrando la CHR reportada por el analizador.",
-    criterio: "CHR a 60 kVp >= 1.8 mm Al, a 70 kVp >= 2.1, a 80 kVp >= 2.3, a 90 kVp >= 2.5.",
+      "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe realizaron exposiciones utilizando valores representativos de tensión del tubo de rayos X, registrando la capa hemirreductora (CHR) reportada por el analizador para cada condición de irradiación. Los valores obtenidos se compararon con los valores mínimos de referencia establecidos para radiodiagnóstico según la tensión del tubo utilizada.",
+    criterio:
+      "La capa hemirreductora del haz de rayos X debe ser igual o mayor que los valores mínimos de referencia establecidos para cada nivel de tensión del tubo.",
   },
   {
     codigo: "2.7",
-    nombre: "Rendimiento del tubo, repetibilidad y linealidad",
+    nombre: "Valor del rendimiento del tubo de rayos X, repetibilidad y linealidad",
     grupo: "B",
     orden: 7,
     objetivo:
       "Evaluar el valor, la repetibilidad y la linealidad del rendimiento del tubo de rayos X.",
-    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnostico.",
+    instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
-      "Se posiciono el detector del sistema dosimetrico a aproximadamente 100 cm del foco del tubo de rayos X. Se selecciono un valor de 80 kV como tension de referencia.",
-    criterio: "CV de repetibilidad <= 5%. Desviacion de linealidad <= 10%.",
+      "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nEl detector del sistema dosimétrico se ubicó aproximadamente a 100 cm del foco del tubo de rayos X. Se seleccionó un valor de 80 kV como tensión de referencia. Posteriormente se realizaron exposiciones utilizando diferentes valores de mAs, registrando el kerma en aire reportado por el analizador en cada irradiación.\n\nA partir de las mediciones obtenidas se calculó el rendimiento del tubo de rayos X, expresado como kerma en aire por unidad de carga (µGy/mAs). La repetibilidad se evaluó mediante el cálculo del coeficiente de variación (CV) para exposiciones repetidas bajo las mismas condiciones de irradiación, mientras que la linealidad se evaluó mediante la comparación del rendimiento obtenido para los diferentes valores de mAs.",
+    criterio:
+      "El coeficiente de variación (CV) para exposiciones repetidas no debe exceder 5 %.\nLa desviación en la linealidad del rendimiento con respecto al mAs no debe exceder +/-10 %.",
   },
   {
     codigo: "2.8",

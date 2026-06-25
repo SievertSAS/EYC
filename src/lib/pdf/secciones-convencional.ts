@@ -11,6 +11,8 @@ import type {
   ConvResultadoPrueba,
   ConvInformeSeccion,
   ConvColimacion,
+  ConvRaysafeSetup,
+  ConvRaysafeMedicion,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -74,6 +76,9 @@ export interface DatosConvencional {
   fotos22?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Imágenes de la 2.3 (montaje y patrón) para la sección 2.3.7 */
   fotos23?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
+  raysafeSetup?: ConvRaysafeSetup;
+  raysafeMediciones: ConvRaysafeMedicion[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -99,7 +104,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -109,6 +114,8 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_resultados_prueba.where("visita_id").equals(visitaId).toArray(),
       db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
       db.conv_colimacion.where("visita_id").equals(visitaId).first(),
+      db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
+      db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -171,6 +178,8 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     planoRadiometrico: await cargarImagen(planoEv),
     fotos22,
     fotos23,
+    raysafeSetup,
+    raysafeMediciones,
   };
 }
 
@@ -742,6 +751,336 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── Helpers estadísticos ───
+
+const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
+
+function mean(arr: number[]): number {
+  return arr.length === 0 ? 0 : arr.reduce((s, v) => s + v, 0) / arr.length;
+}
+
+function stdDev(arr: number[]): number {
+  if (arr.length <= 1) return 0;
+  const m = mean(arr);
+  return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
+}
+
+function maxDesv(medidos: number[], nominal: number): number {
+  if (nominal === 0) return 0;
+  return Math.max(...medidos.map((m) => (Math.abs(m - nominal) / nominal) * 100));
+}
+
+// ─── Renderizadores 2.4–2.7 (pruebas RaySafe) ───
+
+const SIN_DATOS = (ctx: InformeCtx) => {
+  ctx.addParagraph("Sin datos registrados para esta prueba.");
+  return 6;
+};
+
+function render24(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+
+  ctx.addSubsectionTitle("2.4.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  // Agrupar por tiempo_nominal_s
+  const grupos = new Map<number, typeof principales>();
+  for (const m of principales) {
+    if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
+    const key = m.tiempo_nominal_s;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key)!.push(m);
+  }
+
+  if (grupos.size === 0) return SIN_DATOS(ctx);
+
+  const rows = [...grupos.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([nom, ms]) => {
+      const medidos = ms.map((m) => m.tiempo_medido_s!);
+      const prom = mean(medidos);
+      const desv = maxDesv(medidos, nom);
+      const std = stdDev(medidos);
+      const cv = prom > 0 ? (std / prom) * 100 : 0;
+      return [
+        nom.toFixed(5).replace(/\.?0+$/, ""),
+        prom.toFixed(3),
+        desv.toFixed(2) + " %",
+        std.toFixed(5),
+        cv.toFixed(2) + " %",
+        desv <= 10 && cv <= 10 ? "Conforme" : "No conforme",
+      ];
+    });
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.4.1. Registro de mediciones para la exactitud y repetibilidad del tiempo de exposición");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tiempo nominal (s)", "Tiempo promedio medido (s)", "Desviación máxima (%)", "Desviación estándar (s)", "CV (%)", "Concepto"]],
+    body: rows,
+    columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
+    didParseCell: colorearConcepto(5),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.4.5.", "Análisis");
+  const todosConformes = rows.every((r) => r[5] === "Conforme");
+  const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
+  const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
+  if (todosConformes) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${maxDv.toFixed(2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${maxCv.toFixed(2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
+    );
+  } else {
+    ctx.addParagraph(
+      "Los resultados obtenidos evidencian que una o más combinaciones de tiempos de exposición evaluadas presentaron desviaciones o variabilidad superiores a los criterios de aceptación establecidos, lo que indica inestabilidad en el sistema de temporización del generador de rayos X."
+    );
+  }
+  return 6;
+}
+
+function render25(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+
+  ctx.addSubsectionTitle("2.5.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  const grupos = new Map<number, typeof principales>();
+  for (const m of principales) {
+    if (m.kv_nominal == null || m.kv_medido == null) continue;
+    const key = m.kv_nominal;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key)!.push(m);
+  }
+
+  if (grupos.size === 0) return SIN_DATOS(ctx);
+
+  const rows = [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([nom, ms]) => {
+      const medidos = ms.map((m) => m.kv_medido!);
+      const prom = mean(medidos);
+      const desv = maxDesv(medidos, nom);
+      const std = stdDev(medidos);
+      const cv = prom > 0 ? (std / prom) * 100 : 0;
+      return [
+        nom.toFixed(0),
+        prom.toFixed(1),
+        desv.toFixed(2) + " %",
+        std.toFixed(2),
+        cv.toFixed(2) + " %",
+        desv <= 10 && cv <= 5 ? "Conforme" : "No conforme",
+      ];
+    });
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.5.1. Registro de mediciones para la exactitud y repetibilidad de la tensión del tubo de rayos X");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión nominal (kV)", "Tensión promedio medida (kV)", "Desviación máxima (%)", "Desviación estándar (kV)", "CV (%)", "Concepto"]],
+    body: rows,
+    columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
+    didParseCell: colorearConcepto(5),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.5.5.", "Análisis");
+  const todosConformes = rows.every((r) => r[5] === "Conforme");
+  const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
+  const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
+  if (todosConformes) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que la tensión del tubo medida presenta desviaciones máximas de hasta ${maxDv.toFixed(2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${maxCv.toFixed(2)} %, lo que indica una adecuada estabilidad en la respuesta del generador de rayos X para los valores de tensión evaluados.`
+    );
+  } else {
+    ctx.addParagraph(
+      "Los resultados obtenidos evidencian que una o más tensiones evaluadas presentaron desviaciones o variabilidad superiores a los criterios de aceptación establecidos, indicando inestabilidad en el generador de alta tensión."
+    );
+  }
+  return 6;
+}
+
+function render26(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const principales = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
+
+  ctx.addSubsectionTitle("2.6.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  const grupos = new Map<number, typeof principales>();
+  for (const m of principales) {
+    if (m.kv_nominal == null || m.chr_medido_mmal == null) continue;
+    const key = m.kv_nominal;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key)!.push(m);
+  }
+
+  if (grupos.size === 0) return SIN_DATOS(ctx);
+
+  const rows = [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([kv, ms]) => {
+      const chrProm = mean(ms.map((m) => m.chr_medido_mmal!));
+      const chrMin = CHR_MIN[kv] ?? "—";
+      const concepto = typeof chrMin === "number" && chrProm >= chrMin ? "Conforme" : "No conforme";
+      return [kv.toFixed(0), chrProm.toFixed(1), String(chrMin), concepto];
+    });
+
+  ctx.checkPage(36);
+  addCaption(ctx, "Tabla 2.6.1. Registro de mediciones para la capa hemirreductora del haz de rayos X");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión nominal (kV)", "CHR promedio medida (mm Al)", "CHR mínima (mm Al)", "Concepto"]],
+    body: rows,
+    columnStyles: { 0: { cellWidth: 36 }, 3: { cellWidth: 28 } },
+    didParseCell: colorearConcepto(3),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  ctx.addSubsectionTitle("2.6.5.", "Análisis");
+  const todosConformes = rows.every((r) => r[3] === "Conforme");
+  const resumen = rows.map((r) => `${r[1]} mm Al a ${r[0]} kV`).join(", ");
+  if (todosConformes) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que la capa hemirreductora (CHR) medida presenta valores de ${resumen}, respectivamente. Al comparar estos valores con los mínimos de referencia establecidos para radiodiagnóstico, se observa que todas las mediciones se encuentran por encima del mínimo requerido, lo que indica que el haz de rayos X presenta una filtración adecuada para las condiciones de operación evaluadas.`
+    );
+  } else {
+    ctx.addParagraph(
+      "Los resultados obtenidos evidencian que uno o más niveles de tensión evaluados presentan valores de CHR inferiores al mínimo de referencia establecido, lo que indica una filtración insuficiente del haz de rayos X."
+    );
+  }
+  return 6;
+}
+
+function render27(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const shots80 = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
+  );
+
+  ctx.addSubsectionTitle("2.7.4.", "Resultados");
+  ctx.addParagraph(
+    "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
+    "Tensión de referencia: 80 kVp\n" +
+    `Distancia foco-detector: ${conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100} cm\n` +
+    "Estimación del rendimiento: normalizado a 100 centímetros"
+  );
+
+  if (shots80.length === 0) return SIN_DATOS(ctx);
+
+  // ── Tabla 2.7.1: Linealidad ──
+  const gruposMas = new Map<number, typeof shots80>();
+  for (const m of shots80) {
+    if (m.mas_nominal == null) continue;
+    if (!gruposMas.has(m.mas_nominal)) gruposMas.set(m.mas_nominal, []);
+    gruposMas.get(m.mas_nominal)!.push(m);
+  }
+
+  if (gruposMas.size > 0) {
+    const entradasOrdenadas = [...gruposMas.entries()].sort(([a], [b]) => a - b);
+    let rendRef: number | null = null;
+    const rowsLin = entradasOrdenadas.map(([mas, ms], idx) => {
+      const kermaProm = mean(ms.map((m) => m.dosis_medida_mgy!));
+      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0; // µGy/mAs
+      if (idx === 0) rendRef = rend;
+      const linPct =
+        rendRef && rendRef > 0 && idx > 0
+          ? ((rend - rendRef) / rendRef) * 100
+          : null;
+      return [
+        mas.toFixed(1),
+        kermaProm.toFixed(3),
+        rend.toFixed(1),
+        linPct != null ? linPct.toFixed(2) + " %" : "—",
+      ];
+    });
+
+    ctx.checkPage(40);
+    addCaption(ctx, "Tabla 2.7.1. Rendimiento del tubo de rayos X y linealidad");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Exposición nominal (mAs)", "Kerma en aire promedio (mGy)", "Rendimiento (µGy/mAs)", "Linealidad (%)"]],
+      body: rowsLin,
+      columnStyles: { 0: { cellWidth: 36 } },
+    });
+    ctx.y = finalY(doc) + 4;
+  }
+
+  // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/10mAs) ──
+  const repShots = shots80
+    .filter((m) => m.grupo_numero === 3)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+
+  if (repShots.length > 0) {
+    const kermas = repShots.map((m) => m.dosis_medida_mgy!);
+    const prom = mean(kermas);
+    const std = stdDev(kermas);
+    const cv = prom > 0 ? (std / prom) * 100 : 0;
+
+    const rowsRep: string[][] = repShots.map((m, i) => [String(i + 1), m.dosis_medida_mgy!.toFixed(4)]);
+
+    ctx.checkPage(40);
+    addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Medición", "Kerma en aire medido (mGy)"]],
+      body: [
+        ...rowsRep,
+        ["Promedio", prom.toFixed(4)],
+        ["Desviación estándar (mGy)", std.toFixed(4)],
+        ["CV (%)", cv.toFixed(2) + " %"],
+      ],
+      columnStyles: {
+        0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      },
+    });
+    ctx.y = finalY(doc) + 4;
+
+    ctx.addSubsectionTitle("2.7.5.", "Análisis");
+    const gruposMasArr = [...gruposMas.entries()].sort(([a], [b]) => a - b);
+    const rendMin = gruposMasArr.length > 0
+      ? Math.min(...gruposMasArr.map(([mas, ms]) => (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000))
+      : 0;
+    const rendMax = gruposMasArr.length > 0
+      ? Math.max(...gruposMasArr.map(([mas, ms]) => (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000))
+      : 0;
+    const linMax = gruposMasArr.length > 1
+      ? (() => {
+          const ref = (mean(gruposMasArr[0][1].map((m) => m.dosis_medida_mgy!)) / gruposMasArr[0][0]) * 1000;
+          return Math.max(...gruposMasArr.slice(1).map(([mas, ms]) => {
+            const r = (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000;
+            return Math.abs((r - ref) / ref) * 100;
+          }));
+        })()
+      : 0;
+    const conformeRep = cv <= 5;
+    const conformeLin = linMax <= 10;
+    if (conformeRep && conformeLin) {
+      ctx.addParagraph(
+        `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rendMin.toFixed(1)} y ${rendMax.toFixed(1)} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cv.toFixed(2)} % y la linealidad del rendimiento presenta una desviación máxima de ${linMax.toFixed(2)} %, ambos dentro de los criterios de aceptación establecidos.`
+      );
+    } else {
+      ctx.addParagraph(
+        `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta un CV de repetibilidad de ${cv.toFixed(2)} % y una linealidad máxima de ${linMax.toFixed(2)} %. ` +
+        (!conformeRep ? "La repetibilidad supera el criterio de aceptación del 5 %. " : "") +
+        (!conformeLin ? "La linealidad supera el criterio de aceptación del 10 %. " : "")
+      );
+    }
+  } else {
+    ctx.addSubsectionTitle("2.7.5.", "Análisis");
+    ctx.addParagraph("Sin datos de repetibilidad registrados.");
+  }
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -792,6 +1131,14 @@ export function renderResultadosSeccion(
       return render22(ctx, conv, ubicacion);
     case "2.3":
       return render23(ctx, conv);
+    case "2.4":
+      return render24(ctx, conv);
+    case "2.5":
+      return render25(ctx, conv);
+    case "2.6":
+      return render26(ctx, conv);
+    case "2.7":
+      return render27(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

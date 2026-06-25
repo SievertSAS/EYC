@@ -1507,7 +1507,10 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   const mas = toma1.carga_mas ?? 0;
   const ei = toma1.ei ?? null;
   const di = toma1.di ?? null;
+  const eiBase = toma1.ei_base ?? null;
+  const diBase = toma1.di_base ?? null;
 
+  // Tabla 2.9.1 — medición
   ctx.checkPage(40);
   addCaption(ctx, "Tabla 2.9.1. Resultado de la medición del indicador de exposición.");
   autoTable(doc, {
@@ -1518,8 +1521,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
-  const eiBase = toma1.ei_base ?? null;
-  const diBase = toma1.di_base ?? null;
+  // Cálculo de desviaciones
   const eiDev =
     eiBase != null && eiBase > 0 && ei != null
       ? (Math.abs(ei - eiBase) / eiBase) * 100
@@ -1529,26 +1531,35 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
       ? (Math.abs(di - diBase) / Math.abs(diBase)) * 100
       : null;
   const eiConf = eiDev != null ? (eiDev <= 20 ? "Conforme" : "No conforme") : "—";
-  const diConf = diDev != null ? (diDev <= 20 ? "Conforme" : "No conforme") : "—";
+  const diConf = diDev != null ? (diDev <= 20 ? "Conforme" : "No conforme") : "NA";
+  const conforme = eiDev == null || eiDev <= 20;
 
-  addCaption(ctx, "Tabla 2.9.2. Análisis del indicador de exposición.");
+  // 2.9.5 Análisis — párrafo dinámico + Tabla 2.9.2
+  ctx.addSubsectionTitle("2.9.5.", "Análisis");
+  ctx.addParagraph(
+    conforme
+      ? "Los valores del indicador de exposición (EI) y de la desviación del indicador (D.I.) presentan variaciones dentro del rango de tolerancia establecido (± 20 %), evidenciando una adecuada consistencia en la respuesta del sistema de adquisición de imagen bajo condiciones de exposición reproducibles."
+      : "Se evidencian desviaciones en el indicador de exposición (EI) y/o en la desviación del indicador (D.I.) fuera del rango de tolerancia establecido, lo que indica inconsistencias en la respuesta del sistema.",
+  );
+
+  addCaption(ctx, "Tabla 2.9.2: Análisis de los indicadores de exposición");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["Parámetro", "Valor medido", "Valor Base", "Desviación (%)", "Concepto"]],
+    head: [["Parámetro", "Valor", "Valor Base", "Desviación (%)", "Concepto"]],
     body: [
       [
         "EI",
         ei != null ? String(ei) : "—",
         eiBase != null ? String(eiBase) : "—",
-        eiDev != null ? eiDev.toFixed(1) : "—",
+        eiDev != null ? `${eiDev.toFixed(1)}%` : "—",
         eiConf,
       ],
       [
         "D.I.",
-        di != null ? di.toFixed(2) : "—",
-        diBase != null ? diBase.toFixed(2) : "—",
-        diDev != null ? diDev.toFixed(1) : "—",
+        di != null ? di.toFixed(2) : "NA",
+        diBase != null ? diBase.toFixed(2) : "NA",
+        diDev != null ? `${diDev.toFixed(1)}%` : "NA",
         diConf,
       ],
     ],
@@ -1556,13 +1567,25 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
-  ctx.addSubsectionTitle("2.9.5.", "Análisis");
-  ctx.addParagraph(
-    "Se evaluó la desviación del indicador de exposición (EI) y del índice de dosis (D.I.) respecto a los valores base de referencia. " +
-      "Los resultados se consideran conformes cuando la desviación no supera el ± 20 % del valor base establecido.",
-  );
+  // 2.9.6 Valores base de referencia
+  ctx.addSubsectionTitle("2.9.6.", "Valores base de referencia");
+  addCaption(ctx, "Tabla 2.9.3. Valores base de referencia establecidos para la prueba DDI/EI.");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI base", "D.I. base"]],
+    body: [
+      [
+        kv ? String(kv) : "—",
+        mas ? String(mas) : "—",
+        eiBase != null ? String(eiBase) : "—",
+        diBase != null ? diBase.toFixed(2) : "—",
+      ],
+    ],
+  });
+  ctx.y = finalY(doc) + 4;
 
-  return 6;
+  return 7; // 2.9.4, 2.9.5, 2.9.6 renderizados; caller inicia en 7 (Criterio)
 }
 
 function render210(ctx: InformeCtx, conv: DatosConvencional): number {

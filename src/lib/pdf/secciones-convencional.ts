@@ -831,6 +831,13 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
+  ctx.addParagraph(
+    "La exactitud del tiempo de exposición se evaluó mediante la desviación máxima porcentual entre el tiempo nominal seleccionado y el tiempo medido con mayor desviación.",
+  );
+  ctx.addParagraph(
+    "La repetibilidad del sistema de temporización se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada tiempo nominal.",
+  );
+
   ctx.addSubsectionTitle("2.4.5.", "Análisis");
   const todosConformes = rows.every((r) => r[5] === "Conforme");
   const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));

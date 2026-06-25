@@ -1119,76 +1119,81 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   ctx.addSubsectionTitle("2.7.4.", "Resultados");
+  const distancia = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
   ctx.addParagraph(
     "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
-      `Tensión de referencia: 80 kVp\nDistancia foco-detector: ${conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100} cm`,
+      `Tensión de referencia: 80 kVp\n` +
+      `Distancia foco-detector: ${distancia} cm\n` +
+      "Estimación del rendimiento: normalizado a 100 centímetros\n" +
+      "Factor de corrección por presión y temperatura del analizador: 1,0",
+  );
+  ctx.addParagraph(
+    "Las mediciones obtenidas se utilizaron para evaluar el valor del rendimiento del tubo de rayos X, " +
+      "la repetibilidad de la radiación de salida y la linealidad del rendimiento con respecto al mAs.",
   );
 
   if (shots80.length === 0) return SIN_DATOS(ctx);
 
-  // ── Tabla 2.7.1: Rendimiento y linealidad (agrupado por grupo_numero) ──
+  // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5 a 80 kV) ──
+  // Solo grupos 2–5 (variación de mAs a 80 kV); grupos 7–8 van a repetibilidad
+  const GRUPOS_LIN = new Set([2, 3, 4, 5]);
   const gruposNum = new Map<number, typeof shots80>();
   for (const m of shots80) {
-    if (m.grupo_numero == null || m.mas_nominal == null) continue;
+    if (m.grupo_numero == null || !GRUPOS_LIN.has(m.grupo_numero) || m.mas_nominal == null) continue;
     if (!gruposNum.has(m.grupo_numero)) gruposNum.set(m.grupo_numero, []);
     gruposNum.get(m.grupo_numero)!.push(m);
   }
-
-  // Para el análisis posterior también mantenemos el map por grupo
   const gruposArr = [...gruposNum.entries()].sort(([a], [b]) => a - b);
 
-  let rendRef: number | null = null;
   let linMaxPct = 0;
+  let prevRend: number | null = null;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...COLOR_BLACK);
+  ctx.checkPage(8);
+  doc.text("a) Evaluación del rendimiento del tubo de rayos X y linealidad", MARGIN, ctx.y);
+  ctx.y += 6;
 
   if (gruposArr.length > 0) {
-    const rowsLin = gruposArr.map(([grp, ms], idx) => {
+    const rowsLin = gruposArr.map(([, ms]) => {
       const mas = ms[0].mas_nominal!;
       const kermaProm = mean(ms.map((m) => m.dosis_medida_mgy!));
-      const chrProm = ms.some((m) => m.chr_medido_mmal != null)
-        ? mean(ms.filter((m) => m.chr_medido_mmal != null).map((m) => m.chr_medido_mmal!))
-        : null;
-      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0; // µGy/mAs
-      if (idx === 0) rendRef = rend;
+      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0;
+      // Linealidad: comparación con el grupo anterior (fórmula |a-b|/(a+b)*100)
       const linPct =
-        rendRef != null && rendRef > 0 && idx > 0
-          ? Math.abs((rend - rendRef) / rendRef) * 100
+        prevRend != null && prevRend > 0
+          ? (Math.abs(rend - prevRend) / (rend + prevRend)) * 100
           : null;
       if (linPct != null && linPct > linMaxPct) linMaxPct = linPct;
-      const concepto =
-        linPct == null ? "—" : linPct <= 10 ? "Conforme" : "No conforme";
+      prevRend = rend;
       return [
-        String(grp),
-        chrProm != null ? chrProm.toFixed(2) : "—",
         mas.toFixed(1),
-        kermaProm.toFixed(4),
-        rend.toFixed(2),
-        linPct != null ? linPct.toFixed(2) + " %" : "—",
-        concepto,
+        kermaProm.toFixed(3),
+        rend.toFixed(1),
+        linPct != null ? linPct.toFixed(2) + " %" : "-%",
       ];
     });
 
     ctx.checkPage(40);
-    addCaption(ctx, "Tabla 2.7.1. Reproducibilidad de la radiación de salida — rendimiento y linealidad");
+    addCaption(ctx, "Tabla 2.7.1. Rendimiento del tubo de rayos X y linealidad");
     autoTable(doc, {
       ...TABLE_STYLE,
       startY: ctx.y,
       head: [
-        [
-          "Grupo",
-          "CHR (mm Al)",
-          "Exposición nominal (mAs)",
-          "Kerma en aire promedio (mGy)",
-          "Rendimiento (µGy/mAs)",
-          "Linealidad (%)",
-          "Concepto",
-        ],
+        ["Exposición nominal (mAs)", "Kerma en aire promedio (mGy)", "Rendimiento (µGy/mAs)", "Linealidad (%)"],
       ],
       body: rowsLin,
-      columnStyles: { 6: { cellWidth: 24 } },
-      didParseCell: colorearConcepto(6),
+      columnStyles: { 0: { cellWidth: 38 } },
     });
     ctx.y = finalY(doc) + 4;
   }
+
+  ctx.addParagraph(
+    "El rendimiento del tubo se calculó como el cociente entre el kerma en aire medido y la carga " +
+      "utilizada (mAs). La linealidad se evaluó mediante la comparación del rendimiento obtenido " +
+      "para los diferentes valores de carga.",
+  );
 
   // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/200mA/0.05s) ──
   const repShots = shots80
@@ -1202,24 +1207,39 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const conformeRep = kermasRep.length === 0 || cvRep <= 5;
   const conformeLin = gruposArr.length <= 1 || linMaxPct <= 10;
 
-  ctx.checkPage(28);
-  addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
-  autoTable(doc, {
-    ...TABLE_STYLE,
-    startY: ctx.y,
-    head: [["Kerma en aire promedio (mGy)", "Desviación estándar (mGy)", "CV (%)", "Concepto"]],
-    body: [
-      [
-        promRep.toFixed(4),
-        stdRep.toFixed(4),
-        cvRep.toFixed(2) + " %",
-        conformeRep ? "Conforme" : "No conforme",
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...COLOR_BLACK);
+  ctx.checkPage(8);
+  doc.text("b) Evaluación de la repetibilidad de la radiación de salida", MARGIN, ctx.y);
+  ctx.y += 6;
+
+  ctx.addParagraph(
+    "La repetibilidad se evaluó a partir de exposiciones repetidas bajo las mismas condiciones " +
+      "de irradiación (80 kV y aproximadamente 10 mAs).",
+  );
+
+  if (repShots.length > 0) {
+    const rowsIndiv: string[][] = repShots.map((m, i) => [String(i + 1), m.dosis_medida_mgy!.toFixed(4)]);
+
+    ctx.checkPage(40);
+    addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      startY: ctx.y,
+      head: [["Medición", "Kerma en aire medido (mGy)"]],
+      body: [
+        ...rowsIndiv,
+        ["Promedio", promRep.toFixed(4)],
+        ["Desviación estándar (mGy)", stdRep.toFixed(4)],
+        ["CV(%)", cvRep.toFixed(2) + " %"],
       ],
-    ],
-    columnStyles: { 3: { cellWidth: 24 } },
-    didParseCell: colorearConcepto(3),
-  });
-  ctx.y = finalY(doc) + 4;
+      columnStyles: {
+        0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      },
+    });
+    ctx.y = finalY(doc) + 4;
+  }
 
   // ── 2.7.5 Análisis ──
   ctx.addSubsectionTitle("2.7.5.", "Análisis");
@@ -1229,28 +1249,16 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
     return 6;
   }
 
-  const rendMin =
-    gruposArr.length > 0
-      ? Math.min(
-          ...gruposArr.map(([, ms]) => {
-            const mas = ms[0].mas_nominal!;
-            return mas > 0 ? (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000 : 0;
-          }),
-        )
-      : 0;
-  const rendMax =
-    gruposArr.length > 0
-      ? Math.max(
-          ...gruposArr.map(([, ms]) => {
-            const mas = ms[0].mas_nominal!;
-            return mas > 0 ? (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000 : 0;
-          }),
-        )
-      : 0;
+  const allRends = gruposArr.map(([, ms]) => {
+    const mas = ms[0].mas_nominal!;
+    return mas > 0 ? (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000 : 0;
+  });
+  const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
+  const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;
 
   if (conformeRep && conformeLin) {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rendMin.toFixed(2)} y ${rendMax.toFixed(2)} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvRep.toFixed(2)} % y la linealidad del rendimiento presenta una desviación máxima de ${linMaxPct.toFixed(2)} %, ambos dentro de los criterios de aceptación establecidos.`,
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rendMin.toFixed(1)} y ${rendMax.toFixed(1)} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvRep.toFixed(2)} % y la linealidad del rendimiento presenta una desviación máxima de ${linMaxPct.toFixed(2)} %, ambos dentro de los criterios de aceptación establecidos.`,
     );
   } else {
     ctx.addParagraph(

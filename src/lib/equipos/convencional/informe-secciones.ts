@@ -169,7 +169,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     metodologia:
       "La evaluación de uniformidad del detector se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, obteniendo imágenes uniformes del detector mediante la interposición de una lámina de cobre y registrando el valor medio de píxel en diferentes regiones de interés (ROI) distribuidas en la imagen. Adicionalmente, se realizó inspección visual para identificar la presencia de píxeles defectuosos o artefactos.",
     criterio:
-      "La imagen uniforme obtenida debe presentar una respuesta homogénea del detector y no evidenciar píxeles defectuosos ni artefactos que afecten la calidad de la imagen. La variación de uniformidad del detector, calculada a partir de los valores máximos y mínimos de señal registrados en las regiones de interés, no debe exceder el 15 %.",
+      "La imagen uniforme obtenida debe presentar una respuesta homogénea del detector y no evidenciar píxeles defectuosos ni artefactos que afecten la calidad de la imagen. La variación de uniformidad del detector, calculada a partir de los valores máximos y mínimos de señal registrados en las regiones de interés, no debe exceder el [TOLERANCIA_PCT] %.",
   },
   {
     codigo: "2.12",

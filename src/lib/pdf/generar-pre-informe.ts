@@ -746,7 +746,14 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
       // Criterio de aceptación
       addSubsectionTitle(`${codigo}.${nextSub}.`, "Criterio de aceptación");
-      addParagraph(cat.criterio);
+      const criterioTexto =
+        codigo === "2.11"
+          ? cat.criterio.replace(
+              "[TOLERANCIA_PCT]",
+              String(conv.uniformidadDetector[0]?.tolerancia_pct ?? 15),
+            )
+          : cat.criterio;
+      addParagraph(criterioTexto);
       // Tabla de valores mínimos de referencia CHR (solo 2.6)
       if (codigo === "2.6" && aplica) {
         renderTablaChrRef(ctx);

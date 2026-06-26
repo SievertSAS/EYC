@@ -303,7 +303,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(...COLOR_BLACK);
-    doc.text(lines, MARGIN + indent, y);
+    doc.text(lines, MARGIN + indent, y, { align: "justify", maxWidth: CONTENT_WIDTH - indent });
     y += lines.length * 4.2 + 2;
   }
 

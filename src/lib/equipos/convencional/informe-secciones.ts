@@ -24,17 +24,17 @@ export interface SeccionInfoCatalogo {
 export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
   {
     codigo: "2.1",
-    nombre: "Evaluacion de las condiciones ambientales / Levantamiento radiometrico",
+    nombre: "Evaluación de las condiciones ambientales / Levantamiento radiométrico",
     grupo: "A",
     orden: 1,
     objetivo:
-      "Realizar el levantamiento radiometrico para evaluar las condiciones ambientales del servicio en terminos de proteccion radiologica y verificar los niveles de exposicion ocupacional y del publico.",
+      "Realizar el levantamiento radiométrico para evaluar las condiciones ambientales del servicio en términos de protección radiológica y verificar los niveles de exposición ocupacional y del público.",
     instrumentacion:
-      "Sistema dosimetrico calibrado para mediciones en proteccion radiologica (camara de ionizacion o detector de estado solido), material equivalente simulador de radiacion dispersa y cinta metrica.",
+      "Sistema dosimétrico calibrado para mediciones en protección radiológica (cámara de ionización o detector de estado sólido), material equivalente simulador de radiación dispersa y cinta métrica.",
     metodologia:
       "Se realizó el levantamiento radiométrico mediante mediciones de radiación dispersa en puntos representativos del área donde se encuentra instalado el equipo de radiología general. Las mediciones se efectuaron utilizando una cámara de ionización o un detector de estado sólido calibrado en términos de dosis equivalente ambiental H*(10), posicionando un simulador de dispersión en la ubicación habitual del paciente durante la exposición, aplicando la técnica máxima utilizada en la práctica clínica. Los puntos de medición evaluados se presentan en el diagrama radiométrico de la instalación.",
     criterio:
-      "Area controlada (trabajadores): H*(10) <= 5 mSv/ano. Area supervisada (publico): H*(10) <= 0.5 mSv/ano.",
+      "Área controlada (trabajadores): H*(10) <= 5 mSv/año. Área supervisada (público): H*(10) <= 0.5 mSv/año.",
   },
   {
     codigo: "2.2",
@@ -203,11 +203,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "D",
     orden: 14,
     objetivo:
-      "Verificar que los cassettes y pantallas de imagen (CR) estan en buen estado y limpios, sin artefactos que afecten la calidad de imagen.",
-    instrumentacion: "Inspeccion visual, Exposicion uniforme de prueba.",
+      "Verificar que los cassettes y pantallas de imagen (CR) están en buen estado y limpios, sin artefactos que afecten la calidad de la imagen.",
+    instrumentacion: "Inspección visual, exposición uniforme de prueba.",
     metodologia:
-      "Se inspecciono visualmente cada cassette y se realizo una exposicion uniforme (flat field) con cada uno.",
-    criterio: "Sin artefactos visibles. Cassette sin danos fisicos.",
+      "Se inspeccionó visualmente cada cassette y se realizó una exposición uniforme (flat field) con cada uno.",
+    criterio: "Sin artefactos visibles. Cassette sin daños físicos.",
   },
   {
     codigo: "2.15",
@@ -216,34 +216,34 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     orden: 15,
     objetivo:
       "Verificar que la pantalla de imagen CR tiene sensibilidad uniforme en toda su superficie.",
-    instrumentacion: "Detector CR, Exposicion uniforme.",
+    instrumentacion: "Detector CR, exposición uniforme.",
     metodologia:
-      "Se realizo una exposicion uniforme que cubrio toda la pantalla y se analizo la uniformidad del EI entre cassettes.",
-    criterio: "Uniformidad segun fabricante.",
+      "Se realizó una exposición uniforme que cubrió toda la pantalla y se analizó la uniformidad del EI entre cassettes.",
+    criterio: "Uniformidad según fabricante.",
   },
   {
     codigo: "2.16",
-    nombre: "Funcion de transferencia de modulacion (MTF)",
+    nombre: "Función de transferencia de modulación (MTF)",
     grupo: "E",
     orden: 16,
     objetivo:
-      "Evaluar la capacidad del sistema para reproducir fielmente el contraste de objetos de diferente tamano.",
-    instrumentacion: "Patron MTF o borde recto (edge phantom), Software de analisis DICOM.",
+      "Evaluar la capacidad del sistema para reproducir fielmente el contraste de objetos de diferente tamaño.",
+    instrumentacion: "Patrón MTF o borde recto (edge phantom), software de análisis DICOM.",
     metodologia:
-      "Se coloco el patron MTF sobre el detector con una ligera inclinacion (2-5 grados), se realizo una exposicion, se exporto la imagen DICOM y se analizo con software especializado.",
+      "Se colocó el patrón MTF sobre el detector con una ligera inclinación (2–5 grados), se realizó una exposición, se exportó la imagen DICOM y se analizó con software especializado.",
     criterio: "MTF >= valor de referencia del sistema.",
   },
   {
     codigo: "2.17",
-    nombre: "Sensibilidad del control automatico de exposicion (CAE)",
+    nombre: "Sensibilidad del control automático de exposición (CAE)",
     grupo: "C",
     orden: 17,
     objetivo:
-      "Verificar que el CAE da valores similares a los de la visita anterior (valores base).",
+      "Verificar que el CAE entrega valores similares a los de la visita anterior (valores base).",
     instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
     metodologia:
-      "Se activo el CAE en modo automatico, se coloco 1 placa de cobre (1 mm) como atenuador y se compararon los valores medidos con los de la visita anterior.",
-    criterio: "Variacion de mAs, EI y D.I. respecto a base <= 50%.",
+      "Se activó el CAE en modo automático, se colocó 1 placa de cobre (1 mm) como atenuador y se compararon los valores medidos con los de la visita anterior.",
+    criterio: "Variación de mAs, EI y D.I. respecto a la base <= 50 %.",
   },
   {
     codigo: "2.18",
@@ -251,11 +251,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "C",
     orden: 18,
     objetivo:
-      "Verificar que los 3 sensores del CAE y sus combinaciones dan resultados similares entre si.",
+      "Verificar que los 3 sensores del CAE y sus combinaciones entregan resultados similares entre sí.",
     instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
     metodologia:
-      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1mm) y se disparo con cada combinacion de sensores (7 mediciones).",
-    criterio: "Variacion (MAX-MIN)/promedio de mAs, EI y D.I. <= 30%.",
+      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1 mm) y se disparó con cada combinación de sensores (7 mediciones).",
+    criterio: "Variación (MAX-MIN)/promedio de mAs, EI y D.I. <= 30 %.",
   },
   {
     codigo: "2.19",
@@ -263,23 +263,23 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "C",
     orden: 19,
     objetivo:
-      "Verificar que el CAE da resultados consistentes al repetir disparos con la misma configuracion.",
+      "Verificar que el CAE entrega resultados consistentes al repetir exposiciones con la misma configuración.",
     instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
     metodologia:
-      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1mm, sensor Centro) y se disparo 4 veces.",
-    criterio: "CV de mAs, EI y D.I. <= 10%.",
+      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1 mm, sensor Centro) y se disparó 4 veces.",
+    criterio: "CV de mAs, EI y D.I. <= 10 %.",
   },
   {
     codigo: "2.20",
-    nombre: "Compensacion del CAE para diferentes kVp y espesores",
+    nombre: "Compensación del CAE para diferentes kVp y espesores",
     grupo: "C",
     orden: 20,
     objetivo:
-      "Verificar que el CAE ajusta correctamente la exposicion cuando cambia el voltaje (kVp) o el espesor del paciente.",
+      "Verificar que el CAE ajusta correctamente la exposición cuando cambia el voltaje (kVp) o el espesor del paciente.",
     instrumentacion: "Placas de cobre: 1 mm, 2 mm, 3 mm. Equipo con CAE activado.",
     metodologia:
-      "Se disparo a diferentes kVp (60, 70, 81) con Cu 1mm y a diferentes espesores (Cu 1, 2, 3mm) a 81 kVp. Se compararon los valores con los de referencia.",
-    criterio: "Variacion por kVp y espesor de mAs, EI y D.I. <= 30%.",
+      "Se disparó a diferentes kVp (60, 70, 81) con Cu 1 mm y a diferentes espesores (Cu 1, 2, 3 mm) a 81 kVp. Se compararon los valores con los de referencia.",
+    criterio: "Variación por kVp y espesor de mAs, EI y D.I. <= 30 %.",
   },
   {
     codigo: "2.21",
@@ -287,11 +287,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "B",
     orden: 21,
     objetivo:
-      "Medir cuanta radiacion llega al detector de imagen usando los programas clinicos reales del equipo.",
-    instrumentacion: "Sensor RaySafe X2 RF, rejilla del equipo, cinta metrica.",
+      "Medir la dosis que llega al detector de imagen utilizando los programas clínicos reales del equipo.",
+    instrumentacion: "Sensor RaySafe X2 RF, rejilla del equipo, cinta métrica.",
     metodologia:
-      "Se hicieron 3 disparos CON rejilla y 3 SIN rejilla usando programas clinicos reales. Se registro la dosis al receptor corregida por distancia.",
-    criterio: "Diferencia con valor base <= 0.01 mGy.",
+      "Se realizaron 3 exposiciones con rejilla y 3 sin rejilla utilizando programas clínicos reales. Se registró la dosis al receptor corregida por distancia.",
+    criterio: "Diferencia con el valor base <= 0,01 mGy.",
   },
 ];
 

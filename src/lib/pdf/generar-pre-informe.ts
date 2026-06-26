@@ -451,8 +451,6 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     y
   );
 
-  addFooter(doc, datos);
-
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA 2 — INFORMACIÓN DE LA PRÁCTICA
   // ═══════════════════════════════════════════════════════════
@@ -1631,9 +1629,9 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
   // ─── Footers ───
   pageCount = doc.getNumberOfPages();
-  for (let i = 2; i <= pageCount; i++) {
+  for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    addFooter(doc, datos);
+    addFooter(doc, datos, i, pageCount);
   }
 
   return doc.output("blob");
@@ -1687,9 +1685,7 @@ function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string) {
   doc.line(MARGIN, MARGIN + HEADER_HEIGHT - 4, PAGE_WIDTH - MARGIN, MARGIN + HEADER_HEIGHT - 4);
 }
 
-function addFooter(doc: jsPDF, datos: DatosInforme) {
-  const pageNum = doc.getNumberOfPages();
-  doc.setPage(pageNum);
+function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPages: number) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_GRAY);
@@ -1699,7 +1695,7 @@ function addFooter(doc: jsPDF, datos: DatosInforme) {
     ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO")
     : "";
   doc.text(`${fechaCorta} — Pre-informe sujeto a revisión`, MARGIN, 292);
-  doc.text(`${pageNum}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
+  doc.text(`Página ${currentPage} de ${totalPages}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
 
   // Línea inferior púrpura
   doc.setFillColor(...COLOR_PRIMARY);

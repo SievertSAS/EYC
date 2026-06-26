@@ -1761,31 +1761,23 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
           i === 0 || center == null || vmp == null
             ? "—"
             : `${(Math.abs((vmp - center) / center) * 100).toFixed(2)} %`;
-        const conceptoCell =
-          i === 0 || center == null || vmp == null
-            ? "—"
-            : Math.abs((vmp - center) / center) * 100 <= tolerancia
-              ? "Conforme"
-              : "No conforme";
         return [
           label,
           vmp != null ? vmp.toFixed(2) : "—",
           desv != null ? desv.toFixed(2) : "—",
           uniformidad,
-          conceptoCell,
         ];
       });
 
       ctx.checkPage(40);
       autoTable(doc, {
+        ...TABLE_STYLE,
         startY: ctx.y,
-        head: [["ROI", "VMP", "Desviación", "Uniformidad (%)", "Concepto"]],
+        head: [["ROI", "VMP", "Desviación", "Uniformidad (%)"]],
         body: rows,
-        theme: "grid",
-        styles: { fontSize: 7.5, cellPadding: 2, font: "helvetica", halign: "center" },
-        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
-        columnStyles: { 0: { halign: "left" } },
-        margin: { left: MARGIN, right: MARGIN },
+        headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+        bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+        columnStyles: { 0: { halign: "left" as const } },
       });
       ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
     }

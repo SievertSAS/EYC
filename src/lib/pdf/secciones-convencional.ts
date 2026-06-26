@@ -15,6 +15,7 @@ import type {
   ConvRaysafeMedicion,
   ConvDdiMedicion,
   ConvUniformidadDetector,
+  ConvResolucion,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -101,6 +102,10 @@ export interface DatosConvencional {
   ddiMediciones: ConvDdiMedicion[];
   /** Mediciones de uniformidad del detector (prueba 2.11) */
   uniformidadDetector: ConvUniformidadDetector[];
+  /** Fotografía del patrón de resolución para la sección 2.12.7 */
+  fotos212?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Medición de resolución espacial (prueba 2.12) */
+  resolucion?: ConvResolucion;
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -126,7 +131,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -140,6 +145,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
+      db.conv_resolucion.where("visita_id").equals(visitaId).first(),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -213,6 +219,12 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
   if (img29) fotos210.push({ label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI", ...img29 });
 
+  // Fotografía patrón resolución para 2.12.7
+  const ev212 = evidencias.find((e) => e.prueba_codigo === "2.12" && e.slot === "montaje_resolucion");
+  const img212 = await cargarImagen(ev212);
+  const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
+  if (img212) fotos212.push({ label: "Fig. 2.12.1 Patrón de resolución espacial", ...img212 });
+
   // Fotografías DICOM para 2.11.7 (0° y 180°)
   const SLOTS_FOTOS_211: [string, string][] = [
     ["dicom_0", "Fig. 2.11.1 Orientación inicial 0°"],
@@ -244,10 +256,12 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos29,
     fotos210,
     fotos211,
+    fotos212,
     raysafeSetup,
     raysafeMediciones,
     ddiMediciones,
     uniformidadDetector,
+    resolucion,
   };
 }
 
@@ -630,6 +644,32 @@ export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
     } catch {
       // imagen no renderizable
     }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.12.7: fotografía del patrón de resolución espacial */
+export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos212 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del patrón de resolución.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.7;
+    const scale = Math.min(maxW / f.width, 100 / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 16);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
@@ -1722,6 +1762,66 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── Sección 2.12: Resolución espacial de alto contraste ───
+
+function render212(ctx: InformeCtx, conv: DatosConvencional): number {
+  const resol = conv.resolucion;
+  const plmm = resol?.pares_lineas_plmm;
+
+  // ── 2.12.4 Resultados ──
+  ctx.addSubsectionTitle("2.12.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  ctx.checkPage(18);
+  const { doc, autoTable } = ctx;
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Distancia foco-receptor, SID (cm):", fmt(resol?.sid_cm, 0), "Tensión (kVp):", fmt(resol?.tecnica_kv, 0)],
+    ],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const }, 2: { halign: "left" as const } },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  ctx.addParagraph(
+    "Se registró el grupo máximo de pares de líneas por milímetro visible de forma distinguible en la imagen obtenida.",
+  );
+
+  ctx.checkPage(14);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Parámetro", "Valor"]],
+    body: [["Cantidad de pares de líneas visibles (pl/mm)", plmm != null ? `${plmm.toFixed(1)} pl/mm` : "—"]],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const } },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  // ── 2.12.5 Análisis ──
+  ctx.addSubsectionTitle("2.12.5.", "Análisis");
+  ctx.addParagraph(
+    "El valor de resolución espacial obtenido fue comparado con el criterio de aceptación establecido en el protocolo de control de calidad aplicable.",
+  );
+  if (plmm == null) {
+    ctx.addParagraph("No se registró el valor de resolución espacial para esta prueba.");
+  } else if (plmm >= 2.4) {
+    ctx.addParagraph(
+      "Se observa que la resolución espacial observada corresponde a un valor que se encuentra por encima del mínimo requerido.",
+    );
+  } else {
+    ctx.addParagraph(
+      "Se observa que la resolución espacial observada corresponde a un valor que se encuentra por debajo del mínimo requerido.",
+    );
+  }
+
+  return 6;
+}
+
 // ─── Sección 2.11: Uniformidad y artefactos del detector ───
 
 function render211(ctx: InformeCtx, conv: DatosConvencional): number {
@@ -1902,6 +2002,8 @@ export function renderResultadosSeccion(
       return render210(ctx, conv);
     case "2.11":
       return render211(ctx, conv);
+    case "2.12":
+      return render212(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

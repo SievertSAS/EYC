@@ -173,15 +173,16 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
   },
   {
     codigo: "2.12",
-    nombre: "Resolucion espacial de alto contraste",
+    nombre: "Resolución espacial de alto contraste",
     grupo: "E",
     orden: 12,
     objetivo:
-      "Determinar la capacidad del sistema para distinguir objetos pequenos y cercanos entre si. Se mide en pares de lineas por milimetro (pl/mm).",
-    instrumentacion: "Patron de resolucion (tipo barra de plomo), Detector de imagen.",
+      "Evaluar la resolución espacial del sistema a partir de la medición de los grupos de pares de líneas por milímetro (pl/mm) visibles en la imagen.",
+    instrumentacion:
+      "Objeto de prueba para resolución espacial de alto contraste (patrón de pares de líneas), detector de imagen del sistema evaluado (CR o DR) y software de visualización y procesamiento de imágenes del sistema radiográfico.",
     metodologia:
-      "Se coloco el patron de resolucion sobre el detector, se realizo una exposicion y se identifico el grupo de barras mas fino visible.",
-    criterio: "Resolucion >= valor de referencia del sistema.",
+      "Se posicionó el objeto de prueba para resolución espacial sobre el receptor de imagen, asegurando su correcta alineación 45° con el centro del haz de radiación. Posteriormente se realizó una exposición radiográfica utilizando parámetros técnicos representativos de la práctica clínica habitual del equipo evaluado.\n\nLa imagen obtenida fue analizada visualmente mediante el software de visualización del sistema, identificando el grupo de pares de líneas por milímetro (pl/mm) que pueden distinguirse claramente en la imagen radiográfica. La evaluación se realizó de acuerdo con los criterios establecidos en el protocolo IAEA-TECDOC-1958, determinando el valor máximo de resolución espacial reproducible por el sistema.",
+    criterio: "La resolución espacial del sistema debe ser mayor o igual a 2,4 pl/mm.",
   },
   {
     codigo: "2.13",

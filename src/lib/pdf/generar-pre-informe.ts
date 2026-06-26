@@ -32,6 +32,7 @@ import {
   renderFotos29,
   renderFotos210,
   renderFotos211,
+  renderFotos212,
   renderTablaChrRef,
   renderTablaBaseRef29,
   type InformeCtx,
@@ -835,6 +836,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos211(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.12" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos212(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1118,6 +1125,27 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
             accionesTexto =
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (codigo === "2.12" && aplica) {
+        const plmm = conv.resolucion?.pares_lineas_plmm;
+        if (plmm == null) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const conforme = plmm >= 2.4;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El valor medido de la resolución espacial cumple con el criterio de aceptación establecido.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "El valor medido de la resolución espacial no cumple con el criterio de aceptación establecido.";
+            accionesTexto =
+              "Se recomienda repetir la prueba para descartar errores en la adquisición o visualización de la imagen. Si el resultado persiste fuera del criterio de aceptación, deberá notificarse al servicio de mantenimiento para la revisión del sistema.";
           }
         }
       } else if (codigo === "2.11" && aplica) {

@@ -203,6 +203,7 @@ El texto de `conceptoParrafo` se imprime en párrafo debajo del label. El label 
 | 2.9 | ✅ Completa | Textos corregidos; render29 con Tabla 2.9.1 y 2.9.2 (desviación vs base); 2.9.7 evidencia gráfica; 2.9.8 concepto FAVORABLE/NO FAVORABLE; valores base ei_base/di_base persistidos en DB |
 | 2.10 | ✅ Completa | Textos corregidos; render210 con Tabla 2.10.1 (CV); 2.10.7 evidencia gráfica; 2.10.8 concepto FAVORABLE/NO FAVORABLE basado en CV del EI |
 | 2.11 | ✅ Completa | Textos corregidos; render211 con Tabla 2.11.1 (AC 0°) y Tabla 2.11.2 (CA 180°) por detector; campos desviación y tolerancia agregados al tipo; 2.11.7 evidencia gráfica (dicom_0 y dicom_180); 2.11.8 concepto FAVORABLE/NO FAVORABLE basado en uniformidad, píxeles defectuosos y artefactos |
+| 2.12 | ✅ Completa | Textos corregidos; render212 con condiciones + tabla pares de líneas + análisis dinámico; 2.12.7 evidencia gráfica (montaje_resolucion); 2.12.8 concepto FAVORABLE/NO FAVORABLE si pares_lineas_plmm >= 2,4 |
 
 ## Pruebas pendientes
 
@@ -213,7 +214,6 @@ El texto de `conceptoParrafo` se imprime en párrafo debajo del label. El label 
 - [ ] 2.5 — Exactitud y repetibilidad de la tensión
 - [ ] 2.6 — Capa hemirreductora (CHR)
 - [ ] 2.7 — Rendimiento, repetibilidad y linealidad
-- [ ] 2.12 — Resolución espacial de alto contraste
 - [ ] 2.13 — Umbral de sensibilidad a bajo contraste
 - [ ] 2.14 — Integridad y limpieza de cassettes e IP CR
 - [ ] 2.15 — Uniformidad de sensibilidad de pantallas IP CR

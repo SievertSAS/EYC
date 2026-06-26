@@ -219,11 +219,17 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
   if (img29) fotos210.push({ label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI", ...img29 });
 
-  // Fotografía patrón resolución para 2.12.7
-  const ev212 = evidencias.find((e) => e.prueba_codigo === "2.12" && e.slot === "montaje_resolucion");
-  const img212 = await cargarImagen(ev212);
+  // Fotografías patrón resolución para 2.12.7 (montaje + DICOM)
+  const SLOTS_FOTOS_212: [string, string][] = [
+    ["montaje_resolucion", "Fig. 2.12.1 Foto montaje experimental"],
+    ["dicom_resolucion", "Fig. 2.12.2 Imagen DICOM patrón de resolución espacial"],
+  ];
   const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
-  if (img212) fotos212.push({ label: "Fig. 2.12.1 Patrón de resolución espacial", ...img212 });
+  for (const [slot, label] of SLOTS_FOTOS_212) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.12" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos212.push({ label, ...img });
+  }
 
   // Fotografías DICOM para 2.11.7 (0° y 180°)
   const SLOTS_FOTOS_211: [string, string][] = [

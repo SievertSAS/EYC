@@ -708,10 +708,14 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
             Identifica el grupo de barras mas fino visible en el patron de resolucion.
           </StepHeader>
 
-          <ImageSlot label="Montaje patron de resolucion" evidencia={getEvidencia("2.12", "montaje_resolucion")}
-            onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)} onRemove={() => removeImage("2.12", "montaje_resolucion")} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImageSlot label="Foto montaje experimental" evidencia={getEvidencia("2.12", "montaje_resolucion")}
+              onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)} onRemove={() => removeImage("2.12", "montaje_resolucion")} />
+            <ImageSlot label="Imagen DICOM patrón resolución" evidencia={getEvidencia("2.12", "dicom_resolucion")}
+              onCapture={(f) => captureImage("2.12", "dicom_resolucion", f)} onRemove={() => removeImage("2.12", "dicom_resolucion")} />
+          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SID (cm)</label>
               <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.sid_cm ?? 100}
@@ -727,13 +731,37 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
               <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.tecnica_mas ?? ""}
                 onBlur={(e) => updateResolucion({ tecnica_mas: e.target.value ? parseFloat(e.target.value) : undefined })} />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pl/mm visibles</label>
-              <Input type="number" step="0.1" className="rounded-xl h-9 text-sm font-black border-blue-200 bg-blue-50/50"
-                defaultValue={resol?.pares_lineas_plmm ?? ""} placeholder="Ej: 2.5"
-                onBlur={(e) => updateResolucion({ pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined })} />
-            </div>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pl/mm visibles</label>
+            <select
+              className="w-full rounded-xl h-9 text-sm font-black border border-blue-200 bg-blue-50/50 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
+              value={resol?.pares_lineas_plmm ?? ""}
+              onChange={(e) => updateResolucion({ pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined })}>
+              <option value="">— Seleccionar —</option>
+              {[5.0, 4.6, 4.3, 4.0, 3.9, 3.7, 3.4, 3.1, 2.8, 2.5, 2.4, 2.3, 2.0, 1.8, 1.6, 1.4, 1.2, 1.0, 0.9, 0.8, 0.7, 0.6].map((v) => (
+                <option key={v} value={v}>{v.toFixed(1)} pl/mm</option>
+              ))}
+            </select>
+          </div>
+
+          {resol?.pares_lineas_plmm != null && (() => {
+            const conforme = resol.pares_lineas_plmm >= 2.4;
+            return (
+              <div className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold text-slate-700">Resolución espacial</span>
+                  <span className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                    {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                  </span>
+                </div>
+                <span className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                  {resol.pares_lineas_plmm.toFixed(1)} pl/mm
+                </span>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

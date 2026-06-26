@@ -711,7 +711,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ImageSlot label="Foto montaje experimental" evidencia={getEvidencia("2.12", "montaje_resolucion")}
               onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)} onRemove={() => removeImage("2.12", "montaje_resolucion")} />
-            <ImageSlot label="Imagen DICOM patrón resolución" evidencia={getEvidencia("2.12", "dicom_resolucion")}
+            <ImageSlot label="Radiografía del patrón de resolución" evidencia={getEvidencia("2.12", "dicom_resolucion")}
               onCapture={(f) => captureImage("2.12", "dicom_resolucion", f)} onRemove={() => removeImage("2.12", "dicom_resolucion")} />
           </div>
 

@@ -189,12 +189,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Umbral de sensibilidad a bajo contraste",
     grupo: "E",
     orden: 13,
-    objetivo: "Evaluar la capacidad del sistema para detectar diferencias sutiles de contraste.",
+    objetivo: "Evaluar la sensibilidad del sistema para objetos de bajo contraste.",
     instrumentacion:
-      "Patron de bajo contraste (phantom con insertos de diferente densidad), Detector de imagen.",
+      "Objeto de prueba para resolución espacial de bajo contraste (patrón de pares de líneas), detector de imagen del sistema evaluado (CR o DR) y software de visualización y procesamiento de imágenes del sistema radiográfico.",
     metodologia:
-      "Se coloco el patron de bajo contraste sobre el detector, se realizo una exposicion y se identificaron los insertos de menor contraste visibles.",
-    criterio: "Segun especificaciones del fabricante y valor de referencia.",
+      "La prueba se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, utilizando el módulo de bajo contraste del fantoma correspondiente. Se adquirió la imagen bajo condiciones representativas de operación y se evaluó visualmente la cantidad de detalles de bajo contraste visibles en la imagen.",
+    criterio:
+      "Debe observarse una cantidad mayor a tres masas o tener un porcentaje de contraste inferior a 4 %.",
   },
   {
     codigo: "2.14",

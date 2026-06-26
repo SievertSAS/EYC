@@ -33,6 +33,7 @@ import {
   renderFotos210,
   renderFotos211,
   renderFotos212,
+  renderFotos213,
   renderTablaChrRef,
   renderTablaBaseRef29,
   type InformeCtx,
@@ -842,6 +843,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos212(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.13" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos213(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1125,6 +1132,33 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
             accionesTexto =
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (codigo === "2.13" && aplica) {
+        const bc = conv.bajoContraste;
+        if (!bc) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const KEYS_BC = [
+            "contraste_9_4", "contraste_8_0", "contraste_5_6", "contraste_4_0",
+            "contraste_2_8", "contraste_1_8", "contraste_1_3", "contraste_0_9",
+          ] as const;
+          const visibles = KEYS_BC.filter((k) => bc[k]).length;
+          const bajoUmb = bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9;
+          const conforme = visibles > 3 || !!bajoUmb;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El sistema cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "El sistema no cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
+            accionesTexto =
+              "Se deberá verificar el detector, el sistema de procesamiento de imagen y las condiciones de exposición, y repetir la prueba para confirmar el cumplimiento de los criterios establecidos.";
           }
         }
       } else if (codigo === "2.12" && aplica) {

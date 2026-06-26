@@ -16,6 +16,7 @@ import type {
   ConvDdiMedicion,
   ConvUniformidadDetector,
   ConvResolucion,
+  ConvBajoContraste,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -106,6 +107,10 @@ export interface DatosConvencional {
   fotos212?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Medición de resolución espacial (prueba 2.12) */
   resolucion?: ConvResolucion;
+  /** Fotografía del patrón de bajo contraste para la sección 2.13.7 */
+  fotos213?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Medición de bajo contraste (prueba 2.13) */
+  bajoContraste?: ConvBajoContraste;
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -131,7 +136,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -146,6 +151,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
       db.conv_resolucion.where("visita_id").equals(visitaId).first(),
+      db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -219,6 +225,12 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
   if (img29) fotos210.push({ label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI", ...img29 });
 
+  // Fotografía patrón bajo contraste para 2.13.7
+  const ev213 = evidencias.find((e) => e.prueba_codigo === "2.13" && e.slot === "montaje_bajo_contraste");
+  const img213 = await cargarImagen(ev213);
+  const fotos213: NonNullable<DatosConvencional["fotos213"]> = [];
+  if (img213) fotos213.push({ label: "Fig. 2.13.1 Patrón de bajo contraste", ...img213 });
+
   // Fotografías patrón resolución para 2.12.7 (montaje + DICOM)
   const SLOTS_FOTOS_212: [string, string][] = [
     ["montaje_resolucion", "Fig. 2.12.1 Foto montaje experimental"],
@@ -263,11 +275,13 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos210,
     fotos211,
     fotos212,
+    fotos213,
     raysafeSetup,
     raysafeMediciones,
     ddiMediciones,
     uniformidadDetector,
     resolucion,
+    bajoContraste,
   };
 }
 
@@ -650,6 +664,32 @@ export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
     } catch {
       // imagen no renderizable
     }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.13.7: fotografía del patrón de bajo contraste */
+export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos213 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del patrón de bajo contraste.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.7;
+    const scale = Math.min(maxW / f.width, 100 / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 16);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
@@ -1775,6 +1815,80 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── Sección 2.13: Umbral de sensibilidad a bajo contraste ───
+
+const NIVELES_BC = [
+  { key: "contraste_9_4" as const, label: "9,4 %" },
+  { key: "contraste_8_0" as const, label: "8,0 %" },
+  { key: "contraste_5_6" as const, label: "5,6 %" },
+  { key: "contraste_4_0" as const, label: "4,0 %" },
+  { key: "contraste_2_8" as const, label: "2,8 %" },
+  { key: "contraste_1_8" as const, label: "1,8 %" },
+  { key: "contraste_1_3" as const, label: "1,3 %" },
+  { key: "contraste_0_9" as const, label: "0,9 %" },
+];
+
+function render213(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const bc = conv.bajoContraste;
+
+  // ── 2.13.4 Resultados ──
+  ctx.addSubsectionTitle("2.13.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  ctx.checkPage(18);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Distancia foco-receptor, SID (cm):", fmt(bc?.sid_cm, 0), "Tensión (kVp):", fmt(bc?.tecnica_kv, 0)],
+    ],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const }, 2: { halign: "left" as const } },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  ctx.checkPage(24);
+  addCaption(ctx, "Tabla 2.13.1. Evaluación del umbral de sensibilidad a bajo contraste");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["% Contraste", ...NIVELES_BC.map((n) => n.label)]],
+    body: [["¿Visible?", ...NIVELES_BC.map((n) => (bc?.[n.key] ? "SI" : "NO"))]],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const } },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index > 0) {
+        const val = data.cell.raw as string;
+        data.cell.styles.textColor = val === "SI" ? [16, 150, 80] : [220, 50, 50];
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  // ── 2.13.5 Análisis ──
+  ctx.addSubsectionTitle("2.13.5.", "Análisis");
+
+  const visibles = bc ? NIVELES_BC.filter((n) => bc[n.key]).length : null;
+  const bajoUmb = bc && (bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9);
+  const conforme = visibles != null && (visibles > 3 || bajoUmb);
+
+  if (visibles == null) {
+    ctx.addParagraph("No se registraron datos para esta prueba.");
+  } else if (conforme) {
+    ctx.addParagraph("Se observa una cantidad de masas superiores a las requeridas por el sistema.");
+  } else {
+    ctx.addParagraph(
+      `Se observa una cantidad de masas visible de ${visibles}, que no supera el mínimo requerido, y ninguno de los niveles de contraste evaluados alcanza valores por debajo del 4 %.`,
+    );
+  }
+
+  return 6;
+}
+
 // ─── Sección 2.12: Resolución espacial de alto contraste ───
 
 function render212(ctx: InformeCtx, conv: DatosConvencional): number {
@@ -2017,6 +2131,8 @@ export function renderResultadosSeccion(
       return render211(ctx, conv);
     case "2.12":
       return render212(ctx, conv);
+    case "2.13":
+      return render213(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

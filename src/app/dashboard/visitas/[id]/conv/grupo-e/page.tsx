@@ -666,12 +666,23 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                   </div>
                 </div>
 
-                {ur.maxGlobal !== null && (
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                    <span className="text-xs font-bold text-slate-700">Uniformidad max global</span>
-                    <span className="text-xs font-black text-primary">{ur.maxGlobal.toFixed(1)}%</span>
-                  </div>
-                )}
+                {ur.maxGlobal !== null && (() => {
+                  const tolerancia = ur.det.tolerancia_pct ?? 15;
+                  const conforme = ur.maxGlobal <= tolerancia && !ur.det.pixeles_defectuosos && !ur.det.artefactos;
+                  return (
+                    <div className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-bold text-slate-700">Uniformidad max global</span>
+                        <span className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                          {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                        {ur.maxGlobal.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 <button type="button" onClick={() => ur.det.id && removeUniformidadDet(ur.det.id)}
                   className="text-xs text-red-400 hover:text-red-600 font-bold">

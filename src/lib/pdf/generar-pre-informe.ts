@@ -196,7 +196,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
       metodologia:
         "Se ubicó el dispositivo de verificación de colimación sobre el receptor de imagen y se ajustó el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba. Posteriormente, se realizó una exposición radiográfica con una técnica adecuada para visualizar el campo irradiado y la posición del rayo central.",
       criterio:
-        "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular ≤ 3°.",
+        "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular <= 3°.",
     },
     TIE: {
       objetivo:
@@ -205,7 +205,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. Se seleccionó una combinación representativa de tensión y corriente del generador y se realizaron al menos tres exposiciones para un tiempo de exposición determinado.",
       criterio:
-        "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) ≤ 10 %.",
+        "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 10 %.",
     },
     KVP: {
       objetivo:
@@ -214,7 +214,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación. Se seleccionaron al menos tres valores representativos de tensión del tubo de rayos X y se realizaron al menos tres exposiciones para cada valor seleccionado, registrando la tensión medida en cada irradiación.",
       criterio:
-        "La desviación entre la tensión seleccionada y la tensión medida no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) ≤ 5 %.",
+        "La desviación entre la tensión seleccionada y la tensión medida no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 5 %.",
     },
     CHR: {
       objetivo:

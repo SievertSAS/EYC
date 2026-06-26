@@ -1657,10 +1657,13 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
+  const conforme210 = eiCv == null || eiCv <= 20;
+
   ctx.addSubsectionTitle("2.10.5.", "Análisis");
   ctx.addParagraph(
-    "Se evaluó la repetibilidad del indicador de exposición (EI) y del índice de dosis (D.I.) mediante el cálculo del coeficiente de variación (CV) " +
-      "sobre las exposiciones consecutivas realizadas bajo las mismas condiciones. Los resultados se consideran conformes cuando el CV es ≤ 20 %.",
+    conforme210
+      ? "Los valores del indicador de exposición presentan baja dispersión bajo condiciones de exposición reproducibles. Los coeficientes de variación obtenidos se encuentran dentro del criterio de aceptación establecido, evidenciando una adecuada repetibilidad del sistema de adquisición de imagen."
+      : "Se evidencian variaciones en los indicadores evaluados superiores al criterio de aceptación establecido, lo que indica inestabilidad en la repetibilidad del sistema de adquisición de imagen.",
   );
 
   return 6;

@@ -156,7 +156,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Cassette CR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
       "De acuerdo con el protocolo IAEA-TECDOC-1958, la repetibilidad del indicador de exposición se evalúa realizando varias exposiciones consecutivas bajo las mismas condiciones de irradiación y registrando el valor del indicador de exposición (DDI o EI) reportado por el sistema.",
-    criterio: "El valor del coeficiente de variación debe ser ≤ 20 %.",
+    criterio: "El valor del coeficiente de variación debe ser <= 20 %.",
   },
   {
     codigo: "2.11",

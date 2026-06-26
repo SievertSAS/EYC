@@ -222,7 +222,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   // Fotografías patrón resolución para 2.12.7 (montaje + DICOM)
   const SLOTS_FOTOS_212: [string, string][] = [
     ["montaje_resolucion", "Fig. 2.12.1 Foto montaje experimental"],
-    ["dicom_resolucion", "Fig. 2.12.2 Imagen DICOM patrón de resolución espacial"],
+    ["dicom_resolucion", "Fig. 2.12.2 Radiografía del patrón de resolución espacial"],
   ];
   const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_212) {
@@ -668,20 +668,27 @@ export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
-  for (const f of fotos) {
-    const maxW = CWIDTH * 0.7;
-    const scale = Math.min(maxW / f.width, 100 / f.height, 1);
-    const w = f.width * scale;
-    const h = f.height * scale;
-    ctx.checkPage(h + 16);
-    const x = MARGIN + (CWIDTH - w) / 2;
-    try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+  const fotosPerRow = 2;
+  const colW = CWIDTH / fotosPerRow;
+  for (let i = 0; i < fotos.length; i += fotosPerRow) {
+    const grupo = fotos.slice(i, i + fotosPerRow);
+    const maxH = 80;
+    const scales = grupo.map((f) => Math.min((colW * 0.9) / f.width, maxH / f.height, 1));
+    const rowH = Math.max(...grupo.map((f, j) => f.height * scales[j]));
+    ctx.checkPage(rowH + 16);
+    grupo.forEach((f, j) => {
+      const scale = scales[j];
+      const w = f.width * scale;
+      const h = f.height * scale;
+      const x = MARGIN + j * colW + (colW - w) / 2;
+      try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      const caption = doc.splitTextToSize(f.label, colW - 4);
+      doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
+    });
+    ctx.y += rowH + 12;
   }
 }
 

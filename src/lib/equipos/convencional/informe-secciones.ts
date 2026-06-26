@@ -164,11 +164,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "E",
     orden: 11,
     objetivo:
-      "Verificar que el detector de imagen produce una respuesta uniforme y no tiene artefactos que afecten la calidad diagnostica.",
-    instrumentacion: "Detector de imagen (DR o CR), placa de cobre como filtro.",
+      "Evaluar e identificar la fuente de los artefactos visualizados en las imágenes radiográficas digitales. Verificar la uniformidad de la imagen.",
+    instrumentacion: "Detector de imagen CR o DR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
-      "Se coloco el lado mas largo del detector alineado con el tubo. Se coloco un filtro de cobre a la salida del tubo. Se realizo una exposicion uniforme (flat field) y se analizaron 5 ROIs en dos orientaciones.",
-    criterio: "Uniformidad segun especificaciones del fabricante. Sin artefactos visibles.",
+      "La evaluación de uniformidad del detector se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, obteniendo imágenes uniformes del detector mediante la interposición de una lámina de cobre y registrando el valor medio de píxel en diferentes regiones de interés (ROI) distribuidas en la imagen. Adicionalmente, se realizó inspección visual para identificar la presencia de píxeles defectuosos o artefactos.",
+    criterio:
+      "La imagen uniforme obtenida debe presentar una respuesta homogénea del detector y no evidenciar píxeles defectuosos ni artefactos que afecten la calidad de la imagen. La variación de uniformidad del detector, calculada a partir de los valores máximos y mínimos de señal registrados en las regiones de interés, no debe exceder el 15 %.",
   },
   {
     codigo: "2.12",

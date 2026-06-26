@@ -251,11 +251,23 @@ export interface ConvUniformidadDetector {
   roi_2_vmp_ac?: number;
   roi_3_vmp_ac?: number;
   roi_4_vmp_ac?: number;
+  roi_0_desv_ac?: number;
+  roi_1_desv_ac?: number;
+  roi_2_desv_ac?: number;
+  roi_3_desv_ac?: number;
+  roi_4_desv_ac?: number;
   roi_0_vmp_ca?: number;
   roi_1_vmp_ca?: number;
   roi_2_vmp_ca?: number;
   roi_3_vmp_ca?: number;
   roi_4_vmp_ca?: number;
+  roi_0_desv_ca?: number;
+  roi_1_desv_ca?: number;
+  roi_2_desv_ca?: number;
+  roi_3_desv_ca?: number;
+  roi_4_desv_ca?: number;
+  /** Tolerancia de uniformidad seleccionada (%, por defecto 15) */
+  tolerancia_pct?: number;
   /** Artefactos observados */
   pixeles_defectuosos?: boolean;
   artefactos?: boolean;

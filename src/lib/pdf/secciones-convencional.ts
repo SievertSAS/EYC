@@ -14,6 +14,7 @@ import type {
   ConvRaysafeSetup,
   ConvRaysafeMedicion,
   ConvDdiMedicion,
+  ConvUniformidadDetector,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -91,11 +92,15 @@ export interface DatosConvencional {
   fotos29?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje DDI para la sección 2.10.7 (misma imagen que 2.9) */
   fotos210?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografías de imágenes DICOM para la sección 2.11.7 (0° y 180°) */
+  fotos211?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
   /** Mediciones DDI/EI (pruebas 2.9 y 2.10) */
   ddiMediciones: ConvDdiMedicion[];
+  /** Mediciones de uniformidad del detector (prueba 2.11) */
+  uniformidadDetector: ConvUniformidadDetector[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -121,7 +126,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -134,6 +139,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+      db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -207,6 +213,18 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
   const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
   if (img29) fotos210.push({ label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI", ...img29 });
 
+  // Fotografías DICOM para 2.11.7 (0° y 180°)
+  const SLOTS_FOTOS_211: [string, string][] = [
+    ["dicom_0", "Fig. 2.11.1 Orientación inicial 0°"],
+    ["dicom_180", "Fig. 2.11.2 Orientación final 180°"],
+  ];
+  const fotos211: NonNullable<DatosConvencional["fotos211"]> = [];
+  for (const [slot, label] of SLOTS_FOTOS_211) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.11" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos211.push({ label, ...img });
+  }
+
   return {
     secciones: seccionesEfectivas,
     setup,
@@ -225,9 +243,11 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos28,
     fotos29,
     fotos210,
+    fotos211,
     raysafeSetup,
     raysafeMediciones,
     ddiMediciones,
+    uniformidadDetector,
   };
 }
 
@@ -616,6 +636,39 @@ export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
     const caption = doc.splitTextToSize(f.label, CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.11.7: imágenes DICOM de uniformidad (0° y 180°) */
+export function renderFotos211(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos211 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntaron imágenes DICOM de la prueba de uniformidad.");
+    return;
+  }
+  const CWIDTH = 170;
+  const fotosPerRow = 2;
+  const colW = CWIDTH / fotosPerRow;
+  for (let i = 0; i < fotos.length; i += fotosPerRow) {
+    const grupo = fotos.slice(i, i + fotosPerRow);
+    const maxH = 80;
+    const scales = grupo.map((f) => Math.min((colW * 0.9) / f.width, maxH / f.height, 1));
+    const rowH = Math.max(...grupo.map((f, j) => f.height * scales[j]));
+    ctx.checkPage(rowH + 16);
+    grupo.forEach((f, j) => {
+      const scale = scales[j];
+      const w = f.width * scale;
+      const h = f.height * scale;
+      const x = MARGIN + j * colW + (colW - w) / 2;
+      try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      const caption = doc.splitTextToSize(f.label, colW - 4);
+      doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
+    });
+    ctx.y += rowH + 12;
   }
 }
 
@@ -1669,6 +1722,128 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── Sección 2.11: Uniformidad y artefactos del detector ───
+
+function render211(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const dets = conv.uniformidadDetector ?? [];
+
+  // ── 2.11.4 Resultados ──
+  ctx.addSubsectionTitle("2.11.4.", "Resultados");
+
+  if (dets.length === 0) {
+    ctx.addParagraph("Sin datos registrados para esta prueba.");
+    return 5;
+  }
+
+  ctx.addParagraph(
+    "Se obtuvieron imágenes uniformes con el detector orientado en las direcciones ánodo–cátodo (AC, posición inicial) " +
+      "y cátodo–ánodo (CA, rotación de 180°). En cada imagen se evaluaron cinco regiones de interés (ROI) distribuidas sobre el detector.",
+  );
+
+  const roiLabels = ["ROIc (central)", "ROI 1", "ROI 2", "ROI 3", "ROI 4"];
+
+  for (const [detIdx, det] of dets.entries()) {
+    const detLabel = det.serie_detector ? ` — ${det.serie_detector}` : ` ${detIdx + 1}`;
+    const tolerancia = det.tolerancia_pct ?? 15;
+
+    for (const orient of ["ac", "ca"] as const) {
+      const orientLabel = orient === "ac" ? "Orientación AC 0°" : "Orientación CA 180°";
+      const tableNum = detIdx * 2 + (orient === "ac" ? 1 : 2);
+      ctx.addSubsectionTitle(`Tabla 2.11.${tableNum}.`, `${orientLabel}${detLabel}`);
+
+      const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
+
+      const rows: (string | number)[][] = roiLabels.map((label, i) => {
+        const vmp = det[`roi_${i}_vmp_${orient}` as keyof typeof det] as number | undefined;
+        const desv = det[`roi_${i}_desv_${orient}` as keyof typeof det] as number | undefined;
+        const uniformidad =
+          i === 0 || center == null || vmp == null
+            ? "—"
+            : `${(Math.abs((vmp - center) / center) * 100).toFixed(2)} %`;
+        const conceptoCell =
+          i === 0 || center == null || vmp == null
+            ? "—"
+            : Math.abs((vmp - center) / center) * 100 <= tolerancia
+              ? "Conforme"
+              : "No conforme";
+        return [
+          label,
+          vmp != null ? vmp.toFixed(2) : "—",
+          desv != null ? desv.toFixed(2) : "—",
+          uniformidad,
+          conceptoCell,
+        ];
+      });
+
+      ctx.checkPage(40);
+      autoTable(doc, {
+        startY: ctx.y,
+        head: [["ROI", "VMP", "Desviación", "Uniformidad (%)", "Concepto"]],
+        body: rows,
+        theme: "grid",
+        styles: { fontSize: 7.5, cellPadding: 2, font: "helvetica", halign: "center" },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+        columnStyles: { 0: { halign: "left" } },
+        margin: { left: MARGIN, right: MARGIN },
+      });
+      ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+    }
+  }
+
+  // ── 2.11.5 Análisis ──
+  ctx.addSubsectionTitle("2.11.5.", "Análisis");
+
+  for (const det of dets) {
+    const tolerancia = det.tolerancia_pct ?? 15;
+
+    const calcMax = (orient: "ac" | "ca") => {
+      const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
+      if (center == null) return null;
+      let max = 0;
+      for (let i = 1; i <= 4; i++) {
+        const vmp = det[`roi_${i}_vmp_${orient}` as keyof typeof det] as number | undefined;
+        if (vmp != null) max = Math.max(max, Math.abs((vmp - center) / center) * 100);
+      }
+      return max;
+    };
+
+    const maxAc = calcMax("ac");
+    const maxCa = calcMax("ca");
+    const maxGlobal =
+      maxAc != null && maxCa != null
+        ? Math.max(maxAc, maxCa)
+        : (maxAc ?? maxCa ?? null);
+
+    const unifConforme = maxGlobal == null || maxGlobal <= tolerancia;
+    const conforme = unifConforme && !det.pixeles_defectuosos && !det.artefactos;
+
+    let parrafo: string;
+    if (conforme) {
+      parrafo =
+        `En la evaluación de uniformidad y artefactos del detector no se evidencian píxeles defectuosos en el detector ` +
+        `ni artefactos en la imagen. El valor máximo de desviación de uniformidad obtenido fue de ` +
+        `${maxGlobal != null ? maxGlobal.toFixed(2) : "—"} %, el cual se encuentra dentro de la tolerancia establecida de ${tolerancia} %. ` +
+        `En consecuencia, la prueba cumple con el criterio de aceptación.`;
+    } else {
+      const partes: string[] = [];
+      if (det.pixeles_defectuosos) partes.push("se identificaron píxeles defectuosos en el detector");
+      if (det.artefactos) partes.push("se observaron artefactos en la imagen");
+      if (!unifConforme && maxGlobal != null)
+        partes.push(
+          `el valor máximo de desviación de uniformidad obtenido fue de ${maxGlobal.toFixed(2)} %, superior a la tolerancia establecida de ${tolerancia} %`,
+        );
+      parrafo =
+        `En la evaluación de uniformidad y artefactos del detector, ` +
+        partes.join("; ") +
+        `. La prueba no cumple con el criterio de aceptación establecido.`;
+    }
+    ctx.addParagraph(parrafo);
+  }
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -1733,6 +1908,8 @@ export function renderResultadosSeccion(
       return render29(ctx, conv);
     case "2.10":
       return render210(ctx, conv);
+    case "2.11":
+      return render211(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

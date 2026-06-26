@@ -612,21 +612,34 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                   defaultValue={ur.det.serie_detector ?? ""}
                   onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { serie_detector: e.target.value || undefined })} />
 
+                {/* Tolerancia */}
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">Tolerancia (%)</label>
+                  <Input type="number" step="1" className="rounded-lg h-7 text-xs font-medium w-20"
+                    defaultValue={ur.det.tolerancia_pct ?? 15}
+                    onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { tolerancia_pct: e.target.value ? parseFloat(e.target.value) : 15 })} />
+                </div>
+
                 {(["ac", "ca"] as const).map((orient) => (
                   <div key={orient} className="space-y-2">
                     <p className="text-[10px] font-black text-slate-500 uppercase">{orient === "ac" ? "0° (Anodo-Catodo)" : "180° (Catodo-Anodo)"}</p>
                     <div className="grid grid-cols-5 gap-2">
                       {[0, 1, 2, 3, 4].map((i) => {
-                        const field = `roi_${i}_vmp_${orient}` as keyof typeof ur.det;
+                        const vmpField = `roi_${i}_vmp_${orient}` as keyof typeof ur.det;
+                        const desvField = `roi_${i}_desv_${orient}` as keyof typeof ur.det;
                         return (
                           <div key={i} className="space-y-1">
                             <label className="text-[9px] font-black text-slate-400 uppercase">
                               {i === 0 ? "ROIc" : `ROI${i}`}
                             </label>
                             <Input type="number" step="0.1" className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50"
-                              defaultValue={ur.det[field] as number ?? ""}
+                              defaultValue={ur.det[vmpField] as number ?? ""}
                               placeholder="VMP"
-                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [field]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [vmpField]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                            <Input type="number" step="0.1" className="rounded-lg h-7 text-xs font-medium border-slate-200"
+                              defaultValue={ur.det[desvField] as number ?? ""}
+                              placeholder="Desv."
+                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [desvField]: e.target.value ? parseFloat(e.target.value) : undefined })} />
                           </div>
                         );
                       })}

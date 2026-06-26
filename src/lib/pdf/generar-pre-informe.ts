@@ -31,6 +31,7 @@ import {
   renderFotos28,
   renderFotos29,
   renderFotos210,
+  renderFotos211,
   renderTablaChrRef,
   renderTablaBaseRef29,
   type InformeCtx,
@@ -821,6 +822,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos210(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.11" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos211(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1104,6 +1111,46 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
             accionesTexto =
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (codigo === "2.11" && aplica) {
+        const dets = conv.uniformidadDetector ?? [];
+        if (dets.length === 0) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const calcMaxGlobal = (det: (typeof dets)[number]) => {
+            const tolPct = det.tolerancia_pct ?? 15;
+            let maxG = 0;
+            for (const orient of ["ac", "ca"] as const) {
+              const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
+              if (center == null) continue;
+              for (let i = 1; i <= 4; i++) {
+                const vmp = det[`roi_${i}_vmp_${orient}` as keyof typeof det] as number | undefined;
+                if (vmp != null) maxG = Math.max(maxG, Math.abs((vmp - center) / center) * 100);
+              }
+            }
+            return { maxG, tolPct };
+          };
+
+          const allConforme = dets.every((det) => {
+            const { maxG, tolPct } = calcMaxGlobal(det);
+            const tieneVmp = (det.roi_0_vmp_ac != null || det.roi_0_vmp_ca != null);
+            return tieneVmp && maxG <= tolPct && !det.pixeles_defectuosos && !det.artefactos;
+          });
+
+          esNoConforme = !allConforme;
+          if (allConforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El detector no presenta píxeles defectuosos ni artefactos y el valor de uniformidad se encuentra dentro de la tolerancia establecida.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "Se identificaron inconformidades en la evaluación de uniformidad y/o artefactos del detector, que exceden los criterios de aceptación establecidos.";
+            accionesTexto =
+              "Se recomienda realizar revisión técnica del detector, verificar la calibración del sistema y repetir la prueba. Si los problemas persisten, escalar al fabricante o servicio técnico autorizado.";
           }
         }
       } else if (!aplica) {

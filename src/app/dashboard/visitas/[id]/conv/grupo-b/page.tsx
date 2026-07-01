@@ -280,6 +280,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
+  const [importVersion, setImportVersion] = useState(0);
   const pruebasGrupoB = getManualGrupo("B");
 
   const data = useLiveQuery(async () => {
@@ -417,6 +418,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     } else {
       await importarRaysafe(result.data, principales);
     }
+    setImportVersion((v) => v + 1);
   }
 
   // ─── Save helpers ───
@@ -595,7 +597,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             son disparos únicos de referencia para la dosis al receptor.
           </Tip>
 
-          <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div key={`principales-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
             <table className="w-full min-w-[900px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -804,7 +806,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             distancia foco-sensor.
           </Alert>
 
-          <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div key={`con-rejilla-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
             <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -927,7 +929,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             </div>
           </div>
 
-          <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div key={`sin-rejilla-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
             <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -1013,7 +1015,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             medidor de dosis-área del equipo está calibrado correctamente.
           </Tip>
 
-          <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div key={`kerma-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
             <table className="w-full min-w-[900px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">

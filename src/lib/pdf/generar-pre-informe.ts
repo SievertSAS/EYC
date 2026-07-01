@@ -25,6 +25,17 @@ import {
   renderFotos22,
   renderFotos23,
   renderFotos24,
+  renderFotos25,
+  renderFotos26,
+  renderFotos27,
+  renderFotos28,
+  renderFotos29,
+  renderFotos210,
+  renderFotos211,
+  renderFotos212,
+  renderFotos213,
+  renderTablaChrRef,
+  renderTablaBaseRef29,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -188,7 +199,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
       metodologia:
         "Se ubicó el dispositivo de verificación de colimación sobre el receptor de imagen y se ajustó el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba. Posteriormente, se realizó una exposición radiográfica con una técnica adecuada para visualizar el campo irradiado y la posición del rayo central.",
       criterio:
-        "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular ≤ 3°.",
+        "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular <= 3°.",
     },
     TIE: {
       objetivo:
@@ -197,7 +208,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. Se seleccionó una combinación representativa de tensión y corriente del generador y se realizaron al menos tres exposiciones para un tiempo de exposición determinado.",
       criterio:
-        "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) ≤ 10 %.",
+        "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 10 %.",
     },
     KVP: {
       objetivo:
@@ -206,7 +217,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
       metodologia:
         "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación. Se seleccionaron al menos tres valores representativos de tensión del tubo de rayos X y se realizaron al menos tres exposiciones para cada valor seleccionado, registrando la tensión medida en cada irradiación.",
       criterio:
-        "La desviación entre la tensión seleccionada y la tensión medida no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) ≤ 5 %.",
+        "La desviación entre la tensión seleccionada y la tensión medida no debe exceder ±10 %. La repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 5 %.",
     },
     CHR: {
       objetivo:
@@ -292,7 +303,7 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(...COLOR_BLACK);
-    doc.text(lines, MARGIN + indent, y);
+    doc.text(lines, MARGIN + indent, y, { align: "justify", maxWidth: CONTENT_WIDTH - indent });
     y += lines.length * 4.2 + 2;
   }
 
@@ -439,8 +450,6 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
     MARGIN + 5,
     y
   );
-
-  addFooter(doc, datos);
 
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA 2 — INFORMACIÓN DE LA PRÁCTICA
@@ -737,7 +746,24 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
       // Criterio de aceptación
       addSubsectionTitle(`${codigo}.${nextSub}.`, "Criterio de aceptación");
-      addParagraph(cat.criterio);
+      const criterioTexto =
+        codigo === "2.11"
+          ? cat.criterio.replace(
+              "[TOLERANCIA_PCT]",
+              String(conv.uniformidadDetector[0]?.tolerancia_pct ?? 15),
+            )
+          : cat.criterio;
+      addParagraph(criterioTexto);
+      // Tabla de valores mínimos de referencia CHR (solo 2.6)
+      if (codigo === "2.6" && aplica) {
+        renderTablaChrRef(ctx);
+        y = ctx.y;
+      }
+      // Tabla de valores base de referencia DDI/EI (solo 2.9)
+      if (codigo === "2.9" && aplica) {
+        renderTablaBaseRef29(ctx, conv);
+        y = ctx.y;
+      }
       nextSub++;
 
       // Diagrama radiométrico (solo 2.1)
@@ -765,6 +791,60 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         checkPage(20);
         addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
         renderFotos24(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.5" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos25(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.6" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos26(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.7" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos27(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.8" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos28(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.9" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos29(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.10" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos210(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.11" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos211(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.12" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos212(ctx, conv);
+        nextSub++;
+      }
+      if (codigo === "2.13" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos213(ctx, conv);
         nextSub++;
       }
 
@@ -987,6 +1067,158 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
           conceptoLabel = "FAVORABLE";
           conceptoParrafo = "La prueba de rendimiento del tubo de rayos X, repetibilidad y linealidad se considera conforme, ya que el coeficiente de variación obtenido para las exposiciones repetidas y las desviaciones observadas en la linealidad del rendimiento se encuentran dentro de los criterios de aceptación establecidos.";
           accionesTexto = "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+        }
+      } else if (codigo === "2.8" && aplica) {
+        conceptoLabel = "NO APLICA";
+        conceptoParrafo = "La prueba no define tolerancias, debido a que es de carácter descriptivo y de referencia técnica.";
+        accionesTexto = "No Aplica";
+        esNoConforme = false;
+      } else if (codigo === "2.9" && aplica) {
+        const toma1 = conv.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+        const ei = toma1?.ei ?? null;
+        const eiBase = toma1?.ei_base ?? null;
+        const di = toma1?.di ?? null;
+        const diBase = toma1?.di_base ?? null;
+        const hayDatos = ei != null;
+        const hayBase = eiBase != null;
+        if (!hayDatos || !hayBase) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const eiDev = eiBase > 0 ? Math.abs(ei - eiBase) / eiBase : Infinity;
+          const diDev =
+            di != null && diBase != null && diBase !== 0
+              ? Math.abs(di - diBase) / Math.abs(diBase)
+              : null;
+          const conforme = eiDev <= 0.2 && (diDev == null || diDev <= 0.2);
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "Los indicadores de exposición evaluados cumplen con el criterio de aceptación establecido, presentando desviaciones dentro del límite del ± 20 % respecto a los valores base.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "Uno o más indicadores de exposición evaluados presentan desviaciones superiores al ± 20 % respecto a los valores base establecidos.";
+            accionesTexto =
+              "Se recomienda verificar las condiciones de exposición y los parámetros del sistema de imagen. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el restablecimiento de los valores dentro de las tolerancias.";
+          }
+        }
+      } else if (codigo === "2.10" && aplica) {
+        const grupo1 = conv.ddiMediciones.filter((m) => m.grupo === 1);
+        const eiVals = grupo1.map((m) => m.ei).filter((v): v is number => v != null);
+        if (eiVals.length < 2) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const eiAvg = eiVals.reduce((s, v) => s + v, 0) / eiVals.length;
+          const eiStd = Math.sqrt(
+            eiVals.reduce((s, v) => s + (v - eiAvg) ** 2, 0) / (eiVals.length - 1),
+          );
+          const eiCv = eiAvg > 0 ? eiStd / eiAvg : Infinity;
+          const conforme = eiCv <= 0.2;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El sistema presenta adecuada repetibilidad del indicador de exposición bajo condiciones de irradiación reproducibles, con un coeficiente de variación dentro del límite del 20 %.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
+            accionesTexto =
+              "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (codigo === "2.13" && aplica) {
+        const bc = conv.bajoContraste;
+        if (!bc) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const KEYS_BC = [
+            "contraste_9_4", "contraste_8_0", "contraste_5_6", "contraste_4_0",
+            "contraste_2_8", "contraste_1_8", "contraste_1_3", "contraste_0_9",
+          ] as const;
+          const visibles = KEYS_BC.filter((k) => bc[k]).length;
+          const bajoUmb = bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9;
+          const conforme = visibles > 3 || !!bajoUmb;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El sistema cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "El sistema no cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
+            accionesTexto =
+              "Se deberá verificar el detector, el sistema de procesamiento de imagen y las condiciones de exposición, y repetir la prueba para confirmar el cumplimiento de los criterios establecidos.";
+          }
+        }
+      } else if (codigo === "2.12" && aplica) {
+        const plmm = conv.resolucion?.pares_lineas_plmm;
+        if (plmm == null) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const conforme = plmm >= 2.4;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El valor medido de la resolución espacial cumple con el criterio de aceptación establecido.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "El valor medido de la resolución espacial no cumple con el criterio de aceptación establecido.";
+            accionesTexto =
+              "Se recomienda repetir la prueba para descartar errores en la adquisición o visualización de la imagen. Si el resultado persiste fuera del criterio de aceptación, deberá notificarse al servicio de mantenimiento para la revisión del sistema.";
+          }
+        }
+      } else if (codigo === "2.11" && aplica) {
+        const dets = conv.uniformidadDetector ?? [];
+        if (dets.length === 0) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const calcMaxGlobal = (det: (typeof dets)[number]) => {
+            const tolPct = det.tolerancia_pct ?? 15;
+            let maxG = 0;
+            for (const orient of ["ac", "ca"] as const) {
+              const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
+              if (center == null) continue;
+              for (let i = 1; i <= 4; i++) {
+                const vmp = det[`roi_${i}_vmp_${orient}` as keyof typeof det] as number | undefined;
+                if (vmp != null) maxG = Math.max(maxG, Math.abs((vmp - center) / center) * 100);
+              }
+            }
+            return { maxG, tolPct };
+          };
+
+          const allConforme = dets.every((det) => {
+            const { maxG, tolPct } = calcMaxGlobal(det);
+            const tieneVmp = (det.roi_0_vmp_ac != null || det.roi_0_vmp_ca != null);
+            return tieneVmp && maxG <= tolPct && !det.pixeles_defectuosos && !det.artefactos;
+          });
+
+          esNoConforme = !allConforme;
+          if (allConforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "El detector no presenta píxeles defectuosos ni artefactos y el valor de uniformidad se encuentra dentro de la tolerancia establecida.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "Se identificaron inconformidades en la evaluación de uniformidad y/o artefactos del detector, que exceden los criterios de aceptación establecidos.";
+            accionesTexto =
+              "Se recomienda realizar revisión técnica del detector, verificar la calibración del sistema y repetir la prueba. Si los problemas persisten, escalar al fabricante o servicio técnico autorizado.";
+          }
         }
       } else if (!aplica) {
         conceptoLabel = "NO APLICA";
@@ -1397,9 +1629,9 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
 
   // ─── Footers ───
   pageCount = doc.getNumberOfPages();
-  for (let i = 2; i <= pageCount; i++) {
+  for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    addFooter(doc, datos);
+    addFooter(doc, datos, i, pageCount);
   }
 
   return doc.output("blob");
@@ -1453,9 +1685,7 @@ function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string) {
   doc.line(MARGIN, MARGIN + HEADER_HEIGHT - 4, PAGE_WIDTH - MARGIN, MARGIN + HEADER_HEIGHT - 4);
 }
 
-function addFooter(doc: jsPDF, datos: DatosInforme) {
-  const pageNum = doc.getNumberOfPages();
-  doc.setPage(pageNum);
+function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPages: number) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_GRAY);
@@ -1465,7 +1695,7 @@ function addFooter(doc: jsPDF, datos: DatosInforme) {
     ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO")
     : "";
   doc.text(`${fechaCorta} — Pre-informe sujeto a revisión`, MARGIN, 292);
-  doc.text(`${pageNum}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
+  doc.text(`Página ${currentPage} de ${totalPages}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
 
   // Línea inferior púrpura
   doc.setFillColor(...COLOR_PRIMARY);

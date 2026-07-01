@@ -612,21 +612,34 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                   defaultValue={ur.det.serie_detector ?? ""}
                   onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { serie_detector: e.target.value || undefined })} />
 
+                {/* Tolerancia */}
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">Tolerancia (%)</label>
+                  <Input type="number" step="1" className="rounded-lg h-7 text-xs font-medium w-20"
+                    defaultValue={ur.det.tolerancia_pct ?? 15}
+                    onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { tolerancia_pct: e.target.value ? parseFloat(e.target.value) : 15 })} />
+                </div>
+
                 {(["ac", "ca"] as const).map((orient) => (
                   <div key={orient} className="space-y-2">
                     <p className="text-[10px] font-black text-slate-500 uppercase">{orient === "ac" ? "0° (Anodo-Catodo)" : "180° (Catodo-Anodo)"}</p>
                     <div className="grid grid-cols-5 gap-2">
                       {[0, 1, 2, 3, 4].map((i) => {
-                        const field = `roi_${i}_vmp_${orient}` as keyof typeof ur.det;
+                        const vmpField = `roi_${i}_vmp_${orient}` as keyof typeof ur.det;
+                        const desvField = `roi_${i}_desv_${orient}` as keyof typeof ur.det;
                         return (
                           <div key={i} className="space-y-1">
                             <label className="text-[9px] font-black text-slate-400 uppercase">
                               {i === 0 ? "ROIc" : `ROI${i}`}
                             </label>
                             <Input type="number" step="0.1" className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50"
-                              defaultValue={ur.det[field] as number ?? ""}
+                              defaultValue={ur.det[vmpField] as number ?? ""}
                               placeholder="VMP"
-                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [field]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [vmpField]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                            <Input type="number" step="0.1" className="rounded-lg h-7 text-xs font-medium border-slate-200"
+                              defaultValue={ur.det[desvField] as number ?? ""}
+                              placeholder="Desv."
+                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [desvField]: e.target.value ? parseFloat(e.target.value) : undefined })} />
                           </div>
                         );
                       })}
@@ -653,12 +666,23 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                   </div>
                 </div>
 
-                {ur.maxGlobal !== null && (
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                    <span className="text-xs font-bold text-slate-700">Uniformidad max global</span>
-                    <span className="text-xs font-black text-primary">{ur.maxGlobal.toFixed(1)}%</span>
-                  </div>
-                )}
+                {ur.maxGlobal !== null && (() => {
+                  const tolerancia = ur.det.tolerancia_pct ?? 15;
+                  const conforme = ur.maxGlobal <= tolerancia && !ur.det.pixeles_defectuosos && !ur.det.artefactos;
+                  return (
+                    <div className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-bold text-slate-700">Uniformidad max global</span>
+                        <span className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                          {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                        {ur.maxGlobal.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 <button type="button" onClick={() => ur.det.id && removeUniformidadDet(ur.det.id)}
                   className="text-xs text-red-400 hover:text-red-600 font-bold">
@@ -684,10 +708,14 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
             Identifica el grupo de barras mas fino visible en el patron de resolucion.
           </StepHeader>
 
-          <ImageSlot label="Montaje patron de resolucion" evidencia={getEvidencia("2.12", "montaje_resolucion")}
-            onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)} onRemove={() => removeImage("2.12", "montaje_resolucion")} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImageSlot label="Foto montaje experimental" evidencia={getEvidencia("2.12", "montaje_resolucion")}
+              onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)} onRemove={() => removeImage("2.12", "montaje_resolucion")} />
+            <ImageSlot label="Radiografía del patrón de resolución" evidencia={getEvidencia("2.12", "dicom_resolucion")}
+              onCapture={(f) => captureImage("2.12", "dicom_resolucion", f)} onRemove={() => removeImage("2.12", "dicom_resolucion")} />
+          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SID (cm)</label>
               <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.sid_cm ?? 100}
@@ -703,13 +731,37 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
               <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.tecnica_mas ?? ""}
                 onBlur={(e) => updateResolucion({ tecnica_mas: e.target.value ? parseFloat(e.target.value) : undefined })} />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pl/mm visibles</label>
-              <Input type="number" step="0.1" className="rounded-xl h-9 text-sm font-black border-blue-200 bg-blue-50/50"
-                defaultValue={resol?.pares_lineas_plmm ?? ""} placeholder="Ej: 2.5"
-                onBlur={(e) => updateResolucion({ pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined })} />
-            </div>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pl/mm visibles</label>
+            <select
+              className="w-full rounded-xl h-9 text-sm font-black border border-blue-200 bg-blue-50/50 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
+              value={resol?.pares_lineas_plmm ?? ""}
+              onChange={(e) => updateResolucion({ pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined })}>
+              <option value="">— Seleccionar —</option>
+              {[5.0, 4.6, 4.3, 4.0, 3.9, 3.7, 3.4, 3.1, 2.8, 2.5, 2.4, 2.3, 2.0, 1.8, 1.6, 1.4, 1.2, 1.0, 0.9, 0.8, 0.7, 0.6].map((v) => (
+                <option key={v} value={v}>{v.toFixed(1)} pl/mm</option>
+              ))}
+            </select>
+          </div>
+
+          {resol?.pares_lineas_plmm != null && (() => {
+            const conforme = resol.pares_lineas_plmm >= 2.4;
+            return (
+              <div className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold text-slate-700">Resolución espacial</span>
+                  <span className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                    {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                  </span>
+                </div>
+                <span className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
+                  {resol.pares_lineas_plmm.toFixed(1)} pl/mm
+                </span>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

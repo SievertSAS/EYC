@@ -13,6 +13,10 @@ import type {
   ConvColimacion,
   ConvRaysafeSetup,
   ConvRaysafeMedicion,
+  ConvDdiMedicion,
+  ConvUniformidadDetector,
+  ConvResolucion,
+  ConvBajoContraste,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -78,9 +82,35 @@ export interface DatosConvencional {
   fotos23?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Fotografía de montaje RaySafe para la sección 2.4.7 */
   fotos24?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.5.7 (misma imagen que 2.4) */
+  fotos25?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.6.7 (misma imagen que 2.4) */
+  fotos26?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.7.7 (misma imagen que 2.4) */
+  fotos27?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.8.7 (misma imagen que 2.4) */
+  fotos28?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje DDI para la sección 2.9.7 */
+  fotos29?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje DDI para la sección 2.10.7 (misma imagen que 2.9) */
+  fotos210?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografías de imágenes DICOM para la sección 2.11.7 (0° y 180°) */
+  fotos211?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Setup y mediciones del RaySafe (pruebas 2.4–2.8) */
   raysafeSetup?: ConvRaysafeSetup;
   raysafeMediciones: ConvRaysafeMedicion[];
+  /** Mediciones DDI/EI (pruebas 2.9 y 2.10) */
+  ddiMediciones: ConvDdiMedicion[];
+  /** Mediciones de uniformidad del detector (prueba 2.11) */
+  uniformidadDetector: ConvUniformidadDetector[];
+  /** Fotografía del patrón de resolución para la sección 2.12.7 */
+  fotos212?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Medición de resolución espacial (prueba 2.12) */
+  resolucion?: ConvResolucion;
+  /** Fotografía del patrón de bajo contraste para la sección 2.13.7 */
+  fotos213?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Medición de bajo contraste (prueba 2.13) */
+  bajoContraste?: ConvBajoContraste;
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -106,7 +136,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -118,6 +148,10 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_colimacion.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+      db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+      db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
+      db.conv_resolucion.where("visita_id").equals(visitaId).first(),
+      db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -169,11 +203,57 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos23.push({ label, ...img });
   }
 
-  // Fotografía de montaje RaySafe (sección 2.4.7)
-  const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
+  // Fotografía de montaje RaySafe (secciones 2.4.7 y 2.5.7 — misma imagen)
   const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
   const img24 = await cargarImagen(ev24);
+  const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
   if (img24) fotos24.push({ label: "Fig. Implementación de instrumentación en la prueba", ...img24 });
+  const fotos25: NonNullable<DatosConvencional["fotos25"]> = [];
+  if (img24) fotos25.push({ label: "Fig 2.5.1. Implementación de instrumentación en la prueba", ...img24 });
+  const fotos26: NonNullable<DatosConvencional["fotos26"]> = [];
+  if (img24) fotos26.push({ label: "Fig 2.6.1 Implementación de instrumentación en la prueba", ...img24 });
+  const fotos27: NonNullable<DatosConvencional["fotos27"]> = [];
+  if (img24) fotos27.push({ label: "Fig 2.7.1 Implementación de instrumentación en la prueba", ...img24 });
+  const fotos28: NonNullable<DatosConvencional["fotos28"]> = [];
+  if (img24) fotos28.push({ label: "Fig 2.1.8 Implementación de instrumentación en la prueba", ...img24 });
+
+  // Fotografía de montaje DDI (secciones 2.9.7 y 2.10.7)
+  const ev29 = evidencias.find((e) => e.prueba_codigo === "2.9" && e.slot === "montaje_ddi");
+  const img29 = await cargarImagen(ev29);
+  const fotos29: NonNullable<DatosConvencional["fotos29"]> = [];
+  if (img29) fotos29.push({ label: "Fig. 2.9.1 Montaje experimental para la prueba DDI/EI", ...img29 });
+  const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
+  if (img29) fotos210.push({ label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI", ...img29 });
+
+  // Fotografía patrón bajo contraste para 2.13.7
+  const ev213 = evidencias.find((e) => e.prueba_codigo === "2.13" && e.slot === "montaje_bajo_contraste");
+  const img213 = await cargarImagen(ev213);
+  const fotos213: NonNullable<DatosConvencional["fotos213"]> = [];
+  if (img213) fotos213.push({ label: "Fig. 2.13.1 Patrón de bajo contraste", ...img213 });
+
+  // Fotografías patrón resolución para 2.12.7 (montaje + DICOM)
+  const SLOTS_FOTOS_212: [string, string][] = [
+    ["montaje_resolucion", "Fig. 2.12.1 Foto montaje experimental"],
+    ["dicom_resolucion", "Fig. 2.12.2 Radiografía del patrón de resolución espacial"],
+  ];
+  const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
+  for (const [slot, label] of SLOTS_FOTOS_212) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.12" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos212.push({ label, ...img });
+  }
+
+  // Fotografías DICOM para 2.11.7 (0° y 180°)
+  const SLOTS_FOTOS_211: [string, string][] = [
+    ["dicom_0", "Fig. 2.11.1 Orientación inicial 0°"],
+    ["dicom_180", "Fig. 2.11.2 Orientación final 180°"],
+  ];
+  const fotos211: NonNullable<DatosConvencional["fotos211"]> = [];
+  for (const [slot, label] of SLOTS_FOTOS_211) {
+    const ev = evidencias.find((e) => e.prueba_codigo === "2.11" && e.slot === slot);
+    const img = await cargarImagen(ev);
+    if (img) fotos211.push({ label, ...img });
+  }
 
   return {
     secciones: seccionesEfectivas,
@@ -187,8 +267,21 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     fotos22,
     fotos23,
     fotos24,
+    fotos25,
+    fotos26,
+    fotos27,
+    fotos28,
+    fotos29,
+    fotos210,
+    fotos211,
+    fotos212,
+    fotos213,
     raysafeSetup,
     raysafeMediciones,
+    ddiMediciones,
+    uniformidadDetector,
+    resolucion,
+    bajoContraste,
   };
 }
 
@@ -496,6 +589,284 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170; // ancho de contenido (mm)
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.8.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos28 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.9.7: fotografía del montaje DDI/EI */
+export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos29 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.13.7: fotografía del patrón de bajo contraste */
+export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos213 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del patrón de bajo contraste.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.7;
+    const scale = Math.min(maxW / f.width, 100 / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 16);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.12.7: fotografía del patrón de resolución espacial */
+export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos212 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del patrón de resolución.");
+    return;
+  }
+  const CWIDTH = 170;
+  const fotosPerRow = 2;
+  const colW = CWIDTH / fotosPerRow;
+  for (let i = 0; i < fotos.length; i += fotosPerRow) {
+    const grupo = fotos.slice(i, i + fotosPerRow);
+    const maxH = 80;
+    const scales = grupo.map((f) => Math.min((colW * 0.9) / f.width, maxH / f.height, 1));
+    const rowH = Math.max(...grupo.map((f, j) => f.height * scales[j]));
+    ctx.checkPage(rowH + 16);
+    grupo.forEach((f, j) => {
+      const scale = scales[j];
+      const w = f.width * scale;
+      const h = f.height * scale;
+      const x = MARGIN + j * colW + (colW - w) / 2;
+      try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      const caption = doc.splitTextToSize(f.label, colW - 4);
+      doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
+    });
+    ctx.y += rowH + 12;
+  }
+}
+
+/** Subsección 2.11.7: imágenes DICOM de uniformidad (0° y 180°) */
+export function renderFotos211(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos211 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntaron imágenes DICOM de la prueba de uniformidad.");
+    return;
+  }
+  const CWIDTH = 170;
+  const fotosPerRow = 2;
+  const colW = CWIDTH / fotosPerRow;
+  for (let i = 0; i < fotos.length; i += fotosPerRow) {
+    const grupo = fotos.slice(i, i + fotosPerRow);
+    const maxH = 80;
+    const scales = grupo.map((f) => Math.min((colW * 0.9) / f.width, maxH / f.height, 1));
+    const rowH = Math.max(...grupo.map((f, j) => f.height * scales[j]));
+    ctx.checkPage(rowH + 16);
+    grupo.forEach((f, j) => {
+      const scale = scales[j];
+      const w = f.width * scale;
+      const h = f.height * scale;
+      const x = MARGIN + j * colW + (colW - w) / 2;
+      try { doc.addImage(f.dataUrl, x, ctx.y, w, h); } catch { /* no renderizable */ }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(...COLOR_GRAY);
+      const caption = doc.splitTextToSize(f.label, colW - 4);
+      doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
+    });
+    ctx.y += rowH + 12;
+  }
+}
+
+/** Subsección 2.10.7: fotografía del montaje DDI/EI (repetibilidad) */
+export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos210 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.7.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos27 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.6.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos26 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.5.7: fotografía del montaje con sensor RaySafe */
+export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc } = ctx;
+  const fotos = conv.fotos25 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -943,6 +1314,13 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
+  ctx.addParagraph(
+    "La exactitud de la tensión del tubo se evaluó mediante la desviación máxima porcentual entre la tensión nominal seleccionada y la tensión medida con mayor desviación.",
+  );
+  ctx.addParagraph(
+    "La repetibilidad del sistema de generación de alta tensión se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada valor de tensión nominal.",
+  );
+
   ctx.addSubsectionTitle("2.5.5.", "Análisis");
   const todosConformes = rows.every((r) => r[5] === "Conforme");
   const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
@@ -999,6 +1377,10 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = finalY(doc) + 4;
 
+  ctx.addParagraph(
+    "Para la evaluación del cumplimiento se compararon los valores medidos con los valores mínimos de referencia de capa hemirreductora correspondientes a cada nivel de tensión.",
+  );
+
   ctx.addSubsectionTitle("2.6.5.", "Análisis");
   const todosConformes = rows.every((r) => r[3] === "Conforme");
   const resumen = rows.map((r) => `${r[1]} mm Al a ${r[0]} kV`).join(", ");
@@ -1014,46 +1396,106 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+/** Tabla de valores mínimos de referencia CHR para sección 2.6.6 */
+export function renderTablaChrRef(ctx: InformeCtx) {
+  const { doc, autoTable } = ctx;
+  ctx.checkPage(36);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kV)", "CHR mínima (mm Al)"]],
+    body: [["60", "1,8"], ["70", "2,1"], ["80", "2,3"], ["90", "2,5"]],
+    columnStyles: { 0: { halign: "center" as const, cellWidth: 45 }, 1: { halign: "center" as const, cellWidth: 45 } },
+    margin: { left: MARGIN + (170 - 90) / 2 },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+}
+
+export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc, autoTable } = ctx;
+  const toma1 = conv.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+  const kv = toma1?.kv_nominal ?? null;
+  const mas = toma1?.carga_mas ?? null;
+  const eiBase = toma1?.ei_base ?? null;
+  const diBase = toma1?.di_base ?? null;
+  ctx.checkPage(30);
+  addCaption(ctx, "Valores base de referencia");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI", "D.I."]],
+    body: [
+      [
+        kv != null ? kv.toFixed(1) : "—",
+        mas != null ? mas.toFixed(1) : "—",
+        eiBase != null ? String(eiBase) : "—",
+        diBase != null ? diBase.toFixed(2) : "NA",
+      ],
+    ],
+  });
+  ctx.y = finalY(doc) + 4;
+}
+
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
   const shots80 = conv.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
+    (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null,
   );
 
   ctx.addSubsectionTitle("2.7.4.", "Resultados");
+  const distancia = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
   ctx.addParagraph(
     "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
-    "Tensión de referencia: 80 kVp\n" +
-    `Distancia foco-detector: ${conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100} cm\n` +
-    "Estimación del rendimiento: normalizado a 100 centímetros"
+      `Tensión de referencia: 80 kVp\n` +
+      `Distancia foco-detector: ${distancia} cm\n` +
+      "Estimación del rendimiento: normalizado a 100 centímetros\n" +
+      "Factor de corrección por presión y temperatura del analizador: 1,0",
+  );
+  ctx.addParagraph(
+    "Las mediciones obtenidas se utilizaron para evaluar el valor del rendimiento del tubo de rayos X, " +
+      "la repetibilidad de la radiación de salida y la linealidad del rendimiento con respecto al mAs.",
   );
 
   if (shots80.length === 0) return SIN_DATOS(ctx);
 
-  // ── Tabla 2.7.1: Linealidad ──
-  const gruposMas = new Map<number, typeof shots80>();
+  // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5 a 80 kV) ──
+  // Solo grupos 2–5 (variación de mAs a 80 kV); grupos 7–8 van a repetibilidad
+  const GRUPOS_LIN = new Set([2, 3, 4, 5]);
+  const gruposNum = new Map<number, typeof shots80>();
   for (const m of shots80) {
-    if (m.mas_nominal == null) continue;
-    if (!gruposMas.has(m.mas_nominal)) gruposMas.set(m.mas_nominal, []);
-    gruposMas.get(m.mas_nominal)!.push(m);
+    if (m.grupo_numero == null || !GRUPOS_LIN.has(m.grupo_numero) || m.mas_nominal == null) continue;
+    if (!gruposNum.has(m.grupo_numero)) gruposNum.set(m.grupo_numero, []);
+    gruposNum.get(m.grupo_numero)!.push(m);
   }
+  const gruposArr = [...gruposNum.entries()].sort(([a], [b]) => a - b);
 
-  if (gruposMas.size > 0) {
-    const entradasOrdenadas = [...gruposMas.entries()].sort(([a], [b]) => a - b);
-    let rendRef: number | null = null;
-    const rowsLin = entradasOrdenadas.map(([mas, ms], idx) => {
+  let linMaxPct = 0;
+  let prevRend: number | null = null;
+
+  ctx.checkPage(8);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...COLOR_BLACK);
+  doc.text("a) Evaluación del rendimiento del tubo de rayos X y linealidad", MARGIN, ctx.y);
+  ctx.y += 6;
+
+  if (gruposArr.length > 0) {
+    const rowsLin = gruposArr.map(([, ms]) => {
+      const mas = ms[0].mas_nominal!;
       const kermaProm = mean(ms.map((m) => m.dosis_medida_mgy!));
-      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0; // µGy/mAs
-      if (idx === 0) rendRef = rend;
+      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0;
+      // Linealidad: comparación con el grupo anterior (fórmula |a-b|/(a+b)*100)
       const linPct =
-        rendRef && rendRef > 0 && idx > 0
-          ? ((rend - rendRef) / rendRef) * 100
+        prevRend != null && prevRend > 0
+          ? (Math.abs(rend - prevRend) / (rend + prevRend)) * 100
           : null;
+      if (linPct != null && linPct > linMaxPct) linMaxPct = linPct;
+      prevRend = rend;
       return [
         mas.toFixed(1),
         kermaProm.toFixed(3),
         rend.toFixed(1),
-        linPct != null ? linPct.toFixed(2) + " %" : "—",
+        linPct != null ? linPct.toFixed(2) + " %" : "-%",
       ];
     });
 
@@ -1062,25 +1504,47 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
     autoTable(doc, {
       ...TABLE_STYLE,
       startY: ctx.y,
-      head: [["Exposición nominal (mAs)", "Kerma en aire promedio (mGy)", "Rendimiento (µGy/mAs)", "Linealidad (%)"]],
+      head: [
+        ["Exposición nominal (mAs)", "Kerma en aire promedio (mGy)", "Rendimiento (µGy/mAs)", "Linealidad (%)"],
+      ],
       body: rowsLin,
-      columnStyles: { 0: { cellWidth: 36 } },
+      columnStyles: { 0: { cellWidth: 38 } },
     });
     ctx.y = finalY(doc) + 4;
   }
 
-  // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/10mAs) ──
+  ctx.addParagraph(
+    "El rendimiento del tubo se calculó como el cociente entre el kerma en aire medido y la carga " +
+      "utilizada (mAs). La linealidad se evaluó mediante la comparación del rendimiento obtenido " +
+      "para los diferentes valores de carga.",
+  );
+
+  // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/200mA/0.05s) ──
   const repShots = shots80
     .filter((m) => m.grupo_numero === 3)
     .sort((a, b) => a.toma_numero - b.toma_numero);
 
-  if (repShots.length > 0) {
-    const kermas = repShots.map((m) => m.dosis_medida_mgy!);
-    const prom = mean(kermas);
-    const std = stdDev(kermas);
-    const cv = prom > 0 ? (std / prom) * 100 : 0;
+  const kermasRep = repShots.map((m) => m.dosis_medida_mgy!);
+  const promRep = kermasRep.length > 0 ? mean(kermasRep) : 0;
+  const stdRep = kermasRep.length > 0 ? stdDev(kermasRep) : 0;
+  const cvRep = promRep > 0 ? (stdRep / promRep) * 100 : 0;
+  const conformeRep = kermasRep.length === 0 || cvRep <= 5;
+  const conformeLin = gruposArr.length <= 1 || linMaxPct <= 10;
 
-    const rowsRep: string[][] = repShots.map((m, i) => [String(i + 1), m.dosis_medida_mgy!.toFixed(4)]);
+  ctx.checkPage(8);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...COLOR_BLACK);
+  doc.text("b) Evaluación de la repetibilidad de la radiación de salida", MARGIN, ctx.y);
+  ctx.y += 6;
+
+  ctx.addParagraph(
+    "La repetibilidad se evaluó a partir de exposiciones repetidas bajo las mismas condiciones " +
+      "de irradiación (80 kV y aproximadamente 10 mAs).",
+  );
+
+  if (repShots.length > 0) {
+    const rowsIndiv: string[][] = repShots.map((m, i) => [String(i + 1), m.dosis_medida_mgy!.toFixed(4)]);
 
     ctx.checkPage(40);
     addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
@@ -1089,50 +1553,511 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       startY: ctx.y,
       head: [["Medición", "Kerma en aire medido (mGy)"]],
       body: [
-        ...rowsRep,
-        ["Promedio", prom.toFixed(4)],
-        ["Desviación estándar (mGy)", std.toFixed(4)],
-        ["CV (%)", cv.toFixed(2) + " %"],
+        ...rowsIndiv,
+        ["Promedio", promRep.toFixed(4)],
+        ["Desviación estándar (mGy)", stdRep.toFixed(4)],
+        ["CV(%)", cvRep.toFixed(2) + " %"],
       ],
       columnStyles: {
         0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
       },
     });
     ctx.y = finalY(doc) + 4;
+  }
 
-    ctx.addSubsectionTitle("2.7.5.", "Análisis");
-    const gruposMasArr = [...gruposMas.entries()].sort(([a], [b]) => a - b);
-    const rendMin = gruposMasArr.length > 0
-      ? Math.min(...gruposMasArr.map(([mas, ms]) => (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000))
-      : 0;
-    const rendMax = gruposMasArr.length > 0
-      ? Math.max(...gruposMasArr.map(([mas, ms]) => (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000))
-      : 0;
-    const linMax = gruposMasArr.length > 1
-      ? (() => {
-          const ref = (mean(gruposMasArr[0][1].map((m) => m.dosis_medida_mgy!)) / gruposMasArr[0][0]) * 1000;
-          return Math.max(...gruposMasArr.slice(1).map(([mas, ms]) => {
-            const r = (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000;
-            return Math.abs((r - ref) / ref) * 100;
-          }));
-        })()
-      : 0;
-    const conformeRep = cv <= 5;
-    const conformeLin = linMax <= 10;
-    if (conformeRep && conformeLin) {
-      ctx.addParagraph(
-        `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rendMin.toFixed(1)} y ${rendMax.toFixed(1)} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cv.toFixed(2)} % y la linealidad del rendimiento presenta una desviación máxima de ${linMax.toFixed(2)} %, ambos dentro de los criterios de aceptación establecidos.`
-      );
-    } else {
-      ctx.addParagraph(
-        `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta un CV de repetibilidad de ${cv.toFixed(2)} % y una linealidad máxima de ${linMax.toFixed(2)} %. ` +
-        (!conformeRep ? "La repetibilidad supera el criterio de aceptación del 5 %. " : "") +
-        (!conformeLin ? "La linealidad supera el criterio de aceptación del 10 %. " : "")
-      );
-    }
+  // ── 2.7.5 Análisis ──
+  ctx.addSubsectionTitle("2.7.5.", "Análisis");
+
+  if (kermasRep.length === 0 && gruposArr.length === 0) {
+    ctx.addParagraph("Sin datos registrados para esta prueba.");
+    return 6;
+  }
+
+  const allRends = gruposArr.map(([, ms]) => {
+    const mas = ms[0].mas_nominal!;
+    return mas > 0 ? (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000 : 0;
+  });
+  const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
+  const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;
+
+  const cvStr = cvRep.toFixed(2).replace(".", ",");
+  const linStr = linMaxPct.toFixed(2).replace(".", ",");
+  const rMinStr = rendMin.toFixed(1).replace(".", ",");
+  const rMaxStr = rendMax.toFixed(1).replace(".", ",");
+
+  if (conformeRep && conformeLin) {
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados a 80 kV, lo que indica un comportamiento consistente del sistema de generación de radiación. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} %, valor inferior al límite establecido. Asimismo, la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %, lo que indica un comportamiento proporcional entre la radiación de salida y la carga seleccionada. En conjunto, los resultados indican que el generador de rayos X presenta un comportamiento estable, reproducible y lineal bajo las condiciones de irradiación evaluadas.`,
+    );
   } else {
-    ctx.addSubsectionTitle("2.7.5.", "Análisis");
-    ctx.addParagraph("Sin datos de repetibilidad registrados.");
+    ctx.addParagraph(
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} % y la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %.` +
+        (!conformeRep ? ` La repetibilidad supera el criterio de aceptación del 5 %.` : "") +
+        (!conformeLin ? ` La linealidad supera el criterio de aceptación del 10 %.` : ""),
+    );
+  }
+
+  return 6;
+}
+
+// ─── Renderizador 2.8: Factor de corrección PKA ───
+
+function render28(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+
+  const mediciones = conv.raysafeMediciones
+    .filter((m) => m.tipo_medicion === "kerma" && m.dosis_medida_mgy != null)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+
+  ctx.addSubsectionTitle("2.8.4.", "Resultados");
+
+  if (mediciones.length === 0) return SIN_DATOS(ctx);
+
+  const d1Setup = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
+  const d2Setup = conv.raysafeSetup?.distancia_foco_detector_d2_cm ?? d1Setup;
+
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  const rows = mediciones.map((m) => {
+    const kvNom = m.kv_nominal;
+    const masNom = m.mas_nominal;
+    const kerma = m.dosis_medida_mgy!;
+    const ancho = m.ancho_irradiacion_cm ?? 0;
+    const largo = m.largo_irradiacion_cm ?? 0;
+    const d1 = m.distancia_foco_sensor_cm ?? d1Setup;
+    const d2 = m.distancia_foco_detector_cm ?? d2Setup;
+    const factorDist = (d2 / d1) ** 2;
+    const areaCorr = ancho * largo * factorDist;
+    const kermaCorr = kerma * factorDist;
+    const dapEst = kermaCorr * areaCorr;
+    const dapNom = m.dap_nominal;
+    const fc = dapNom != null && dapNom > 0 ? dapEst / dapNom : null;
+    return {
+      kv: kvNom != null ? kvNom.toFixed(1) : "—",
+      mas: masNom != null ? masNom.toFixed(1) : "—",
+      dapNom: dapNom != null ? dapNom.toFixed(0) : "—",
+      dapEst: dapEst > 0 ? dapEst.toFixed(2) : "—",
+      fc: fc != null ? fc.toFixed(1) : "—",
+    };
+  });
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.8.1 Determinación del factor de corrección del PKA");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kV)", "Carga (mAs)", "DAP nominal (mGy·cm²)", "DAP estimado (mGy·cm²)", "Factor de corrección"]],
+    body: rows.map((r) => [r.kv, r.mas, r.dapNom, r.dapEst, r.fc]),
+    columnStyles: { 4: { cellWidth: 32 } },
+  });
+  ctx.y = finalY(doc) + 4;
+
+  // ── 2.8.5 Análisis ──
+  ctx.addSubsectionTitle("2.8.5.", "Análisis");
+  ctx.addParagraph(
+    "Se evidencian diferencias entre los valores estimados de PkA o DAP y los reportados por el equipo, " +
+      "lo que permite determinar un factor de corrección aplicable en evaluaciones dosimétricas posteriores.",
+  );
+
+  return 6;
+}
+
+function render29(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+
+  const grupo1 = conv.ddiMediciones
+    .filter((m) => m.grupo === 1)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+  const toma1 = grupo1.find((m) => m.toma_numero === 1);
+
+  ctx.addSubsectionTitle("2.9.4.", "Resultados");
+
+  if (!toma1) return SIN_DATOS(ctx);
+
+  const kv = toma1.kv_nominal ?? 0;
+  const mas = toma1.carga_mas ?? 0;
+  const ei = toma1.ei ?? null;
+  const di = toma1.di ?? null;
+  const eiBase = toma1.ei_base ?? null;
+  const diBase = toma1.di_base ?? null;
+
+  // Tabla 2.9.1 — medición
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.9.1. Resultado de la medición del indicador de exposición.");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI"]],
+    body: [[kv ? String(kv) : "—", mas ? String(mas) : "—", ei != null ? String(ei) : "—"]],
+  });
+  ctx.y = finalY(doc) + 4;
+
+  // Cálculo de desviaciones
+  const eiDev =
+    eiBase != null && eiBase > 0 && ei != null
+      ? (Math.abs(ei - eiBase) / eiBase) * 100
+      : null;
+  const diDev =
+    diBase != null && diBase !== 0 && di != null
+      ? (Math.abs(di - diBase) / Math.abs(diBase)) * 100
+      : null;
+  const eiConf = eiDev != null ? (eiDev <= 20 ? "Conforme" : "No conforme") : "—";
+  const diConf = diDev != null ? (diDev <= 20 ? "Conforme" : "No conforme") : "NA";
+  const conforme = eiDev == null || eiDev <= 20;
+
+  // 2.9.5 Análisis — párrafo dinámico + Tabla 2.9.2
+  ctx.addSubsectionTitle("2.9.5.", "Análisis");
+  ctx.addParagraph(
+    conforme
+      ? "Los valores del indicador de exposición (EI) y de la desviación del indicador (D.I.) presentan variaciones dentro del rango de tolerancia establecido (± 20 %), evidenciando una adecuada consistencia en la respuesta del sistema de adquisición de imagen bajo condiciones de exposición reproducibles."
+      : "Se evidencian desviaciones en el indicador de exposición (EI) y/o en la desviación del indicador (D.I.) fuera del rango de tolerancia establecido, lo que indica inconsistencias en la respuesta del sistema.",
+  );
+
+  addCaption(ctx, "Tabla 2.9.2: Análisis de los indicadores de exposición");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Parámetro", "Valor", "Valor Base", "Desviación (%)", "Concepto"]],
+    body: [
+      [
+        "EI",
+        ei != null ? String(ei) : "—",
+        eiBase != null ? String(eiBase) : "—",
+        eiDev != null ? `${eiDev.toFixed(1)}%` : "—",
+        eiConf,
+      ],
+      [
+        "D.I.",
+        di != null ? di.toFixed(2) : "NA",
+        diBase != null ? diBase.toFixed(2) : "NA",
+        diDev != null ? `${diDev.toFixed(1)}%` : "NA",
+        diConf,
+      ],
+    ],
+    didParseCell: colorearConcepto(4),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  return 6; // 2.9.4 y 2.9.5 renderizados; caller inicia en 6 (Criterio)
+}
+
+function render210(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+
+  const grupo1 = conv.ddiMediciones
+    .filter((m) => m.grupo === 1)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+
+  ctx.addSubsectionTitle("2.10.4.", "Resultados");
+
+  if (grupo1.length === 0) return SIN_DATOS(ctx);
+
+  const eiVals = grupo1.map((m) => m.ei).filter((v): v is number => v != null);
+  const diVals = grupo1.map((m) => m.di).filter((v): v is number => v != null);
+
+  function ddiAvg(arr: number[]): number | null {
+    return arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+  }
+  function ddiStd(arr: number[]): number | null {
+    if (arr.length < 2) return null;
+    const m = ddiAvg(arr)!;
+    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
+  }
+
+  const eiAvg = ddiAvg(eiVals);
+  const eiStd = ddiStd(eiVals);
+  const eiCv = eiAvg != null && eiAvg > 0 && eiStd != null ? (eiStd / eiAvg) * 100 : null;
+  const diAvg = ddiAvg(diVals);
+  const diStd = ddiStd(diVals);
+  const diCv =
+    diAvg != null && diAvg !== 0 && diStd != null
+      ? (diStd / Math.abs(diAvg)) * 100
+      : null;
+
+  const eiConf = eiCv != null ? (eiCv <= 20 ? "Conforme" : "No conforme") : "—";
+  const diConf = diCv != null ? (diCv <= 20 ? "Conforme" : "No conforme") : "—";
+
+  ctx.checkPage(40);
+  addCaption(ctx, "Tabla 2.10.1. Análisis de la repetibilidad del indicador de exposición.");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Parámetro", "Valor Promedio", "Desviación estándar", "CV (%)", "Concepto"]],
+    body: [
+      [
+        "EI",
+        eiAvg != null ? eiAvg.toFixed(1) : "—",
+        eiStd != null ? eiStd.toFixed(2) : "—",
+        eiCv != null ? eiCv.toFixed(1) : "—",
+        eiConf,
+      ],
+      [
+        "D.I.",
+        diAvg != null ? diAvg.toFixed(2) : "—",
+        diStd != null ? diStd.toFixed(2) : "—",
+        diCv != null ? diCv.toFixed(1) : "—",
+        diConf,
+      ],
+    ],
+    didParseCell: colorearConcepto(4),
+  });
+  ctx.y = finalY(doc) + 4;
+
+  const conforme210 = eiCv == null || eiCv <= 20;
+
+  ctx.addSubsectionTitle("2.10.5.", "Análisis");
+  ctx.addParagraph(
+    conforme210
+      ? "Los valores del indicador de exposición presentan baja dispersión bajo condiciones de exposición reproducibles. Los coeficientes de variación obtenidos se encuentran dentro del criterio de aceptación establecido, evidenciando una adecuada repetibilidad del sistema de adquisición de imagen."
+      : "Se evidencian variaciones en los indicadores evaluados superiores al criterio de aceptación establecido, lo que indica inestabilidad en la repetibilidad del sistema de adquisición de imagen.",
+  );
+
+  return 6;
+}
+
+// ─── Sección 2.13: Umbral de sensibilidad a bajo contraste ───
+
+const NIVELES_BC = [
+  { key: "contraste_9_4" as const, label: "9,4 %" },
+  { key: "contraste_8_0" as const, label: "8,0 %" },
+  { key: "contraste_5_6" as const, label: "5,6 %" },
+  { key: "contraste_4_0" as const, label: "4,0 %" },
+  { key: "contraste_2_8" as const, label: "2,8 %" },
+  { key: "contraste_1_8" as const, label: "1,8 %" },
+  { key: "contraste_1_3" as const, label: "1,3 %" },
+  { key: "contraste_0_9" as const, label: "0,9 %" },
+];
+
+function render213(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const bc = conv.bajoContraste;
+
+  // ── 2.13.4 Resultados ──
+  ctx.addSubsectionTitle("2.13.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  ctx.checkPage(18);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Distancia foco-receptor, SID (cm):", fmt(bc?.sid_cm, 0), "Tensión (kVp):", fmt(bc?.tecnica_kv, 0)],
+    ],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const }, 2: { halign: "left" as const } },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  ctx.checkPage(24);
+  addCaption(ctx, "Tabla 2.13.1. Evaluación del umbral de sensibilidad a bajo contraste");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["% Contraste", ...NIVELES_BC.map((n) => n.label)]],
+    body: [["¿Visible?", ...NIVELES_BC.map((n) => (bc?.[n.key] ? "SI" : "NO"))]],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const } },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index > 0) {
+        const val = data.cell.raw as string;
+        data.cell.styles.textColor = val === "SI" ? [16, 150, 80] : [220, 50, 50];
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  // ── 2.13.5 Análisis ──
+  ctx.addSubsectionTitle("2.13.5.", "Análisis");
+
+  const visibles = bc ? NIVELES_BC.filter((n) => bc[n.key]).length : null;
+  const bajoUmb = bc && (bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9);
+  const conforme = visibles != null && (visibles > 3 || bajoUmb);
+
+  if (visibles == null) {
+    ctx.addParagraph("No se registraron datos para esta prueba.");
+  } else if (conforme) {
+    ctx.addParagraph("Se observa una cantidad de masas superiores a las requeridas por el sistema.");
+  } else {
+    ctx.addParagraph(
+      `Se observa una cantidad de masas visible de ${visibles}, que no supera el mínimo requerido, y ninguno de los niveles de contraste evaluados alcanza valores por debajo del 4 %.`,
+    );
+  }
+
+  return 6;
+}
+
+// ─── Sección 2.12: Resolución espacial de alto contraste ───
+
+function render212(ctx: InformeCtx, conv: DatosConvencional): number {
+  const resol = conv.resolucion;
+  const plmm = resol?.pares_lineas_plmm;
+
+  // ── 2.12.4 Resultados ──
+  ctx.addSubsectionTitle("2.12.4.", "Resultados");
+  ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+
+  ctx.checkPage(18);
+  const { doc, autoTable } = ctx;
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    body: [
+      ["Distancia foco-receptor, SID (cm):", fmt(resol?.sid_cm, 0), "Tensión (kVp):", fmt(resol?.tecnica_kv, 0)],
+    ],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const }, 2: { halign: "left" as const } },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  ctx.addParagraph(
+    "Se registró el grupo máximo de pares de líneas por milímetro visible de forma distinguible en la imagen obtenida.",
+  );
+
+  ctx.checkPage(14);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Parámetro", "Valor"]],
+    body: [["Cantidad de pares de líneas visibles (pl/mm)", plmm != null ? `${plmm.toFixed(1)} pl/mm` : "—"]],
+    headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+    bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+    columnStyles: { 0: { halign: "left" as const } },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+  // ── 2.12.5 Análisis ──
+  ctx.addSubsectionTitle("2.12.5.", "Análisis");
+  ctx.addParagraph(
+    "El valor de resolución espacial obtenido fue comparado con el criterio de aceptación establecido en el protocolo de control de calidad aplicable.",
+  );
+  if (plmm == null) {
+    ctx.addParagraph("No se registró el valor de resolución espacial para esta prueba.");
+  } else if (plmm >= 2.4) {
+    ctx.addParagraph(
+      "Se observa que la resolución espacial observada corresponde a un valor que se encuentra por encima del mínimo requerido.",
+    );
+  } else {
+    ctx.addParagraph(
+      "Se observa que la resolución espacial observada corresponde a un valor que se encuentra por debajo del mínimo requerido.",
+    );
+  }
+
+  return 6;
+}
+
+// ─── Sección 2.11: Uniformidad y artefactos del detector ───
+
+function render211(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable } = ctx;
+  const dets = conv.uniformidadDetector ?? [];
+
+  // ── 2.11.4 Resultados ──
+  ctx.addSubsectionTitle("2.11.4.", "Resultados");
+
+  if (dets.length === 0) {
+    ctx.addParagraph("Sin datos registrados para esta prueba.");
+    return 5;
+  }
+
+  ctx.addParagraph(
+    "Se obtuvieron imágenes uniformes con el detector orientado en las direcciones ánodo–cátodo (AC, posición inicial) " +
+      "y cátodo–ánodo (CA, rotación de 180°). En cada imagen se evaluaron cinco regiones de interés (ROI) distribuidas sobre el detector.",
+  );
+
+  const roiLabels = ["ROIc (central)", "ROI 1", "ROI 2", "ROI 3", "ROI 4"];
+
+  for (const [detIdx, det] of dets.entries()) {
+    const detLabel = det.serie_detector ? ` — ${det.serie_detector}` : ` ${detIdx + 1}`;
+    const tolerancia = det.tolerancia_pct ?? 15;
+
+    for (const orient of ["ac", "ca"] as const) {
+      const orientLabel = orient === "ac" ? "Orientación AC 0°" : "Orientación CA 180°";
+      const tableNum = detIdx * 2 + (orient === "ac" ? 1 : 2);
+      ctx.addSubsectionTitle(`Tabla 2.11.${tableNum}.`, `${orientLabel}${detLabel}`);
+
+      const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
+
+      const rows: (string | number)[][] = roiLabels.map((label, i) => {
+        const vmp = det[`roi_${i}_vmp_${orient}` as keyof typeof det] as number | undefined;
+        const desv = det[`roi_${i}_desv_${orient}` as keyof typeof det] as number | undefined;
+        const uniformidad =
+          i === 0 || center == null || vmp == null
+            ? "—"
+            : `${(Math.abs((vmp - center) / center) * 100).toFixed(2)} %`;
+        return [
+          label,
+          vmp != null ? vmp.toFixed(2) : "—",
+          desv != null ? desv.toFixed(2) : "—",
+          uniformidad,
+        ];
+      });
+
+      ctx.checkPage(40);
+      autoTable(doc, {
+        ...TABLE_STYLE,
+        startY: ctx.y,
+        head: [["ROI", "VMP", "Desviación", "Uniformidad (%)"]],
+        body: rows,
+        headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
+        bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
+        columnStyles: { 0: { halign: "left" as const } },
+      });
+      ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+    }
+  }
+
+  // ── 2.11.5 Análisis ──
+  ctx.addSubsectionTitle("2.11.5.", "Análisis");
+
+  for (const det of dets) {
+    const tolerancia = det.tolerancia_pct ?? 15;
+
+    const calcMax = (orient: "ac" | "ca") => {
+      const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
+      if (center == null) return null;
+      let max = 0;
+      for (let i = 1; i <= 4; i++) {
+        const vmp = det[`roi_${i}_vmp_${orient}` as keyof typeof det] as number | undefined;
+        if (vmp != null) max = Math.max(max, Math.abs((vmp - center) / center) * 100);
+      }
+      return max;
+    };
+
+    const maxAc = calcMax("ac");
+    const maxCa = calcMax("ca");
+    const maxGlobal =
+      maxAc != null && maxCa != null
+        ? Math.max(maxAc, maxCa)
+        : (maxAc ?? maxCa ?? null);
+
+    const unifConforme = maxGlobal == null || maxGlobal <= tolerancia;
+    const conforme = unifConforme && !det.pixeles_defectuosos && !det.artefactos;
+
+    let parrafo: string;
+    if (conforme) {
+      parrafo =
+        `En la evaluación de uniformidad y artefactos del detector no se evidencian píxeles defectuosos en el detector ` +
+        `ni artefactos en la imagen. El valor máximo de desviación de uniformidad obtenido fue de ` +
+        `${maxGlobal != null ? maxGlobal.toFixed(2) : "—"} %, el cual se encuentra dentro de la tolerancia establecida de ${tolerancia} %. ` +
+        `En consecuencia, la prueba cumple con el criterio de aceptación.`;
+    } else {
+      const partes: string[] = [];
+      if (det.pixeles_defectuosos) partes.push("se identificaron píxeles defectuosos en el detector");
+      if (det.artefactos) partes.push("se observaron artefactos en la imagen");
+      if (!unifConforme && maxGlobal != null)
+        partes.push(
+          `el valor máximo de desviación de uniformidad obtenido fue de ${maxGlobal.toFixed(2)} %, superior a la tolerancia establecida de ${tolerancia} %`,
+        );
+      parrafo =
+        `En la evaluación de uniformidad y artefactos del detector, ` +
+        partes.join("; ") +
+        `. La prueba no cumple con el criterio de aceptación establecido.`;
+    }
+    ctx.addParagraph(parrafo);
   }
 
   return 6;
@@ -1196,6 +2121,18 @@ export function renderResultadosSeccion(
       return render26(ctx, conv);
     case "2.7":
       return render27(ctx, conv);
+    case "2.8":
+      return render28(ctx, conv);
+    case "2.9":
+      return render29(ctx, conv);
+    case "2.10":
+      return render210(ctx, conv);
+    case "2.11":
+      return render211(ctx, conv);
+    case "2.12":
+      return render212(ctx, conv);
+    case "2.13":
+      return render213(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

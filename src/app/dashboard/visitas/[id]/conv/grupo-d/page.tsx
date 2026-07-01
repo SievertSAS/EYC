@@ -312,6 +312,14 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
   const [baseEi29, setBaseEi29] = useState("");
   const [baseDi29, setBaseDi29] = useState("");
 
+  // Initialize base values from DB record once data loads
+  useEffect(() => {
+    const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+    if (t1?.ei_base != null) setBaseEi29(String(t1.ei_base));
+    if (t1?.di_base != null) setBaseDi29(String(t1.di_base));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(data?.ddiMediciones.length ?? 0) > 0]);
+
   // ─── Save helpers ───
   async function updateDdi(id: number, fields: Record<string, unknown>) {
     await db.conv_ddi_mediciones.update(id, fields);
@@ -596,6 +604,10 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
                 className="rounded-xl h-9 text-sm font-medium"
                 value={baseEi29}
                 onChange={(e) => setBaseEi29(e.target.value)}
+                onBlur={(e) => {
+                  const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+                  if (t1?.id) updateDdi(t1.id, { ei_base: parseFloat(e.target.value) || null });
+                }}
                 placeholder="—"
               />
             </div>
@@ -609,6 +621,10 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
                 className="rounded-xl h-9 text-sm font-medium"
                 value={baseDi29}
                 onChange={(e) => setBaseDi29(e.target.value)}
+                onBlur={(e) => {
+                  const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+                  if (t1?.id) updateDdi(t1.id, { di_base: parseFloat(e.target.value) || null });
+                }}
                 placeholder="—"
               />
             </div>

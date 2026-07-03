@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { db } from "@/lib/db";
 import type { Cliente } from "@/lib/db/types";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -79,6 +80,7 @@ export function ClienteFormDialog({
         savedId = cliente.id;
       } else {
         savedId = (await db.clientes.add({
+          id: randomUUID(),
           ...form,
           nombre_cliente: form.nombre_cliente!.trim(),
           creado_en: now,

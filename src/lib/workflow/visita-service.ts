@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { randomUUID } from "@/lib/uuid";
 import type { VisitaEjecucion, PruebaResultado, GrupoResultado, Solicitud } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos";
 
@@ -36,7 +37,8 @@ export async function crearVisitaDesdeSolicitud(
     const now = new Date().toISOString();
 
     // Crear la visita
-    const visita: Omit<VisitaEjecucion, "id"> = {
+    const visita: VisitaEjecucion = {
+      id: randomUUID(),
       solicitud_id: solicitudId,
       equipo_id: equipoId,
       ubicacion_id: equipo.ubicacion_id,
@@ -78,6 +80,7 @@ export async function crearVisitaDesdeSolicitud(
             for (const grupo of grupos) {
               // Crear GrupoResultado
               const grupoResultadoId = (await db.grupo_resultados.add({
+                id: randomUUID(),
                 visita_id: visitaId!,
                 grupo_id: grupo.id!,
                 equipo_id: equipoId,
@@ -98,6 +101,7 @@ export async function crearVisitaDesdeSolicitud(
 
               for (const def of definiciones) {
                 await db.prueba_resultados.add({
+                  id: randomUUID(),
                   visita_id: visitaId!,
                   prueba_definicion_id: def.id!,
                   equipo_id: equipoId,
@@ -125,6 +129,7 @@ export async function crearVisitaDesdeSolicitud(
 
             for (const def of definiciones) {
               await db.prueba_resultados.add({
+                id: randomUUID(),
                 visita_id: visitaId!,
                 prueba_definicion_id: def.id!,
                 equipo_id: equipoId,

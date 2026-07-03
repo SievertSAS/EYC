@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useRef, useEffect, useMemo } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -300,6 +301,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     if (!data || data.mediciones.length > 0) return;
     const now = new Date().toISOString();
     const rows = DISPAROS_CAE.map((d) => ({
+      id: randomUUID(),
       visita_id: visitaId,
       toma_numero: d.toma,
       kv_nominal: d.kv,
@@ -324,6 +326,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,
@@ -361,6 +364,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       await db.conv_cae_setup.update(setup.id, fields);
     } else {
       await db.conv_cae_setup.add({
+        id: randomUUID(),
         visita_id: visitaId,
         ...fields,
         creado_en: new Date().toISOString(),

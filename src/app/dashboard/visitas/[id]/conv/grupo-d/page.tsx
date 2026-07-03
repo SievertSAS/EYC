@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useRef, useEffect, useMemo } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -328,6 +329,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
   async function addCassette() {
     const next = (data?.cassettes?.length ?? 0) + 1;
     await db.conv_cassette_inspeccion.add({
+      id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
@@ -345,6 +347,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
   async function addUniformidad() {
     const next = (data?.uniformidad?.length ?? 0) + 1;
     await db.conv_uniformidad_cr.add({
+      id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
@@ -368,6 +371,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,

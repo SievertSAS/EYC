@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useRef, useEffect, useMemo } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -241,13 +242,14 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
     if (!data) return;
     const now = new Date().toISOString();
     if (!data.colimacion) {
-      db.conv_colimacion.add({ visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
+      db.conv_colimacion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
     }
     if (!data.resolucion) {
-      db.conv_resolucion.add({ visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
+      db.conv_resolucion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
     }
     if (!data.bajoContraste) {
       db.conv_bajo_contraste.add({
+        id: randomUUID(),
         visita_id: visitaId,
         sid_cm: 100,
         tecnica_kv: 75,
@@ -256,6 +258,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
     }
     if (!data.mtf) {
       db.conv_mtf.add({
+        id: randomUUID(),
         visita_id: visitaId,
         distancia_foco_sensor_cm: 150,
         tecnica_kv: 70,
@@ -293,6 +296,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
   async function addUniformidadDet() {
     const next = (data?.uniformidadDet?.length ?? 0) + 1;
     await db.conv_uniformidad_detector.add({
+      id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
@@ -316,6 +320,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,

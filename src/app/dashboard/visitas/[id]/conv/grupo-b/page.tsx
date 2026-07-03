@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useRef, useEffect } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -301,6 +302,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!data || data.setup) return;
     db.conv_raysafe_setup.add({
+      id: randomUUID(),
       visita_id: visitaId,
       distancia_foco_sensor_cm: 100,
       creado_en: new Date().toISOString(),
@@ -312,12 +314,13 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     if (!data || data.mediciones.length > 0) return;
     const now = new Date().toISOString();
     let toma = 1;
-    const rows: Omit<import("@/lib/equipos/convencional/db/types").ConvRaysafeMedicion, "id">[] = [];
+    const rows: import("@/lib/equipos/convencional/db/types").ConvRaysafeMedicion[] = [];
 
     // Grupos principales 1-8
     for (const g of GRUPOS_DISPAROS) {
       for (let r = 0; r < g.repeticiones; r++) {
         rows.push({
+          id: randomUUID(),
           visita_id: visitaId,
           tipo_medicion: "principal",
           grupo_numero: g.grupo,
@@ -332,6 +335,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     // Con rejilla (3 programas)
     for (const prog of PROGRAMAS_CLINICOS) {
       rows.push({
+        id: randomUUID(),
         visita_id: visitaId,
         tipo_medicion: "con_rejilla",
         toma_numero: toma++,
@@ -343,6 +347,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     // Sin rejilla (3 programas)
     for (const prog of PROGRAMAS_CLINICOS) {
       rows.push({
+        id: randomUUID(),
         visita_id: visitaId,
         tipo_medicion: "sin_rejilla",
         toma_numero: toma++,
@@ -354,6 +359,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     // Kerma en aire (3 mediciones para prueba 2.8)
     for (const prog of PROGRAMAS_CLINICOS) {
       rows.push({
+        id: randomUUID(),
         visita_id: visitaId,
         tipo_medicion: "kerma",
         toma_numero: toma++,
@@ -445,6 +451,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,

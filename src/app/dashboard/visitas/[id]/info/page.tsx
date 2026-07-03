@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useCallback, useRef, useEffect } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -431,6 +432,7 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
       pushSingle("contactos", existing.id);
     } else {
       const newId = (await db.contactos.add({
+        id: randomUUID(),
         cliente_id: clienteId,
         nombre: field === "nombre" ? value : "",
         cargo,

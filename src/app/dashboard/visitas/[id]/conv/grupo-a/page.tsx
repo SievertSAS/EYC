@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useRef, useEffect } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -341,6 +342,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!data || data.setup) return;
     db.conv_levantamiento_setup.add({
+      id: randomUUID(),
       visita_id: visitaId,
       w_estandar: 160,
       semanas_laborales: 50,
@@ -352,14 +354,16 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!data || data.inspeccion.length > 0) return;
     const now = new Date().toISOString();
-    const items: Omit<ConvInspeccionItem, "id">[] = [
+    const items: ConvInspeccionItem[] = [
       ...ITEMS_INSPECCION_EQUIPO.map((_, i) => ({
+        id: randomUUID(),
         visita_id: visitaId,
         seccion: "equipo" as const,
         item_numero: i + 1,
         creado_en: now,
       })),
       ...ITEMS_CONDICIONES_OPERACION.map((_, i) => ({
+        id: randomUUID(),
         visita_id: visitaId,
         seccion: "condiciones_operacion" as const,
         item_numero: i + 1,
@@ -389,6 +393,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   async function addMedicion() {
     const next = (data?.mediciones?.length ?? 0) + 1;
     await db.conv_mediciones.add({
+      id: randomUUID(),
       visita_id: visitaId,
       punto_numero: next,
       ubicacion_descripcion: "",
@@ -437,6 +442,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   async function addElemento() {
     await db.conv_elementos_proteccion.add({
+      id: randomUUID(),
       visita_id: visitaId,
       descripcion: "",
       creado_en: new Date().toISOString(),
@@ -465,6 +471,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,

@@ -1,4 +1,5 @@
 import { db } from "./index";
+import { randomUUID } from "@/lib/uuid";
 import type { PruebaDefinicion, TipoEquipo, RolPermiso } from "./types";
 import { ROLES_DISPONIBLES, MODULOS_APP, permisoDefault } from "./types";
 import type { EquipmentPackage } from "@/lib/equipos/types";
@@ -317,6 +318,7 @@ export async function seedFromPackage(paquete: EquipmentPackage): Promise<void> 
   await db.transaction("rw", [db.grupo_pruebas, db.prueba_definiciones], async () => {
     for (const grupo of paquete.grupos) {
       const grupoId = (await db.grupo_pruebas.add({
+        id: randomUUID(),
         codigo: grupo.codigo,
         nombre: grupo.nombre,
         tipo_equipo: paquete.tipo_equipo,
@@ -329,6 +331,7 @@ export async function seedFromPackage(paquete: EquipmentPackage): Promise<void> 
 
       for (const prueba of grupo.pruebas) {
         await db.prueba_definiciones.add({
+          id: randomUUID(),
           codigo: prueba.codigo,
           numero_tecdoc: prueba.numero_tecdoc,
           nombre: prueba.nombre,

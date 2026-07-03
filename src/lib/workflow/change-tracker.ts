@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { randomUUID } from "@/lib/uuid";
 import type { ChangeLog } from "@/lib/db/types";
 
 // ============================================================
@@ -19,6 +20,7 @@ export async function trackChange(
   modificadoPorId: string
 ): Promise<void> {
   await db.change_logs.add({
+    id: randomUUID(),
     tabla,
     registro_id: registroId,
     campo,
@@ -66,6 +68,7 @@ export async function updateWithTracking<T extends Record<string, unknown>>(
       changedFields.push(campo);
 
       await db.change_logs.add({
+        id: randomUUID(),
         tabla,
         registro_id: registroId,
         campo,

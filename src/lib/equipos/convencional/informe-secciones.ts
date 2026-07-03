@@ -214,12 +214,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Uniformidad de sensibilidad de pantallas IP CR",
     grupo: "D",
     orden: 15,
-    objetivo:
-      "Verificar que la pantalla de imagen CR tiene sensibilidad uniforme en toda su superficie.",
-    instrumentacion: "Detector CR, exposición uniforme.",
+    objetivo: "Verificar la uniformidad de la sensibilidad de las pantallas IP CR.",
+    instrumentacion: "Pantallas IP CR, cassette correspondiente y sistema de lectura CR.",
     metodologia:
-      "Se realizó una exposición uniforme que cubrió toda la pantalla y se analizó la uniformidad del EI entre cassettes.",
-    criterio: "Uniformidad según fabricante.",
+      "La evaluación de la uniformidad de sensibilidad de las pantallas IP se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, mediante la adquisición de imágenes uniformes y el análisis de la respuesta de la pantalla en diferentes regiones de la imagen.",
+    criterio:
+      "El coeficiente de variación (CV) del índice de exposición (EI) entre pantallas IP no debe exceder el 10 %.",
   },
   {
     codigo: "2.16",

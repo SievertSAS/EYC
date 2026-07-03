@@ -18,6 +18,7 @@ import type {
   ConvResolucion,
   ConvBajoContraste,
   ConvCassetteInspeccion,
+  ConvUniformidadCr,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -114,6 +115,8 @@ export interface DatosConvencional {
   bajoContraste?: ConvBajoContraste;
   /** Inspecciones de cassettes/pantallas IP (prueba 2.14) */
   cassettes: ConvCassetteInspeccion[];
+  /** Mediciones de uniformidad CR por cassette (prueba 2.15) */
+  uniformidadCr: ConvUniformidadCr[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -139,7 +142,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes, uniformidadCr] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -156,6 +159,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_resolucion.where("visita_id").equals(visitaId).first(),
       db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
       db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).sortBy("item_numero"),
+      db.conv_uniformidad_cr.where("visita_id").equals(visitaId).sortBy("item_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -287,6 +291,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     resolucion,
     bajoContraste,
     cassettes,
+    uniformidadCr,
   };
 }
 
@@ -2140,6 +2145,70 @@ function render214(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── 2.15 — Uniformidad de sensibilidad pantallas IP CR ───
+
+function render215(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
+  const filas = conv.uniformidadCr ?? [];
+
+  addSubsectionTitle("2.15.4.", "Resultados");
+
+  if (filas.length === 0) {
+    addParagraph("No se registraron mediciones de uniformidad CR para esta prueba.");
+    addSubsectionTitle("2.15.5.", "Análisis");
+    addParagraph("No se registraron datos de uniformidad CR.");
+    return 6;
+  }
+
+  checkPage(20);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["N°", "Serie cassette", "mAs", "EI", "D.I.", "TEI"]],
+    body: filas.map((u, i) => [
+      i + 1,
+      u.serie_cassette ?? "—",
+      u.carga_mas != null ? u.carga_mas.toFixed(1) : "—",
+      u.ei != null ? u.ei.toFixed(1) : "—",
+      u.di != null ? u.di.toFixed(2) : "—",
+      u.tei != null ? u.tei.toFixed(1) : "—",
+    ]),
+    startY: ctx.y,
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  // Calcular promedio y CV del EI
+  const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
+  const promedioEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
+  const desvEi =
+    eiVals.length >= 2
+      ? Math.sqrt(eiVals.reduce((s, v) => s + (v - promedioEi!) ** 2, 0) / (eiVals.length - 1))
+      : null;
+  const cv = promedioEi && desvEi != null ? (desvEi / promedioEi) * 100 : null;
+
+  addSubsectionTitle("2.15.5.", "Análisis");
+
+  if (promedioEi == null) {
+    addParagraph("No se registraron valores de EI suficientes para calcular la uniformidad.");
+    return 6;
+  }
+
+  const cvStr = cv != null ? `${cv.toFixed(1)} %` : "—";
+  const promedioStr = promedioEi.toFixed(1);
+  const desvStr = desvEi != null ? desvEi.toFixed(1) : "—";
+
+  if (cv != null && cv <= 10) {
+    addParagraph(
+      `El análisis de uniformidad de sensibilidad entre las pantallas IP evaluadas arrojó un índice de exposición promedio de ${promedioStr} (desviación estándar: ${desvStr}), con un coeficiente de variación de ${cvStr}. El valor obtenido se encuentra dentro del criterio de aceptación establecido (CV <= 10 %), por lo que la prueba cumple con los requisitos de uniformidad.`,
+    );
+  } else {
+    addParagraph(
+      `El análisis de uniformidad de sensibilidad entre las pantallas IP evaluadas arrojó un índice de exposición promedio de ${promedioStr} (desviación estándar: ${desvStr}), con un coeficiente de variación de ${cvStr}. El valor obtenido supera el criterio de aceptación establecido (CV <= 10 %), indicando diferencias de sensibilidad entre las pantallas que pueden afectar la consistencia de las imágenes.`,
+    );
+  }
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -2212,6 +2281,8 @@ export function renderResultadosSeccion(
       return render213(ctx, conv);
     case "2.14":
       return render214(ctx, conv);
+    case "2.15":
+      return render215(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

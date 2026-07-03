@@ -1132,6 +1132,27 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
           }
         }
+      } else if (codigo === "2.15" && aplica) {
+        const filas = conv.uniformidadCr ?? [];
+        const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
+        if (eiVals.length < 2) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const prom = eiVals.reduce((a, b) => a + b, 0) / eiVals.length;
+          const desv = Math.sqrt(eiVals.reduce((s, v) => s + (v - prom) ** 2, 0) / (eiVals.length - 1));
+          const cv = (desv / prom) * 100;
+          const conforme = cv <= 10;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${cv.toFixed(1)} %, dentro del criterio de aceptación establecido.`;
+            accionesTexto = "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${cv.toFixed(1)} %, superando el criterio de aceptación del 10 %.`;
+            accionesTexto = "Se recomienda verificar el estado y la limpieza de las pantallas IP, y repetir la prueba para confirmar el cumplimiento del criterio de uniformidad.";
+          }
+        }
       } else if (codigo === "2.14" && aplica) {
         const cassettes = conv.cassettes ?? [];
         if (cassettes.length === 0) {

@@ -5,11 +5,12 @@ import { cookies } from "next/headers";
 import { createUsuarioSchema } from "@/lib/validation/schemas";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import { clientEnv, getServerEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
-const supabaseAdmin = createClient(
-  clientEnv.NEXT_PUBLIC_SUPABASE_URL,
-  getServerEnv().SUPABASE_SERVICE_ROLE_KEY
-);
+// M2: lazy init — el cliente admin solo se crea al recibir un request, no al cargar el módulo
+function getAdminClient() {
+  return createClient(clientEnv.NEXT_PUBLIC_SUPABASE_URL, getServerEnv().SUPABASE_SERVICE_ROLE_KEY);
+}
 
 async function getAuthenticatedUser(request: NextRequest) {
   const cookieStore = await cookies();
@@ -45,6 +46,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  const supabaseAdmin = getAdminClient();
+
   const { data: caller } = await supabaseAdmin
     .from("usuarios")
     .select("cargo")
@@ -59,10 +62,9 @@ export async function POST(request: NextRequest) {
   const parsed = createUsuarioSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Datos inválidos", detalles: parsed.error.issues },
-      { status: 400 }
-    );
+    // A2: no exponer detalles del schema al cliente
+    logger.warn("usuarios", "Validación fallida", parsed.error.issues);
+    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
 
   const { email, password, nombre, cedula, cargo, telefono } = parsed.data;
@@ -92,8 +94,15 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (dbError) {
-    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    // A3: intentar rollback; loguear si falla para detectar usuarios huérfanos
+    const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+    if (deleteErr) {
+      logger.error("usuarios", "Rollback fallido — usuario auth huérfano", {
+        auth_uid: authData.user.id,
+        deleteErr,
+      });
+    }
+    return NextResponse.json({ error: "Error al guardar el usuario" }, { status: 500 });
   }
 
   return NextResponse.json({ usuario }, { status: 201 });

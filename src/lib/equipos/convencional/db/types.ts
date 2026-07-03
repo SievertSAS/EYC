@@ -127,6 +127,8 @@ export interface ConvRaysafeMedicion {
   chr_medido_mmal?: number;
   /** Producto dosis-área medido */
   dap_medido?: number;
+  /** Dosis al receptor base (visita anterior) — solo para tipo sin_rejilla en 2.21 */
+  dosis_base_mgy?: number;
   // ── Para prueba 2.8 (PKA) ──
   dap_nominal?: number;
   ancho_irradiacion_cm?: number;

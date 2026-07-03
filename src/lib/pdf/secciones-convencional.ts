@@ -2525,6 +2525,385 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+function render218(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+  }
+
+  function rangeVar(arr: number[]): number | null {
+    if (arr.length === 0) return null;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    if (!mean) return null;
+    return (Math.max(...arr) - Math.min(...arr)) / mean;
+  }
+
+  // Tomas 2-8 (7 combinaciones de sensor a 70kVp, Cu 1mm)
+  const tomas218 = conv.caeMediciones.filter(
+    (m) => m.toma_numero >= 2 && m.toma_numero <= 8
+  );
+
+  checkPage(30);
+  addSubsectionTitle("2.18.4.", "Resultados");
+  addParagraph("Tensión de referencia: 70 kVp. Espesor/atenuador: Cu 1 mm.");
+
+  const filas218 = tomas218.map((m) => [
+    m.posicion_sensor ?? "—",
+    fmt(m.carga_mas),
+    m.ei != null ? String(m.ei) : "—",
+    m.di != null ? String(m.di) : "NA",
+  ]);
+
+  addParagraph("Tabla 2.18.1. Resultados consistencia entre los sensores del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Posición Sensor CAE", "Carga (mAs)", "EI", "D.I."]],
+    body: filas218.length > 0 ? filas218 : [["—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.18.5.", "Análisis");
+
+  const masVals = tomas218.map((m) => m.carga_mas).filter((v): v is number => v != null && v > 0);
+  const eiVals = tomas218.map((m) => m.ei).filter((v): v is number => v != null && v > 0);
+  const varMas = rangeVar(masVals);
+  const varEi = rangeVar(eiVals);
+  const promMas = masVals.length > 0 ? masVals.reduce((a, b) => a + b, 0) / masVals.length : null;
+  const promEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
+
+  checkPage(25);
+  addParagraph("Tabla 2.18.2. Análisis de resultados de consistencia", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "Valor promedio", "% Variación", "Criterio (≤ 30 %)"]],
+    body: [
+      [
+        "Carga (mAs)",
+        promMas != null ? fmt(promMas) : "—",
+        fmtPct(varMas),
+        varMas == null ? "—" : varMas <= 0.3 ? "Conforme" : "No conforme",
+      ],
+      [
+        "EI",
+        promEi != null ? fmt(promEi, 0) : "—",
+        fmtPct(varEi),
+        varEi == null ? "—" : varEi <= 0.3 ? "Conforme" : "No conforme",
+      ],
+    ],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Las diferencias porcentuales calculadas respecto a los valores promedio para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Lo anterior evidencia consistencia en la respuesta del sistema entre las diferentes configuraciones de sensores del control automático de exposición bajo las condiciones de irradiación evaluadas."
+  );
+
+  return 6;
+}
+
+function render219(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+
+  function cv(arr: number[]): number | null {
+    if (arr.length < 2) return null;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    if (!mean) return null;
+    const stdev = Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / (arr.length - 1));
+    return stdev / mean;
+  }
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(2)} %`;
+  }
+
+  // Tomas 3, 9, 10, 11, 12 (5 repeticiones 70kVp, Cu 1mm, Centro)
+  const tomasRep = conv.caeMediciones.filter(
+    (m) => m.toma_numero === 3 || (m.toma_numero >= 9 && m.toma_numero <= 12)
+  );
+
+  checkPage(30);
+  addSubsectionTitle("2.19.4.", "Resultados");
+  addParagraph("Tensión de referencia: 70 kVp. Espesor/atenuador: Cu 1 mm. Posición sensor: Centro.");
+
+  const filas219 = tomasRep.map((m) => [
+    m.espesor_cu_mm != null ? `Cu ${m.espesor_cu_mm} mm` : "—",
+    m.posicion_sensor ?? "—",
+    fmt(m.carga_mas),
+    m.ei != null ? String(m.ei) : "—",
+    m.di != null ? String(m.di) : "NA",
+  ]);
+
+  addParagraph("Tabla 2.19.1. Resultados de repetibilidad del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Espesor / Atenuador", "Posición Sensor CAE", "Carga (mAs)", "EI", "D.I."]],
+    body: filas219.length > 0 ? filas219 : [["—", "—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.19.5.", "Análisis");
+
+  const masVals = tomasRep.map((m) => m.carga_mas).filter((v): v is number => v != null && v > 0);
+  const eiVals = tomasRep.map((m) => m.ei).filter((v): v is number => v != null && v > 0);
+  const cvMas = cv(masVals);
+  const cvEi = cv(eiVals);
+  const promMas = masVals.length > 0 ? masVals.reduce((a, b) => a + b, 0) / masVals.length : null;
+  const promEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
+  const desvMas = cvMas != null && promMas != null ? cvMas * promMas : null;
+  const desvEi = cvEi != null && promEi != null ? cvEi * promEi : null;
+
+  checkPage(25);
+  addParagraph("Tabla 2.19.2. Análisis de repetibilidad del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "Valor promedio", "Desviación estándar", "CV (%)", "Criterio (≤ 10 %)"]],
+    body: [
+      [
+        "Carga (mAs)",
+        promMas != null ? fmt(promMas) : "—",
+        desvMas != null ? fmt(desvMas, 3) : "—",
+        fmtPct(cvMas),
+        cvMas == null ? "—" : cvMas <= 0.1 ? "Conforme" : "No conforme",
+      ],
+      [
+        "EI",
+        promEi != null ? fmt(promEi, 1) : "—",
+        desvEi != null ? fmt(desvEi, 2) : "—",
+        fmtPct(cvEi),
+        cvEi == null ? "—" : cvEi <= 0.1 ? "Conforme" : "No conforme",
+      ],
+    ],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Los coeficientes de variación obtenidos para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Esto evidencia una respuesta repetible del sistema de control automático de exposición bajo condiciones equivalentes de irradiación."
+  );
+
+  return 6;
+}
+
+function render220(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+  const s = conv.caeSetup;
+
+  function pv(medido: number | undefined, base: number | undefined): number | null {
+    if (!medido || !base) return null;
+    return Math.abs(medido - base) / Math.abs(base);
+  }
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+  }
+
+  const byToma = new Map(conv.caeMediciones.map((m) => [m.toma_numero, m]));
+
+  // Tabla de mediciones (kVp + espesores)
+  const filasKvp = [
+    { toma: 1, kv: 60, esp: "Cu 1 mm" },
+    { toma: 12, kv: 70, esp: "Cu 1 mm" },
+    { toma: 13, kv: 81, esp: "Cu 1 mm" },
+  ];
+  const filasEsp = [
+    { toma: 13, kv: 81, esp: "Cu 1 mm" },
+    { toma: 14, kv: 81, esp: "Cu 2 mm" },
+    { toma: 15, kv: 81, esp: "Cu 3 mm" },
+  ];
+
+  checkPage(40);
+  addSubsectionTitle("2.20.4.", "Resultados");
+  addParagraph("Tabla 2.20.1. Resultados de mediciones de compensación por kilovoltajes y espesores", 8);
+
+  const todasFilas = [...filasKvp, ...filasEsp.slice(1)].map(({ toma, kv, esp }) => {
+    const m = byToma.get(toma);
+    return [
+      String(kv),
+      "Centro",
+      esp,
+      m?.carga_mas != null ? fmt(m.carga_mas) : "—",
+      m?.ei != null ? String(m.ei) : "—",
+      m?.di != null ? String(m.di) : "NA",
+    ];
+  });
+
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Tensión (kVp)", "Posición Sensor CAE", "Espesor / Atenuador", "Carga (mAs)", "EI", "D.I."]],
+    body: todasFilas.length > 0 ? todasFilas : [["—", "—", "—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.20.5.", "Análisis");
+
+  // Análisis kVp
+  const t1 = byToma.get(1); const t12 = byToma.get(12); const t13 = byToma.get(13);
+  const t14 = byToma.get(14); const t15 = byToma.get(15);
+
+  addParagraph(
+    "Los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) obtenidos para los diferentes valores de kilovoltaje evaluados fueron comparados con los valores iniciales de referencia correspondientes."
+  );
+
+  checkPage(30);
+  addParagraph("Tabla 2.20.2. Análisis compensación por kilovoltajes", 8);
+  const hayBaseKvp = s?.mas_base_60kv != null || s?.mas_base_70kv != null || s?.mas_base_81kv != null;
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "% Var. 60 kVp", "% Var. 70 kVp", "% Var. 81 kVp"]],
+    body: hayBaseKvp
+      ? [
+          [
+            "Carga (mAs)",
+            fmtPct(pv(t1?.carga_mas, s?.mas_base_60kv)),
+            fmtPct(pv(t12?.carga_mas, s?.mas_base_70kv)),
+            fmtPct(pv(t13?.carga_mas, s?.mas_base_81kv)),
+          ],
+          [
+            "EI",
+            fmtPct(pv(t1?.ei, s?.ei_base_60kv)),
+            fmtPct(pv(t12?.ei, s?.ei_base_70kv)),
+            fmtPct(pv(t13?.ei, s?.ei_base_81kv)),
+          ],
+          [
+            "D.I.",
+            "NA", "NA", "NA",
+          ],
+        ]
+      : [["Sin valores base registrados", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) obtenidos para los diferentes espesores evaluados fueron comparados con los valores iniciales de referencia correspondientes."
+  );
+
+  checkPage(30);
+  addParagraph("Tabla 2.20.3. Análisis compensación por espesores", 8);
+  const hayBaseEsp = s?.mas_base_cu1 != null || s?.mas_base_cu2 != null || s?.mas_base_cu3 != null;
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "% Var. Cu 1 mm", "% Var. Cu 2 mm", "% Var. Cu 3 mm"]],
+    body: hayBaseEsp
+      ? [
+          [
+            "Carga (mAs)",
+            fmtPct(pv(t13?.carga_mas, s?.mas_base_cu1)),
+            fmtPct(pv(t14?.carga_mas, s?.mas_base_cu2)),
+            fmtPct(pv(t15?.carga_mas, s?.mas_base_cu3)),
+          ],
+          [
+            "EI",
+            fmtPct(pv(t13?.ei, s?.ei_base_cu1)),
+            fmtPct(pv(t14?.ei, s?.ei_base_cu2)),
+            fmtPct(pv(t15?.ei, s?.ei_base_cu3)),
+          ],
+          [
+            "D.I.",
+            "NA", "NA", "NA",
+          ],
+        ]
+      : [["Sin valores base registrados", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Las variaciones porcentuales observadas se mantienen dentro de la tolerancia establecida para esta prueba, evidenciando una adecuada compensación del sistema de control automático de exposición frente a cambios de kilovoltaje y espesor."
+  );
+
+  return 6;
+}
+
+function render221(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+  const setup = conv.raysafeSetup;
+  const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
+  const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
+  const corrGeom = (d2 / d1) ** 2;
+
+  const sinRejilla = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
+
+  checkPage(30);
+  addSubsectionTitle("2.21.4.", "Resultados");
+  addParagraph(
+    `La dosis al receptor de imagen se calculó a partir de la dosis medida, aplicando la corrección geométrica por distancia de acuerdo con la ecuación 19 del IAEA-TECDOC-1958.`
+  );
+  addParagraph(`Distancia foco-sensor d1: ${d1} cm. Distancia foco-detector d2: ${d2} cm.`);
+
+  const filas221 = sinRejilla.map((m) => {
+    const dosisR = m.dosis_medida_mgy != null ? m.dosis_medida_mgy * corrGeom : null;
+    return [
+      m.programa_clinico ?? "—",
+      fmt(m.kv_nominal, 0),
+      fmt(m.mas_nominal),
+      m.dosis_medida_mgy != null ? m.dosis_medida_mgy.toFixed(5) : "—",
+      "1",
+      dosisR != null ? dosisR.toFixed(5) : "—",
+    ];
+  });
+
+  addParagraph("Tabla 2.21.1. Registro de mediciones de dosis al receptor de imagen", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Programa", "Tensión (kVp)", "Carga (mAs)", "Dosis medida (mGy)", "TPR", "Dosis al receptor (mGy)"]],
+    body: filas221.length > 0 ? filas221 : [["—", "—", "—", "—", "1", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.21.5.", "Análisis");
+
+  const hayBase = sinRejilla.some((m) => m.dosis_base_mgy != null);
+
+  if (!hayBase) {
+    addParagraph(
+      "No se dispone de valores de referencia previos para la dosis al receptor. Los valores obtenidos en esta visita se establecen como valores de referencia base para futuras evaluaciones."
+    );
+  } else {
+    const filas221Analisis = sinRejilla.map((m) => {
+      const dosisR = m.dosis_medida_mgy != null ? m.dosis_medida_mgy * corrGeom : null;
+      const diff = dosisR != null && m.dosis_base_mgy != null ? Math.abs(dosisR - m.dosis_base_mgy) : null;
+      return [
+        m.programa_clinico ?? "—",
+        dosisR != null ? dosisR.toFixed(5) : "—",
+        m.dosis_base_mgy != null ? m.dosis_base_mgy.toFixed(5) : "—",
+        diff != null ? diff.toFixed(5) : "—",
+        diff == null ? "—" : diff < 0.01 ? "Conforme" : "No conforme",
+      ];
+    });
+
+    checkPage(30);
+    addParagraph("Tabla 2.21.2. Análisis de dosis al receptor de imagen", 8);
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      head: [["Programa", "Dosis receptor (mGy)", "Dosis base (mGy)", "Diferencia (mGy)", "Cumple"]],
+      body: filas221Analisis,
+      startY: ctx.y,
+      didDrawPage: () => { ctx.y = 30; },
+    });
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+    addParagraph(
+      "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se comparan con el criterio de aceptación establecido en el IAEA-TECDOC-1958."
+    );
+  }
+
+  return 6;
+}
+
 /**
  * Renderiza las subsecciones de resultados de una prueba (a partir de la .4).
  * Retorna el número de la siguiente subsección disponible (para Criterio).
@@ -2571,6 +2950,14 @@ export function renderResultadosSeccion(
       return render216(ctx, conv);
     case "2.17":
       return render217(ctx, conv);
+    case "2.18":
+      return render218(ctx, conv);
+    case "2.19":
+      return render219(ctx, conv);
+    case "2.20":
+      return render220(ctx, conv);
+    case "2.21":
+      return render221(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

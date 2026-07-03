@@ -933,7 +933,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
-                  {["#", "Programa", "kV", "mA", "t (s)", "mAs", "kV med.", "t med.", "Dosis (mGy)"].map(
+                  {["#", "Programa", "kV", "mA", "t (s)", "mAs", "kV med.", "t med.", "Dosis (mGy)", "Base (mGy)"].map(
                     (label) => (
                       <th
                         key={label}
@@ -989,6 +989,21 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                         </td>
                       ),
                     )}
+                    <td className="py-1.5 px-1.5">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        className="rounded-lg h-7 text-xs font-medium border-amber-200 bg-amber-50/50 w-20"
+                        defaultValue={m.dosis_base_mgy ?? ""}
+                        placeholder="—"
+                        onBlur={(e) =>
+                          m.id &&
+                          updateMedicion(m.id, {
+                            dosis_base_mgy: e.target.value ? parseFloat(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

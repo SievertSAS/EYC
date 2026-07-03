@@ -253,12 +253,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Consistencia entre los sensores del CAE",
     grupo: "C",
     orden: 18,
-    objetivo:
-      "Verificar que los 3 sensores del CAE y sus combinaciones entregan resultados similares entre sí.",
-    instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
+    objetivo: "Verificar la consistencia entre los sensores del CAE.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador.",
     metodologia:
-      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1 mm) y se disparó con cada combinación de sensores (7 mediciones).",
-    criterio: "Variación (MAX-MIN)/promedio de mAs, EI y D.I. <= 30 %.",
+      "La evaluación de la consistencia entre los sensores del control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con los sensores del CAE de manera individual y en sus diferentes combinaciones, bajo condiciones equivalentes de irradiación, y comparando la respuesta del detector.",
+    criterio:
+      "Las diferencias porcentuales respecto a los valores promedio deben ser menores o iguales al 30 %.",
   },
   {
     codigo: "2.19",
@@ -266,35 +267,39 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "C",
     orden: 19,
     objetivo:
-      "Verificar que el CAE entrega resultados consistentes al repetir exposiciones con la misma configuración.",
-    instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
+      "Verificar si el valor de EI y/o DDI o DO es consistente para exposiciones repetidas con los mismos valores del CAE.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador.",
     metodologia:
-      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1 mm, sensor Centro) y se disparó 4 veces.",
-    criterio: "CV de mAs, EI y D.I. <= 10 %.",
+      "La evaluación de la repetibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando varias exposiciones consecutivas con el sistema CAE activado y registrando la respuesta del detector para las mismas condiciones de irradiación.",
+    criterio:
+      "El coeficiente de variación de los parámetros evaluados debe ser menor o igual al 10 %.",
   },
   {
     codigo: "2.20",
-    nombre: "Compensación del CAE para diferentes kVp y espesores",
+    nombre: "Compensación del CAE para diferentes valores de kVp y espesores",
     grupo: "C",
     orden: 20,
-    objetivo:
-      "Verificar que el CAE ajusta correctamente la exposición cuando cambia el voltaje (kVp) o el espesor del paciente.",
-    instrumentacion: "Placas de cobre: 1 mm, 2 mm, 3 mm. Equipo con CAE activado.",
+    objetivo: "Verificar la respuesta del CAE con respecto a los kVp y espesores.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador de diferentes espesores.",
     metodologia:
-      "Se disparó a diferentes kVp (60, 70, 81) con Cu 1 mm y a diferentes espesores (Cu 1, 2, 3 mm) a 81 kVp. Se compararon los valores con los de referencia.",
-    criterio: "Variación por kVp y espesor de mAs, EI y D.I. <= 30 %.",
+      "La evaluación de la compensación del sistema de control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con diferentes valores de kVp y con diferentes espesores de material atenuador, manteniendo constante la selección del sensor del CAE. Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores iniciales de referencia correspondientes.",
+    criterio:
+      "La variación porcentual de los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) para cada condición evaluada debe ser menor o igual al 30 % respecto a los valores base correspondientes.",
   },
   {
     codigo: "2.21",
     nombre: "Dosis al receptor de imagen",
     grupo: "B",
     orden: 21,
-    objetivo:
-      "Medir la dosis que llega al detector de imagen utilizando los programas clínicos reales del equipo.",
-    instrumentacion: "Sensor RaySafe X2 RF, rejilla del equipo, cinta métrica.",
+    objetivo: "Estimar la dosis al receptor de imagen bajo condiciones clínicas representativas.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire (cámara de ionización o detector de estado sólido), material atenuador y sistema receptor de imagen digital.",
     metodologia:
-      "Se realizaron 3 exposiciones con rejilla y 3 sin rejilla utilizando programas clínicos reales. Se registró la dosis al receptor corregida por distancia.",
-    criterio: "Diferencia con el valor base <= 0,01 mGy.",
+      "La determinación de la dosis al receptor se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958. El tubo de rayos X se centró con el detector y el haz se colimó para cubrir completamente el área del receptor. Se colocó una lámina de cobre de 1 mm en la salida del haz de radiación y el dosímetro en la superficie del Bucky, alineado con el eje central del haz. Se registraron la distancia fuente–dosímetro (d1) y la distancia fuente–receptor de imagen (d2). Se seleccionaron parámetros clínicos representativos y se realizaron exposiciones, registrando el valor de dosis medida en cada condición. La dosis al receptor se calculó aplicando la corrección geométrica correspondiente.",
+    criterio:
+      "La diferencia entre el valor de la dosis calculada y la dosis base inicial debe ser menor a 0,01 mGy (10 μGy).",
   },
 ];
 

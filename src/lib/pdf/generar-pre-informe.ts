@@ -35,6 +35,7 @@ import {
   renderFotos212,
   renderFotos213,
   renderFotos216,
+  renderFotos217,
   renderTablaChrRef,
   renderTablaBaseRef29,
   type InformeCtx,
@@ -854,6 +855,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos216(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.17" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos217(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1137,6 +1144,38 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
             accionesTexto =
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (codigo === "2.17" && aplica) {
+        const s = conv.caeSetup;
+        const t9 = conv.caeMediciones.find((m) => m.toma_numero === 9);
+        const hayBase = s?.mas_base_217 != null || s?.ei_base_217 != null;
+        if (!t9 || !hayBase) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          function pv(medido: number | undefined, base: number | undefined): number | null {
+            if (!medido || !base) return null;
+            return Math.abs(medido - base) / Math.abs(base);
+          }
+          const varMas = pv(t9.carga_mas, s?.mas_base_217);
+          const varEi = pv(t9.ei, s?.ei_base_217);
+          const varDi = pv(t9.di, s?.di_base_217);
+          const vals = [varMas, varEi, varDi].filter((v): v is number => v != null);
+          const maxVar = vals.length > 0 ? Math.max(...vals) : null;
+          const conforme = maxVar != null ? maxVar <= 0.5 : true;
+          esNoConforme = !conforme;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "La sensibilidad del control automático de exposición se conserva dentro de la tolerancia establecida respecto a los valores de referencia.";
+            accionesTexto =
+              "No se requieren acciones correctivas, dado que los parámetros evaluados presentan variaciones dentro del límite de aceptación establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "Los parámetros evaluados en la prueba de sensibilidad del CAE presentan variaciones superiores al 50 % respecto a los valores de referencia, lo que indica una posible modificación en la respuesta del sistema de control automático de exposición.";
+            accionesTexto =
+              "Se recomienda verificar la calibración y configuración del sistema CAE, revisar las condiciones de exposición empleadas y repetir la prueba para confirmar los resultados obtenidos.";
           }
         }
       } else if (codigo === "2.16" && aplica) {

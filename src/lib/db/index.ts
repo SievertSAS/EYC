@@ -38,6 +38,7 @@ import type {
   ConvElementoProteccion,
   ConvRaysafeSetup,
   ConvRaysafeMedicion,
+  ConvCaeSetup,
   ConvCaeMedicion,
   ConvDdiMedicion,
   ConvCassetteInspeccion,
@@ -91,6 +92,7 @@ class EyCDatabase extends Dexie {
   conv_elementos_proteccion!: EntityTable<ConvElementoProteccion, "id">;
   conv_raysafe_setup!: EntityTable<ConvRaysafeSetup, "id">;
   conv_raysafe_mediciones!: EntityTable<ConvRaysafeMedicion, "id">;
+  conv_cae_setup!: EntityTable<ConvCaeSetup, "id">;
   conv_cae_mediciones!: EntityTable<ConvCaeMedicion, "id">;
   conv_ddi_mediciones!: EntityTable<ConvDdiMedicion, "id">;
   conv_cassette_inspeccion!: EntityTable<ConvCassetteInspeccion, "id">;
@@ -232,6 +234,11 @@ class EyCDatabase extends Dexie {
     this.version(11).stores({
       departamentos: "id",
       municipios: "id, departamento_id",
+    });
+
+    // v12: tabla de valores base del CAE (precarga para 2.17 y 2.20)
+    this.version(12).stores({
+      conv_cae_setup: "++id, &visita_id",
     });
   }
 }

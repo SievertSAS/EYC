@@ -240,12 +240,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Sensibilidad del control automático de exposición (CAE)",
     grupo: "C",
     orden: 17,
-    objetivo:
-      "Verificar que el CAE entrega valores similares a los de la visita anterior (valores base).",
-    instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
+    objetivo: "Verificar la sensibilidad del control automático de exposición.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen, material atenuador y cinta métrica.",
     metodologia:
-      "Se activó el CAE en modo automático, se colocó 1 placa de cobre (1 mm) como atenuador y se compararon los valores medidos con los de la visita anterior.",
-    criterio: "Variación de mAs, EI y D.I. respecto a la base <= 50 %.",
+      "La evaluación de la sensibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con el sistema CAE activado para diferentes espesores de material simulador y verificando la respuesta del detector.",
+    criterio:
+      "La variación de los parámetros evaluados (mAs, EI y D.I.) respecto a los valores de referencia no debe superar el 50 %.",
   },
   {
     codigo: "2.18",

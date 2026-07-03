@@ -1132,6 +1132,29 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
           }
         }
+      } else if (codigo === "2.14" && aplica) {
+        const cassettes = conv.cassettes ?? [];
+        if (cassettes.length === 0) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const noConformes = cassettes.filter((c) => c.concepto === "No_conforme").length;
+          const conformes = cassettes.filter((c) => c.concepto === "Conforme").length;
+          const conforme = noConformes === 0 && conformes > 0;
+          esNoConforme = noConformes > 0;
+          if (conforme) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "La inspección de cassettes y pantallas IP no evidenció defectos externos, presencia de polvo ni rayaduras. Todos los elementos inspeccionados se encuentran en condiciones adecuadas para la práctica clínica.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          } else {
+            conceptoLabel = "NO FAVORABLE";
+            conceptoParrafo =
+              "La inspección evidenció defectos o condiciones no conformes en uno o más cassettes. Las condiciones identificadas pueden generar artefactos en la imagen radiográfica.";
+            accionesTexto =
+              "Se recomienda realizar la limpieza o reemplazo de los cassettes o pantallas IP no conformes, y repetir la prueba una vez corregidas las condiciones identificadas.";
+          }
+        }
       } else if (codigo === "2.13" && aplica) {
         const bc = conv.bajoContraste;
         if (!bc) {

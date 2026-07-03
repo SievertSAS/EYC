@@ -202,12 +202,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Integridad y limpieza de cassettes y pantallas IP",
     grupo: "D",
     orden: 14,
-    objetivo:
-      "Verificar que los cassettes y pantallas de imagen (CR) están en buen estado y limpios, sin artefactos que afecten la calidad de la imagen.",
-    instrumentacion: "Inspección visual, exposición uniforme de prueba.",
+    objetivo: "Verificar la integridad, limpieza y la ausencia de otros defectos en los cassettes y pantallas de fósforo fotoestimulable (IP CR).",
+    instrumentacion: "Cassettes y paño antimotas.",
     metodologia:
-      "Se inspeccionó visualmente cada cassette y se realizó una exposición uniforme (flat field) con cada uno.",
-    criterio: "Sin artefactos visibles. Cassette sin daños físicos.",
+      "La verificación de integridad y limpieza de los cassettes y pantallas IP se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, mediante inspección visual de los cassettes y de las pantallas de fósforo fotoestimulable (IP).\n\nDurante la inspección se verificó la correcta identificación de las IP CR y de los cassettes, se examinaron posibles defectos externos, así como la presencia de polvo o rayaduras en las pantallas. En caso necesario, las pantallas se limpiaron siguiendo las recomendaciones del fabricante.",
+    criterio:
+      "Los cassettes y pantallas IP no deben presentar defectos externos, polvo ni rayaduras que puedan generar artefactos en la imagen radiográfica.",
   },
   {
     codigo: "2.15",

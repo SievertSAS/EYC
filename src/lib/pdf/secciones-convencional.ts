@@ -17,6 +17,7 @@ import type {
   ConvUniformidadDetector,
   ConvResolucion,
   ConvBajoContraste,
+  ConvCassetteInspeccion,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -111,6 +112,8 @@ export interface DatosConvencional {
   fotos213?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Medición de bajo contraste (prueba 2.13) */
   bajoContraste?: ConvBajoContraste;
+  /** Inspecciones de cassettes/pantallas IP (prueba 2.14) */
+  cassettes: ConvCassetteInspeccion[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -136,7 +139,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -152,6 +155,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
       db.conv_resolucion.where("visita_id").equals(visitaId).first(),
       db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
+      db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).sortBy("item_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -282,6 +286,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     uniformidadDetector,
     resolucion,
     bajoContraste,
+    cassettes,
   };
 }
 
@@ -2063,6 +2068,78 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── 2.14 — Integridad y limpieza de cassettes / pantallas IP ───
+
+const CAMPOS_CASSETTE_214 = [
+  { key: "integridad_externa" as const, label: "Integridad externa" },
+  { key: "estado_interno" as const, label: "Estado interno IP" },
+  { key: "polvo_suciedad" as const, label: "Polvo / suciedad" },
+  { key: "rayones_defectos" as const, label: "Rayones / defectos" },
+  { key: "limpieza_realizada" as const, label: "Limpieza realizada" },
+];
+
+function concepto214Label(v: "Conforme" | "No_conforme" | undefined): string {
+  if (v === "Conforme") return "Conforme";
+  if (v === "No_conforme") return "No conforme";
+  return "—";
+}
+
+function render214(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
+  const cassettes = conv.cassettes ?? [];
+
+  addSubsectionTitle("2.14.4.", "Resultados");
+
+  if (cassettes.length === 0) {
+    addParagraph("No se registraron cassettes para esta prueba.");
+    addSubsectionTitle("2.14.5.", "Análisis");
+    addParagraph("No se registraron datos de inspección de cassettes.");
+    return 6;
+  }
+
+  checkPage(20);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["N°", "Serie", ...CAMPOS_CASSETTE_214.map((c) => c.label), "Concepto"]],
+    body: cassettes.map((c, i) => [
+      i + 1,
+      c.serie_detector ?? "—",
+      ...CAMPOS_CASSETTE_214.map((campo) => concepto214Label(c[campo.key])),
+      concepto214Label(c.concepto),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 8 },
+      1: { cellWidth: 22 },
+    },
+    startY: ctx.y,
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.14.5.", "Análisis");
+
+  const totalCassettes = cassettes.length;
+  const conformes = cassettes.filter((c) => c.concepto === "Conforme").length;
+  const noConformes = cassettes.filter((c) => c.concepto === "No_conforme").length;
+
+  if (noConformes === 0 && conformes > 0) {
+    addParagraph(
+      `La inspección visual realizada a los ${totalCassettes} cassette${totalCassettes > 1 ? "s" : ""} y pantalla${totalCassettes > 1 ? "s" : ""} IP evaluado${totalCassettes > 1 ? "s" : ""} no evidenció defectos externos, presencia de polvo ni rayaduras que pudieran afectar la calidad de la imagen. Todos los cassettes inspeccionados cumplen con el criterio de aceptación.`,
+    );
+  } else if (noConformes > 0) {
+    const seriesNC = cassettes
+      .filter((c) => c.concepto === "No_conforme")
+      .map((c) => c.serie_detector ?? `cassette ${cassettes.indexOf(c) + 1}`)
+      .join(", ");
+    addParagraph(
+      `La inspección visual evidenció defectos o condiciones no conformes en ${noConformes} de los ${totalCassettes} cassette${totalCassettes > 1 ? "s" : ""} evaluados (${seriesNC}). Se requiere atención sobre los elementos identificados para garantizar la calidad de la imagen radiográfica.`,
+    );
+  } else {
+    addParagraph("Inspección realizada. Se registraron los resultados en la tabla anterior.");
+  }
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -2133,6 +2210,8 @@ export function renderResultadosSeccion(
       return render212(ctx, conv);
     case "2.13":
       return render213(ctx, conv);
+    case "2.14":
+      return render214(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

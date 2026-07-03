@@ -286,12 +286,13 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [mediciones, evidencias] = await Promise.all([
+    const [mediciones, evidencias, setup] = await Promise.all([
       db.conv_cae_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
+      db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
     ]);
 
-    return { visita, mediciones, evidencias };
+    return { visita, mediciones, evidencias, setup };
   }, [isReady, visitaId]);
 
   // ─── Initialize default rows ───
@@ -352,35 +353,34 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     return map;
   }, [mediciones]);
 
-  // ─── Valores base (precarga) ───
-  // Para 2.17: fila 9 (70kV, Centro) vs base
-  // Se almacenan en la propia visita o se pueden editar inline
-  const [baseMas, setBaseMas] = useState<string>("");
-  const [baseEi, setBaseEi] = useState<string>("");
-  const [baseDi, setBaseDi] = useState<string>("");
+  // ─── Valores base (precarga) — persisten en conv_cae_setup ───
+  const setup = data?.setup ?? null;
 
-  // Para 2.20 kVp: bases por kVp (60, 70, 81)
-  const [baseKvp, setBaseKvp] = useState<Record<string, { mas: string; ei: string; di: string }>>({
-    "60": { mas: "", ei: "", di: "" },
-    "70": { mas: "", ei: "", di: "" },
-    "81": { mas: "", ei: "", di: "" },
-  });
+  async function saveSetup(fields: Record<string, number | undefined>) {
+    if (setup?.id) {
+      await db.conv_cae_setup.update(setup.id, fields);
+    } else {
+      await db.conv_cae_setup.add({
+        visita_id: visitaId,
+        ...fields,
+        creado_en: new Date().toISOString(),
+      });
+    }
+  }
 
-  // Para 2.20 espesores: bases por Cu (1, 2, 3)
-  const [baseEsp, setBaseEsp] = useState<Record<string, { mas: string; ei: string; di: string }>>({
-    "1": { mas: "", ei: "", di: "" },
-    "2": { mas: "", ei: "", di: "" },
-    "3": { mas: "", ei: "", di: "" },
-  });
+  function parseSetupField(v: string): number | undefined {
+    const n = parseFloat(v);
+    return isNaN(n) ? undefined : n;
+  }
 
   // ─── Cálculos auto ───
   const resultados = useMemo(() => {
-    // --- 2.17 Sensibilidad: fila 9 (toma 9 = 70kV, Centro) vs base ---
+    // --- 2.17 Sensibilidad: toma 9 (70kV, Centro) vs base ---
     const t9 = byToma.get(9);
     const sensibilidad = {
-      varMas: pctVar(num(t9?.carga_mas), num(baseMas)),
-      varEi: pctVar(num(t9?.ei), num(baseEi)),
-      varDi: pctVar(num(t9?.di), num(baseDi)),
+      varMas: pctVar(num(t9?.carga_mas), setup?.mas_base_217 ?? 0),
+      varEi: pctVar(num(t9?.ei), setup?.ei_base_217 ?? 0),
+      varDi: pctVar(num(t9?.di), setup?.di_base_217 ?? 0),
     };
 
     // --- 2.18 Consistencia: tomas 2-8 (7 combinaciones de sensor) ---
@@ -406,33 +406,45 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     };
 
     // --- 2.20 Compensación kVp: tomas 1 (60kV), 12 (70kV), 13 (81kV) ---
-    const kvpTomas: Record<string, number> = { "60": 1, "70": 12, "81": 13 };
-    const compKvp: Record<string, { varMas: number | null; varEi: number | null; varDi: number | null }> = {};
-    for (const [kv, tomaNum] of Object.entries(kvpTomas)) {
-      const t = byToma.get(tomaNum);
-      const b = baseKvp[kv];
-      compKvp[kv] = {
-        varMas: pctVar(num(t?.carga_mas), num(b?.mas)),
-        varEi: pctVar(num(t?.ei), num(b?.ei)),
-        varDi: pctVar(num(t?.di), num(b?.di)),
-      };
-    }
+    const compKvp = {
+      "60": {
+        varMas: pctVar(num(byToma.get(1)?.carga_mas), setup?.mas_base_60kv ?? 0),
+        varEi: pctVar(num(byToma.get(1)?.ei), setup?.ei_base_60kv ?? 0),
+        varDi: pctVar(num(byToma.get(1)?.di), setup?.di_base_60kv ?? 0),
+      },
+      "70": {
+        varMas: pctVar(num(byToma.get(12)?.carga_mas), setup?.mas_base_70kv ?? 0),
+        varEi: pctVar(num(byToma.get(12)?.ei), setup?.ei_base_70kv ?? 0),
+        varDi: pctVar(num(byToma.get(12)?.di), setup?.di_base_70kv ?? 0),
+      },
+      "81": {
+        varMas: pctVar(num(byToma.get(13)?.carga_mas), setup?.mas_base_81kv ?? 0),
+        varEi: pctVar(num(byToma.get(13)?.ei), setup?.ei_base_81kv ?? 0),
+        varDi: pctVar(num(byToma.get(13)?.di), setup?.di_base_81kv ?? 0),
+      },
+    };
 
     // --- 2.20 Compensación espesores: tomas 13 (Cu1), 14 (Cu2), 15 (Cu3) ---
-    const espTomas: Record<string, number> = { "1": 13, "2": 14, "3": 15 };
-    const compEsp: Record<string, { varMas: number | null; varEi: number | null; varDi: number | null }> = {};
-    for (const [cu, tomaNum] of Object.entries(espTomas)) {
-      const t = byToma.get(tomaNum);
-      const b = baseEsp[cu];
-      compEsp[cu] = {
-        varMas: pctVar(num(t?.carga_mas), num(b?.mas)),
-        varEi: pctVar(num(t?.ei), num(b?.ei)),
-        varDi: pctVar(num(t?.di), num(b?.di)),
-      };
-    }
+    const compEsp = {
+      "1": {
+        varMas: pctVar(num(byToma.get(13)?.carga_mas), setup?.mas_base_cu1 ?? 0),
+        varEi: pctVar(num(byToma.get(13)?.ei), setup?.ei_base_cu1 ?? 0),
+        varDi: pctVar(num(byToma.get(13)?.di), setup?.di_base_cu1 ?? 0),
+      },
+      "2": {
+        varMas: pctVar(num(byToma.get(14)?.carga_mas), setup?.mas_base_cu2 ?? 0),
+        varEi: pctVar(num(byToma.get(14)?.ei), setup?.ei_base_cu2 ?? 0),
+        varDi: pctVar(num(byToma.get(14)?.di), setup?.di_base_cu2 ?? 0),
+      },
+      "3": {
+        varMas: pctVar(num(byToma.get(15)?.carga_mas), setup?.mas_base_cu3 ?? 0),
+        varEi: pctVar(num(byToma.get(15)?.ei), setup?.ei_base_cu3 ?? 0),
+        varDi: pctVar(num(byToma.get(15)?.di), setup?.di_base_cu3 ?? 0),
+      },
+    };
 
     return { sensibilidad, consistencia, repetibilidad, compKvp, compEsp };
-  }, [byToma, baseMas, baseEi, baseDi, baseKvp, baseEsp]);
+  }, [byToma, setup]);
 
   // ─── Format helpers ───
   function fmtPct(v: number | null): string {
@@ -603,7 +615,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       </Card>
 
       {/* ═══ VALORES BASE (Precarga) ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card key={`setup-${setup?.id ?? "new"}`} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Valores base" title="Valores de referencia (visita anterior)" icon={SlidersHorizontal}>
             Si es la primera visita, estos campos quedan vacios y se establece la referencia.
@@ -612,45 +624,27 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
           {/* Base para 2.17 Sensibilidad */}
           <CollapsibleSection title="Base para sensibilidad (2.17) — 70 kVp, Cu 1mm, Centro">
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  mAs base
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  value={baseMas}
-                  onChange={(e) => setBaseMas(e.target.value)}
-                  placeholder="—"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  EI base
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  value={baseEi}
-                  onChange={(e) => setBaseEi(e.target.value)}
-                  placeholder="—"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  D.I. base
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  value={baseDi}
-                  onChange={(e) => setBaseDi(e.target.value)}
-                  placeholder="—"
-                />
-              </div>
+              {(
+                [
+                  { label: "mAs base", field: "mas_base_217" },
+                  { label: "EI base", field: "ei_base_217" },
+                  { label: "D.I. base", field: "di_base_217" },
+                ] as const
+              ).map(({ label, field }) => (
+                <div key={field} className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {label}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="rounded-xl h-9 text-sm font-medium"
+                    defaultValue={setup?.[field] ?? ""}
+                    placeholder="—"
+                    onBlur={(e) => saveSetup({ [field]: parseSetupField(e.target.value) })}
+                  />
+                </div>
+              ))}
             </div>
           </CollapsibleSection>
 
@@ -658,26 +652,27 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
           <CollapsibleSection title="Base para compensacion kVp (2.20)" defaultOpen={false}>
             <Tip>Valores base por cada kVp de la visita anterior.</Tip>
             <div className="space-y-3">
-              {["60", "70", "81"].map((kv) => (
+              {(
+                [
+                  { kv: "60", fields: { mas: "mas_base_60kv", ei: "ei_base_60kv", di: "di_base_60kv" } },
+                  { kv: "70", fields: { mas: "mas_base_70kv", ei: "ei_base_70kv", di: "di_base_70kv" } },
+                  { kv: "81", fields: { mas: "mas_base_81kv", ei: "ei_base_81kv", di: "di_base_81kv" } },
+                ] as const
+              ).map(({ kv, fields }) => (
                 <div key={kv} className="grid grid-cols-4 gap-2 items-end">
                   <div className="text-xs font-black text-primary">{kv} kVp</div>
-                  {(["mas", "ei", "di"] as const).map((field) => (
-                    <div key={field} className="space-y-1">
+                  {(["mas", "ei", "di"] as const).map((f) => (
+                    <div key={f} className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase">
-                        {field === "mas" ? "mAs" : field === "ei" ? "EI" : "D.I."}
+                        {f === "mas" ? "mAs" : f === "ei" ? "EI" : "D.I."}
                       </label>
                       <Input
                         type="number"
                         step="0.01"
                         className="rounded-lg h-8 text-xs font-medium"
-                        value={baseKvp[kv]?.[field] ?? ""}
-                        onChange={(e) =>
-                          setBaseKvp((prev) => ({
-                            ...prev,
-                            [kv]: { ...prev[kv], [field]: e.target.value },
-                          }))
-                        }
+                        defaultValue={setup?.[fields[f]] ?? ""}
                         placeholder="—"
+                        onBlur={(e) => saveSetup({ [fields[f]]: parseSetupField(e.target.value) })}
                       />
                     </div>
                   ))}
@@ -690,26 +685,27 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
           <CollapsibleSection title="Base para compensacion espesores (2.20)" defaultOpen={false}>
             <Tip>Valores base por cada espesor de Cu de la visita anterior.</Tip>
             <div className="space-y-3">
-              {["1", "2", "3"].map((cu) => (
+              {(
+                [
+                  { cu: "1", fields: { mas: "mas_base_cu1", ei: "ei_base_cu1", di: "di_base_cu1" } },
+                  { cu: "2", fields: { mas: "mas_base_cu2", ei: "ei_base_cu2", di: "di_base_cu2" } },
+                  { cu: "3", fields: { mas: "mas_base_cu3", ei: "ei_base_cu3", di: "di_base_cu3" } },
+                ] as const
+              ).map(({ cu, fields }) => (
                 <div key={cu} className="grid grid-cols-4 gap-2 items-end">
                   <div className="text-xs font-black text-primary">Cu {cu} mm</div>
-                  {(["mas", "ei", "di"] as const).map((field) => (
-                    <div key={field} className="space-y-1">
+                  {(["mas", "ei", "di"] as const).map((f) => (
+                    <div key={f} className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase">
-                        {field === "mas" ? "mAs" : field === "ei" ? "EI" : "D.I."}
+                        {f === "mas" ? "mAs" : f === "ei" ? "EI" : "D.I."}
                       </label>
                       <Input
                         type="number"
                         step="0.01"
                         className="rounded-lg h-8 text-xs font-medium"
-                        value={baseEsp[cu]?.[field] ?? ""}
-                        onChange={(e) =>
-                          setBaseEsp((prev) => ({
-                            ...prev,
-                            [cu]: { ...prev[cu], [field]: e.target.value },
-                          }))
-                        }
+                        defaultValue={setup?.[fields[f]] ?? ""}
                         placeholder="—"
+                        onBlur={(e) => saveSetup({ [fields[f]]: parseSetupField(e.target.value) })}
                       />
                     </div>
                   ))}
@@ -809,7 +805,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
           <StepHeader step="Prueba 2.20a" title="Compensacion por kVp" icon={SlidersHorizontal}>
             Variacion de cada parametro respecto a base por kVp. Limite: &le; 30%.
           </StepHeader>
-          {["60", "70", "81"].map((kv) => {
+          {(["60", "70", "81"] as const).map((kv) => {
             const r = resultados.compKvp[kv];
             if (!r) return null;
             return (
@@ -844,7 +840,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
           <StepHeader step="Prueba 2.20b" title="Compensacion por espesores" icon={SlidersHorizontal}>
             Variacion de cada parametro respecto a base por espesor de Cu. Limite: &le; 30%.
           </StepHeader>
-          {["1", "2", "3"].map((cu) => {
+          {(["1", "2", "3"] as const).map((cu) => {
             const r = resultados.compEsp[cu];
             if (!r) return null;
             return (

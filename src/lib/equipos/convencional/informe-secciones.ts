@@ -202,24 +202,24 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     nombre: "Integridad y limpieza de cassettes y pantallas IP",
     grupo: "D",
     orden: 14,
-    objetivo:
-      "Verificar que los cassettes y pantallas de imagen (CR) están en buen estado y limpios, sin artefactos que afecten la calidad de la imagen.",
-    instrumentacion: "Inspección visual, exposición uniforme de prueba.",
+    objetivo: "Verificar la integridad, limpieza y la ausencia de otros defectos en los cassettes y pantallas de fósforo fotoestimulable (IP CR).",
+    instrumentacion: "Cassettes y paño antimotas.",
     metodologia:
-      "Se inspeccionó visualmente cada cassette y se realizó una exposición uniforme (flat field) con cada uno.",
-    criterio: "Sin artefactos visibles. Cassette sin daños físicos.",
+      "La verificación de integridad y limpieza de los cassettes y pantallas IP se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, mediante inspección visual de los cassettes y de las pantallas de fósforo fotoestimulable (IP).\n\nDurante la inspección se verificó la correcta identificación de las IP CR y de los cassettes, se examinaron posibles defectos externos, así como la presencia de polvo o rayaduras en las pantallas. En caso necesario, las pantallas se limpiaron siguiendo las recomendaciones del fabricante.",
+    criterio:
+      "Los cassettes y pantallas IP no deben presentar defectos externos, polvo ni rayaduras que puedan generar artefactos en la imagen radiográfica.",
   },
   {
     codigo: "2.15",
     nombre: "Uniformidad de sensibilidad de pantallas IP CR",
     grupo: "D",
     orden: 15,
-    objetivo:
-      "Verificar que la pantalla de imagen CR tiene sensibilidad uniforme en toda su superficie.",
-    instrumentacion: "Detector CR, exposición uniforme.",
+    objetivo: "Verificar la uniformidad de la sensibilidad de las pantallas IP CR.",
+    instrumentacion: "Pantallas IP CR, cassette correspondiente y sistema de lectura CR.",
     metodologia:
-      "Se realizó una exposición uniforme que cubrió toda la pantalla y se analizó la uniformidad del EI entre cassettes.",
-    criterio: "Uniformidad según fabricante.",
+      "La evaluación de la uniformidad de sensibilidad de las pantallas IP se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, mediante la adquisición de imágenes uniformes y el análisis de la respuesta de la pantalla en diferentes regiones de la imagen.",
+    criterio:
+      "El coeficiente de variación (CV) del índice de exposición (EI) entre pantallas IP no debe exceder el 10 %.",
   },
   {
     codigo: "2.16",
@@ -227,35 +227,39 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "E",
     orden: 16,
     objetivo:
-      "Evaluar la capacidad del sistema para reproducir fielmente el contraste de objetos de diferente tamaño.",
-    instrumentacion: "Patrón MTF o borde recto (edge phantom), software de análisis DICOM.",
+      "Evaluar la eficiencia con la cual las variaciones de contraste/señal son observadas por el sistema de imagen para diferentes frecuencias espaciales, o pares de líneas, en equipos CR y DR.",
+    instrumentacion:
+      "Fantoma o patrón de resolución espacial adecuado para la determinación de la MTF y sistema de radiografía digital (DR o CR).",
     metodologia:
-      "Se colocó el patrón MTF sobre el detector con una ligera inclinación (2–5 grados), se realizó una exposición, se exportó la imagen DICOM y se analizó con software especializado.",
-    criterio: "MTF >= valor de referencia del sistema.",
+      "La evaluación de la función de transferencia de modulación se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, adquiriendo una imagen del patrón de resolución espacial bajo condiciones representativas de operación del sistema.\n\nLa imagen obtenida fue analizada mediante software de procesamiento de imagen para determinar la respuesta del sistema a diferentes frecuencias espaciales.",
+    criterio:
+      "Las variaciones del valor de la MTF en el tiempo no deben superar el 10 % respecto al valor de referencia inicial.",
   },
   {
     codigo: "2.17",
     nombre: "Sensibilidad del control automático de exposición (CAE)",
     grupo: "C",
     orden: 17,
-    objetivo:
-      "Verificar que el CAE entrega valores similares a los de la visita anterior (valores base).",
-    instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
+    objetivo: "Verificar la sensibilidad del control automático de exposición.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen, material atenuador y cinta métrica.",
     metodologia:
-      "Se activó el CAE en modo automático, se colocó 1 placa de cobre (1 mm) como atenuador y se compararon los valores medidos con los de la visita anterior.",
-    criterio: "Variación de mAs, EI y D.I. respecto a la base <= 50 %.",
+      "La evaluación de la sensibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con el sistema CAE activado para diferentes espesores de material simulador y verificando la respuesta del detector.",
+    criterio:
+      "La variación de los parámetros evaluados (mAs, EI y D.I.) respecto a los valores de referencia no debe superar el 50 %.",
   },
   {
     codigo: "2.18",
     nombre: "Consistencia entre los sensores del CAE",
     grupo: "C",
     orden: 18,
-    objetivo:
-      "Verificar que los 3 sensores del CAE y sus combinaciones entregan resultados similares entre sí.",
-    instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
+    objetivo: "Verificar la consistencia entre los sensores del CAE.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador.",
     metodologia:
-      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1 mm) y se disparó con cada combinación de sensores (7 mediciones).",
-    criterio: "Variación (MAX-MIN)/promedio de mAs, EI y D.I. <= 30 %.",
+      "La evaluación de la consistencia entre los sensores del control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con los sensores del CAE de manera individual y en sus diferentes combinaciones, bajo condiciones equivalentes de irradiación, y comparando la respuesta del detector.",
+    criterio:
+      "Las diferencias porcentuales respecto a los valores promedio deben ser menores o iguales al 30 %.",
   },
   {
     codigo: "2.19",
@@ -263,35 +267,39 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "C",
     orden: 19,
     objetivo:
-      "Verificar que el CAE entrega resultados consistentes al repetir exposiciones con la misma configuración.",
-    instrumentacion: "Placas de cobre (1 mm), equipo con CAE activado.",
+      "Verificar si el valor de EI y/o DDI o DO es consistente para exposiciones repetidas con los mismos valores del CAE.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador.",
     metodologia:
-      "Se mantuvieron las mismas condiciones (70 kVp, Cu 1 mm, sensor Centro) y se disparó 4 veces.",
-    criterio: "CV de mAs, EI y D.I. <= 10 %.",
+      "La evaluación de la repetibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando varias exposiciones consecutivas con el sistema CAE activado y registrando la respuesta del detector para las mismas condiciones de irradiación.",
+    criterio:
+      "El coeficiente de variación de los parámetros evaluados debe ser menor o igual al 10 %.",
   },
   {
     codigo: "2.20",
-    nombre: "Compensación del CAE para diferentes kVp y espesores",
+    nombre: "Compensación del CAE para diferentes valores de kVp y espesores",
     grupo: "C",
     orden: 20,
-    objetivo:
-      "Verificar que el CAE ajusta correctamente la exposición cuando cambia el voltaje (kVp) o el espesor del paciente.",
-    instrumentacion: "Placas de cobre: 1 mm, 2 mm, 3 mm. Equipo con CAE activado.",
+    objetivo: "Verificar la respuesta del CAE con respecto a los kVp y espesores.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador de diferentes espesores.",
     metodologia:
-      "Se disparó a diferentes kVp (60, 70, 81) con Cu 1 mm y a diferentes espesores (Cu 1, 2, 3 mm) a 81 kVp. Se compararon los valores con los de referencia.",
-    criterio: "Variación por kVp y espesor de mAs, EI y D.I. <= 30 %.",
+      "La evaluación de la compensación del sistema de control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con diferentes valores de kVp y con diferentes espesores de material atenuador, manteniendo constante la selección del sensor del CAE. Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores iniciales de referencia correspondientes.",
+    criterio:
+      "La variación porcentual de los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) para cada condición evaluada debe ser menor o igual al 30 % respecto a los valores base correspondientes.",
   },
   {
     codigo: "2.21",
     nombre: "Dosis al receptor de imagen",
     grupo: "B",
     orden: 21,
-    objetivo:
-      "Medir la dosis que llega al detector de imagen utilizando los programas clínicos reales del equipo.",
-    instrumentacion: "Sensor RaySafe X2 RF, rejilla del equipo, cinta métrica.",
+    objetivo: "Estimar la dosis al receptor de imagen bajo condiciones clínicas representativas.",
+    instrumentacion:
+      "Sistema dosimétrico calibrado para medición de kerma en aire (cámara de ionización o detector de estado sólido), material atenuador y sistema receptor de imagen digital.",
     metodologia:
-      "Se realizaron 3 exposiciones con rejilla y 3 sin rejilla utilizando programas clínicos reales. Se registró la dosis al receptor corregida por distancia.",
-    criterio: "Diferencia con el valor base <= 0,01 mGy.",
+      "La determinación de la dosis al receptor se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958. El tubo de rayos X se centró con el detector y el haz se colimó para cubrir completamente el área del receptor. Se colocó una lámina de cobre de 1 mm en la salida del haz de radiación y el dosímetro en la superficie del Bucky, alineado con el eje central del haz. Se registraron la distancia fuente–dosímetro (d1) y la distancia fuente–receptor de imagen (d2). Se seleccionaron parámetros clínicos representativos y se realizaron exposiciones, registrando el valor de dosis medida en cada condición. La dosis al receptor se calculó aplicando la corrección geométrica correspondiente.",
+    criterio:
+      "La diferencia entre el valor de la dosis calculada y la dosis base inicial debe ser menor a 0,01 mGy (10 μGy).",
   },
 ];
 

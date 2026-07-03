@@ -127,6 +127,8 @@ export interface ConvRaysafeMedicion {
   chr_medido_mmal?: number;
   /** Producto dosis-área medido */
   dap_medido?: number;
+  /** Dosis al receptor base (visita anterior) — solo para tipo sin_rejilla en 2.21 */
+  dosis_base_mgy?: number;
   // ── Para prueba 2.8 (PKA) ──
   dap_nominal?: number;
   ancho_irradiacion_cm?: number;
@@ -137,6 +139,37 @@ export interface ConvRaysafeMedicion {
 }
 
 // ─── Grupo C: CAE ───
+
+/** Valores base de referencia del CAE (precarga de visita anterior) — 1 por visita */
+export interface ConvCaeSetup {
+  id?: number;
+  visita_id: number;
+  /** 2.17 Sensibilidad — base 70 kVp, Cu 1mm, Centro */
+  mas_base_217?: number;
+  ei_base_217?: number;
+  di_base_217?: number;
+  /** 2.20 Compensación kVp — base por tensión */
+  mas_base_60kv?: number;
+  ei_base_60kv?: number;
+  di_base_60kv?: number;
+  mas_base_70kv?: number;
+  ei_base_70kv?: number;
+  di_base_70kv?: number;
+  mas_base_81kv?: number;
+  ei_base_81kv?: number;
+  di_base_81kv?: number;
+  /** 2.20 Compensación espesores — base por Cu mm */
+  mas_base_cu1?: number;
+  ei_base_cu1?: number;
+  di_base_cu1?: number;
+  mas_base_cu2?: number;
+  ei_base_cu2?: number;
+  di_base_cu2?: number;
+  mas_base_cu3?: number;
+  ei_base_cu3?: number;
+  di_base_cu3?: number;
+  creado_en?: string;
+}
 
 /** Medición CAE — N por visita */
 export interface ConvCaeMedicion {

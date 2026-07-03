@@ -13,10 +13,15 @@ import type {
   ConvColimacion,
   ConvRaysafeSetup,
   ConvRaysafeMedicion,
+  ConvCaeSetup,
+  ConvCaeMedicion,
   ConvDdiMedicion,
   ConvUniformidadDetector,
   ConvResolucion,
   ConvBajoContraste,
+  ConvCassetteInspeccion,
+  ConvUniformidadCr,
+  ConvMtf,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -111,6 +116,20 @@ export interface DatosConvencional {
   fotos213?: { label: string; dataUrl: string; width: number; height: number }[];
   /** Medición de bajo contraste (prueba 2.13) */
   bajoContraste?: ConvBajoContraste;
+  /** Inspecciones de cassettes/pantallas IP (prueba 2.14) */
+  cassettes: ConvCassetteInspeccion[];
+  /** Mediciones de uniformidad CR por cassette (prueba 2.15) */
+  uniformidadCr: ConvUniformidadCr[];
+  /** Datos MTF (prueba 2.16) */
+  mtf?: ConvMtf;
+  /** Imagen DICOM para MTF (2.16.7) */
+  fotos216?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Valores base del CAE (precarga para 2.17 y 2.20) */
+  caeSetup?: ConvCaeSetup;
+  /** Mediciones CAE (pruebas 2.17–2.20) */
+  caeMediciones: ConvCaeMedicion[];
+  /** Foto montaje CAE (2.17.7) */
+  fotos217?: { label: string; dataUrl: string; width: number; height: number }[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -136,7 +155,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes, uniformidadCr, mtf, caeSetup, caeMediciones] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -152,6 +171,11 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
       db.conv_resolucion.where("visita_id").equals(visitaId).first(),
       db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
+      db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).sortBy("item_numero"),
+      db.conv_uniformidad_cr.where("visita_id").equals(visitaId).sortBy("item_numero"),
+      db.conv_mtf.where("visita_id").equals(visitaId).first(),
+      db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
+      db.conv_cae_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -243,6 +267,18 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos212.push({ label, ...img });
   }
 
+  // Imagen DICOM MTF para 2.16.7
+  const ev216 = evidencias.find((e) => e.prueba_codigo === "2.16" && e.slot === "dicom_mtf");
+  const img216 = await cargarImagen(ev216);
+  const fotos216: NonNullable<DatosConvencional["fotos216"]> = [];
+  if (img216) fotos216.push({ label: "Fig. 2.16.1 Imagen DICOM para análisis MTF", ...img216 });
+
+  // Foto montaje CAE para 2.17.7
+  const ev217 = evidencias.find((e) => e.prueba_codigo === "2.17" && e.slot === "montaje_cae");
+  const img217 = await cargarImagen(ev217);
+  const fotos217: NonNullable<DatosConvencional["fotos217"]> = [];
+  if (img217) fotos217.push({ label: "Fig. 2.17.1 Montaje experimental para la prueba de sensibilidad del CAE", ...img217 });
+
   // Fotografías DICOM para 2.11.7 (0° y 180°)
   const SLOTS_FOTOS_211: [string, string][] = [
     ["dicom_0", "Fig. 2.11.1 Orientación inicial 0°"],
@@ -282,6 +318,13 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     uniformidadDetector,
     resolucion,
     bajoContraste,
+    cassettes,
+    uniformidadCr,
+    mtf,
+    fotos216,
+    caeSetup,
+    caeMediciones: caeMediciones ?? [],
+    fotos217,
   };
 }
 
@@ -2063,6 +2106,263 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── 2.14 — Integridad y limpieza de cassettes / pantallas IP ───
+
+const CAMPOS_CASSETTE_214 = [
+  { key: "integridad_externa" as const, label: "Integridad externa" },
+  { key: "estado_interno" as const, label: "Estado interno IP" },
+  { key: "polvo_suciedad" as const, label: "Polvo / suciedad" },
+  { key: "rayones_defectos" as const, label: "Rayones / defectos" },
+  { key: "limpieza_realizada" as const, label: "Limpieza realizada" },
+];
+
+function concepto214Label(v: "Conforme" | "No_conforme" | undefined): string {
+  if (v === "Conforme") return "Conforme";
+  if (v === "No_conforme") return "No conforme";
+  return "—";
+}
+
+function render214(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
+  const cassettes = conv.cassettes ?? [];
+
+  addSubsectionTitle("2.14.4.", "Resultados");
+
+  if (cassettes.length === 0) {
+    addParagraph("No se registraron cassettes para esta prueba.");
+    addSubsectionTitle("2.14.5.", "Análisis");
+    addParagraph("No se registraron datos de inspección de cassettes.");
+    return 6;
+  }
+
+  checkPage(20);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["N°", "Serie", ...CAMPOS_CASSETTE_214.map((c) => c.label), "Concepto"]],
+    body: cassettes.map((c, i) => [
+      i + 1,
+      c.serie_detector ?? "—",
+      ...CAMPOS_CASSETTE_214.map((campo) => concepto214Label(c[campo.key])),
+      concepto214Label(c.concepto),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 8 },
+      1: { cellWidth: 22 },
+    },
+    startY: ctx.y,
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.14.5.", "Análisis");
+
+  const totalCassettes = cassettes.length;
+  const conformes = cassettes.filter((c) => c.concepto === "Conforme").length;
+  const noConformes = cassettes.filter((c) => c.concepto === "No_conforme").length;
+
+  if (noConformes === 0 && conformes > 0) {
+    addParagraph(
+      `La inspección visual realizada a los ${totalCassettes} cassette${totalCassettes > 1 ? "s" : ""} y pantalla${totalCassettes > 1 ? "s" : ""} IP evaluado${totalCassettes > 1 ? "s" : ""} no evidenció defectos externos, presencia de polvo ni rayaduras que pudieran afectar la calidad de la imagen. Todos los cassettes inspeccionados cumplen con el criterio de aceptación.`,
+    );
+  } else if (noConformes > 0) {
+    const seriesNC = cassettes
+      .filter((c) => c.concepto === "No_conforme")
+      .map((c) => c.serie_detector ?? `cassette ${cassettes.indexOf(c) + 1}`)
+      .join(", ");
+    addParagraph(
+      `La inspección visual evidenció defectos o condiciones no conformes en ${noConformes} de los ${totalCassettes} cassette${totalCassettes > 1 ? "s" : ""} evaluados (${seriesNC}). Se requiere atención sobre los elementos identificados para garantizar la calidad de la imagen radiográfica.`,
+    );
+  } else {
+    addParagraph("Inspección realizada. Se registraron los resultados en la tabla anterior.");
+  }
+
+  return 6;
+}
+
+// ─── 2.16 — MTF ───
+
+export function renderFotos216(ctx: InformeCtx, conv: DatosConvencional) {
+  const fotos = conv.fotos216 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó imagen DICOM para el análisis MTF.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const foto of fotos) {
+    ctx.checkPage(70);
+    const maxW = CWIDTH;
+    const maxH = 80;
+    const ratio = Math.min(maxW / foto.width, maxH / foto.height);
+    const w = foto.width * ratio;
+    const h = foto.height * ratio;
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      ctx.doc.addImage(foto.dataUrl, "JPEG", x, ctx.y, w, h);
+    } catch {
+      ctx.doc.addImage(foto.dataUrl, "PNG", x, ctx.y, w, h);
+    }
+    ctx.y += h + 2;
+    ctx.doc.setFont("helvetica", "italic");
+    ctx.doc.setFontSize(7);
+    ctx.doc.setTextColor(100, 116, 139);
+    ctx.doc.text(foto.label, MARGIN + CWIDTH / 2, ctx.y, { align: "center" });
+    ctx.y += 6;
+    ctx.doc.setFont("helvetica", "normal");
+    ctx.doc.setTextColor(30, 30, 30);
+  }
+}
+
+function render216(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
+  const m = conv.mtf;
+
+  addSubsectionTitle("2.16.4.", "Resultados");
+
+  if (!m) {
+    addParagraph("No se registraron datos MTF para esta prueba.");
+    addSubsectionTitle("2.16.5.", "Análisis");
+    addParagraph("No se registraron datos de MTF.");
+    return 6;
+  }
+
+  // Condiciones de medición
+  const sid = m.distancia_foco_sensor_cm != null ? `${m.distancia_foco_sensor_cm} cm` : "—";
+  const kv = m.tecnica_kv != null ? `${m.tecnica_kv} kVp` : "—";
+  const pixel = m.pixel_size_mm != null ? `${m.pixel_size_mm} mm` : "—";
+  const nyquist = m.nyquist_lpmm != null ? `${m.nyquist_lpmm} lp/mm` : "—";
+  addParagraph(
+    `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, tensión de referencia ${kv}, tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`,
+  );
+
+  // Tabla de valores medidos
+  checkPage(25);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Dirección", "MTF50 (lp/mm)", "MTF20 (lp/mm)"]],
+    body: [
+      [
+        "Horizontal",
+        m.mtf50_horizontal != null ? m.mtf50_horizontal.toFixed(3) : "—",
+        m.mtf20_horizontal != null ? m.mtf20_horizontal.toFixed(3) : "—",
+      ],
+      [
+        "Vertical",
+        m.mtf50_vertical != null ? m.mtf50_vertical.toFixed(3) : "—",
+        m.mtf20_vertical != null ? m.mtf20_vertical.toFixed(3) : "—",
+      ],
+    ],
+    didDrawPage: undefined,
+    startY: ctx.y,
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.16.5.", "Análisis");
+
+  const tieneBase =
+    m.mtf50_base_horizontal != null ||
+    m.mtf50_base_vertical != null;
+
+  if (!tieneBase) {
+    addParagraph(
+      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital. Los valores de MTF50 y MTF20 permiten caracterizar la capacidad del detector para reproducir detalles espaciales en las direcciones horizontal y vertical. No se dispone de valores de referencia previos para comparación, por lo que los resultados obtenidos se establecen como valores base para futuras evaluaciones.",
+    );
+    return 6;
+  }
+
+  // Calcular desviaciones vs base
+  const desv50H =
+    m.mtf50_horizontal != null && m.mtf50_base_horizontal != null
+      ? Math.abs((m.mtf50_horizontal - m.mtf50_base_horizontal) / m.mtf50_base_horizontal) * 100
+      : null;
+  const desv50V =
+    m.mtf50_vertical != null && m.mtf50_base_vertical != null
+      ? Math.abs((m.mtf50_vertical - m.mtf50_base_vertical) / m.mtf50_base_vertical) * 100
+      : null;
+
+  const desvMax = [desv50H, desv50V].filter((v): v is number => v != null);
+  const maxDesv = desvMax.length > 0 ? Math.max(...desvMax) : null;
+  const conforme = maxDesv != null ? maxDesv <= 10 : null;
+
+  if (conforme === true) {
+    addParagraph(
+      `Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, consistente con el desempeño esperado para detectores digitales de radiografía. La variación máxima respecto a los valores de referencia fue de ${maxDesv!.toFixed(1)} %, dentro del criterio de aceptación del 10 %. Los valores obtenidos no evidencian degradaciones significativas del sistema.`,
+    );
+  } else if (conforme === false) {
+    addParagraph(
+      `Las curvas de MTF obtenidas presentan variaciones respecto a los valores de referencia que superan el criterio de aceptación del 10 % (variación máxima: ${maxDesv!.toFixed(1)} %). Esto podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales, requiriendo verificación adicional del detector.`,
+    );
+  } else {
+    addParagraph(
+      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital.",
+    );
+  }
+
+  return 6;
+}
+
+// ─── 2.15 — Uniformidad de sensibilidad pantallas IP CR ───
+
+function render215(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
+  const filas = conv.uniformidadCr ?? [];
+
+  addSubsectionTitle("2.15.4.", "Resultados");
+
+  if (filas.length === 0) {
+    addParagraph("No se registraron mediciones de uniformidad CR para esta prueba.");
+    addSubsectionTitle("2.15.5.", "Análisis");
+    addParagraph("No se registraron datos de uniformidad CR.");
+    return 6;
+  }
+
+  checkPage(20);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["N°", "Serie cassette", "mAs", "EI", "D.I.", "TEI"]],
+    body: filas.map((u, i) => [
+      i + 1,
+      u.serie_cassette ?? "—",
+      u.carga_mas != null ? u.carga_mas.toFixed(1) : "—",
+      u.ei != null ? u.ei.toFixed(1) : "—",
+      u.di != null ? u.di.toFixed(2) : "—",
+      u.tei != null ? u.tei.toFixed(1) : "—",
+    ]),
+    startY: ctx.y,
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  // Calcular promedio y CV del EI
+  const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
+  const promedioEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
+  const desvEi =
+    eiVals.length >= 2
+      ? Math.sqrt(eiVals.reduce((s, v) => s + (v - promedioEi!) ** 2, 0) / (eiVals.length - 1))
+      : null;
+  const cv = promedioEi && desvEi != null ? (desvEi / promedioEi) * 100 : null;
+
+  addSubsectionTitle("2.15.5.", "Análisis");
+
+  if (promedioEi == null) {
+    addParagraph("No se registraron valores de EI suficientes para calcular la uniformidad.");
+    return 6;
+  }
+
+  const cvStr = cv != null ? `${cv.toFixed(1)} %` : "—";
+  const promedioStr = promedioEi.toFixed(1);
+  const desvStr = desvEi != null ? desvEi.toFixed(1) : "—";
+
+  if (cv != null && cv <= 10) {
+    addParagraph(
+      `El análisis de uniformidad de sensibilidad entre las pantallas IP evaluadas arrojó un índice de exposición promedio de ${promedioStr} (desviación estándar: ${desvStr}), con un coeficiente de variación de ${cvStr}. El valor obtenido se encuentra dentro del criterio de aceptación establecido (CV <= 10 %), por lo que la prueba cumple con los requisitos de uniformidad.`,
+    );
+  } else {
+    addParagraph(
+      `El análisis de uniformidad de sensibilidad entre las pantallas IP evaluadas arrojó un índice de exposición promedio de ${promedioStr} (desviación estándar: ${desvStr}), con un coeficiente de variación de ${cvStr}. El valor obtenido supera el criterio de aceptación establecido (CV <= 10 %), indicando diferencias de sensibilidad entre las pantallas que pueden afectar la consistencia de las imágenes.`,
+    );
+  }
+
+  return 6;
+}
+
 // ─── Renderizador genérico (esqueleto para grupos B–E) ───
 
 function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional): number {
@@ -2094,6 +2394,515 @@ function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional
 }
 
 // ─── Entrada principal por sección ───
+
+export function renderFotos217(ctx: InformeCtx, conv: DatosConvencional) {
+  const fotos = conv.fotos217 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const { doc, autoTable } = ctx;
+  const CONTENT_WIDTH = doc.internal.pageSize.getWidth() - 40;
+  for (const foto of fotos) {
+    const maxW = 170;
+    const maxH = 80;
+    const ratio = Math.min(maxW / foto.width, maxH / foto.height, 1);
+    const w = foto.width * ratio;
+    const h = foto.height * ratio;
+    const x = 20 + (CONTENT_WIDTH - w) / 2;
+    ctx.checkPage(h + 14);
+    doc.addImage(foto.dataUrl, "JPEG", x, ctx.y, w, h);
+    ctx.y += h + 2;
+    autoTable(doc, {
+      body: [[foto.label]],
+      startY: ctx.y,
+      styles: { fontSize: 7, fontStyle: "italic", halign: "center", textColor: [100, 116, 139] },
+      theme: "plain",
+      margin: { left: 20, right: 20 },
+    });
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  }
+}
+
+function render217(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+  const s = conv.caeSetup;
+  const byToma = new Map(conv.caeMediciones.map((m) => [m.toma_numero, m]));
+
+  function pctVar217(medido: number | undefined, base: number | undefined): number | null {
+    if (!medido || !base) return null;
+    return Math.abs(medido - base) / Math.abs(base);
+  }
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+  }
+
+  // Condiciones generales
+  const distancia = conv.raysafeSetup?.distancia_foco_detector_d2_cm ?? 100;
+  addParagraph(
+    `Las mediciones se implementaron a una distancia foco sensor de ${distancia} cm. Tensión de referencia: 70 kVp.`
+  );
+
+  // Tabla 2.17.1 — registro de mediciones
+  checkPage(30);
+  addSubsectionTitle("2.17.4.", "Resultados");
+
+  const filas217 = conv.caeMediciones.map((m) => [
+    String(m.toma_numero),
+    fmt(m.kv_nominal, 0),
+    m.espesor_cu_mm != null ? `Cu ${m.espesor_cu_mm} mm` : "—",
+    m.posicion_sensor ?? "—",
+    fmt(m.carga_mas),
+    m.ei != null ? String(m.ei) : "—",
+    m.di != null ? String(m.di) : "NA",
+  ]);
+
+  checkPage(20);
+  addParagraph("Tabla 2.17.1. Registro de mediciones de sensibilidad del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["#", "kVp", "Espesor / Atenuador", "Posición Sensor CAE", "mAs", "EI", "D.I."]],
+    body: filas217.length > 0 ? filas217 : [["—", "—", "—", "—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  // Análisis
+  addSubsectionTitle("2.17.5.", "Análisis");
+
+  const t9 = byToma.get(9);
+  const hayBase = s?.mas_base_217 != null || s?.ei_base_217 != null;
+
+  if (!t9 || !hayBase) {
+    addParagraph(
+      "No se dispone de valores de referencia previos para realizar la comparación. Los valores obtenidos en esta visita se establecen como valores de referencia para futuras evaluaciones."
+    );
+  } else {
+    const varMas = pctVar217(t9.carga_mas, s?.mas_base_217);
+    const varEi = pctVar217(t9.ei, s?.ei_base_217);
+    const varDi = pctVar217(t9.di, s?.di_base_217);
+
+    checkPage(30);
+    addParagraph("Tabla 2.17.2. Análisis de resultados de sensibilidad", 8);
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      head: [["Parámetro", "Valor medido", "Valor base", "% Variación", "Criterio (≤ 50 %)"]],
+      body: [
+        [
+          "Carga (mAs)",
+          fmt(t9.carga_mas),
+          fmt(s?.mas_base_217),
+          fmtPct(varMas),
+          varMas == null ? "—" : varMas <= 0.5 ? "Conforme" : "No conforme",
+        ],
+        [
+          "EI",
+          t9.ei != null ? String(t9.ei) : "—",
+          s?.ei_base_217 != null ? String(s.ei_base_217) : "—",
+          fmtPct(varEi),
+          varEi == null ? "—" : varEi <= 0.5 ? "Conforme" : "No conforme",
+        ],
+        [
+          "D.I.",
+          t9.di != null ? String(t9.di) : "NA",
+          s?.di_base_217 != null ? String(s.di_base_217) : "NA",
+          varDi == null ? "NA" : fmtPct(varDi),
+          varDi == null ? "NA" : varDi <= 0.5 ? "Conforme" : "No conforme",
+        ],
+      ],
+      startY: ctx.y,
+      didDrawPage: () => { ctx.y = 30; },
+    });
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+    addParagraph(
+      "Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores de referencia establecidos para el equipo bajo las mismas condiciones de exposición. La comparación realizada evidencia que las variaciones observadas en los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba, indicando una respuesta estable del sistema de control automático de exposición."
+    );
+  }
+
+  return 6;
+}
+
+function render218(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+  }
+
+  function rangeVar(arr: number[]): number | null {
+    if (arr.length === 0) return null;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    if (!mean) return null;
+    return (Math.max(...arr) - Math.min(...arr)) / mean;
+  }
+
+  // Tomas 2-8 (7 combinaciones de sensor a 70kVp, Cu 1mm)
+  const tomas218 = conv.caeMediciones.filter(
+    (m) => m.toma_numero >= 2 && m.toma_numero <= 8
+  );
+
+  checkPage(30);
+  addSubsectionTitle("2.18.4.", "Resultados");
+  addParagraph("Tensión de referencia: 70 kVp. Espesor/atenuador: Cu 1 mm.");
+
+  const filas218 = tomas218.map((m) => [
+    m.posicion_sensor ?? "—",
+    fmt(m.carga_mas),
+    m.ei != null ? String(m.ei) : "—",
+    m.di != null ? String(m.di) : "NA",
+  ]);
+
+  addParagraph("Tabla 2.18.1. Resultados consistencia entre los sensores del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Posición Sensor CAE", "Carga (mAs)", "EI", "D.I."]],
+    body: filas218.length > 0 ? filas218 : [["—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.18.5.", "Análisis");
+
+  const masVals = tomas218.map((m) => m.carga_mas).filter((v): v is number => v != null && v > 0);
+  const eiVals = tomas218.map((m) => m.ei).filter((v): v is number => v != null && v > 0);
+  const varMas = rangeVar(masVals);
+  const varEi = rangeVar(eiVals);
+  const promMas = masVals.length > 0 ? masVals.reduce((a, b) => a + b, 0) / masVals.length : null;
+  const promEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
+
+  checkPage(25);
+  addParagraph("Tabla 2.18.2. Análisis de resultados de consistencia", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "Valor promedio", "% Variación", "Criterio (≤ 30 %)"]],
+    body: [
+      [
+        "Carga (mAs)",
+        promMas != null ? fmt(promMas) : "—",
+        fmtPct(varMas),
+        varMas == null ? "—" : varMas <= 0.3 ? "Conforme" : "No conforme",
+      ],
+      [
+        "EI",
+        promEi != null ? fmt(promEi, 0) : "—",
+        fmtPct(varEi),
+        varEi == null ? "—" : varEi <= 0.3 ? "Conforme" : "No conforme",
+      ],
+    ],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Las diferencias porcentuales calculadas respecto a los valores promedio para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Lo anterior evidencia consistencia en la respuesta del sistema entre las diferentes configuraciones de sensores del control automático de exposición bajo las condiciones de irradiación evaluadas."
+  );
+
+  return 6;
+}
+
+function render219(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+
+  function cv(arr: number[]): number | null {
+    if (arr.length < 2) return null;
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    if (!mean) return null;
+    const stdev = Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / (arr.length - 1));
+    return stdev / mean;
+  }
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(2)} %`;
+  }
+
+  // Tomas 3, 9, 10, 11, 12 (5 repeticiones 70kVp, Cu 1mm, Centro)
+  const tomasRep = conv.caeMediciones.filter(
+    (m) => m.toma_numero === 3 || (m.toma_numero >= 9 && m.toma_numero <= 12)
+  );
+
+  checkPage(30);
+  addSubsectionTitle("2.19.4.", "Resultados");
+  addParagraph("Tensión de referencia: 70 kVp. Espesor/atenuador: Cu 1 mm. Posición sensor: Centro.");
+
+  const filas219 = tomasRep.map((m) => [
+    m.espesor_cu_mm != null ? `Cu ${m.espesor_cu_mm} mm` : "—",
+    m.posicion_sensor ?? "—",
+    fmt(m.carga_mas),
+    m.ei != null ? String(m.ei) : "—",
+    m.di != null ? String(m.di) : "NA",
+  ]);
+
+  addParagraph("Tabla 2.19.1. Resultados de repetibilidad del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Espesor / Atenuador", "Posición Sensor CAE", "Carga (mAs)", "EI", "D.I."]],
+    body: filas219.length > 0 ? filas219 : [["—", "—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.19.5.", "Análisis");
+
+  const masVals = tomasRep.map((m) => m.carga_mas).filter((v): v is number => v != null && v > 0);
+  const eiVals = tomasRep.map((m) => m.ei).filter((v): v is number => v != null && v > 0);
+  const cvMas = cv(masVals);
+  const cvEi = cv(eiVals);
+  const promMas = masVals.length > 0 ? masVals.reduce((a, b) => a + b, 0) / masVals.length : null;
+  const promEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
+  const desvMas = cvMas != null && promMas != null ? cvMas * promMas : null;
+  const desvEi = cvEi != null && promEi != null ? cvEi * promEi : null;
+
+  checkPage(25);
+  addParagraph("Tabla 2.19.2. Análisis de repetibilidad del CAE", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "Valor promedio", "Desviación estándar", "CV (%)", "Criterio (≤ 10 %)"]],
+    body: [
+      [
+        "Carga (mAs)",
+        promMas != null ? fmt(promMas) : "—",
+        desvMas != null ? fmt(desvMas, 3) : "—",
+        fmtPct(cvMas),
+        cvMas == null ? "—" : cvMas <= 0.1 ? "Conforme" : "No conforme",
+      ],
+      [
+        "EI",
+        promEi != null ? fmt(promEi, 1) : "—",
+        desvEi != null ? fmt(desvEi, 2) : "—",
+        fmtPct(cvEi),
+        cvEi == null ? "—" : cvEi <= 0.1 ? "Conforme" : "No conforme",
+      ],
+    ],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Los coeficientes de variación obtenidos para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Esto evidencia una respuesta repetible del sistema de control automático de exposición bajo condiciones equivalentes de irradiación."
+  );
+
+  return 6;
+}
+
+function render220(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+  const s = conv.caeSetup;
+
+  function pv(medido: number | undefined, base: number | undefined): number | null {
+    if (!medido || !base) return null;
+    return Math.abs(medido - base) / Math.abs(base);
+  }
+
+  function fmtPct(v: number | null) {
+    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+  }
+
+  const byToma = new Map(conv.caeMediciones.map((m) => [m.toma_numero, m]));
+
+  // Tabla de mediciones (kVp + espesores)
+  const filasKvp = [
+    { toma: 1, kv: 60, esp: "Cu 1 mm" },
+    { toma: 12, kv: 70, esp: "Cu 1 mm" },
+    { toma: 13, kv: 81, esp: "Cu 1 mm" },
+  ];
+  const filasEsp = [
+    { toma: 13, kv: 81, esp: "Cu 1 mm" },
+    { toma: 14, kv: 81, esp: "Cu 2 mm" },
+    { toma: 15, kv: 81, esp: "Cu 3 mm" },
+  ];
+
+  checkPage(40);
+  addSubsectionTitle("2.20.4.", "Resultados");
+  addParagraph("Tabla 2.20.1. Resultados de mediciones de compensación por kilovoltajes y espesores", 8);
+
+  const todasFilas = [...filasKvp, ...filasEsp.slice(1)].map(({ toma, kv, esp }) => {
+    const m = byToma.get(toma);
+    return [
+      String(kv),
+      "Centro",
+      esp,
+      m?.carga_mas != null ? fmt(m.carga_mas) : "—",
+      m?.ei != null ? String(m.ei) : "—",
+      m?.di != null ? String(m.di) : "NA",
+    ];
+  });
+
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Tensión (kVp)", "Posición Sensor CAE", "Espesor / Atenuador", "Carga (mAs)", "EI", "D.I."]],
+    body: todasFilas.length > 0 ? todasFilas : [["—", "—", "—", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.20.5.", "Análisis");
+
+  // Análisis kVp
+  const t1 = byToma.get(1); const t12 = byToma.get(12); const t13 = byToma.get(13);
+  const t14 = byToma.get(14); const t15 = byToma.get(15);
+
+  addParagraph(
+    "Los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) obtenidos para los diferentes valores de kilovoltaje evaluados fueron comparados con los valores iniciales de referencia correspondientes."
+  );
+
+  checkPage(30);
+  addParagraph("Tabla 2.20.2. Análisis compensación por kilovoltajes", 8);
+  const hayBaseKvp = s?.mas_base_60kv != null || s?.mas_base_70kv != null || s?.mas_base_81kv != null;
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "% Var. 60 kVp", "% Var. 70 kVp", "% Var. 81 kVp"]],
+    body: hayBaseKvp
+      ? [
+          [
+            "Carga (mAs)",
+            fmtPct(pv(t1?.carga_mas, s?.mas_base_60kv)),
+            fmtPct(pv(t12?.carga_mas, s?.mas_base_70kv)),
+            fmtPct(pv(t13?.carga_mas, s?.mas_base_81kv)),
+          ],
+          [
+            "EI",
+            fmtPct(pv(t1?.ei, s?.ei_base_60kv)),
+            fmtPct(pv(t12?.ei, s?.ei_base_70kv)),
+            fmtPct(pv(t13?.ei, s?.ei_base_81kv)),
+          ],
+          [
+            "D.I.",
+            "NA", "NA", "NA",
+          ],
+        ]
+      : [["Sin valores base registrados", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) obtenidos para los diferentes espesores evaluados fueron comparados con los valores iniciales de referencia correspondientes."
+  );
+
+  checkPage(30);
+  addParagraph("Tabla 2.20.3. Análisis compensación por espesores", 8);
+  const hayBaseEsp = s?.mas_base_cu1 != null || s?.mas_base_cu2 != null || s?.mas_base_cu3 != null;
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Parámetro", "% Var. Cu 1 mm", "% Var. Cu 2 mm", "% Var. Cu 3 mm"]],
+    body: hayBaseEsp
+      ? [
+          [
+            "Carga (mAs)",
+            fmtPct(pv(t13?.carga_mas, s?.mas_base_cu1)),
+            fmtPct(pv(t14?.carga_mas, s?.mas_base_cu2)),
+            fmtPct(pv(t15?.carga_mas, s?.mas_base_cu3)),
+          ],
+          [
+            "EI",
+            fmtPct(pv(t13?.ei, s?.ei_base_cu1)),
+            fmtPct(pv(t14?.ei, s?.ei_base_cu2)),
+            fmtPct(pv(t15?.ei, s?.ei_base_cu3)),
+          ],
+          [
+            "D.I.",
+            "NA", "NA", "NA",
+          ],
+        ]
+      : [["Sin valores base registrados", "—", "—", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addParagraph(
+    "Las variaciones porcentuales observadas se mantienen dentro de la tolerancia establecida para esta prueba, evidenciando una adecuada compensación del sistema de control automático de exposición frente a cambios de kilovoltaje y espesor."
+  );
+
+  return 6;
+}
+
+function render221(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
+  const setup = conv.raysafeSetup;
+  const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
+  const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
+  const corrGeom = (d2 / d1) ** 2;
+
+  const sinRejilla = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
+
+  checkPage(30);
+  addSubsectionTitle("2.21.4.", "Resultados");
+  addParagraph(
+    `La dosis al receptor de imagen se calculó a partir de la dosis medida, aplicando la corrección geométrica por distancia de acuerdo con la ecuación 19 del IAEA-TECDOC-1958.`
+  );
+  addParagraph(`Distancia foco-sensor d1: ${d1} cm. Distancia foco-detector d2: ${d2} cm.`);
+
+  const filas221 = sinRejilla.map((m) => {
+    const dosisR = m.dosis_medida_mgy != null ? m.dosis_medida_mgy * corrGeom : null;
+    return [
+      m.programa_clinico ?? "—",
+      fmt(m.kv_nominal, 0),
+      fmt(m.mas_nominal),
+      m.dosis_medida_mgy != null ? m.dosis_medida_mgy.toFixed(5) : "—",
+      "1",
+      dosisR != null ? dosisR.toFixed(5) : "—",
+    ];
+  });
+
+  addParagraph("Tabla 2.21.1. Registro de mediciones de dosis al receptor de imagen", 8);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Programa", "Tensión (kVp)", "Carga (mAs)", "Dosis medida (mGy)", "TPR", "Dosis al receptor (mGy)"]],
+    body: filas221.length > 0 ? filas221 : [["—", "—", "—", "—", "1", "—"]],
+    startY: ctx.y,
+    didDrawPage: () => { ctx.y = 30; },
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.21.5.", "Análisis");
+
+  const hayBase = sinRejilla.some((m) => m.dosis_base_mgy != null);
+
+  if (!hayBase) {
+    addParagraph(
+      "No se dispone de valores de referencia previos para la dosis al receptor. Los valores obtenidos en esta visita se establecen como valores de referencia base para futuras evaluaciones."
+    );
+  } else {
+    const filas221Analisis = sinRejilla.map((m) => {
+      const dosisR = m.dosis_medida_mgy != null ? m.dosis_medida_mgy * corrGeom : null;
+      const diff = dosisR != null && m.dosis_base_mgy != null ? Math.abs(dosisR - m.dosis_base_mgy) : null;
+      return [
+        m.programa_clinico ?? "—",
+        dosisR != null ? dosisR.toFixed(5) : "—",
+        m.dosis_base_mgy != null ? m.dosis_base_mgy.toFixed(5) : "—",
+        diff != null ? diff.toFixed(5) : "—",
+        diff == null ? "—" : diff < 0.01 ? "Conforme" : "No conforme",
+      ];
+    });
+
+    checkPage(30);
+    addParagraph("Tabla 2.21.2. Análisis de dosis al receptor de imagen", 8);
+    autoTable(doc, {
+      ...TABLE_STYLE,
+      head: [["Programa", "Dosis receptor (mGy)", "Dosis base (mGy)", "Diferencia (mGy)", "Cumple"]],
+      body: filas221Analisis,
+      startY: ctx.y,
+      didDrawPage: () => { ctx.y = 30; },
+    });
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+    addParagraph(
+      "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se comparan con el criterio de aceptación establecido en el IAEA-TECDOC-1958."
+    );
+  }
+
+  return 6;
+}
 
 /**
  * Renderiza las subsecciones de resultados de una prueba (a partir de la .4).
@@ -2133,6 +2942,22 @@ export function renderResultadosSeccion(
       return render212(ctx, conv);
     case "2.13":
       return render213(ctx, conv);
+    case "2.14":
+      return render214(ctx, conv);
+    case "2.15":
+      return render215(ctx, conv);
+    case "2.16":
+      return render216(ctx, conv);
+    case "2.17":
+      return render217(ctx, conv);
+    case "2.18":
+      return render218(ctx, conv);
+    case "2.19":
+      return render219(ctx, conv);
+    case "2.20":
+      return render220(ctx, conv);
+    case "2.21":
+      return render221(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

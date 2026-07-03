@@ -34,6 +34,7 @@ import {
   renderFotos211,
   renderFotos212,
   renderFotos213,
+  renderFotos216,
   renderTablaChrRef,
   renderTablaBaseRef29,
   type InformeCtx,
@@ -847,6 +848,12 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
         renderFotos213(ctx, conv);
         nextSub++;
       }
+      if (codigo === "2.16" && aplica) {
+        checkPage(20);
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        renderFotos216(ctx, conv);
+        nextSub++;
+      }
 
       // Concepto — en la 2.1 se deriva de las mediciones (el resto es manual)
       checkPage(15);
@@ -1130,6 +1137,46 @@ export async function generarPreInforme(visitaId: number): Promise<Blob | null> 
               "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
             accionesTexto =
               "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          }
+        }
+      } else if (codigo === "2.16" && aplica) {
+        const m = conv.mtf;
+        if (!m || (m.mtf50_horizontal == null && m.mtf50_vertical == null)) {
+          conceptoLabel = "PENDIENTE";
+        } else {
+          const tieneBase = m.mtf50_base_horizontal != null || m.mtf50_base_vertical != null;
+          if (!tieneBase) {
+            conceptoLabel = "FAVORABLE";
+            conceptoParrafo =
+              "Los valores de MTF obtenidos son consistentes con el desempeño esperado del detector digital evaluado. Se establecen como valores de referencia para futuras evaluaciones.";
+            accionesTexto =
+              "No se requieren acciones correctivas. Se recomienda continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          } else {
+            const desv50H =
+              m.mtf50_horizontal != null && m.mtf50_base_horizontal != null
+                ? Math.abs((m.mtf50_horizontal - m.mtf50_base_horizontal) / m.mtf50_base_horizontal) * 100
+                : null;
+            const desv50V =
+              m.mtf50_vertical != null && m.mtf50_base_vertical != null
+                ? Math.abs((m.mtf50_vertical - m.mtf50_base_vertical) / m.mtf50_base_vertical) * 100
+                : null;
+            const vals = [desv50H, desv50V].filter((v): v is number => v != null);
+            const maxDesv = vals.length > 0 ? Math.max(...vals) : null;
+            const conforme = maxDesv != null ? maxDesv <= 10 : true;
+            esNoConforme = !conforme;
+            if (conforme) {
+              conceptoLabel = "FAVORABLE";
+              conceptoParrafo =
+                "Los valores de MTF obtenidos son consistentes con el desempeño esperado del detector digital evaluado y no evidencian degradaciones significativas respecto a los valores de referencia.";
+              accionesTexto =
+                "No se requieren acciones correctivas. Se recomienda continuar con el seguimiento periódico dentro del programa de control de calidad.";
+            } else {
+              conceptoLabel = "NO FAVORABLE";
+              conceptoParrafo =
+                "Los valores de MTF obtenidos presentan variaciones superiores al 10 % respecto a los valores de referencia, lo que podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales.";
+              accionesTexto =
+                "Se recomienda verificar las condiciones del detector y del sistema de procesamiento de imagen, y repetir la prueba para confirmar los resultados obtenidos.";
+            }
           }
         }
       } else if (codigo === "2.15" && aplica) {

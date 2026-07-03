@@ -19,6 +19,7 @@ import type {
   ConvBajoContraste,
   ConvCassetteInspeccion,
   ConvUniformidadCr,
+  ConvMtf,
 } from "@/lib/equipos/convencional/db/types";
 import {
   ITEMS_INSPECCION_EQUIPO,
@@ -117,6 +118,10 @@ export interface DatosConvencional {
   cassettes: ConvCassetteInspeccion[];
   /** Mediciones de uniformidad CR por cassette (prueba 2.15) */
   uniformidadCr: ConvUniformidadCr[];
+  /** Datos MTF (prueba 2.16) */
+  mtf?: ConvMtf;
+  /** Imagen DICOM para MTF (2.16.7) */
+  fotos216?: { label: string; dataUrl: string; width: number; height: number }[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -142,7 +147,7 @@ async function cargarImagen(
 }
 
 export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
-  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes, uniformidadCr] =
+  const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes, uniformidadCr, mtf] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
@@ -160,6 +165,7 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
       db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
       db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).sortBy("item_numero"),
       db.conv_uniformidad_cr.where("visita_id").equals(visitaId).sortBy("item_numero"),
+      db.conv_mtf.where("visita_id").equals(visitaId).first(),
     ]);
 
   // Si el físico nunca abrió la página de pre-informe, usar el catálogo completo
@@ -251,6 +257,12 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     if (img) fotos212.push({ label, ...img });
   }
 
+  // Imagen DICOM MTF para 2.16.7
+  const ev216 = evidencias.find((e) => e.prueba_codigo === "2.16" && e.slot === "dicom_mtf");
+  const img216 = await cargarImagen(ev216);
+  const fotos216: NonNullable<DatosConvencional["fotos216"]> = [];
+  if (img216) fotos216.push({ label: "Fig. 2.16.1 Imagen DICOM para análisis MTF", ...img216 });
+
   // Fotografías DICOM para 2.11.7 (0° y 180°)
   const SLOTS_FOTOS_211: [string, string][] = [
     ["dicom_0", "Fig. 2.11.1 Orientación inicial 0°"],
@@ -292,6 +304,8 @@ export async function recopilarDatosConv(visitaId: number): Promise<DatosConvenc
     bajoContraste,
     cassettes,
     uniformidadCr,
+    mtf,
+    fotos216,
   };
 }
 
@@ -2145,6 +2159,127 @@ function render214(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
+// ─── 2.16 — MTF ───
+
+export function renderFotos216(ctx: InformeCtx, conv: DatosConvencional) {
+  const fotos = conv.fotos216 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó imagen DICOM para el análisis MTF.");
+    return;
+  }
+  const CWIDTH = 170;
+  for (const foto of fotos) {
+    ctx.checkPage(70);
+    const maxW = CWIDTH;
+    const maxH = 80;
+    const ratio = Math.min(maxW / foto.width, maxH / foto.height);
+    const w = foto.width * ratio;
+    const h = foto.height * ratio;
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      ctx.doc.addImage(foto.dataUrl, "JPEG", x, ctx.y, w, h);
+    } catch {
+      ctx.doc.addImage(foto.dataUrl, "PNG", x, ctx.y, w, h);
+    }
+    ctx.y += h + 2;
+    ctx.doc.setFont("helvetica", "italic");
+    ctx.doc.setFontSize(7);
+    ctx.doc.setTextColor(100, 116, 139);
+    ctx.doc.text(foto.label, MARGIN + CWIDTH / 2, ctx.y, { align: "center" });
+    ctx.y += 6;
+    ctx.doc.setFont("helvetica", "normal");
+    ctx.doc.setTextColor(30, 30, 30);
+  }
+}
+
+function render216(ctx: InformeCtx, conv: DatosConvencional): number {
+  const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
+  const m = conv.mtf;
+
+  addSubsectionTitle("2.16.4.", "Resultados");
+
+  if (!m) {
+    addParagraph("No se registraron datos MTF para esta prueba.");
+    addSubsectionTitle("2.16.5.", "Análisis");
+    addParagraph("No se registraron datos de MTF.");
+    return 6;
+  }
+
+  // Condiciones de medición
+  const sid = m.distancia_foco_sensor_cm != null ? `${m.distancia_foco_sensor_cm} cm` : "—";
+  const kv = m.tecnica_kv != null ? `${m.tecnica_kv} kVp` : "—";
+  const pixel = m.pixel_size_mm != null ? `${m.pixel_size_mm} mm` : "—";
+  const nyquist = m.nyquist_lpmm != null ? `${m.nyquist_lpmm} lp/mm` : "—";
+  addParagraph(
+    `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, tensión de referencia ${kv}, tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`,
+  );
+
+  // Tabla de valores medidos
+  checkPage(25);
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    head: [["Dirección", "MTF50 (lp/mm)", "MTF20 (lp/mm)"]],
+    body: [
+      [
+        "Horizontal",
+        m.mtf50_horizontal != null ? m.mtf50_horizontal.toFixed(3) : "—",
+        m.mtf20_horizontal != null ? m.mtf20_horizontal.toFixed(3) : "—",
+      ],
+      [
+        "Vertical",
+        m.mtf50_vertical != null ? m.mtf50_vertical.toFixed(3) : "—",
+        m.mtf20_vertical != null ? m.mtf20_vertical.toFixed(3) : "—",
+      ],
+    ],
+    didDrawPage: undefined,
+    startY: ctx.y,
+  });
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  addSubsectionTitle("2.16.5.", "Análisis");
+
+  const tieneBase =
+    m.mtf50_base_horizontal != null ||
+    m.mtf50_base_vertical != null;
+
+  if (!tieneBase) {
+    addParagraph(
+      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital. Los valores de MTF50 y MTF20 permiten caracterizar la capacidad del detector para reproducir detalles espaciales en las direcciones horizontal y vertical. No se dispone de valores de referencia previos para comparación, por lo que los resultados obtenidos se establecen como valores base para futuras evaluaciones.",
+    );
+    return 6;
+  }
+
+  // Calcular desviaciones vs base
+  const desv50H =
+    m.mtf50_horizontal != null && m.mtf50_base_horizontal != null
+      ? Math.abs((m.mtf50_horizontal - m.mtf50_base_horizontal) / m.mtf50_base_horizontal) * 100
+      : null;
+  const desv50V =
+    m.mtf50_vertical != null && m.mtf50_base_vertical != null
+      ? Math.abs((m.mtf50_vertical - m.mtf50_base_vertical) / m.mtf50_base_vertical) * 100
+      : null;
+
+  const desvMax = [desv50H, desv50V].filter((v): v is number => v != null);
+  const maxDesv = desvMax.length > 0 ? Math.max(...desvMax) : null;
+  const conforme = maxDesv != null ? maxDesv <= 10 : null;
+
+  if (conforme === true) {
+    addParagraph(
+      `Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, consistente con el desempeño esperado para detectores digitales de radiografía. La variación máxima respecto a los valores de referencia fue de ${maxDesv!.toFixed(1)} %, dentro del criterio de aceptación del 10 %. Los valores obtenidos no evidencian degradaciones significativas del sistema.`,
+    );
+  } else if (conforme === false) {
+    addParagraph(
+      `Las curvas de MTF obtenidas presentan variaciones respecto a los valores de referencia que superan el criterio de aceptación del 10 % (variación máxima: ${maxDesv!.toFixed(1)} %). Esto podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales, requiriendo verificación adicional del detector.`,
+    );
+  } else {
+    addParagraph(
+      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital.",
+    );
+  }
+
+  return 6;
+}
+
 // ─── 2.15 — Uniformidad de sensibilidad pantallas IP CR ───
 
 function render215(ctx: InformeCtx, conv: DatosConvencional): number {
@@ -2283,6 +2418,8 @@ export function renderResultadosSeccion(
       return render214(ctx, conv);
     case "2.15":
       return render215(ctx, conv);
+    case "2.16":
+      return render216(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

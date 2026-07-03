@@ -227,11 +227,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     grupo: "E",
     orden: 16,
     objetivo:
-      "Evaluar la capacidad del sistema para reproducir fielmente el contraste de objetos de diferente tamaño.",
-    instrumentacion: "Patrón MTF o borde recto (edge phantom), software de análisis DICOM.",
+      "Evaluar la eficiencia con la cual las variaciones de contraste/señal son observadas por el sistema de imagen para diferentes frecuencias espaciales, o pares de líneas, en equipos CR y DR.",
+    instrumentacion:
+      "Fantoma o patrón de resolución espacial adecuado para la determinación de la MTF y sistema de radiografía digital (DR o CR).",
     metodologia:
-      "Se colocó el patrón MTF sobre el detector con una ligera inclinación (2–5 grados), se realizó una exposición, se exportó la imagen DICOM y se analizó con software especializado.",
-    criterio: "MTF >= valor de referencia del sistema.",
+      "La evaluación de la función de transferencia de modulación se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, adquiriendo una imagen del patrón de resolución espacial bajo condiciones representativas de operación del sistema.\n\nLa imagen obtenida fue analizada mediante software de procesamiento de imagen para determinar la respuesta del sistema a diferentes frecuencias espaciales.",
+    criterio:
+      "Las variaciones del valor de la MTF en el tiempo no deben superar el 10 % respecto al valor de referencia inicial.",
   },
   {
     codigo: "2.17",

@@ -17,7 +17,7 @@ import type { RolUsuario, RolPermiso, AccionPermiso, ModuloApp } from "@/lib/db/
 import { resolverPermiso } from "@/lib/db/types";
 
 export interface ActiveRole {
-  usuarioId: number;
+  usuarioId: string;
   nombre: string;
   cargo: RolUsuario;
 }

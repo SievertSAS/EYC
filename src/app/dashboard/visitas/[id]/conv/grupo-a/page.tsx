@@ -188,7 +188,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -250,7 +250,7 @@ function ElementoFotoCell({
   onCapture,
   onRemove,
 }: {
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -314,7 +314,7 @@ function ElementoFotoCell({
 
 export default function GrupoAPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -322,7 +322,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   // ─── Live data from dedicated conv_ tables ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -398,7 +398,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function updateMedicion(id: number, fields: Record<string, unknown>) {
+  async function updateMedicion(id: string, fields: Record<string, unknown>) {
     // Merge fields with current row to recalculate
     const current = await db.conv_mediciones.get(id);
     if (!current) return;
@@ -427,11 +427,11 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function removeMedicion(id: number) {
+  async function removeMedicion(id: string) {
     await db.conv_mediciones.delete(id);
   }
 
-  async function updateInspeccionItem(id: number, fields: Record<string, unknown>) {
+  async function updateInspeccionItem(id: string, fields: Record<string, unknown>) {
     await db.conv_inspeccion_items.update(id, fields);
   }
 
@@ -443,11 +443,11 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function updateElemento(id: number, fields: Record<string, unknown>) {
+  async function updateElemento(id: string, fields: Record<string, unknown>) {
     await db.conv_elementos_proteccion.update(id, fields);
   }
 
-  async function removeElemento(id: number) {
+  async function removeElemento(id: string) {
     await db.conv_elementos_proteccion.delete(id);
     // Limpiar la foto asociada al elemento para no dejar evidencias huérfanas
     const foto = data?.evidencias?.find(

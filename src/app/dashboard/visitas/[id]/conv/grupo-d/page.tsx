@@ -133,7 +133,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -265,7 +265,7 @@ const CAMPOS_CASSETTE = [
 
 export default function GrupoDPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -273,7 +273,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -321,7 +321,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
   }, [(data?.ddiMediciones.length ?? 0) > 0]);
 
   // ─── Save helpers ───
-  async function updateDdi(id: number, fields: Record<string, unknown>) {
+  async function updateDdi(id: string, fields: Record<string, unknown>) {
     await db.conv_ddi_mediciones.update(id, fields);
   }
 
@@ -334,11 +334,11 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function updateCassette(id: number, fields: Record<string, unknown>) {
+  async function updateCassette(id: string, fields: Record<string, unknown>) {
     await db.conv_cassette_inspeccion.update(id, fields);
   }
 
-  async function removeCassette(id: number) {
+  async function removeCassette(id: string) {
     await db.conv_cassette_inspeccion.delete(id);
   }
 
@@ -351,11 +351,11 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function updateUniformidad(id: number, fields: Record<string, unknown>) {
+  async function updateUniformidad(id: string, fields: Record<string, unknown>) {
     await db.conv_uniformidad_cr.update(id, fields);
   }
 
-  async function removeUniformidad(id: number) {
+  async function removeUniformidad(id: string) {
     await db.conv_uniformidad_cr.delete(id);
   }
 

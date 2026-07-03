@@ -325,7 +325,7 @@ export async function seedFromPackage(paquete: EquipmentPackage): Promise<void> 
         slots_imagen: grupo.slots_imagen,
         activo: true,
         creado_en: now,
-      })) as number;
+      })) as string;
 
       for (const prueba of grupo.pruebas) {
         await db.prueba_definiciones.add({

@@ -48,7 +48,7 @@ function toProgress(p: number): ModuleProgress {
   };
 }
 
-async function getModulosForVisita(visitaId: number): Promise<ModuloVisita[]> {
+async function getModulosForVisita(visitaId: string): Promise<ModuloVisita[]> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) return [];
 
@@ -66,9 +66,9 @@ async function getModulosForVisita(visitaId: number): Promise<ModuloVisita[]> {
 // ─── Info (precarga) — núcleo, compartido por todos los equipos ───
 
 async function getInfoPercentage(visita: {
-  equipo_id?: number | null;
-  ubicacion_id?: number | null;
-  solicitud_id: number;
+  equipo_id?: string | null;
+  ubicacion_id?: string | null;
+  solicitud_id: string;
   fecha_visita?: string | null;
 }): Promise<number> {
   const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
@@ -107,7 +107,7 @@ async function getInfoPercentage(visita: {
 
 // ─── Convencional — completitud por grupo usando tablas conv_* ───
 
-async function getConvGrupoAPercentage(visitaId: number): Promise<number> {
+async function getConvGrupoAPercentage(visitaId: string): Promise<number> {
   const [setup, mediciones, inspeccion, elementos] = await Promise.all([
     db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
     db.conv_mediciones.where("visita_id").equals(visitaId).count(),
@@ -137,7 +137,7 @@ async function getConvGrupoAPercentage(visitaId: number): Promise<number> {
 // ─── Main: getModuleStatuses ───
 
 export async function getModuleStatuses(
-  visitaId: number,
+  visitaId: string,
 ): Promise<Record<string, ModuleProgress>> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) return {};
@@ -159,7 +159,7 @@ export async function getModuleStatuses(
 
 // ─── Visit completeness ───
 
-export async function getVisitCompleteness(visitaId: number): Promise<VisitCompleteness> {
+export async function getVisitCompleteness(visitaId: string): Promise<VisitCompleteness> {
   const progressMap = await getModuleStatuses(visitaId);
   const modulos = await getModulosForVisita(visitaId);
 
@@ -184,11 +184,11 @@ export async function getVisitCompleteness(visitaId: number): Promise<VisitCompl
 // ─── Bulk (simplificado para listado de visitas) ───
 
 export async function getVisitCompletenessBulk(
-  visitaIds: number[],
-): Promise<Map<number, VisitCompleteness>> {
+  visitaIds: string[],
+): Promise<Map<string, VisitCompleteness>> {
   if (visitaIds.length === 0) return new Map();
 
-  const result = new Map<number, VisitCompleteness>();
+  const result = new Map<string, VisitCompleteness>();
 
   // Para el listado usamos una versión ligera — no computa cada grupo en detalle
   for (const vid of visitaIds) {

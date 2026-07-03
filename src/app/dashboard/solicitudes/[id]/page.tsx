@@ -77,7 +77,7 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
 
 export default function SolicitudDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const solicitudId = parseInt(id, 10);
+  const solicitudId = id;
   const { isReady } = useDb();
   const { hasPermission } = useRole();
   const canEditSolicitud = hasPermission("solicitudes", "editar");
@@ -94,7 +94,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   } | null>(null);
 
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(solicitudId)) return null;
+    if (!isReady || !solicitudId) return null;
 
     const solicitud = await db.solicitudes.get(solicitudId);
     if (!solicitud) return null;
@@ -174,7 +174,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       // Guardar técnico y fecha en la solicitud; la visita los hereda
       const now = new Date().toISOString();
       await db.solicitudes.update(solicitudId, {
-        tecnico_asignado_id: parseInt(tecnicoValue, 10),
+        tecnico_asignado_id: tecnicoValue,
         fecha_estimada_visita: fechaVisitaValue || undefined,
         sync_status: "pending",
         last_modified: now,

@@ -12,11 +12,11 @@ import type { ChangeLog } from "@/lib/db/types";
  */
 export async function trackChange(
   tabla: string,
-  registroId: number,
+  registroId: string,
   campo: string,
   valorAnterior: string | undefined,
   valorNuevo: string | undefined,
-  modificadoPorId: number
+  modificadoPorId: string
 ): Promise<void> {
   await db.change_logs.add({
     tabla,
@@ -45,12 +45,12 @@ export async function updateWithTracking<T extends Record<string, unknown>>(
   tabla: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dexieTable: {
-    get: (id: number) => Promise<T | undefined>;
-    update: (id: number, changes: Partial<T>) => Promise<number>;
+    get: (id: string) => Promise<T | undefined>;
+    update: (id: string, changes: Partial<T>) => Promise<number>;
   },
-  registroId: number,
+  registroId: string,
   changes: Partial<T>,
-  tecnicoId: number
+  tecnicoId: string
 ): Promise<string[]> {
   const existing = await dexieTable.get(registroId);
   if (!existing) return [];
@@ -87,7 +87,7 @@ export async function updateWithTracking<T extends Record<string, unknown>>(
 /**
  * Obtiene el historial de cambios para un registro.
  */
-export async function getChangeHistory(tabla: string, registroId: number): Promise<ChangeLog[]> {
+export async function getChangeHistory(tabla: string, registroId: string): Promise<ChangeLog[]> {
   return db.change_logs
     .where("[tabla+registro_id]")
     .equals([tabla, registroId])

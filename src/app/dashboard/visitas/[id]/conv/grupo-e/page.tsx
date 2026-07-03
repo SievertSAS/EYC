@@ -111,7 +111,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -211,7 +211,7 @@ const POSICIONES_ESFERA = [
 
 export default function GrupoEPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -219,7 +219,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -299,11 +299,11 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function updateUniformidadDet(id: number, fields: Record<string, unknown>) {
+  async function updateUniformidadDet(id: string, fields: Record<string, unknown>) {
     await db.conv_uniformidad_detector.update(id, fields);
   }
 
-  async function removeUniformidadDet(id: number) {
+  async function removeUniformidadDet(id: string) {
     await db.conv_uniformidad_detector.delete(id);
   }
 

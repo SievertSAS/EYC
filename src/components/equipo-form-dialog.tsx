@@ -33,7 +33,7 @@ import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 interface EquipoFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ubicacionId: number;
+  ubicacionId: string;
   equipo?: Equipo;
   onSaved?: () => void;
 }
@@ -164,17 +164,17 @@ export function EquipoFormDialog({
         last_modified: now,
       };
 
-      let equipoId: number;
+      let equipoId: string;
 
       if (isEdit && equipo?.id) {
         await db.equipos.update(equipo.id, equipoData);
         equipoId = equipo.id;
       } else {
-        equipoId = (await db.equipos.add(equipoData as Equipo)) as number;
+        equipoId = (await db.equipos.add(equipoData as Equipo)) as string;
       }
 
       // Guardar tubo si hay datos
-      let tuboId: number | undefined;
+      let tuboId: string | undefined;
       if (tuboMarca || tuboModelo || tuboSerie) {
         const tuboData: Omit<Tubo, "id"> = {
           equipo_id: equipoId,
@@ -191,11 +191,11 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        tuboId = (await db.tubos.add(tuboData as Tubo)) as number;
+        tuboId = (await db.tubos.add(tuboData as Tubo)) as string;
       }
 
       // Guardar colimador si hay datos
-      let colId: number | undefined;
+      let colId: string | undefined;
       if (colMarca || colModelo || colSerie) {
         const colData: Omit<Colimador, "id"> = {
           equipo_id: equipoId,
@@ -206,11 +206,11 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        colId = (await db.colimadores.add(colData as Colimador)) as number;
+        colId = (await db.colimadores.add(colData as Colimador)) as string;
       }
 
       // Guardar gantry si hay datos
-      let gantryId: number | undefined;
+      let gantryId: string | undefined;
       if (gantryMarca || gantryModelo || gantrySerie) {
         const gantryData: Omit<Gantry, "id"> = {
           equipo_id: equipoId,
@@ -222,7 +222,7 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        gantryId = (await db.gantry.add(gantryData as Gantry)) as number;
+        gantryId = (await db.gantry.add(gantryData as Gantry)) as string;
       }
 
       onOpenChange(false);

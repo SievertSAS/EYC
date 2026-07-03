@@ -10,7 +10,7 @@ import { hasPackage } from "@/lib/equipos";
 
 interface CrearVisitaResult {
   success: boolean;
-  visitaId?: number;
+  visitaId?: string;
   pruebasCreadas?: number;
   gruposCreados?: number;
   error?: string;
@@ -23,8 +23,8 @@ interface CrearVisitaResult {
  * @param equipoId - ID del equipo a intervenir (de la ubicación de la solicitud)
  */
 export async function crearVisitaDesdeSolicitud(
-  solicitudId: number,
-  equipoId: number
+  solicitudId: string,
+  equipoId: string
 ): Promise<CrearVisitaResult> {
   try {
     const solicitud = await db.solicitudes.get(solicitudId);
@@ -48,7 +48,7 @@ export async function crearVisitaDesdeSolicitud(
       creado_en: now,
     };
 
-    let visitaId: number;
+    let visitaId: string;
     let pruebasCreadas = 0;
     let gruposCreados = 0;
 
@@ -63,7 +63,7 @@ export async function crearVisitaDesdeSolicitud(
         db.prueba_definiciones,
       ],
       async () => {
-        visitaId = (await db.visitas.add(visita as VisitaEjecucion)) as number;
+        visitaId = (await db.visitas.add(visita as VisitaEjecucion)) as string;
 
         if (equipo.tipo_equipo) {
           const usarPaquete = hasPackage(equipo.tipo_equipo);
@@ -87,7 +87,7 @@ export async function crearVisitaDesdeSolicitud(
                 sync_status: "pending",
                 last_modified: now,
                 creado_en: now,
-              } as GrupoResultado)) as number;
+              } as GrupoResultado)) as string;
               gruposCreados++;
 
               // Crear PruebaResultado para cada prueba del grupo
@@ -166,7 +166,7 @@ export async function crearVisitaDesdeSolicitud(
  * Obtiene los equipos disponibles para una solicitud
  * (equipos en la ubicación de la solicitud).
  */
-export async function getEquiposDeSolicitud(solicitudId: number) {
+export async function getEquiposDeSolicitud(solicitudId: string) {
   const solicitud = await db.solicitudes.get(solicitudId);
   if (!solicitud?.ubicacion_id) return [];
 

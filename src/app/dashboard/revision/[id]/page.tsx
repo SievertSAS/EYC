@@ -66,7 +66,7 @@ const STATUS_ICON: Record<ModuloStatus, React.ReactNode> = {
 
 export default function RevisionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const { role } = useRole();
   const router = useRouter();
@@ -76,7 +76,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
   const [showObservaciones, setShowObservaciones] = useState(false);
 
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
 
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
@@ -88,7 +88,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
     const solicitud = await db.solicitudes.get(visita.solicitud_id);
     const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
     const sede = ubicacion
-      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
+      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? "")
       : undefined;
     const tecnico = visita.tecnico_id ? await db.usuarios.get(visita.tecnico_id) : undefined;
 

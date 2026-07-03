@@ -178,7 +178,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -274,7 +274,7 @@ function ResultRow({
 
 export default function GrupoCaePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -282,7 +282,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -311,7 +311,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
   }, [data, visitaId]);
 
   // ─── Save helpers ───
-  async function updateMedicion(id: number, fields: Record<string, unknown>) {
+  async function updateMedicion(id: string, fields: Record<string, unknown>) {
     await db.conv_cae_mediciones.update(id, fields);
   }
 

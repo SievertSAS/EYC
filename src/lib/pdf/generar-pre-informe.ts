@@ -91,7 +91,7 @@ const HEADER_HEIGHT = 22;
 //  Recopilar todos los datos de la visita
 // ============================================================
 
-async function recopilarDatos(visitaId: number): Promise<DatosInforme | null> {
+async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) return null;
 
@@ -102,7 +102,7 @@ async function recopilarDatos(visitaId: number): Promise<DatosInforme | null> {
   const solicitud = await db.solicitudes.get(visita.solicitud_id);
   const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
   const sede = ubicacion
-    ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
+    ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? "")
     : undefined;
   const tubo = visita.equipo_id
     ? await db.tubos.where("equipo_id").equals(visita.equipo_id).first()
@@ -267,7 +267,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
 //  Generar el PDF
 // ============================================================
 
-export async function generarPreInforme(visitaId: number): Promise<Blob | null> {
+export async function generarPreInforme(visitaId: string): Promise<Blob | null> {
   const [{ jsPDF }, { default: autoTable }, logoBase64] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),

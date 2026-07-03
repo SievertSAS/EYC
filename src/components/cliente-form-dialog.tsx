@@ -34,7 +34,7 @@ interface ClienteFormDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Si se pasa, modo edición */
   cliente?: Cliente;
-  onSaved?: (id: number) => void;
+  onSaved?: (id: string) => void;
 }
 
 const EMPTY: Partial<Cliente> = {
@@ -68,7 +68,7 @@ export function ClienteFormDialog({
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      let savedId: number;
+      let savedId: string;
       if (isEdit && cliente?.id) {
         await db.clientes.update(cliente.id, {
           ...form,
@@ -84,7 +84,7 @@ export function ClienteFormDialog({
           creado_en: now,
           sync_status: "pending",
           last_modified: now,
-        } as Cliente)) as number;
+        } as Cliente)) as string;
       }
       onSaved?.(savedId);
       setForm({ ...EMPTY });

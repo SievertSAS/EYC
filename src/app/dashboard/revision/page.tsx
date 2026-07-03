@@ -45,7 +45,7 @@ export default function RevisionPage() {
           : undefined;
         const solicitud = await db.solicitudes.get(visita.solicitud_id);
         const sede = ubicacion
-          ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
+          ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? "")
           : undefined;
         const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
         const tecnico = visita.tecnico_id ? await db.usuarios.get(visita.tecnico_id) : undefined;

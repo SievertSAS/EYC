@@ -306,7 +306,7 @@ function ConceptoBadgeSmall({ concepto }: { concepto?: ConceptoType }) {
 
 export default function PreInformePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -316,7 +316,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -385,7 +385,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
   }, []);
 
   // ─── Update helpers ───
-  async function updateSeccion(id: number, fields: Partial<ConvInformeSeccion>) {
+  async function updateSeccion(id: string, fields: Partial<ConvInformeSeccion>) {
     await db.conv_informe_secciones.update(id, fields);
   }
 

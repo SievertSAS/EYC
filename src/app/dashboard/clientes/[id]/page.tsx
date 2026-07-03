@@ -64,7 +64,7 @@ const TIPO_EQUIPO_LABELS: Record<string, string> = {
 
 export default function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const clienteId = parseInt(id, 10);
+  const clienteId = id;
   const { isReady } = useDb();
   const { hasPermission } = useRole();
   const canCreateCliente = hasPermission("clientes", "crear");
@@ -79,18 +79,18 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
   const [sedeDialogOpen, setSedeDialogOpen] = useState(false);
   const [editSede, setEditSede] = useState<Sede | undefined>();
   const [ubicacionDialogOpen, setUbicacionDialogOpen] = useState(false);
-  const [ubicacionSedeId, setUbicacionSedeId] = useState<number>(0);
+  const [ubicacionSedeId, setUbicacionSedeId] = useState<string>("");
   const [editUbicacion, setEditUbicacion] = useState<UbicacionRx | undefined>();
   const [equipoDialogOpen, setEquipoDialogOpen] = useState(false);
-  const [equipoUbicacionId, setEquipoUbicacionId] = useState<number>(0);
+  const [equipoUbicacionId, setEquipoUbicacionId] = useState<string>("");
   const [editEquipo, setEditEquipo] = useState<Equipo | undefined>();
 
   // Expandable sedes
-  const [expandedSedes, setExpandedSedes] = useState<Set<number>>(new Set());
-  const [expandedUbis, setExpandedUbis] = useState<Set<number>>(new Set());
+  const [expandedSedes, setExpandedSedes] = useState<Set<string>>(new Set());
+  const [expandedUbis, setExpandedUbis] = useState<Set<string>>(new Set());
 
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(clienteId)) return null;
+    if (!isReady || !clienteId) return null;
 
     const cliente = await db.clientes.get(clienteId);
     if (!cliente) return null;
@@ -118,7 +118,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
     return { cliente, contactos, sedes: sedesEnriched };
   }, [isReady, clienteId]);
 
-  function toggleSede(sedeId: number) {
+  function toggleSede(sedeId: string) {
     setExpandedSedes((prev) => {
       const next = new Set(prev);
       if (next.has(sedeId)) next.delete(sedeId);
@@ -127,7 +127,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
     });
   }
 
-  function toggleUbi(ubiId: number) {
+  function toggleUbi(ubiId: string) {
     setExpandedUbis((prev) => {
       const next = new Set(prev);
       if (next.has(ubiId)) next.delete(ubiId);

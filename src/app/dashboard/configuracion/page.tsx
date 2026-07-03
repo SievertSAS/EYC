@@ -95,7 +95,7 @@ export default function ConfiguracionPage() {
 
 function UsuariosTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const usuarios = useLiveQuery(() => db.usuarios.toArray());
 
@@ -200,7 +200,7 @@ function UsuariosTab() {
 //  Dialog: Crear / Editar usuario
 // ============================================================
 
-function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: number | null }) {
+function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: string | null }) {
   const existingUser = useLiveQuery(() => (editId ? db.usuarios.get(editId) : undefined), [editId]);
 
   const [nombre, setNombre] = useState("");

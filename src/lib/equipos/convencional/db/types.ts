@@ -9,9 +9,9 @@ import type { SyncFields } from "@/lib/db/types";
 // ─── Grupo A: Levantamiento Radiométrico ───
 
 /** Setup de la prueba 2.1 — 1 registro por visita */
-export interface ConvLevantamientoSetup {
-  id?: number;
-  visita_id: number;
+export interface ConvLevantamientoSetup extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   fondo_natural_usv_h?: number;
   distancia_tubo_operario_m?: number;
   tecnica_kv?: number;
@@ -27,8 +27,8 @@ export interface ConvLevantamientoSetup {
 
 /** Punto de medición radiométrica — N por visita */
 export interface ConvMedicionRadiometrica extends Partial<SyncFields> {
-  id?: number;
-  visita_id: number;
+  id?: string;
+  visita_id: string;
   punto_numero: number;
   ubicacion_descripcion: string;
   /** Lectura cruda del detector (μSv/h) — entrada del físico */
@@ -55,9 +55,9 @@ export interface ConvMedicionRadiometrica extends Partial<SyncFields> {
 // ─── Grupo A: Inspección Visual (prueba 2.2) ───
 
 /** Item de checklist de inspección — N por visita */
-export interface ConvInspeccionItem {
-  id?: number;
-  visita_id: number;
+export interface ConvInspeccionItem extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** "equipo" | "condiciones_operacion" */
   seccion: "equipo" | "condiciones_operacion";
   item_numero: number;
@@ -67,9 +67,9 @@ export interface ConvInspeccionItem {
 }
 
 /** Elemento de protección radiológica — N por visita */
-export interface ConvElementoProteccion {
-  id?: number;
-  visita_id: number;
+export interface ConvElementoProteccion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   descripcion: string;
   cantidad?: number;
   tipo_paciente?: "adulto" | "pediatrico";
@@ -81,25 +81,25 @@ export interface ConvElementoProteccion {
 // ─── Grupo B: RaySafe ───
 
 /** Setup del grupo B — 1 registro por visita */
-export interface ConvRaysafeSetup {
-  id?: number;
-  visita_id: number;
+export interface ConvRaysafeSetup extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** Distancia foco-sensor en cm (default 100) */
   distancia_foco_sensor_cm?: number;
   /** Distancia foco-sensor para mediciones sin rejilla d1 (cm) */
   distancia_foco_sensor_d1_cm?: number;
   /** Distancia foco-detector de imagen d2 (cm) */
   distancia_foco_detector_d2_cm?: number;
-  /** Archivo RaySafe importado (blob) */
+  /** Archivo RaySafe importado (blob) — solo local, no se sincroniza */
   archivo_raysafe_blob?: Blob;
   archivo_raysafe_nombre?: string;
   creado_en?: string;
 }
 
 /** Disparo individual (valor nominal + valor medido por RaySafe) — N por visita */
-export interface ConvRaysafeMedicion {
-  id?: number;
-  visita_id: number;
+export interface ConvRaysafeMedicion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /**
    * Tipo de medición:
    * - "principal": disparos principales sin rejilla (grupos 1-8)
@@ -141,9 +141,9 @@ export interface ConvRaysafeMedicion {
 // ─── Grupo C: CAE ───
 
 /** Valores base de referencia del CAE (precarga de visita anterior) — 1 por visita */
-export interface ConvCaeSetup {
-  id?: number;
-  visita_id: number;
+export interface ConvCaeSetup extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** 2.17 Sensibilidad — base 70 kVp, Cu 1mm, Centro */
   mas_base_217?: number;
   ei_base_217?: number;
@@ -172,9 +172,9 @@ export interface ConvCaeSetup {
 }
 
 /** Medición CAE — N por visita */
-export interface ConvCaeMedicion {
-  id?: number;
-  visita_id: number;
+export interface ConvCaeMedicion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   toma_numero: number;
   kv_nominal?: number;
   /** Espesor del atenuador de Cu (mm) */
@@ -197,9 +197,9 @@ export interface ConvCaeMedicion {
 // ─── Grupo D: DDI/EI + Cassettes CR ───
 
 /** Medición DDI/EI (pruebas 2.9 y 2.10) — N por visita */
-export interface ConvDdiMedicion {
-  id?: number;
-  visita_id: number;
+export interface ConvDdiMedicion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** Grupo de disparo (1 = grupo principal para 2.9, 2-4 = adicionales) */
   grupo: number;
   toma_numero: number;
@@ -218,9 +218,9 @@ export interface ConvDdiMedicion {
 }
 
 /** Inspección de cassette / pantalla IP CR (prueba 2.14) */
-export interface ConvCassetteInspeccion {
-  id?: number;
-  visita_id: number;
+export interface ConvCassetteInspeccion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   item_numero: number;
   serie_detector?: string;
   integridad_externa?: "Conforme" | "No_conforme";
@@ -234,9 +234,9 @@ export interface ConvCassetteInspeccion {
 }
 
 /** Medición de uniformidad CR (prueba 2.15) — 1 por cassette por visita */
-export interface ConvUniformidadCr {
-  id?: number;
-  visita_id: number;
+export interface ConvUniformidadCr extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   item_numero: number;
   serie_cassette?: string;
   carga_mas?: number;
@@ -249,9 +249,9 @@ export interface ConvUniformidadCr {
 // ─── Grupo E: Colimación, Resolución, Contraste, MTF ───
 
 /** Prueba 2.3 — Colimación y perpendicularidad */
-export interface ConvColimacion {
-  id?: number;
-  visita_id: number;
+export interface ConvColimacion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** Distancia foco-receptor SID (cm) */
   sid_cm?: number;
   tecnica_kv?: number;
@@ -273,9 +273,9 @@ export interface ConvColimacion {
 }
 
 /** Prueba 2.11 — Uniformidad y artefactos del detector (1 bloque por chasis/DR) */
-export interface ConvUniformidadDetector {
-  id?: number;
-  visita_id: number;
+export interface ConvUniformidadDetector extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   item_numero: number;
   serie_detector?: string;
   /** 5 ROIs por orientación: ROIc (centro) + ROI 1-4 */
@@ -309,9 +309,9 @@ export interface ConvUniformidadDetector {
 }
 
 /** Prueba 2.12 — Resolución espacial alto contraste */
-export interface ConvResolucion {
-  id?: number;
-  visita_id: number;
+export interface ConvResolucion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   sid_cm?: number;
   tecnica_kv?: number;
   tecnica_ma?: number;
@@ -324,9 +324,9 @@ export interface ConvResolucion {
 }
 
 /** Prueba 2.13 — Bajo contraste */
-export interface ConvBajoContraste {
-  id?: number;
-  visita_id: number;
+export interface ConvBajoContraste extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   sid_cm?: number;
   tecnica_kv?: number;
   tecnica_ma?: number;
@@ -346,9 +346,9 @@ export interface ConvBajoContraste {
 }
 
 /** Prueba 2.16 — MTF */
-export interface ConvMtf {
-  id?: number;
-  visita_id: number;
+export interface ConvMtf extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   distancia_foco_sensor_cm?: number;
   tecnica_kv?: number;
   tecnica_ma?: number;
@@ -373,9 +373,9 @@ export interface ConvMtf {
 // ─── Pre-informe: configuración de secciones ───
 
 /** Sección del pre-informe — 1 por prueba por visita */
-export interface ConvInformeSeccion {
-  id?: number;
-  visita_id: number;
+export interface ConvInformeSeccion extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** Código TECDOC: "2.1", "2.2", ..., "2.21" */
   prueba_codigo: string;
   /** Orden de la sección en el informe (drag & drop) */
@@ -394,9 +394,9 @@ export interface ConvInformeSeccion {
 // ─── Compartido: Resultados y Evidencias ───
 
 /** Resultado calculado de una prueba individual — 1 por prueba por visita */
-export interface ConvResultadoPrueba {
-  id?: number;
-  visita_id: number;
+export interface ConvResultadoPrueba extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** Código TECDOC: "2.1", "2.4", "2.6", etc. */
   prueba_codigo: string;
   /** Resultado numérico principal (ej: CHR = 2.8) */
@@ -413,15 +413,15 @@ export interface ConvResultadoPrueba {
 }
 
 /** Imagen/evidencia vinculada a una prueba específica */
-export interface ConvEvidencia {
-  id?: number;
-  visita_id: number;
+export interface ConvEvidencia extends Partial<SyncFields> {
+  id?: string;
+  visita_id: string;
   /** Código TECDOC de la prueba: "2.1", "2.2", etc. */
   prueba_codigo: string;
   /** Identificador del slot dentro de la prueba: "montaje", "plano", "patron_colimacion" */
   slot: string;
   descripcion?: string;
-  /** Blob almacenado en IndexedDB */
+  /** Blob almacenado en IndexedDB — solo local, no se sincroniza */
   blob_local?: Blob;
   /** URL en storage remoto (post-sync) */
   url_storage?: string;

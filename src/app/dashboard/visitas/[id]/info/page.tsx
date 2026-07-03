@@ -286,12 +286,12 @@ function SectionCard({
 
 export default function InfoGeneralPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const { role } = useRole();
 
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
 
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
@@ -303,7 +303,7 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
     const solicitud = await db.solicitudes.get(visita.solicitud_id);
     const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
     const sede = ubicacion
-      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? 0)
+      ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? "")
       : undefined;
 
     const tubos = visita.equipo_id
@@ -404,7 +404,7 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
   }
 
   async function saveVisita(field: string, value: string, numeric = false) {
-    if (!visitaId || isNaN(visitaId)) return;
+    if (!visitaId) return;
     const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
     await db.visitas.update(visitaId, {
       [field]: parsed,
@@ -438,7 +438,7 @@ export default function InfoGeneralPage({ params }: { params: Promise<{ id: stri
         para_programar: false,
         sync_status: "pending",
         last_modified: now(),
-      })) as number;
+      })) as string;
       pushSingle("contactos", newId);
     }
   }

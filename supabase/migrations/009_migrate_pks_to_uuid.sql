@@ -874,6 +874,8 @@ END $$;
 -- ─── 7. RLS ───
 
 -- Helper: obtener usuario_id del usuario actual
+DROP FUNCTION IF EXISTS public.get_usuario_id();
+DROP FUNCTION IF EXISTS public.get_tecnico_id();
 CREATE OR REPLACE FUNCTION public.get_usuario_id()
 RETURNS UUID AS $$
   SELECT id FROM public.usuarios WHERE auth_uid = auth.uid()

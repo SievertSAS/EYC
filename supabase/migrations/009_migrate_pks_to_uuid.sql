@@ -17,7 +17,27 @@
 SET session_replication_role = replica;
 
 -- ─── 2. DROP tablas en orden hijo→padre ───
--- (las conv_* aún no existen en Supabase, solo en Dexie)
+
+-- Conv_* (hijos de visitas — primero)
+DROP TABLE IF EXISTS conv_evidencias CASCADE;
+DROP TABLE IF EXISTS conv_resultados_prueba CASCADE;
+DROP TABLE IF EXISTS conv_informe_secciones CASCADE;
+DROP TABLE IF EXISTS conv_mtf CASCADE;
+DROP TABLE IF EXISTS conv_bajo_contraste CASCADE;
+DROP TABLE IF EXISTS conv_resolucion CASCADE;
+DROP TABLE IF EXISTS conv_uniformidad_detector CASCADE;
+DROP TABLE IF EXISTS conv_colimacion CASCADE;
+DROP TABLE IF EXISTS conv_uniformidad_cr CASCADE;
+DROP TABLE IF EXISTS conv_cassette_inspeccion CASCADE;
+DROP TABLE IF EXISTS conv_ddi_mediciones CASCADE;
+DROP TABLE IF EXISTS conv_cae_mediciones CASCADE;
+DROP TABLE IF EXISTS conv_cae_setup CASCADE;
+DROP TABLE IF EXISTS conv_raysafe_mediciones CASCADE;
+DROP TABLE IF EXISTS conv_raysafe_setup CASCADE;
+DROP TABLE IF EXISTS conv_elementos_proteccion CASCADE;
+DROP TABLE IF EXISTS conv_inspeccion_items CASCADE;
+DROP TABLE IF EXISTS conv_mediciones CASCADE;
+DROP TABLE IF EXISTS conv_levantamiento_setup CASCADE;
 
 DROP TABLE IF EXISTS change_logs CASCADE;
 DROP TABLE IF EXISTS informe_versiones CASCADE;

@@ -5,6 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Target,
@@ -242,10 +243,10 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
     if (!data) return;
     const now = new Date().toISOString();
     if (!data.colimacion) {
-      db.conv_colimacion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
+      db.conv_colimacion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now, sync_status: "pending" as const, last_modified: now });
     }
     if (!data.resolucion) {
-      db.conv_resolucion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
+      db.conv_resolucion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now, sync_status: "pending" as const, last_modified: now });
     }
     if (!data.bajoContraste) {
       db.conv_bajo_contraste.add({
@@ -254,6 +255,8 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
         sid_cm: 100,
         tecnica_kv: 75,
         creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
       });
     }
     if (!data.mtf) {
@@ -263,6 +266,8 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
         distancia_foco_sensor_cm: 150,
         tecnica_kv: 70,
         creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
       });
     }
   }, [data, visitaId]);
@@ -295,12 +300,15 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
 
   async function addUniformidadDet() {
     const next = (data?.uniformidadDet?.length ?? 0) + 1;
-    await db.conv_uniformidad_detector.add({
+    const newId = await db.conv_uniformidad_detector.add({
       id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_uniformidad_detector", newId as string);
   }
 
   async function updateUniformidadDet(id: string, fields: Record<string, unknown>) {
@@ -327,6 +335,8 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

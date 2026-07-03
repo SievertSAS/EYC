@@ -5,6 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Zap,
@@ -306,6 +307,8 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       visita_id: visitaId,
       distancia_foco_sensor_cm: 100,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
   }, [data, visitaId]);
 
@@ -368,7 +371,9 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       });
     }
 
-    db.conv_raysafe_mediciones.bulkAdd(rows);
+    db.conv_raysafe_mediciones.bulkAdd(
+      rows.map((r) => ({ ...r, sync_status: "pending" as const, last_modified: now }))
+    );
   }, [data, visitaId]);
 
   // ─── Copiar nominales de con_rejilla → kerma (una sola vez) ───
@@ -458,6 +463,8 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

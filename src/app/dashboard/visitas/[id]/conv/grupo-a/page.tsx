@@ -5,6 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Gauge,
@@ -347,6 +348,8 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
       w_estandar: 160,
       semanas_laborales: 50,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
   }, [data, visitaId]);
 
@@ -370,7 +373,9 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
         creado_en: now,
       })),
     ];
-    db.conv_inspeccion_items.bulkAdd(items);
+    db.conv_inspeccion_items.bulkAdd(
+      items.map((i) => ({ ...i, sync_status: "pending" as const, last_modified: now }))
+    );
   }, [data, visitaId]);
 
   // ─── Save helpers ───
@@ -392,7 +397,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   async function addMedicion() {
     const next = (data?.mediciones?.length ?? 0) + 1;
-    await db.conv_mediciones.add({
+    const newId = await db.conv_mediciones.add({
       id: randomUUID(),
       visita_id: visitaId,
       punto_numero: next,
@@ -400,7 +405,10 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
       factor_ocupacion_t: 1,
       factor_uso_u: 1,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_mediciones", newId as string);
   }
 
   async function updateMedicion(id: string, fields: Record<string, unknown>) {
@@ -441,12 +449,15 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   }
 
   async function addElemento() {
-    await db.conv_elementos_proteccion.add({
+    const newId = await db.conv_elementos_proteccion.add({
       id: randomUUID(),
       visita_id: visitaId,
       descripcion: "",
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_elementos_proteccion", newId as string);
   }
 
   async function updateElemento(id: string, fields: Record<string, unknown>) {
@@ -478,6 +489,8 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

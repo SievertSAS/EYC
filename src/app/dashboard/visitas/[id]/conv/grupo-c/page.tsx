@@ -5,6 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   SlidersHorizontal,
@@ -309,7 +310,9 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       posicion_sensor: d.sensor,
       creado_en: now,
     }));
-    db.conv_cae_mediciones.bulkAdd(rows);
+    db.conv_cae_mediciones.bulkAdd(
+      rows.map((r) => ({ ...r, sync_status: "pending" as const, last_modified: now }))
+    );
   }, [data, visitaId]);
 
   // ─── Save helpers ───
@@ -333,6 +336,8 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }
@@ -363,12 +368,15 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     if (setup?.id) {
       await db.conv_cae_setup.update(setup.id, fields);
     } else {
-      await db.conv_cae_setup.add({
+      const newId = await db.conv_cae_setup.add({
         id: randomUUID(),
         visita_id: visitaId,
         ...fields,
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
+      pushSingle("conv_cae_setup", newId as string);
     }
   }
 

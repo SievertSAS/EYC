@@ -5,6 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   MonitorCheck,
@@ -300,11 +301,14 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
       { grupo: 3, toma_numero: 5 },
       { grupo: 4, toma_numero: 6 },
     ].map((r) => ({
+      id: randomUUID(),
       visita_id: visitaId,
       grupo: r.grupo,
       toma_numero: r.toma_numero,
       kv_nominal: 70,
       creado_en: now,
+      sync_status: "pending" as const,
+      last_modified: now,
     }));
     db.conv_ddi_mediciones.bulkAdd(rows);
   }, [data, visitaId]);
@@ -328,12 +332,15 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
 
   async function addCassette() {
     const next = (data?.cassettes?.length ?? 0) + 1;
-    await db.conv_cassette_inspeccion.add({
+    const newId = await db.conv_cassette_inspeccion.add({
       id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_cassette_inspeccion", newId as string);
   }
 
   async function updateCassette(id: string, fields: Record<string, unknown>) {
@@ -346,12 +353,15 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
 
   async function addUniformidad() {
     const next = (data?.uniformidad?.length ?? 0) + 1;
-    await db.conv_uniformidad_cr.add({
+    const newId = await db.conv_uniformidad_cr.add({
       id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_uniformidad_cr", newId as string);
   }
 
   async function updateUniformidad(id: string, fields: Record<string, unknown>) {
@@ -378,6 +388,8 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

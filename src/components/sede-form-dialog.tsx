@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Sede } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -148,7 +149,8 @@ export function SedeFormDialog({
         await db.sedes.update(sede.id, data);
         savedId = sede.id;
       } else {
-        savedId = (await db.sedes.add(data as Sede)) as string;
+        const id = randomUUID();
+        savedId = (await db.sedes.add({ ...data, id })) as string;
       }
 
       resetForm();

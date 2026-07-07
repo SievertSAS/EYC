@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Solicitud } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -184,7 +185,7 @@ export function SolicitudFormDialog({
           last_modified: now,
         };
 
-        const id = (await db.solicitudes.add(data as Solicitud)) as string;
+        const id = (await db.solicitudes.add({ ...data, id: randomUUID() })) as string;
         resetForm();
         onOpenChange(false);
         onSaved?.(id);

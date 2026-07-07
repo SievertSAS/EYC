@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Shield, Plus, Loader2, UserCheck, UserX, Pencil, Eye, Trash2 } from "lucide-react";
 import type { RolUsuario, ModuloApp, AccionPermiso, RolPermiso } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import {
   ROLES_DISPONIBLES,
   ROL_LABELS,
@@ -472,7 +473,7 @@ function RolesTab() {
       if (existing) {
         await db.rol_permisos.update(existing.id!, record);
       } else {
-        await db.rol_permisos.add(record as RolPermiso);
+        await db.rol_permisos.add({ ...record, id: randomUUID() });
       }
 
       // No bloquear la UI con la escritura remota

@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { randomUUID } from "@/lib/uuid";
 import { useDb } from "@/components/db-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -361,6 +362,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     if (!data || data.secciones.length > 0) return;
     const now = new Date().toISOString();
     const rows = CATALOGO_SECCIONES.map((cat) => ({
+      id: randomUUID(),
       visita_id: visitaId,
       prueba_codigo: cat.codigo,
       orden: cat.orden,

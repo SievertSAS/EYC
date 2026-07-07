@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Contacto } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -98,7 +99,7 @@ export function ContactoFormDialog({
         await db.contactos.update(contacto.id, data);
         savedId = contacto.id;
       } else {
-        savedId = (await db.contactos.add(data as Contacto)) as string;
+        savedId = (await db.contactos.add({ ...data, id: randomUUID() })) as string;
       }
 
       resetForm();

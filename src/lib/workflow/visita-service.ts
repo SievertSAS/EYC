@@ -65,7 +65,7 @@ export async function crearVisitaDesdeSolicitud(
         db.prueba_definiciones,
       ],
       async () => {
-        visitaId = (await db.visitas.add(visita as VisitaEjecucion)) as string;
+        visitaId = (await db.visitas.add({ ...visita, id: randomUUID() })) as string;
 
         if (equipo.tipo_equipo) {
           const usarPaquete = hasPackage(equipo.tipo_equipo);

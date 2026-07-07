@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import { TIPOS_EQUIPO, type TipoEquipo } from "@/lib/db/types";
 import {
@@ -170,7 +171,7 @@ export function EquipoFormDialog({
         await db.equipos.update(equipo.id, equipoData);
         equipoId = equipo.id;
       } else {
-        equipoId = (await db.equipos.add(equipoData as Equipo)) as string;
+        equipoId = (await db.equipos.add({ ...equipoData, id: randomUUID() })) as string;
       }
 
       // Guardar tubo si hay datos
@@ -191,7 +192,7 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        tuboId = (await db.tubos.add(tuboData as Tubo)) as string;
+        tuboId = (await db.tubos.add({ ...tuboData, id: randomUUID() })) as string;
       }
 
       // Guardar colimador si hay datos
@@ -206,7 +207,7 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        colId = (await db.colimadores.add(colData as Colimador)) as string;
+        colId = (await db.colimadores.add({ ...colData, id: randomUUID() })) as string;
       }
 
       // Guardar gantry si hay datos
@@ -222,7 +223,7 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        gantryId = (await db.gantry.add(gantryData as Gantry)) as string;
+        gantryId = (await db.gantry.add({ ...gantryData, id: randomUUID() })) as string;
       }
 
       onOpenChange(false);

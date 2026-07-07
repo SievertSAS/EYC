@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { UbicacionRx } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -105,7 +106,7 @@ export function UbicacionFormDialog({
         await db.ubicaciones_rx.update(ubicacion.id, data);
         savedId = ubicacion.id;
       } else {
-        savedId = (await db.ubicaciones_rx.add(data as UbicacionRx)) as string;
+        savedId = (await db.ubicaciones_rx.add({ ...data, id: randomUUID() })) as string;
       }
 
       resetForm();

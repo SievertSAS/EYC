@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { Informe, InformeVersion } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 
 // ============================================================
 //  Servicio de creación de informes
@@ -68,6 +69,7 @@ export async function crearInformeDesdeVisita(
   const conceptoGeneral = await determinarConceptoGeneral(visitaId);
 
   const informe: Informe = {
+    id: randomUUID(),
     visita_id: visitaId,
     equipo_id: visita.equipo_id!,
     ubicacion_id: visita.ubicacion_id!,
@@ -85,6 +87,7 @@ export async function crearInformeDesdeVisita(
 
   // Crear la primera versión
   const version: InformeVersion = {
+    id: randomUUID(),
     informe_id: informeId as string,
     numero_version: 1,
     motivo_cambio: "emision_inicial",

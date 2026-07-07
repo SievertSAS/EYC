@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Shield, Plus, Loader2, UserCheck, UserX, Pencil, Eye, Trash2 } from "lucide-react";
 import type { RolUsuario, ModuloApp, AccionPermiso, RolPermiso } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import {
   ROLES_DISPONIBLES,
   ROL_LABELS,
@@ -95,7 +96,7 @@ export default function ConfiguracionPage() {
 
 function UsuariosTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const usuarios = useLiveQuery(() => db.usuarios.toArray());
 
@@ -200,7 +201,7 @@ function UsuariosTab() {
 //  Dialog: Crear / Editar usuario
 // ============================================================
 
-function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: number | null }) {
+function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: string | null }) {
   const existingUser = useLiveQuery(() => (editId ? db.usuarios.get(editId) : undefined), [editId]);
 
   const [nombre, setNombre] = useState("");
@@ -472,7 +473,7 @@ function RolesTab() {
       if (existing) {
         await db.rol_permisos.update(existing.id!, record);
       } else {
-        await db.rol_permisos.add(record as RolPermiso);
+        await db.rol_permisos.add({ ...record, id: randomUUID() });
       }
 
       // No bloquear la UI con la escritura remota

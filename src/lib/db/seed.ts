@@ -1,4 +1,5 @@
 import { db } from "./index";
+import { randomUUID } from "@/lib/uuid";
 import type { PruebaDefinicion, TipoEquipo, RolPermiso } from "./types";
 import { ROLES_DISPONIBLES, MODULOS_APP, permisoDefault } from "./types";
 import type { EquipmentPackage } from "@/lib/equipos/types";
@@ -258,12 +259,13 @@ export async function seedRolPermisos(): Promise<void> {
   if (count > 0) return;
 
   const now = new Date().toISOString();
-  const records: Omit<RolPermiso, "id">[] = [];
+  const records: RolPermiso[] = [];
 
   for (const rol of ROLES_DISPONIBLES) {
     for (const modulo of MODULOS_APP) {
       const acciones = permisoDefault(rol, modulo);
       records.push({
+        id: randomUUID(),
         rol,
         modulo,
         activo: acciones.ver,
@@ -275,7 +277,7 @@ export async function seedRolPermisos(): Promise<void> {
     }
   }
 
-  await db.rol_permisos.bulkPut(records as RolPermiso[]);
+  await db.rol_permisos.bulkPut(records);
   console.log(`[Seed] ${records.length} permisos de rol cargados`);
 }
 
@@ -293,6 +295,7 @@ export async function seedPruebaDefiniciones(): Promise<void> {
 
   // 1. Seed pruebas genéricas (para tipos sin paquete)
   const records = PRUEBAS_CATALOGO.map((p) => ({
+    id: randomUUID(),
     ...p,
     creado_en: now,
   }));
@@ -317,6 +320,7 @@ export async function seedFromPackage(paquete: EquipmentPackage): Promise<void> 
   await db.transaction("rw", [db.grupo_pruebas, db.prueba_definiciones], async () => {
     for (const grupo of paquete.grupos) {
       const grupoId = (await db.grupo_pruebas.add({
+        id: randomUUID(),
         codigo: grupo.codigo,
         nombre: grupo.nombre,
         tipo_equipo: paquete.tipo_equipo,
@@ -325,10 +329,11 @@ export async function seedFromPackage(paquete: EquipmentPackage): Promise<void> 
         slots_imagen: grupo.slots_imagen,
         activo: true,
         creado_en: now,
-      })) as number;
+      })) as string;
 
       for (const prueba of grupo.pruebas) {
         await db.prueba_definiciones.add({
+          id: randomUUID(),
           codigo: prueba.codigo,
           numero_tecdoc: prueba.numero_tecdoc,
           nombre: prueba.nombre,

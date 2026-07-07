@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { Contacto } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -31,9 +32,9 @@ import { Loader2 } from "lucide-react";
 interface ContactoFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clienteId: number;
+  clienteId: string;
   contacto?: Contacto;
-  onSaved?: (id: number) => void;
+  onSaved?: (id: string) => void;
   /** Valor inicial del checkbox "para programar" al crear */
   defaultParaProgramar?: boolean;
 }
@@ -93,12 +94,12 @@ export function ContactoFormDialog({
         last_modified: now,
       };
 
-      let savedId: number;
+      let savedId: string;
       if (isEdit && contacto?.id) {
         await db.contactos.update(contacto.id, data);
         savedId = contacto.id;
       } else {
-        savedId = (await db.contactos.add(data as Contacto)) as number;
+        savedId = (await db.contactos.add({ ...data, id: randomUUID() })) as string;
       }
 
       resetForm();

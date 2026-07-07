@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Sede } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -37,9 +38,9 @@ import { Loader2 } from "lucide-react";
 interface SedeFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clienteId: number;
+  clienteId: string;
   sede?: Sede;
-  onSaved?: (id: number) => void;
+  onSaved?: (id: string) => void;
 }
 
 const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
@@ -143,12 +144,13 @@ export function SedeFormDialog({
         last_modified: now,
       };
 
-      let savedId: number;
+      let savedId: string;
       if (isEdit && sede?.id) {
         await db.sedes.update(sede.id, data);
         savedId = sede.id;
       } else {
-        savedId = (await db.sedes.add(data as Sede)) as number;
+        const id = randomUUID();
+        savedId = (await db.sedes.add({ ...data, id })) as string;
       }
 
       resetForm();

@@ -61,11 +61,11 @@ const VERSION_ESTADO_BADGE: Record<string, { bg: string; text: string; border: s
 
 export default function InformeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const informeId = parseInt(id, 10);
+  const informeId = id;
   const { isReady } = useDb();
 
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(informeId)) return null;
+    if (!isReady || !informeId) return null;
 
     const informe = await db.informes.get(informeId);
     if (!informe) return null;

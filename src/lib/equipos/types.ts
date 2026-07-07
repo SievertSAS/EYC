@@ -37,5 +37,5 @@ export interface EquipmentPackage {
   /** Grupos de pruebas con fórmulas y criterios */
   grupos: GrupoPruebaDefinition[];
   /** Función generadora del informe PDF específico */
-  generarInforme: (visitaId: number) => Promise<Blob | null>;
+  generarInforme: (visitaId: string) => Promise<Blob | null>;
 }

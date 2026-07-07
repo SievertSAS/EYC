@@ -1,9 +1,11 @@
 "use client";
 
 import { use, useState, useRef, useEffect } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Zap,
@@ -216,7 +218,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -276,7 +278,7 @@ function ImageSlot({
 
 export default function GrupoBPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -284,7 +286,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   const pruebasGrupoB = getManualGrupo("B");
 
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -301,9 +303,12 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!data || data.setup) return;
     db.conv_raysafe_setup.add({
+      id: randomUUID(),
       visita_id: visitaId,
       distancia_foco_sensor_cm: 100,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
   }, [data, visitaId]);
 
@@ -312,12 +317,13 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     if (!data || data.mediciones.length > 0) return;
     const now = new Date().toISOString();
     let toma = 1;
-    const rows: Omit<import("@/lib/equipos/convencional/db/types").ConvRaysafeMedicion, "id">[] = [];
+    const rows: import("@/lib/equipos/convencional/db/types").ConvRaysafeMedicion[] = [];
 
     // Grupos principales 1-8
     for (const g of GRUPOS_DISPAROS) {
       for (let r = 0; r < g.repeticiones; r++) {
         rows.push({
+          id: randomUUID(),
           visita_id: visitaId,
           tipo_medicion: "principal",
           grupo_numero: g.grupo,
@@ -332,6 +338,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     // Con rejilla (3 programas)
     for (const prog of PROGRAMAS_CLINICOS) {
       rows.push({
+        id: randomUUID(),
         visita_id: visitaId,
         tipo_medicion: "con_rejilla",
         toma_numero: toma++,
@@ -343,6 +350,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     // Sin rejilla (3 programas)
     for (const prog of PROGRAMAS_CLINICOS) {
       rows.push({
+        id: randomUUID(),
         visita_id: visitaId,
         tipo_medicion: "sin_rejilla",
         toma_numero: toma++,
@@ -354,6 +362,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     // Kerma en aire (3 mediciones para prueba 2.8)
     for (const prog of PROGRAMAS_CLINICOS) {
       rows.push({
+        id: randomUUID(),
         visita_id: visitaId,
         tipo_medicion: "kerma",
         toma_numero: toma++,
@@ -362,7 +371,9 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       });
     }
 
-    db.conv_raysafe_mediciones.bulkAdd(rows);
+    db.conv_raysafe_mediciones.bulkAdd(
+      rows.map((r) => ({ ...r, sync_status: "pending" as const, last_modified: now }))
+    );
   }, [data, visitaId]);
 
   // ─── Copiar nominales de con_rejilla → kerma (una sola vez) ───
@@ -432,7 +443,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     }, 600);
   }
 
-  async function updateMedicion(id: number, fields: Record<string, unknown>) {
+  async function updateMedicion(id: string, fields: Record<string, unknown>) {
     await db.conv_raysafe_mediciones.update(id, fields);
   }
 
@@ -445,12 +456,15 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

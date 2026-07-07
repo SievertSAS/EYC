@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Solicitud } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -42,7 +43,7 @@ import { ContactoFormDialog } from "@/components/contacto-form-dialog";
 interface SolicitudFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved?: (id: number) => void;
+  onSaved?: (id: string) => void;
   /** Si se pasa, el dialog entra en modo edición */
   editSolicitud?: Solicitud;
 }
@@ -90,7 +91,7 @@ export function SolicitudFormDialog({
   const sedes = useLiveQuery(
     () =>
       isReady && clienteId
-        ? db.sedes.where("cliente_id").equals(parseInt(clienteId, 10)).toArray()
+        ? db.sedes.where("cliente_id").equals(clienteId).toArray()
         : [],
     [isReady, clienteId],
     []
@@ -99,7 +100,7 @@ export function SolicitudFormDialog({
   const ubicaciones = useLiveQuery(
     () =>
       isReady && sedeId
-        ? db.ubicaciones_rx.where("sede_id").equals(parseInt(sedeId, 10)).toArray()
+        ? db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray()
         : [],
     [isReady, sedeId],
     []
@@ -110,7 +111,7 @@ export function SolicitudFormDialog({
       isReady && clienteId
         ? db.contactos
             .where("cliente_id")
-            .equals(parseInt(clienteId, 10))
+            .equals(clienteId)
             .filter((c) => c.para_programar)
             .toArray()
         : [],
@@ -126,14 +127,12 @@ export function SolicitudFormDialog({
         ? await db.ubicaciones_rx.get(editSolicitud.ubicacion_id)
         : undefined;
 
-      setClienteId(editSolicitud.cliente_id ? String(editSolicitud.cliente_id) : "");
-      setSedeId(ubicacion?.sede_id ? String(ubicacion.sede_id) : "");
+      setClienteId(editSolicitud.cliente_id ?? "");
+      setSedeId(ubicacion?.sede_id ?? "");
       setUbicacionId(
-        ubicacion?.sede_id && editSolicitud.ubicacion_id ? String(editSolicitud.ubicacion_id) : ""
+        ubicacion?.sede_id && editSolicitud.ubicacion_id ? editSolicitud.ubicacion_id : ""
       );
-      setContactoId(
-        editSolicitud.contacto_programar_id ? String(editSolicitud.contacto_programar_id) : ""
-      );
+      setContactoId(editSolicitud.contacto_programar_id ?? "");
     })();
   }, [open, editSolicitud]);
 
@@ -153,9 +152,9 @@ export function SolicitudFormDialog({
       if (isEditing && editSolicitud?.id) {
         // Modo edición — actualizar con tracking de cambios
         const changes: Partial<Solicitud> = {
-          cliente_id: parseInt(clienteId, 10),
-          contacto_programar_id: contactoId ? parseInt(contactoId, 10) : undefined,
-          ubicacion_id: ubicacionId ? parseInt(ubicacionId, 10) : undefined,
+          cliente_id: clienteId,
+          contacto_programar_id: contactoId || undefined,
+          ubicacion_id: ubicacionId || undefined,
           sync_status: "pending",
           last_modified: now,
         };
@@ -165,7 +164,7 @@ export function SolicitudFormDialog({
           db.solicitudes as any,
           editSolicitud.id,
           changes as Record<string, unknown>,
-          role?.usuarioId ?? 0
+          role?.usuarioId ?? ""
         );
         resetForm();
         onOpenChange(false);
@@ -175,9 +174,9 @@ export function SolicitudFormDialog({
       } else {
         // Modo creación
         const data: Omit<Solicitud, "id"> = {
-          cliente_id: parseInt(clienteId, 10),
-          contacto_programar_id: contactoId ? parseInt(contactoId, 10) : undefined,
-          ubicacion_id: ubicacionId ? parseInt(ubicacionId, 10) : undefined,
+          cliente_id: clienteId,
+          contacto_programar_id: contactoId || undefined,
+          ubicacion_id: ubicacionId || undefined,
           pipeline_estado: "solicitudes",
           pago_recibido: false,
           fecha_solicitud: now.split("T")[0],
@@ -186,7 +185,7 @@ export function SolicitudFormDialog({
           last_modified: now,
         };
 
-        const id = (await db.solicitudes.add(data as Solicitud)) as number;
+        const id = (await db.solicitudes.add({ ...data, id: randomUUID() })) as string;
         resetForm();
         onOpenChange(false);
         onSaved?.(id);
@@ -378,31 +377,31 @@ export function SolicitudFormDialog({
       <ClienteFormDialog
         open={clienteDialogOpen}
         onOpenChange={setClienteDialogOpen}
-        onSaved={(id) => selectCliente(String(id))}
+        onSaved={(id) => selectCliente(id)}
       />
       {clienteId && (
         <SedeFormDialog
           open={sedeDialogOpen}
           onOpenChange={setSedeDialogOpen}
-          clienteId={parseInt(clienteId, 10)}
-          onSaved={(id) => selectSede(String(id))}
+          clienteId={clienteId}
+          onSaved={(id) => selectSede(id)}
         />
       )}
       {sedeId && (
         <UbicacionFormDialog
           open={ubicacionDialogOpen}
           onOpenChange={setUbicacionDialogOpen}
-          sedeId={parseInt(sedeId, 10)}
-          onSaved={(id) => setUbicacionId(String(id))}
+          sedeId={sedeId}
+          onSaved={(id) => setUbicacionId(id)}
         />
       )}
       {clienteId && (
         <ContactoFormDialog
           open={contactoDialogOpen}
           onOpenChange={setContactoDialogOpen}
-          clienteId={parseInt(clienteId, 10)}
+          clienteId={clienteId}
           defaultParaProgramar
-          onSaved={(id) => setContactoId(String(id))}
+          onSaved={(id) => setContactoId(id)}
         />
       )}
     </>

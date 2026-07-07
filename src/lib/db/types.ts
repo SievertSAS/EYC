@@ -37,7 +37,7 @@ export type TipoEquipo = (typeof TIPOS_EQUIPO)[number];
 // ─── Núcleo ───
 
 export interface Cliente extends Partial<SyncFields> {
-  id?: number;
+  id?: string;
   nombre_cliente: string;
   nombre_prestador?: string;
   nit: string;
@@ -51,8 +51,8 @@ export interface Cliente extends Partial<SyncFields> {
 }
 
 export interface Contacto extends Partial<SyncFields> {
-  id?: number;
-  cliente_id: number;
+  id?: string;
+  cliente_id: string;
   nombre: string;
   cargo?:
     | "medico_responsable"
@@ -69,8 +69,8 @@ export interface Contacto extends Partial<SyncFields> {
 }
 
 export interface Sede extends Partial<SyncFields> {
-  id?: number;
-  cliente_id: number;
+  id?: string;
+  cliente_id: string;
   nombre_sede: string;
   direccion_sede?: string;
   /** Nombre denormalizado del municipio (informes/listados) */
@@ -79,7 +79,9 @@ export interface Sede extends Partial<SyncFields> {
   departamento?: string;
   email?: string;
   telefono?: string;
+  /** DANE numeric code — stays as number */
   departamento_id?: number;
+  /** DANE numeric code — stays as number */
   municipio_id?: number;
   creado_en?: string;
 }
@@ -100,8 +102,8 @@ export interface Municipio {
 }
 
 export interface UbicacionRx extends Partial<SyncFields> {
-  id?: number;
-  sede_id: number;
+  id?: string;
+  sede_id: string;
   nombre_servicio: string;
   licencia?: string;
   fecha_expiracion_licencia?: string;
@@ -123,8 +125,8 @@ export interface UbicacionRx extends Partial<SyncFields> {
 }
 
 export interface Equipo extends Partial<SyncFields> {
-  id?: number;
-  ubicacion_id: number;
+  id?: string;
+  ubicacion_id: string;
   tipo_equipo?: TipoEquipo;
   planilla_espacial: boolean;
   sistema_adquisicion?: string;
@@ -144,19 +146,19 @@ export interface Equipo extends Partial<SyncFields> {
 }
 
 export interface EquipoMovimiento {
-  id?: number;
-  equipo_id: number;
-  ubicacion_anterior_id?: number;
-  ubicacion_nueva_id: number;
+  id?: string;
+  equipo_id: string;
+  ubicacion_anterior_id?: string;
+  ubicacion_nueva_id: string;
   fecha_movimiento: string;
   motivo?: string;
-  registrado_por_id?: number;
+  registrado_por_id?: string;
   creado_en?: string;
 }
 
 export interface Tubo extends Partial<SyncFields> {
-  id?: number;
-  equipo_id: number;
+  id?: string;
+  equipo_id: string;
   marca?: string;
   modelo?: string;
   numero_serie?: string;
@@ -171,8 +173,8 @@ export interface Tubo extends Partial<SyncFields> {
 }
 
 export interface Colimador extends Partial<SyncFields> {
-  id?: number;
-  equipo_id: number;
+  id?: string;
+  equipo_id: string;
   marca?: string;
   modelo?: string;
   numero_serie?: string;
@@ -180,8 +182,8 @@ export interface Colimador extends Partial<SyncFields> {
 }
 
 export interface Gantry extends Partial<SyncFields> {
-  id?: number;
-  equipo_id: number;
+  id?: string;
+  equipo_id: string;
   marca?: string;
   modelo?: string;
   numero_serie?: string;
@@ -190,8 +192,8 @@ export interface Gantry extends Partial<SyncFields> {
 }
 
 export interface SalaDimensiones {
-  id?: number;
-  ubicacion_id: number;
+  id?: string;
+  ubicacion_id: string;
   ancho_m?: number;
   largo_m?: number;
   alto_m?: number;
@@ -205,8 +207,8 @@ export interface SalaDimensiones {
 }
 
 export interface ParteEquipo {
-  id?: number;
-  equipo_id: number;
+  id?: string;
+  equipo_id: string;
   parte_nombre: string;
   estado?: "bueno" | "regular" | "malo" | "no_aplica";
   observacion?: string;
@@ -214,8 +216,8 @@ export interface ParteEquipo {
 }
 
 export interface ValoresReferencia {
-  id?: number;
-  equipo_id: number;
+  id?: string;
+  equipo_id: string;
   // Kerma / PKL / PKA
   kerma_aire_incidente?: number;
   pkl_panoramico?: number;
@@ -298,7 +300,7 @@ export const MODULO_LABELS: Record<ModuloApp, string> = {
 };
 
 export interface Usuario {
-  id?: number;
+  id?: string;
   nombre: string;
   cedula: string;
   cargo: RolUsuario;
@@ -330,7 +332,7 @@ export interface AccionesPermiso {
 }
 
 export interface RolPermiso {
-  id?: number;
+  id?: string;
   rol: RolUsuario;
   modulo: ModuloApp;
   /** Permiso de ver el módulo (nombre legacy, equivale a la acción "ver") */
@@ -435,8 +437,8 @@ export function resolverPermiso(
 // ─── Comercial ───
 
 export interface Cotizacion {
-  id?: number;
-  cliente_id: number;
+  id?: string;
+  cliente_id: string;
   valor_total?: number;
   forma_pago?: string;
   fecha_cotizacion?: string;
@@ -446,12 +448,12 @@ export interface Cotizacion {
 }
 
 export interface Solicitud extends Partial<SyncFields> {
-  id?: number;
-  cotizacion_id?: number;
-  cliente_id: number;
-  contacto_programar_id?: number;
-  ubicacion_id?: number;
-  tecnico_asignado_id?: number;
+  id?: string;
+  cotizacion_id?: string;
+  cliente_id: string;
+  contacto_programar_id?: string;
+  ubicacion_id?: string;
+  tecnico_asignado_id?: string;
   suitecrm_id?: string;
   tipo_servicio?: string;
   pipeline_estado?: "solicitudes" | "programacion" | "ejecucion" | "notificado" | "enviado";
@@ -475,14 +477,14 @@ export type EstadoVisita =
   | "aprobada";
 
 export interface VisitaEjecucion extends SyncFields {
-  id?: number;
-  solicitud_id: number;
-  equipo_id?: number;
+  id?: string;
+  solicitud_id: string;
+  equipo_id?: string;
   /** Instantánea: ubicación del equipo AL MOMENTO de la visita */
-  ubicacion_id?: number;
-  tecnico_id?: number;
+  ubicacion_id?: string;
+  tecnico_id?: string;
   estado_visita: EstadoVisita;
-  ingeniero_revisor_id?: number;
+  ingeniero_revisor_id?: string;
   // Condiciones de operación
   dias_laborados_semana?: number;
   pacientes_por_semana?: number;
@@ -579,7 +581,7 @@ export interface EvaluacionCriterio {
 
 /** Un grupo agrupa pruebas que comparten una sesión de medición */
 export interface GrupoPrueba {
-  id?: number;
+  id?: string;
   codigo: string;
   nombre: string;
   tipo_equipo: TipoEquipo;
@@ -592,10 +594,10 @@ export interface GrupoPrueba {
 
 /** Resultado de captura de un grupo (datos crudos + imágenes) */
 export interface GrupoResultado extends SyncFields {
-  id?: number;
-  visita_id: number;
-  grupo_id: number;
-  equipo_id: number;
+  id?: string;
+  visita_id: string;
+  grupo_id: string;
+  equipo_id: string;
   /** Filas de mediciones crudas capturadas en campo */
   mediciones_json: Record<string, unknown>[];
   /** Imágenes embebidas del grupo */
@@ -608,14 +610,14 @@ export interface GrupoResultado extends SyncFields {
 // ─── Pruebas ───
 
 export interface PruebaDefinicion {
-  id?: number;
+  id?: string;
   codigo: string;
   /** Número TECDOC: "2.4", "2.5", etc. */
   numero_tecdoc?: string;
   nombre: string;
   descripcion?: string;
   /** FK a GrupoPrueba — si existe, la prueba pertenece a un grupo */
-  grupo_id?: number;
+  grupo_id?: string;
   tipos_equipo_aplicables: TipoEquipo[];
   /** Orden dentro del grupo */
   orden_en_grupo?: number;
@@ -635,12 +637,12 @@ export interface PruebaDefinicion {
 }
 
 export interface PruebaResultado extends SyncFields {
-  id?: number;
-  visita_id: number;
-  prueba_definicion_id: number;
-  equipo_id: number;
+  id?: string;
+  visita_id: string;
+  prueba_definicion_id: string;
+  equipo_id: string;
   /** FK a GrupoResultado — si la prueba pertenece a un grupo */
-  grupo_resultado_id?: number;
+  grupo_resultado_id?: string;
   concepto?: "FAVORABLE" | "NO_FAVORABLE" | "NO_APLICA";
   acciones_correctivas?: string;
   /** JSONB flexible — cada prueba define su propio schema */
@@ -657,8 +659,8 @@ export interface PruebaResultado extends SyncFields {
 }
 
 export interface MedicionRadiometrica extends SyncFields {
-  id?: number;
-  visita_id: number;
+  id?: string;
+  visita_id: string;
   punto_numero: number;
   ubicacion_descripcion: string;
   /** Lectura cruda en μSv/h (entrada del físico) */
@@ -677,9 +679,9 @@ export interface MedicionRadiometrica extends SyncFields {
 }
 
 export interface EvidenciaFotografica extends SyncFields {
-  id?: number;
-  visita_id: number;
-  prueba_resultado_id?: number;
+  id?: string;
+  visita_id: string;
+  prueba_resultado_id?: string;
   tipo?: string;
   descripcion?: string;
   /** Blob almacenado localmente en IndexedDB */
@@ -690,8 +692,8 @@ export interface EvidenciaFotografica extends SyncFields {
 }
 
 export interface ElementoProteccion {
-  id?: number;
-  visita_id: number;
+  id?: string;
+  visita_id: string;
   descripcion: string;
   cantidad?: number;
   concepto?: "Conforme" | "No_conforme";
@@ -702,13 +704,13 @@ export interface ElementoProteccion {
 // ─── Auditoría de cambios ───
 
 export interface ChangeLog {
-  id?: number;
+  id?: string;
   tabla: string;
-  registro_id: number;
+  registro_id: string;
   campo: string;
   valor_anterior?: string;
   valor_nuevo?: string;
-  modificado_por_id: number;
+  modificado_por_id: string;
   fecha: string;
 }
 
@@ -732,11 +734,11 @@ export type EstadoInforme =
   | "vencido";
 
 export interface Informe {
-  id?: number;
-  visita_id: number;
-  equipo_id: number;
+  id?: string;
+  visita_id: string;
+  equipo_id: string;
   /** Ubicación al momento del estudio — define el contexto equipo+lugar */
-  ubicacion_id: number;
+  ubicacion_id: string;
   numero_informe: string;
   plantilla?: string;
   titulo?: string;
@@ -753,13 +755,13 @@ export interface Informe {
 }
 
 export interface InformeVersion {
-  id?: number;
-  informe_id: number;
+  id?: string;
+  informe_id: string;
   numero_version: number;
   motivo_cambio?: "emision_inicial" | "correccion_fisico" | "correccion_cliente" | "actualizacion";
   descripcion_cambio?: string;
-  generado_por_id?: number;
-  revisado_por_id?: number;
+  generado_por_id?: string;
+  revisado_por_id?: string;
   pdf_url?: string;
   fecha_generacion: string;
   fecha_revision?: string;

@@ -204,7 +204,7 @@ export function canTransition(
  * Ejecuta la gate de validación para una acción.
  * Retorna si puede proceder y los errores de bloqueo.
  */
-export async function checkGate(visitaId: number, action: VisitAction): Promise<GateResult> {
+export async function checkGate(visitaId: string, action: VisitAction): Promise<GateResult> {
   if (action === "completar_visita") {
     const completeness = await getVisitCompleteness(visitaId);
     if (completeness.blocking.length > 0) {
@@ -225,7 +225,7 @@ export async function checkGate(visitaId: number, action: VisitAction): Promise<
  * Valida rol, estado actual, y gates antes de proceder.
  */
 export async function executeTransition(
-  visitaId: number,
+  visitaId: string,
   action: VisitAction,
   cargo: RolUsuario,
   extra?: { observaciones_revision?: string }

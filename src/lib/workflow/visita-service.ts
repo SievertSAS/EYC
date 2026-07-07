@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { randomUUID } from "@/lib/uuid";
 import type { VisitaEjecucion, PruebaResultado, GrupoResultado, Solicitud } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos";
 
@@ -10,7 +11,7 @@ import { hasPackage } from "@/lib/equipos";
 
 interface CrearVisitaResult {
   success: boolean;
-  visitaId?: number;
+  visitaId?: string;
   pruebasCreadas?: number;
   gruposCreados?: number;
   error?: string;
@@ -23,8 +24,8 @@ interface CrearVisitaResult {
  * @param equipoId - ID del equipo a intervenir (de la ubicación de la solicitud)
  */
 export async function crearVisitaDesdeSolicitud(
-  solicitudId: number,
-  equipoId: number
+  solicitudId: string,
+  equipoId: string
 ): Promise<CrearVisitaResult> {
   try {
     const solicitud = await db.solicitudes.get(solicitudId);
@@ -36,7 +37,8 @@ export async function crearVisitaDesdeSolicitud(
     const now = new Date().toISOString();
 
     // Crear la visita
-    const visita: Omit<VisitaEjecucion, "id"> = {
+    const visita: VisitaEjecucion = {
+      id: randomUUID(),
       solicitud_id: solicitudId,
       equipo_id: equipoId,
       ubicacion_id: equipo.ubicacion_id,
@@ -48,7 +50,7 @@ export async function crearVisitaDesdeSolicitud(
       creado_en: now,
     };
 
-    let visitaId: number;
+    let visitaId: string;
     let pruebasCreadas = 0;
     let gruposCreados = 0;
 
@@ -63,7 +65,7 @@ export async function crearVisitaDesdeSolicitud(
         db.prueba_definiciones,
       ],
       async () => {
-        visitaId = (await db.visitas.add(visita as VisitaEjecucion)) as number;
+        visitaId = (await db.visitas.add({ ...visita, id: randomUUID() })) as string;
 
         if (equipo.tipo_equipo) {
           const usarPaquete = hasPackage(equipo.tipo_equipo);
@@ -78,6 +80,7 @@ export async function crearVisitaDesdeSolicitud(
             for (const grupo of grupos) {
               // Crear GrupoResultado
               const grupoResultadoId = (await db.grupo_resultados.add({
+                id: randomUUID(),
                 visita_id: visitaId!,
                 grupo_id: grupo.id!,
                 equipo_id: equipoId,
@@ -87,7 +90,7 @@ export async function crearVisitaDesdeSolicitud(
                 sync_status: "pending",
                 last_modified: now,
                 creado_en: now,
-              } as GrupoResultado)) as number;
+              } as GrupoResultado)) as string;
               gruposCreados++;
 
               // Crear PruebaResultado para cada prueba del grupo
@@ -98,6 +101,7 @@ export async function crearVisitaDesdeSolicitud(
 
               for (const def of definiciones) {
                 await db.prueba_resultados.add({
+                  id: randomUUID(),
                   visita_id: visitaId!,
                   prueba_definicion_id: def.id!,
                   equipo_id: equipoId,
@@ -125,6 +129,7 @@ export async function crearVisitaDesdeSolicitud(
 
             for (const def of definiciones) {
               await db.prueba_resultados.add({
+                id: randomUUID(),
                 visita_id: visitaId!,
                 prueba_definicion_id: def.id!,
                 equipo_id: equipoId,
@@ -166,7 +171,7 @@ export async function crearVisitaDesdeSolicitud(
  * Obtiene los equipos disponibles para una solicitud
  * (equipos en la ubicación de la solicitud).
  */
-export async function getEquiposDeSolicitud(solicitudId: number) {
+export async function getEquiposDeSolicitud(solicitudId: string) {
   const solicitud = await db.solicitudes.get(solicitudId);
   if (!solicitud?.ubicacion_id) return [];
 

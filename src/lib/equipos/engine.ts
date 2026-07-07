@@ -344,7 +344,7 @@ export function suggestConcepto(evaluaciones: EvaluacionCriterio[]): "FAVORABLE"
 // ─── Evaluación completa de un grupo ───
 
 export interface ResultadoPruebaCalculado {
-  prueba_definicion_id: number;
+  prueba_definicion_id: string;
   resultados: Record<string, number | null>;
   evaluacion_criterios: EvaluacionCriterio[];
   concepto_sugerido: "FAVORABLE" | "NO_FAVORABLE";

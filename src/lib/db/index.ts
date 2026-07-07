@@ -109,6 +109,11 @@ class EyCDatabase extends Dexie {
   constructor() {
     super("SievertEyC");
 
+    // ─────────────────────────────────────────────────────────────
+    //  v1-v12: historial de versiones anteriores — NO MODIFICAR
+    //  (Dexie requiere que todas las versiones previas estén presentes)
+    // ─────────────────────────────────────────────────────────────
+
     this.version(1).stores({
       clientes: "++id, nit, nombre_cliente",
       contactos: "++id, cliente_id, cargo",
@@ -151,7 +156,6 @@ class EyCDatabase extends Dexie {
         "++id, visita_id, grupo_resultado_id, prueba_definicion_id, equipo_id, completado, sync_status",
     });
 
-    // v4: renombrar tecnicos → usuarios + tabla rol_permisos
     this.version(4)
       .stores({
         tecnicos: null,
@@ -176,7 +180,6 @@ class EyCDatabase extends Dexie {
         }
       });
 
-    // v5: agregar sync_status a tablas maestras editables localmente + sync_meta
     this.version(5).stores({
       sync_meta: "&table_name",
       clientes: "++id, nit, nombre_cliente, sync_status",
@@ -191,7 +194,6 @@ class EyCDatabase extends Dexie {
         "++id, cliente_id, ubicacion_id, tecnico_asignado_id, pipeline_estado, suitecrm_id, sync_status",
     });
 
-    // v6: tablas dedicadas del equipo convencional — Grupo A
     this.version(6).stores({
       conv_levantamiento_setup: "++id, &visita_id",
       conv_mediciones: "++id, visita_id, punto_numero",
@@ -202,21 +204,18 @@ class EyCDatabase extends Dexie {
       conv_evidencias: "++id, visita_id, prueba_codigo, [visita_id+prueba_codigo]",
     });
 
-    // v7: tablas Grupo B (RaySafe) y Grupo C (CAE)
     this.version(7).stores({
       conv_raysafe_setup: "++id, &visita_id",
       conv_raysafe_mediciones: "++id, visita_id, tipo_medicion, [visita_id+tipo_medicion]",
       conv_cae_mediciones: "++id, visita_id, toma_numero",
     });
 
-    // v8: tablas Grupo D (DDI/EI + Cassettes CR)
     this.version(8).stores({
       conv_ddi_mediciones: "++id, visita_id, grupo, toma_numero",
       conv_cassette_inspeccion: "++id, visita_id, item_numero",
       conv_uniformidad_cr: "++id, visita_id, item_numero",
     });
 
-    // v9: tablas Grupo E (Colimación, Uniformidad detector, Resolución, Bajo contraste, MTF)
     this.version(9).stores({
       conv_colimacion: "++id, &visita_id",
       conv_uniformidad_detector: "++id, visita_id, item_numero",
@@ -225,20 +224,81 @@ class EyCDatabase extends Dexie {
       conv_mtf: "++id, &visita_id",
     });
 
-    // v10: configuración del pre-informe
     this.version(10).stores({
       conv_informe_secciones: "++id, visita_id, prueba_codigo, [visita_id+prueba_codigo]",
     });
 
-    // v11: catálogo DIVIPOLA (departamentos y municipios, ids = código DANE)
     this.version(11).stores({
       departamentos: "id",
       municipios: "id, departamento_id",
     });
 
-    // v12: tabla de valores base del CAE (precarga para 2.17 y 2.20)
     this.version(12).stores({
       conv_cae_setup: "++id, &visita_id",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v13: migración a UUID como clave primaria
+    //
+    //  Todos los id pasan de auto-increment numérico a string UUID
+    //  generado en el cliente con crypto.randomUUID().
+    //  Las tablas DIVIPOLA (departamentos, municipios) NO se migran
+    //  porque sus IDs son códigos DANE estables.
+    //
+    //  IMPORTANTE: esta migración requiere que la DB esté vacía
+    //  (ejecutar reset de datos antes de actualizar la app).
+    // ─────────────────────────────────────────────────────────────
+    this.version(13).stores({
+      clientes: "id, nit, nombre_cliente, sync_status",
+      contactos: "id, cliente_id, cargo, sync_status",
+      sedes: "id, cliente_id, sync_status",
+      ubicaciones_rx: "id, sede_id, sync_status",
+      equipos: "id, ubicacion_id, tipo_equipo, sync_status",
+      equipo_movimientos: "id, equipo_id",
+      tubos: "id, equipo_id, sync_status",
+      colimadores: "id, equipo_id, sync_status",
+      gantry: "id, equipo_id, sync_status",
+      sala_dimensiones: "id, ubicacion_id",
+      partes_equipo: "id, equipo_id",
+      valores_referencia: "id, equipo_id",
+      usuarios: "id, cedula, auth_uid, cargo",
+      rol_permisos: "id, [rol+modulo], rol",
+      cotizaciones: "id, cliente_id",
+      solicitudes: "id, cliente_id, ubicacion_id, tecnico_asignado_id, pipeline_estado, sync_status",
+      prueba_definiciones: "id, &codigo, grupo_id, plantilla_informe",
+      grupo_pruebas: "id, &codigo, tipo_equipo, orden",
+      grupo_resultados: "id, visita_id, grupo_id, equipo_id, completado, sync_status",
+      visitas: "id, solicitud_id, equipo_id, ubicacion_id, tecnico_id, estado_visita, sync_status",
+      prueba_resultados:
+        "id, visita_id, grupo_resultado_id, prueba_definicion_id, equipo_id, completado, sync_status",
+      mediciones_radiometricas: "id, visita_id, punto_numero, sync_status",
+      evidencias: "id, visita_id, sync_status",
+      elementos_proteccion: "id, visita_id",
+      informes: "id, visita_id, equipo_id, ubicacion_id, numero_informe, &qr_token, estado",
+      informe_versiones: "id, informe_id, numero_version",
+      change_logs: "id, tabla, registro_id, fecha",
+      // Conv — ahora con sync_status
+      conv_levantamiento_setup: "id, &visita_id, sync_status",
+      conv_mediciones: "id, visita_id, punto_numero, sync_status",
+      conv_inspeccion_items: "id, visita_id, [visita_id+seccion], sync_status",
+      conv_elementos_proteccion: "id, visita_id, sync_status",
+      conv_raysafe_setup: "id, &visita_id, sync_status",
+      conv_raysafe_mediciones: "id, visita_id, tipo_medicion, [visita_id+tipo_medicion], sync_status",
+      conv_cae_setup: "id, &visita_id, sync_status",
+      conv_cae_mediciones: "id, visita_id, toma_numero, sync_status",
+      conv_ddi_mediciones: "id, visita_id, grupo, toma_numero, sync_status",
+      conv_cassette_inspeccion: "id, visita_id, item_numero, sync_status",
+      conv_uniformidad_cr: "id, visita_id, item_numero, sync_status",
+      conv_colimacion: "id, &visita_id, sync_status",
+      conv_uniformidad_detector: "id, visita_id, item_numero, sync_status",
+      conv_resolucion: "id, &visita_id, sync_status",
+      conv_bajo_contraste: "id, &visita_id, sync_status",
+      conv_mtf: "id, &visita_id, sync_status",
+      conv_informe_secciones:
+        "id, visita_id, prueba_codigo, [visita_id+prueba_codigo], sync_status",
+      conv_resultados_prueba:
+        "id, visita_id, prueba_codigo, [visita_id+prueba_codigo], sync_status",
+      conv_evidencias: "id, visita_id, prueba_codigo, [visita_id+prueba_codigo], sync_status",
     });
   }
 }
@@ -246,15 +306,12 @@ class EyCDatabase extends Dexie {
 export const db = new EyCDatabase();
 
 db.on("blocked", () => {
-  // Otra pestaña tiene la DB abierta en una versión anterior.
-  // Recargar para que todas las pestañas usen la misma versión.
   if (typeof window !== "undefined") {
     window.location.reload();
   }
 });
 
 db.on("versionchange", () => {
-  // Otra pestaña necesita actualizar la DB — cerrar nuestra conexión.
   db.close();
   if (typeof window !== "undefined") {
     window.location.reload();

@@ -1,9 +1,11 @@
 "use client";
 
 import { use, useState, useRef, useEffect, useMemo } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Target,
@@ -111,7 +113,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -211,7 +213,7 @@ const POSICIONES_ESFERA = [
 
 export default function GrupoEPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -219,7 +221,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -241,25 +243,31 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
     if (!data) return;
     const now = new Date().toISOString();
     if (!data.colimacion) {
-      db.conv_colimacion.add({ visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
+      db.conv_colimacion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now, sync_status: "pending" as const, last_modified: now });
     }
     if (!data.resolucion) {
-      db.conv_resolucion.add({ visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now });
+      db.conv_resolucion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now, sync_status: "pending" as const, last_modified: now });
     }
     if (!data.bajoContraste) {
       db.conv_bajo_contraste.add({
+        id: randomUUID(),
         visita_id: visitaId,
         sid_cm: 100,
         tecnica_kv: 75,
         creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
       });
     }
     if (!data.mtf) {
       db.conv_mtf.add({
+        id: randomUUID(),
         visita_id: visitaId,
         distancia_foco_sensor_cm: 150,
         tecnica_kv: 70,
         creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
       });
     }
   }, [data, visitaId]);
@@ -292,18 +300,22 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
 
   async function addUniformidadDet() {
     const next = (data?.uniformidadDet?.length ?? 0) + 1;
-    await db.conv_uniformidad_detector.add({
+    const newId = await db.conv_uniformidad_detector.add({
+      id: randomUUID(),
       visita_id: visitaId,
       item_numero: next,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_uniformidad_detector", newId as string);
   }
 
-  async function updateUniformidadDet(id: number, fields: Record<string, unknown>) {
+  async function updateUniformidadDet(id: string, fields: Record<string, unknown>) {
     await db.conv_uniformidad_detector.update(id, fields);
   }
 
-  async function removeUniformidadDet(id: number) {
+  async function removeUniformidadDet(id: string) {
     await db.conv_uniformidad_detector.delete(id);
   }
 
@@ -316,12 +328,15 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

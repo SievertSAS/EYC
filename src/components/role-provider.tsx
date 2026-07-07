@@ -15,9 +15,10 @@ import { useDb } from "@/components/db-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { RolUsuario, RolPermiso, AccionPermiso, ModuloApp } from "@/lib/db/types";
 import { resolverPermiso } from "@/lib/db/types";
+import { logger } from "@/lib/logger";
 
 export interface ActiveRole {
-  usuarioId: number;
+  usuarioId: string;
   nombre: string;
   cargo: RolUsuario;
 }
@@ -46,6 +47,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [authChecked, setAuthChecked] = useState(false);
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
+  // Cargo verificado desde Supabase — no confiar solo en IndexedDB local (C2)
+  const [serverCargo, setServerCargo] = useState<RolUsuario | null>(null);
 
   const usuarios = useLiveQuery(
     async () => {
@@ -68,18 +71,37 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth
-      .getUser()
-      .then(({ data: { user } }) => {
+    const fetchAndSetCargo = async (uid: string) => {
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select("cargo")
+        .eq("auth_uid", uid)
+        .single();
+      if (error) {
+        logger.warn("Role", "No se pudo verificar cargo desde Supabase", error);
+        return;
+      }
+      if (data?.cargo) setServerCargo(data.cargo as RolUsuario);
+    };
+
+    const loadUser = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
           setAuthUid(user.id);
           setAuthEmail(user.email ?? null);
+          await fetchAndSetCargo(user.id);
         }
+      } catch {
+        // sin conexión — continuar con estado local
+      } finally {
         setAuthChecked(true);
-      })
-      .catch(() => {
-        setAuthChecked(true);
-      });
+      }
+    };
+
+    loadUser();
 
     const {
       data: { subscription },
@@ -87,9 +109,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         setAuthUid(session.user.id);
         setAuthEmail(session.user.email ?? null);
-      } else if (navigator.onLine) {
+        fetchAndSetCargo(session.user.id);
+      } else {
+        // A1: limpiar siempre al cerrar sesión, independiente de conectividad
         setAuthUid(null);
         setAuthEmail(null);
+        setServerCargo(null);
       }
     });
 
@@ -103,19 +128,24 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     const byUid = usuarios.find((u) => u.auth_uid === authUid);
     if (byUid) {
-      return { usuarioId: byUid.id!, nombre: byUid.nombre, cargo: byUid.cargo };
+      // C2: preferir cargo verificado desde Supabase sobre el valor local de IndexedDB
+      return { usuarioId: byUid.id!, nombre: byUid.nombre, cargo: serverCargo ?? byUid.cargo };
     }
 
     if (authEmail) {
       const byEmail = usuarios.find((u) => u.email?.toLowerCase() === authEmail.toLowerCase());
       if (byEmail) {
-        return { usuarioId: byEmail.id!, nombre: byEmail.nombre, cargo: byEmail.cargo };
+        return {
+          usuarioId: byEmail.id!,
+          nombre: byEmail.nombre,
+          cargo: serverCargo ?? byEmail.cargo,
+        };
       }
     }
 
     console.warn("[Role] No se encontró usuario por auth_uid ni email");
     return null;
-  }, [usuarios, authUid, authEmail]);
+  }, [usuarios, authUid, authEmail, serverCargo]);
 
   const providerReady = dbReady && authChecked && usuarios.length > 0;
 

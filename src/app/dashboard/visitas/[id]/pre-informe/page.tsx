@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { randomUUID } from "@/lib/uuid";
 import { useDb } from "@/components/db-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -306,7 +307,7 @@ function ConceptoBadgeSmall({ concepto }: { concepto?: ConceptoType }) {
 
 export default function PreInformePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -316,7 +317,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -361,6 +362,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     if (!data || data.secciones.length > 0) return;
     const now = new Date().toISOString();
     const rows = CATALOGO_SECCIONES.map((cat) => ({
+      id: randomUUID(),
       visita_id: visitaId,
       prueba_codigo: cat.codigo,
       orden: cat.orden,
@@ -385,7 +387,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
   }, []);
 
   // ─── Update helpers ───
-  async function updateSeccion(id: number, fields: Partial<ConvInformeSeccion>) {
+  async function updateSeccion(id: string, fields: Partial<ConvInformeSeccion>) {
     await db.conv_informe_secciones.update(id, fields);
   }
 

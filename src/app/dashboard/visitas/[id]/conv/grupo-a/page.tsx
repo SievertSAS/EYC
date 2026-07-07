@@ -1,9 +1,11 @@
 "use client";
 
 import { use, useState, useRef, useEffect } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Gauge,
@@ -188,7 +190,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -250,7 +252,7 @@ function ElementoFotoCell({
   onCapture,
   onRemove,
 }: {
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -314,7 +316,7 @@ function ElementoFotoCell({
 
 export default function GrupoAPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -322,7 +324,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   // ─── Live data from dedicated conv_ tables ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -341,10 +343,13 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!data || data.setup) return;
     db.conv_levantamiento_setup.add({
+      id: randomUUID(),
       visita_id: visitaId,
       w_estandar: 160,
       semanas_laborales: 50,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
   }, [data, visitaId]);
 
@@ -352,21 +357,25 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (!data || data.inspeccion.length > 0) return;
     const now = new Date().toISOString();
-    const items: Omit<ConvInspeccionItem, "id">[] = [
+    const items: ConvInspeccionItem[] = [
       ...ITEMS_INSPECCION_EQUIPO.map((_, i) => ({
+        id: randomUUID(),
         visita_id: visitaId,
         seccion: "equipo" as const,
         item_numero: i + 1,
         creado_en: now,
       })),
       ...ITEMS_CONDICIONES_OPERACION.map((_, i) => ({
+        id: randomUUID(),
         visita_id: visitaId,
         seccion: "condiciones_operacion" as const,
         item_numero: i + 1,
         creado_en: now,
       })),
     ];
-    db.conv_inspeccion_items.bulkAdd(items);
+    db.conv_inspeccion_items.bulkAdd(
+      items.map((i) => ({ ...i, sync_status: "pending" as const, last_modified: now }))
+    );
   }, [data, visitaId]);
 
   // ─── Save helpers ───
@@ -388,17 +397,21 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
 
   async function addMedicion() {
     const next = (data?.mediciones?.length ?? 0) + 1;
-    await db.conv_mediciones.add({
+    const newId = await db.conv_mediciones.add({
+      id: randomUUID(),
       visita_id: visitaId,
       punto_numero: next,
       ubicacion_descripcion: "",
       factor_ocupacion_t: 1,
       factor_uso_u: 1,
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_mediciones", newId as string);
   }
 
-  async function updateMedicion(id: number, fields: Record<string, unknown>) {
+  async function updateMedicion(id: string, fields: Record<string, unknown>) {
     // Merge fields with current row to recalculate
     const current = await db.conv_mediciones.get(id);
     if (!current) return;
@@ -427,27 +440,31 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     });
   }
 
-  async function removeMedicion(id: number) {
+  async function removeMedicion(id: string) {
     await db.conv_mediciones.delete(id);
   }
 
-  async function updateInspeccionItem(id: number, fields: Record<string, unknown>) {
+  async function updateInspeccionItem(id: string, fields: Record<string, unknown>) {
     await db.conv_inspeccion_items.update(id, fields);
   }
 
   async function addElemento() {
-    await db.conv_elementos_proteccion.add({
+    const newId = await db.conv_elementos_proteccion.add({
+      id: randomUUID(),
       visita_id: visitaId,
       descripcion: "",
       creado_en: new Date().toISOString(),
+      sync_status: "pending" as const,
+      last_modified: new Date().toISOString(),
     });
+    pushSingle("conv_elementos_proteccion", newId as string);
   }
 
-  async function updateElemento(id: number, fields: Record<string, unknown>) {
+  async function updateElemento(id: string, fields: Record<string, unknown>) {
     await db.conv_elementos_proteccion.update(id, fields);
   }
 
-  async function removeElemento(id: number) {
+  async function removeElemento(id: string) {
     await db.conv_elementos_proteccion.delete(id);
     // Limpiar la foto asociada al elemento para no dejar evidencias huérfanas
     const foto = data?.evidencias?.find(
@@ -465,12 +482,15 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }

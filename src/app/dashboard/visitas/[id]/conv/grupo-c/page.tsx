@@ -1,9 +1,11 @@
 "use client";
 
 import { use, useState, useRef, useEffect, useMemo } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   SlidersHorizontal,
@@ -178,7 +180,7 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: number; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -274,7 +276,7 @@ function ResultRow({
 
 export default function GrupoCaePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = parseInt(id, 10);
+  const visitaId = id;
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
@@ -282,7 +284,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
-    if (!isReady || isNaN(visitaId)) return null;
+    if (!isReady || !visitaId) return null;
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
@@ -300,6 +302,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     if (!data || data.mediciones.length > 0) return;
     const now = new Date().toISOString();
     const rows = DISPAROS_CAE.map((d) => ({
+      id: randomUUID(),
       visita_id: visitaId,
       toma_numero: d.toma,
       kv_nominal: d.kv,
@@ -307,11 +310,13 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       posicion_sensor: d.sensor,
       creado_en: now,
     }));
-    db.conv_cae_mediciones.bulkAdd(rows);
+    db.conv_cae_mediciones.bulkAdd(
+      rows.map((r) => ({ ...r, sync_status: "pending" as const, last_modified: now }))
+    );
   }, [data, visitaId]);
 
   // ─── Save helpers ───
-  async function updateMedicion(id: number, fields: Record<string, unknown>) {
+  async function updateMedicion(id: string, fields: Record<string, unknown>) {
     await db.conv_cae_mediciones.update(id, fields);
   }
 
@@ -324,12 +329,15 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
     } else {
       await db.conv_evidencias.add({
+        id: randomUUID(),
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,
         blob_local: blob,
         fecha_captura: new Date().toISOString(),
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
     }
   }
@@ -360,11 +368,15 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
     if (setup?.id) {
       await db.conv_cae_setup.update(setup.id, fields);
     } else {
-      await db.conv_cae_setup.add({
+      const newId = await db.conv_cae_setup.add({
+        id: randomUUID(),
         visita_id: visitaId,
         ...fields,
         creado_en: new Date().toISOString(),
+        sync_status: "pending" as const,
+        last_modified: new Date().toISOString(),
       });
+      pushSingle("conv_cae_setup", newId as string);
     }
   }
 

@@ -154,7 +154,7 @@ async function cargarImagen(
   }
 }
 
-export async function recopilarDatosConv(visitaId: number): Promise<DatosConvencional> {
+export async function recopilarDatosConv(visitaId: string): Promise<DatosConvencional> {
   const [secciones, setup, mediciones, inspeccion, elementos, resultadosArr, evidencias, colimacion, raysafeSetup, raysafeMediciones, ddiMediciones, uniformidadDetector, resolucion, bajoContraste, cassettes, uniformidadCr, mtf, caeSetup, caeMediciones] =
     await Promise.all([
       db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),

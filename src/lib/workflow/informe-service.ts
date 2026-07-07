@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { Informe, InformeVersion } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 
 // ============================================================
 //  Servicio de creación de informes
@@ -31,7 +32,7 @@ async function generarNumeroInforme(): Promise<string> {
  * Determina el concepto general basado en los resultados de las pruebas.
  * Si CUALQUIER prueba es NO_FAVORABLE, el concepto general es NO_FAVORABLE.
  */
-async function determinarConceptoGeneral(visitaId: number): Promise<"FAVORABLE" | "NO_FAVORABLE"> {
+async function determinarConceptoGeneral(visitaId: string): Promise<"FAVORABLE" | "NO_FAVORABLE"> {
   const pruebas = await db.prueba_resultados.where("visita_id").equals(visitaId).toArray();
 
   const hayNoFavorable = pruebas.some((p) => p.concepto === "NO_FAVORABLE");
@@ -47,9 +48,9 @@ async function determinarConceptoGeneral(visitaId: number): Promise<"FAVORABLE" 
  * @returns El informe creado
  */
 export async function crearInformeDesdeVisita(
-  visitaId: number,
-  ingenieroId: number,
-  tecnicoId: number
+  visitaId: string,
+  ingenieroId: string,
+  tecnicoId: string
 ): Promise<Informe> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) throw new Error("Visita no encontrada");
@@ -68,6 +69,7 @@ export async function crearInformeDesdeVisita(
   const conceptoGeneral = await determinarConceptoGeneral(visitaId);
 
   const informe: Informe = {
+    id: randomUUID(),
     visita_id: visitaId,
     equipo_id: visita.equipo_id!,
     ubicacion_id: visita.ubicacion_id!,
@@ -85,7 +87,8 @@ export async function crearInformeDesdeVisita(
 
   // Crear la primera versión
   const version: InformeVersion = {
-    informe_id: informeId as number,
+    id: randomUUID(),
+    informe_id: informeId as string,
     numero_version: 1,
     motivo_cambio: "emision_inicial",
     descripcion_cambio: "Emisión inicial del informe",
@@ -100,5 +103,5 @@ export async function crearInformeDesdeVisita(
 
   await db.informe_versiones.add(version);
 
-  return { ...informe, id: informeId as number };
+  return { ...informe, id: informeId as string };
 }

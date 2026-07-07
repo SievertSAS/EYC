@@ -90,7 +90,7 @@ function LoginForm() {
             alt="Sievert EyC"
             width={240}
             height={80}
-            className="object-contain"
+            className="h-auto w-auto object-contain"
             priority
           />
         </div>

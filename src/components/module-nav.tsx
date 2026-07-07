@@ -38,7 +38,7 @@ function resolveIcon(iconName: string): LucideIcon {
 }
 
 interface ModuleNavProps {
-  visitaId: number;
+  visitaId: string;
   currentModule: string;
   modulos?: ModuloVisita[];
 }

@@ -44,7 +44,7 @@ const VARIANT_CLASSES: Record<string, string> = {
 };
 
 interface VisitActionBarProps {
-  visitaId: number;
+  visitaId: string;
   estadoVisita: EstadoVisita;
   /** Callback tras una transición exitosa */
   onTransition?: (newState: EstadoVisita) => void;

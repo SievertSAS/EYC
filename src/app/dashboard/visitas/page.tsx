@@ -59,13 +59,13 @@ export default function VisitasPage() {
     }
 
     // Batch-fetch: recolectar IDs únicos y hacer bulkGet
-    const equipoIds = [...new Set(allVisitas.map((v) => v.equipo_id).filter(Boolean))] as number[];
+    const equipoIds = [...new Set(allVisitas.map((v) => v.equipo_id).filter(Boolean))] as string[];
     const ubicacionIds = [
       ...new Set(allVisitas.map((v) => v.ubicacion_id).filter(Boolean)),
-    ] as number[];
+    ] as string[];
     const solicitudIds = [
       ...new Set(allVisitas.map((v) => v.solicitud_id).filter(Boolean)),
-    ] as number[];
+    ] as string[];
     const visitaIds = allVisitas.map((v) => v.id!);
 
     const [equipos, ubicaciones, solicitudes, completenessMap] = await Promise.all([
@@ -87,7 +87,7 @@ export default function VisitasPage() {
           .map((u) => u!.sede_id)
           .filter(Boolean)
       ),
-    ] as number[];
+    ] as string[];
     const clienteIds = [
       ...new Set(
         solicitudes
@@ -95,7 +95,7 @@ export default function VisitasPage() {
           .map((s) => s!.cliente_id)
           .filter(Boolean)
       ),
-    ] as number[];
+    ] as string[];
 
     const [sedes, clientes] = await Promise.all([
       db.sedes.bulkGet(sedeIds),

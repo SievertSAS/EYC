@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/db";
 import type { UbicacionRx } from "@/lib/db/types";
+import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -24,9 +25,9 @@ import { Loader2 } from "lucide-react";
 interface UbicacionFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  sedeId: number;
+  sedeId: string;
   ubicacion?: UbicacionRx;
-  onSaved?: (id: number) => void;
+  onSaved?: (id: string) => void;
 }
 
 export function UbicacionFormDialog({
@@ -100,12 +101,12 @@ export function UbicacionFormDialog({
         last_modified: now,
       };
 
-      let savedId: number;
+      let savedId: string;
       if (isEdit && ubicacion?.id) {
         await db.ubicaciones_rx.update(ubicacion.id, data);
         savedId = ubicacion.id;
       } else {
-        savedId = (await db.ubicaciones_rx.add(data as UbicacionRx)) as number;
+        savedId = (await db.ubicaciones_rx.add({ ...data, id: randomUUID() })) as string;
       }
 
       resetForm();

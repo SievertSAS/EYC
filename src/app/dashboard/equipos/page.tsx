@@ -181,7 +181,7 @@ export default function EquiposPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map(({ equipo, ubicacion, sede, cliente }) => (
-            <Link key={equipo.id} href={`/dashboard/clientes/${cliente?.id ?? ""}`}>
+            <Link key={equipo.id} href={`/dashboard/equipos/${equipo.id}`}>
               <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
                 <CardContent className="p-4 sm:p-5 md:p-6">
                   <div className="flex items-start justify-between gap-3">

@@ -264,7 +264,8 @@ class EyCDatabase extends Dexie {
       usuarios: "id, cedula, auth_uid, cargo",
       rol_permisos: "id, [rol+modulo], rol",
       cotizaciones: "id, cliente_id",
-      solicitudes: "id, cliente_id, ubicacion_id, tecnico_asignado_id, pipeline_estado, sync_status",
+      solicitudes:
+        "id, cliente_id, ubicacion_id, tecnico_asignado_id, pipeline_estado, sync_status",
       prueba_definiciones: "id, &codigo, grupo_id, plantilla_informe",
       grupo_pruebas: "id, &codigo, tipo_equipo, orden",
       grupo_resultados: "id, visita_id, grupo_id, equipo_id, completado, sync_status",
@@ -283,7 +284,8 @@ class EyCDatabase extends Dexie {
       conv_inspeccion_items: "id, visita_id, [visita_id+seccion], sync_status",
       conv_elementos_proteccion: "id, visita_id, sync_status",
       conv_raysafe_setup: "id, &visita_id, sync_status",
-      conv_raysafe_mediciones: "id, visita_id, tipo_medicion, [visita_id+tipo_medicion], sync_status",
+      conv_raysafe_mediciones:
+        "id, visita_id, tipo_medicion, [visita_id+tipo_medicion], sync_status",
       conv_cae_setup: "id, &visita_id, sync_status",
       conv_cae_mediciones: "id, visita_id, toma_numero, sync_status",
       conv_ddi_mediciones: "id, visita_id, grupo, toma_numero, sync_status",
@@ -299,6 +301,16 @@ class EyCDatabase extends Dexie {
       conv_resultados_prueba:
         "id, visita_id, prueba_codigo, [visita_id+prueba_codigo], sync_status",
       conv_evidencias: "id, visita_id, prueba_codigo, [visita_id+prueba_codigo], sync_status",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v14 — habilitar sync de traslados de equipo.
+    //  Solo agrega el índice sync_status a equipo_movimientos para
+    //  que el motor de sync pueda seleccionar filas pendientes.
+    //  (agregar un índice no borra datos; Dexie migra en sitio)
+    // ─────────────────────────────────────────────────────────────
+    this.version(14).stores({
+      equipo_movimientos: "id, equipo_id, ubicacion_nueva_id, sync_status",
     });
   }
 }

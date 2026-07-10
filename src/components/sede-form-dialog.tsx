@@ -15,12 +15,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -207,45 +210,57 @@ export function SedeFormDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className={labelClass}>Departamento</Label>
-                <Select
-                  value={departamentoId}
-                  onValueChange={(v) => {
-                    setDepartamentoIdState(v ?? "");
+                <Combobox
+                  items={departamentos}
+                  itemToStringLabel={(d) => d.nombre}
+                  value={departamentos.find((d) => String(d.id) === departamentoId) ?? null}
+                  onValueChange={(d) => {
+                    setDepartamentoIdState(d ? String(d.id) : "");
                     setMunicipioIdState("");
                   }}
                 >
-                  <SelectTrigger className={`${inputClass} w-full data-[size=default]:h-11`}>
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departamentos.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <ComboboxTrigger className={`${inputClass} h-11 data-[placeholder]:text-slate-400`}>
+                    <ComboboxValue placeholder="Seleccionar..." />
+                  </ComboboxTrigger>
+                  <ComboboxContent>
+                    <ComboboxInput placeholder="Buscar departamento..." />
+                    <ComboboxEmpty>Sin resultados.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(d: { id: number; nombre: string }) => (
+                        <ComboboxItem key={d.id} value={d}>
+                          {d.nombre}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               </div>
               <div className="space-y-2">
                 <Label className={labelClass}>Municipio</Label>
-                <Select
-                  value={municipioId}
-                  onValueChange={(v) => setMunicipioIdState(v ?? "")}
+                <Combobox
+                  items={municipios}
+                  itemToStringLabel={(m) => m.nombre}
+                  value={municipios.find((m) => String(m.id) === municipioId) ?? null}
+                  onValueChange={(m) => setMunicipioIdState(m ? String(m.id) : "")}
                   disabled={!departamentoId}
                 >
-                  <SelectTrigger className={`${inputClass} w-full data-[size=default]:h-11`}>
-                    <SelectValue
+                  <ComboboxTrigger className={`${inputClass} h-11 data-[placeholder]:text-slate-400`}>
+                    <ComboboxValue
                       placeholder={departamentoId ? "Seleccionar..." : "Elige departamento"}
                     />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {municipios.map((m) => (
-                      <SelectItem key={m.id} value={String(m.id)}>
-                        {m.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  </ComboboxTrigger>
+                  <ComboboxContent>
+                    <ComboboxInput placeholder="Buscar municipio..." />
+                    <ComboboxEmpty>Sin resultados.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(m: { id: number; nombre: string }) => (
+                        <ComboboxItem key={m.id} value={m}>
+                          {m.nombre}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               </div>
             </div>
           ) : (

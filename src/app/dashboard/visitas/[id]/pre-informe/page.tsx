@@ -16,7 +16,6 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  GripVertical,
   ChevronDown,
   ChevronUp,
   ToggleLeft,
@@ -31,6 +30,11 @@ import {
 import Link from "next/link";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
+import {
+  cargarTablasConv,
+  evaluarConceptoPrueba,
+  tieneCriterio,
+} from "@/lib/equipos/convencional/evaluacion";
 
 // ─── Constants ───
 
@@ -49,60 +53,37 @@ type ConceptoType = "Conforme" | "No_conforme" | "No_aplica";
 function SeccionCard({
   seccion,
   catalogo,
-  autoConcepto,
   conceptoEfectivo,
   expanded,
   onToggleExpand,
   onToggleIncluida,
-  onUpdateConcepto,
   onUpdateAcciones,
   onUpdateObservaciones,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  isDragging,
 }: {
   seccion: ConvInformeSeccion;
   catalogo: (typeof CATALOGO_SECCIONES)[0];
-  /** Si true, el concepto se calcula automáticamente (prueba 2.1) y el físico
-   *  solo decide si la prueba aplica. */
-  autoConcepto: boolean;
-  /** Concepto a mostrar en el badge (calculado para 2.1, manual para el resto). */
+  /** Concepto calculado automáticamente desde los datos capturados. */
   conceptoEfectivo?: ConceptoType;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleIncluida: () => void;
-  onUpdateConcepto: (v: ConceptoType | undefined) => void;
   onUpdateAcciones: (v: string) => void;
   onUpdateObservaciones: (v: string) => void;
-  onDragStart: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: () => void;
-  isDragging: boolean;
 }) {
   const Icon = GRUPO_ICONS[catalogo.grupo] ?? FileText;
   const analisisRef = useRef<HTMLTextAreaElement>(null);
+  const sinCriterio = !tieneCriterio(catalogo.codigo);
 
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOver(e);
-      }}
-      onDrop={onDrop}
       className={`rounded-2xl border bg-white transition-all duration-200 ${
-        isDragging ? "opacity-40 scale-95" : "opacity-100"
-      } ${seccion.incluida ? "border-slate-200 shadow-sm" : "border-dashed border-slate-300 bg-slate-50/50"}`}
+        seccion.incluida
+          ? "border-slate-200 shadow-sm"
+          : "border-dashed border-slate-300 bg-slate-50/50"
+      }`}
     >
       {/* Header row */}
       <div className="flex items-center gap-2 p-3">
-        {/* Drag handle */}
-        <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 flex-shrink-0 touch-none">
-          <GripVertical className="w-4 h-4" />
-        </div>
-
         {/* Toggle */}
         <button type="button" onClick={onToggleIncluida} className="flex-shrink-0">
           {seccion.incluida ? (
@@ -160,44 +141,17 @@ function SeccionCard({
       {/* Expanded content */}
       {expanded && seccion.incluida && (
         <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3 ml-8">
-          {/* Concepto selector */}
-          {autoConcepto ? (
-            <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                {catalogo.codigo === "2.2"
-                  ? "El concepto (Favorable / No favorable) se calcula automáticamente a partir de la inspección visual, las condiciones de operación y los elementos de protección. Usa el interruptor para marcar la prueba como no aplicable."
-                  : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de las mediciones radiométricas. Usa el interruptor para marcar la prueba como no aplicable."}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Concepto
-              </label>
-              <div className="flex gap-2">
-                {(
-                  [
-                    ["Conforme", "bg-emerald-50 border-emerald-300 text-emerald-700"],
-                    ["No_conforme", "bg-red-50 border-red-300 text-red-700"],
-                  ] as const
-                ).map(([val, cls]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => onUpdateConcepto(val)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
-                      seccion.concepto === val ? cls : "bg-white border-slate-200 text-slate-400"
-                    }`}
-                  >
-                    {val === "Conforme" ? "Conforme" : "No conforme"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Concepto — siempre automático desde los datos capturados */}
+          <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
+            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+              {sinCriterio
+                ? "Esta prueba es de carácter descriptivo/referencial y no define un criterio de aceptación, por lo que no emite concepto."
+                : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de los datos capturados de la prueba. Usa el interruptor para marcar la prueba como no aplicable."}
+            </p>
+          </div>
 
           {/* Acciones correctivas */}
-          {seccion.concepto === "No_conforme" && (
+          {conceptoEfectivo === "No_conforme" && (
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 Acciones correctivas
@@ -211,42 +165,32 @@ function SeccionCard({
             </div>
           )}
 
-          {/* Observaciones — no aplican a la 2.1 (concepto automático).
-              Para secciones con texto de análisis (2.2) el campo se llama
-              "Análisis" y trae el texto por defecto editable, y se muestra
-              aunque el concepto sea automático. */}
-          {(catalogo.analisis || !autoConcepto) && (
+          {/* Análisis — solo para secciones con texto de análisis (2.2).
+              Trae el texto por defecto editable y se guarda en observaciones. */}
+          {catalogo.analisis && (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {catalogo.analisis ? "Análisis" : "Observaciones (opcional)"}
+                  Análisis
                 </label>
-                {catalogo.analisis && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const def = catalogo.analisis ?? "";
-                      if (analisisRef.current) analisisRef.current.value = def;
-                      onUpdateObservaciones(def);
-                    }}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Restaurar predeterminado
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const def = catalogo.analisis ?? "";
+                    if (analisisRef.current) analisisRef.current.value = def;
+                    onUpdateObservaciones(def);
+                  }}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Restaurar predeterminado
+                </button>
               </div>
               <textarea
                 ref={analisisRef}
-                className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                  catalogo.analisis ? "h-40" : "h-16"
-                }`}
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 defaultValue={seccion.observaciones ?? catalogo.analisis ?? ""}
-                placeholder={
-                  catalogo.analisis
-                    ? "Análisis de la inspección visual..."
-                    : "Notas adicionales para esta prueba..."
-                }
+                placeholder="Análisis de la inspección visual..."
                 onBlur={(e) => onUpdateObservaciones(e.target.value)}
               />
             </div>
@@ -313,7 +257,6 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedCodigo, setExpandedCodigo] = useState<string | null>(null);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
@@ -326,36 +269,24 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
       .equals(visitaId)
       .sortBy("orden");
 
-    // Mediciones de la 2.1 — su concepto se deriva de aquí, no del campo manual
-    const mediciones = await db.conv_mediciones.where("visita_id").equals(visitaId).toArray();
+    // Todas las tablas conv_* — el concepto de cada prueba se deriva de aquí
+    const datos = await cargarTablasConv(visitaId);
 
-    // Inspección y elementos de la 2.2 — su concepto también se deriva de aquí
-    const inspeccion = await db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray();
-    const elementos = await db.conv_elementos_proteccion
-      .where("visita_id")
-      .equals(visitaId)
-      .toArray();
-
-    return { visita, secciones, mediciones, inspeccion, elementos };
+    return { visita, secciones, datos };
   }, [isReady, visitaId]);
 
-  // Concepto calculado de la 2.1: No conforme si algún punto lo es; Conforme
-  // si hay puntos y todos pasan; indefinido (pendiente) si aún no hay puntos.
-  const concepto21 = useMemo<ConceptoType | undefined>(() => {
-    const mediciones = data?.mediciones ?? [];
-    if (mediciones.length === 0) return undefined;
-    return mediciones.some((m) => m.concepto === "No_conforme") ? "No_conforme" : "Conforme";
-  }, [data?.mediciones]);
+  const datos = data?.datos;
 
-  // Concepto calculado de la 2.2: No conforme si algún ítem de inspección o
-  // elemento de protección lo es; Conforme en caso contrario (FAVORABLE por
-  // defecto, igual que la fórmula de la plantilla).
-  const concepto22 = useMemo<ConceptoType>(() => {
-    const hayNoConforme =
-      (data?.inspeccion ?? []).some((i) => i.concepto === "No_conforme") ||
-      (data?.elementos ?? []).some((e) => e.concepto === "No_conforme");
-    return hayNoConforme ? "No_conforme" : "Conforme";
-  }, [data?.inspeccion, data?.elementos]);
+  // Concepto efectivo de una prueba: No aplica si está excluida, o el veredicto
+  // automático del evaluador (undefined = pendiente / sin datos).
+  const conceptoDe = useCallback(
+    (seccion: ConvInformeSeccion): ConceptoType | undefined => {
+      if (!seccion.incluida) return "No_aplica";
+      if (!datos) return undefined;
+      return evaluarConceptoPrueba(seccion.prueba_codigo, datos);
+    },
+    [datos]
+  );
 
   // ─── Initialize secciones from catalog ───
   useEffect(() => {
@@ -391,24 +322,6 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     await db.conv_informe_secciones.update(id, fields);
   }
 
-  // ─── Drag & Drop ───
-  async function handleDrop(targetIdx: number) {
-    if (dragIdx === null || dragIdx === targetIdx) {
-      setDragIdx(null);
-      return;
-    }
-
-    const arr = [...secciones];
-    const [moved] = arr.splice(dragIdx, 1);
-    arr.splice(targetIdx, 0, moved);
-
-    // Update order for all affected
-    await Promise.all(
-      arr.map((s, i) => s.id && db.conv_informe_secciones.update(s.id, { orden: i + 1 }))
-    );
-    setDragIdx(null);
-  }
-
   // ─── Toggle all ───
   async function toggleAll(incluida: boolean) {
     await Promise.all(
@@ -419,19 +332,15 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
   // ─── Stats ───
   const stats = useMemo(() => {
     // Todas las pruebas van al informe; el switch apagado = No aplica.
-    // Para la 2.1 el concepto se deriva de las mediciones, no del campo manual.
-    const conceptoDe = (s: ConvInformeSeccion): ConceptoType | undefined => {
-      if (!s.incluida) return "No_aplica";
-      if (s.prueba_codigo === "2.1") return concepto21;
-      if (s.prueba_codigo === "2.2") return concepto22;
-      return s.concepto;
-    };
+    // El concepto se deriva automáticamente de los datos capturados.
     const conformes = secciones.filter((s) => conceptoDe(s) === "Conforme").length;
     const noConformes = secciones.filter((s) => conceptoDe(s) === "No_conforme").length;
     const noAplica = secciones.filter((s) => conceptoDe(s) === "No_aplica").length;
-    const sinConcepto = secciones.filter((s) => !conceptoDe(s)).length;
+    const sinConcepto = secciones.filter(
+      (s) => s.incluida && conceptoDe(s) == null && tieneCriterio(s.prueba_codigo)
+    ).length;
     return { total: secciones.length, conformes, noConformes, noAplica, sinConcepto };
-  }, [secciones, concepto21]);
+  }, [secciones, conceptoDe]);
 
   // ─── Generate PDF ───
   const handleGenerar = useCallback(async () => {
@@ -593,13 +502,13 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
         ))}
       </div>
 
-      {/* Secciones de pruebas — Drag & Drop */}
+      {/* Secciones de pruebas */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Pruebas de control de calidad — arrastra para reordenar
+          Pruebas de control de calidad
         </p>
 
-        {secciones.map((seccion, idx) => {
+        {secciones.map((seccion) => {
           const cat = catalogoMap.get(seccion.prueba_codigo);
           if (!cat) return null;
 
@@ -608,16 +517,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
               key={seccion.id}
               seccion={seccion}
               catalogo={cat}
-              autoConcepto={seccion.prueba_codigo === "2.1" || seccion.prueba_codigo === "2.2"}
-              conceptoEfectivo={
-                !seccion.incluida
-                  ? "No_aplica"
-                  : seccion.prueba_codigo === "2.1"
-                    ? concepto21
-                    : seccion.prueba_codigo === "2.2"
-                      ? concepto22
-                      : seccion.concepto
-              }
+              conceptoEfectivo={conceptoDe(seccion)}
               expanded={expandedCodigo === seccion.prueba_codigo}
               onToggleExpand={() =>
                 setExpandedCodigo(
@@ -627,17 +527,12 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
               onToggleIncluida={() =>
                 seccion.id && updateSeccion(seccion.id, { incluida: !seccion.incluida })
               }
-              onUpdateConcepto={(v) => seccion.id && updateSeccion(seccion.id, { concepto: v })}
               onUpdateAcciones={(v) =>
                 seccion.id && updateSeccion(seccion.id, { acciones_correctivas: v || undefined })
               }
               onUpdateObservaciones={(v) =>
                 seccion.id && updateSeccion(seccion.id, { observaciones: v || undefined })
               }
-              onDragStart={() => setDragIdx(idx)}
-              onDragOver={() => {}}
-              onDrop={() => handleDrop(idx)}
-              isDragging={dragIdx === idx}
             />
           );
         })}

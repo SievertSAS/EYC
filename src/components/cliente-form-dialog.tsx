@@ -189,7 +189,12 @@ export function ClienteFormDialog({
               onValueChange={(val) => update("naturaleza", (val ?? "") as string)}
             >
               <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
-                <SelectValue placeholder="Seleccionar..." />
+                <SelectValue placeholder="Seleccionar...">
+                  {(v) =>
+                    ({ privado: "Privado", publico: "Público", mixto: "Mixto" })[v as string] ||
+                    "Seleccionar..."
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="privado">Privado</SelectItem>

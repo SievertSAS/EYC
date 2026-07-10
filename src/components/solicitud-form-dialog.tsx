@@ -241,7 +241,9 @@ export function SolicitudFormDialog({
               </div>
               <Select value={clienteId} onValueChange={(v) => selectCliente(v ?? "")}>
                 <SelectTrigger className={selectTriggerClass}>
-                  <SelectValue placeholder="Seleccionar cliente..." />
+                  <SelectValue placeholder="Seleccionar cliente...">
+                    {(v) => clientes.find((c) => String(c.id) === v)?.nombre_cliente || "Seleccionar cliente..."}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {clientes.map((c) => (
@@ -270,7 +272,9 @@ export function SolicitudFormDialog({
                 </div>
                 <Select value={sedeId} onValueChange={(v) => selectSede(v ?? "")}>
                   <SelectTrigger className={selectTriggerClass}>
-                    <SelectValue placeholder="Seleccionar sede..." />
+                    <SelectValue placeholder="Seleccionar sede...">
+                      {(v) => sedes.find((s) => String(s.id) === v)?.nombre_sede || "Seleccionar sede..."}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {sedes.map((s) => (
@@ -300,7 +304,12 @@ export function SolicitudFormDialog({
                 </div>
                 <Select value={ubicacionId} onValueChange={(v) => setUbicacionId(v ?? "")}>
                   <SelectTrigger className={selectTriggerClass}>
-                    <SelectValue placeholder="Seleccionar ubicación..." />
+                    <SelectValue placeholder="Seleccionar ubicación...">
+                      {(v) =>
+                        ubicaciones.find((u) => String(u.id) === v)?.nombre_servicio ||
+                        "Seleccionar ubicación..."
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {ubicaciones.map((u) => (
@@ -330,7 +339,13 @@ export function SolicitudFormDialog({
                 </div>
                 <Select value={contactoId} onValueChange={(v) => setContactoId(v ?? "")}>
                   <SelectTrigger className={selectTriggerClass}>
-                    <SelectValue placeholder="Seleccionar contacto..." />
+                    <SelectValue placeholder="Seleccionar contacto...">
+                      {(v) => {
+                        const c = contactos.find((c) => String(c.id) === v);
+                        if (!c) return "Seleccionar contacto...";
+                        return c.telefono ? `${c.nombre} — ${c.telefono}` : c.nombre;
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {contactos.map((c) => (

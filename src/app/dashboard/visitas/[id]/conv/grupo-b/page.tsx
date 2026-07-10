@@ -46,6 +46,17 @@ const GRUPOS_DISPAROS = [
   { grupo: 8, kv: 80, mas: 10, repeticiones: 1, para: "Dosis receptor (referencia)" },
 ];
 
+/**
+ * Grupos donde los disparos comparten la MISMA técnica nominal: el primer
+ * disparo es editable y los demás se igualan a él (espejo bloqueado).
+ * Aplica a todos los grupos con más de una repetición (1–6).
+ */
+const GRUPOS_ESPEJO = new Set(
+  GRUPOS_DISPAROS.filter((g) => g.repeticiones > 1).map((g) => g.grupo)
+);
+
+type CampoNominal = "kv_nominal" | "ma_nominal" | "tiempo_nominal_s" | "mas_nominal";
+
 const PROGRAMAS_CLINICOS = ["Extremidad", "Tórax AP", "Columna AP"];
 
 const SLOTS_IMAGEN = [
@@ -63,6 +74,29 @@ function Alert({ children }: { children: React.ReactNode }) {
     <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
+    </div>
+  );
+}
+
+/** Celda de solo lectura: valores medidos (RaySafe) o técnica en espejo. */
+function CeldaLectura({
+  value,
+  tono = "medido",
+  widthClass,
+}: {
+  value?: number | null;
+  tono?: "medido" | "espejo";
+  widthClass: string;
+}) {
+  const estilos =
+    tono === "medido"
+      ? "bg-blue-50/50 border border-blue-100 text-slate-600"
+      : "bg-slate-50 border border-slate-100 text-slate-400";
+  return (
+    <div
+      className={`h-7 flex items-center px-2 rounded-lg text-xs font-medium ${estilos} ${widthClass}`}
+    >
+      {value == null ? "—" : value.toLocaleString("es-CO", { maximumFractionDigits: 4 })}
     </div>
   );
 }
@@ -119,7 +153,11 @@ function CollapsibleSection({
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
         <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
-        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-slate-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-slate-400" />
+        )}
       </button>
       {open && <div className="p-3 space-y-3">{children}</div>}
     </div>
@@ -129,7 +167,9 @@ function CollapsibleSection({
 function RaysafeUploadCard({
   onImport,
 }: {
-  onImport: (result: Awaited<ReturnType<typeof parseRaysafeXlsx>> | { tipo: "tsv"; data: RaysafeRow[] }) => void;
+  onImport: (
+    result: Awaited<ReturnType<typeof parseRaysafeXlsx>> | { tipo: "tsv"; data: RaysafeRow[] }
+  ) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -193,9 +233,7 @@ function RaysafeUploadCard({
               }
             } else {
               const text = await file.text();
-              const { parseRaysafeTsv } = await import(
-                "@/lib/equipos/convencional/raysafe-parser"
-              );
+              const { parseRaysafeTsv } = await import("@/lib/equipos/convencional/raysafe-parser");
               const rows = parseRaysafeTsv(text);
               if (rows.length > 0) {
                 onImport({ tipo: "tsv", data: rows });
@@ -382,7 +420,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     const conRejillaMap = new Map(
       data.mediciones
         .filter((m) => m.tipo_medicion === "con_rejilla" && m.programa_clinico)
-        .map((m) => [m.programa_clinico!, m]),
+        .map((m) => [m.programa_clinico!, m])
     );
     for (const k of data.mediciones.filter((m) => m.tipo_medicion === "kerma")) {
       if (!k.id || !k.programa_clinico) continue;
@@ -399,10 +437,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   }, [data, visitaId]);
 
   // ─── RaySafe import handlers ───
-  async function importarRaysafe(
-    rows: RaysafeRow[],
-    medicionesFiltradas: typeof principales,
-  ) {
+  async function importarRaysafe(rows: RaysafeRow[], medicionesFiltradas: typeof principales) {
     for (let i = 0; i < Math.min(rows.length, medicionesFiltradas.length); i++) {
       const m = medicionesFiltradas[i];
       const r = rows[i];
@@ -417,7 +452,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   }
 
   async function importarPlantilla(
-    result: Awaited<ReturnType<typeof parseRaysafeXlsx>> | { tipo: "tsv"; data: RaysafeRow[] },
+    result: Awaited<ReturnType<typeof parseRaysafeXlsx>> | { tipo: "tsv"; data: RaysafeRow[] }
   ) {
     if (result.tipo === "plantilla") {
       await Promise.all([
@@ -447,10 +482,22 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     await db.conv_raysafe_mediciones.update(id, fields);
   }
 
+  /** Propaga la técnica nominal a todas las tomas del mismo grupo (espejo). */
+  async function updateNominalGrupo(
+    grupoNumero: number | undefined,
+    fields: Record<string, unknown>
+  ) {
+    if (grupoNumero == null) return;
+    const tomas = principales.filter((p) => p.grupo_numero === grupoNumero);
+    await Promise.all(
+      tomas.map((t) => (t.id ? db.conv_raysafe_mediciones.update(t.id, fields) : undefined))
+    );
+  }
+
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
@@ -471,7 +518,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
 
   async function removeImage(pruebaCodigo: string, slot: string) {
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) await db.conv_evidencias.delete(existing.id);
   }
@@ -499,7 +546,10 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   if (data === null) {
     return (
       <div className="space-y-6">
-        <Link href="/dashboard/visitas" className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
+        <Link
+          href="/dashboard/visitas"
+          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary"
+        >
           <ArrowLeft className="w-4 h-4" /> Volver
         </Link>
         <div className="flex flex-col items-center py-20 gap-4">
@@ -529,8 +579,8 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             RaySafe: Tiempo, kVp, CHR, Rendimiento y Dosis
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
-            Verifica que el tubo de rayos X dispara correctamente comparando los valores configurados
-            con los medidos por el sensor RaySafe X2.
+            Verifica que el tubo de rayos X dispara correctamente comparando los valores
+            configurados con los medidos por el sensor RaySafe X2.
           </p>
         </div>
         <Button
@@ -557,8 +607,8 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
           </StepHeader>
 
           <Alert>
-            Retire el Flat Panel o cassette del Bucky. Ubique el sensor RaySafe en el centro del
-            haz a la distancia indicada.
+            Retire el Flat Panel o cassette del Bucky. Ubique el sensor RaySafe en el centro del haz
+            a la distancia indicada.
           </Alert>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -597,8 +647,9 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Paso 2" title="Disparos principales (sin rejilla)" icon={Zap}>
-            {principales.length} tomas en 8 grupos. Configura los valores nominales e ingresa los
-            valores medidos por el sensor.
+            {principales.length} tomas en 8 grupos. Configura la técnica nominal; los valores
+            medidos (kV, t, Dosis, CHR) se llenan automáticamente al importar el archivo del
+            RaySafe.
           </StepHeader>
 
           <Alert>
@@ -607,11 +658,15 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
           </Alert>
 
           <Tip>
-            Los grupos 1–6 tienen 3 repeticiones cada uno para evaluar repetibilidad. Los grupos 7–8
-            son disparos únicos de referencia para la dosis al receptor.
+            En los grupos de 3 disparos (1–6) basta con diligenciar la técnica de la primera toma:
+            las otras dos se igualan automáticamente. Los grupos 7–8 son disparos únicos de
+            referencia para la dosis al receptor.
           </Tip>
 
-          <div key={`principales-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div
+            key={`principales-${importVersion}`}
+            className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5"
+          >
             <table className="w-full min-w-[900px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -643,6 +698,35 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                   const grupoInfo = GRUPOS_DISPAROS.find((g) => g.grupo === m.grupo_numero);
                   const isFirstInGroup =
                     principales.find((p) => p.grupo_numero === m.grupo_numero)?.id === m.id;
+                  const esEspejo = GRUPOS_ESPEJO.has(m.grupo_numero ?? -1);
+                  // Tomas 2-3 de un grupo de repetibilidad: técnica en espejo (solo lectura)
+                  const nominalEspejo = esEspejo && !isFirstInGroup;
+
+                  // Técnica nominal: editable en la 1a toma (o grupos sin espejo);
+                  // solo lectura en las tomas espejadas. Al editar la 1a toma de un
+                  // grupo espejo, el valor se propaga a las demás tomas del grupo.
+                  const celdaNominal = (campo: CampoNominal, widthClass: string, step?: string) =>
+                    nominalEspejo ? (
+                      <CeldaLectura
+                        value={m[campo] ?? null}
+                        tono="espejo"
+                        widthClass={widthClass}
+                      />
+                    ) : (
+                      <Input
+                        type="number"
+                        step={step}
+                        className={`rounded-lg h-7 text-xs font-medium border-slate-200 ${widthClass}`}
+                        defaultValue={m[campo] ?? ""}
+                        onBlur={(e) => {
+                          if (!m.id) return;
+                          const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                          if (esEspejo && isFirstInGroup)
+                            updateNominalGrupo(m.grupo_numero, { [campo]: val });
+                          else updateMedicion(m.id, { [campo]: val });
+                        }}
+                      />
+                    );
 
                   return (
                     <tr
@@ -655,127 +739,24 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                         {isFirstInGroup ? m.grupo_numero : ""}
                       </td>
                       <td className="py-1.5 px-1 text-slate-500 font-mono">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1">{celdaNominal("kv_nominal", "w-16")}</td>
+                      <td className="py-1.5 px-1">{celdaNominal("ma_nominal", "w-16")}</td>
                       <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
-                          defaultValue={m.kv_nominal ?? ""}
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              kv_nominal: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
-                        />
+                        {celdaNominal("tiempo_nominal_s", "w-20", "0.01")}
+                      </td>
+                      <td className="py-1.5 px-1">{celdaNominal("mas_nominal", "w-16")}</td>
+                      {/* Valores medidos — solo lectura, se llenan desde el RaySafe */}
+                      <td className="py-1.5 px-1">
+                        <CeldaLectura value={m.kv_medido ?? null} widthClass="w-16" />
                       </td>
                       <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
-                          defaultValue={m.ma_nominal ?? ""}
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              ma_nominal: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
-                        />
+                        <CeldaLectura value={m.tiempo_medido_s ?? null} widthClass="w-20" />
                       </td>
                       <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="rounded-lg h-7 text-xs font-medium border-slate-200 w-20"
-                          defaultValue={m.tiempo_nominal_s ?? ""}
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              tiempo_nominal_s: e.target.value
-                                ? parseFloat(e.target.value)
-                                : undefined,
-                            })
-                          }
-                        />
+                        <CeldaLectura value={m.dosis_medida_mgy ?? null} widthClass="w-20" />
                       </td>
                       <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
-                          defaultValue={m.mas_nominal ?? ""}
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              mas_nominal: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
-                        />
-                      </td>
-                      {/* Valores medidos — se llenan del RaySafe o manualmente */}
-                      <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.1"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-16"
-                          defaultValue={m.kv_medido ?? ""}
-                          placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              kv_medido: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                          defaultValue={m.tiempo_medido_s ?? ""}
-                          placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              tiempo_medido_s: e.target.value
-                                ? parseFloat(e.target.value)
-                                : undefined,
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                          defaultValue={m.dosis_medida_mgy ?? ""}
-                          placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              dosis_medida_mgy: e.target.value
-                                ? parseFloat(e.target.value)
-                                : undefined,
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.1"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                          defaultValue={m.chr_medido_mmal ?? ""}
-                          placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              chr_medido_mmal: e.target.value
-                                ? parseFloat(e.target.value)
-                                : undefined,
-                            })
-                          }
-                        />
+                        <CeldaLectura value={m.chr_medido_mmal ?? null} widthClass="w-20" />
                       </td>
                       <td className="py-1.5 px-1">
                         <Input
@@ -820,20 +801,31 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             distancia foco-sensor.
           </Alert>
 
-          <div key={`con-rejilla-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div
+            key={`con-rejilla-${importVersion}`}
+            className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5"
+          >
             <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
-                  {["#", "Programa", "kV", "mA", "t (s)", "mAs", "kV med.", "t med.", "Dosis (mGy)"].map(
-                    (label) => (
-                      <th
-                        key={label}
-                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
-                      >
-                        {label}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    "#",
+                    "Programa",
+                    "kV",
+                    "mA",
+                    "t (s)",
+                    "mAs",
+                    "kV med.",
+                    "t med.",
+                    "Dosis (mGy)",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -859,7 +851,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                             }
                           />
                         </td>
-                      ),
+                      )
                     )}
                     {(["kv_medido", "tiempo_medido_s", "dosis_medida_mgy"] as const).map(
                       (field) => (
@@ -878,7 +870,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                             }
                           />
                         </td>
-                      ),
+                      )
                     )}
                   </tr>
                 ))}
@@ -943,20 +935,32 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             </div>
           </div>
 
-          <div key={`sin-rejilla-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div
+            key={`sin-rejilla-${importVersion}`}
+            className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5"
+          >
             <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
-                  {["#", "Programa", "kV", "mA", "t (s)", "mAs", "kV med.", "t med.", "Dosis (mGy)", "Base (mGy)"].map(
-                    (label) => (
-                      <th
-                        key={label}
-                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
-                      >
-                        {label}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    "#",
+                    "Programa",
+                    "kV",
+                    "mA",
+                    "t (s)",
+                    "mAs",
+                    "kV med.",
+                    "t med.",
+                    "Dosis (mGy)",
+                    "Base (mGy)",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -982,7 +986,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                             }
                           />
                         </td>
-                      ),
+                      )
                     )}
                     {(["kv_medido", "tiempo_medido_s", "dosis_medida_mgy"] as const).map(
                       (field) => (
@@ -1001,7 +1005,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                             }
                           />
                         </td>
-                      ),
+                      )
                     )}
                     <td className="py-1.5 px-1.5">
                       <Input
@@ -1044,7 +1048,10 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             medidor de dosis-área del equipo está calibrado correctamente.
           </Tip>
 
-          <div key={`kerma-${importVersion}`} className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+          <div
+            key={`kerma-${importVersion}`}
+            className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5"
+          >
             <table className="w-full min-w-[900px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -1073,9 +1080,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                 {kerma.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                     <td className="py-1.5 px-1 font-black text-primary">{m.toma_numero}</td>
-                    <td className="py-1.5 px-1 font-medium text-slate-700">
-                      {m.programa_clinico}
-                    </td>
+                    <td className="py-1.5 px-1 font-medium text-slate-700">{m.programa_clinico}</td>
                     {(
                       [
                         "kv_nominal",
@@ -1093,7 +1098,9 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                           type="number"
                           step="0.01"
                           className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                          defaultValue={(m as unknown as Record<string, unknown>)[field] as string ?? ""}
+                          defaultValue={
+                            ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
+                          }
                           placeholder="—"
                           onBlur={(e) =>
                             m.id &&
@@ -1127,7 +1134,11 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { codigo: "2.4", nombre: "Tiempo de exposición", criterio: "Desviación ≤ 10%, CV ≤ 10%" },
+              {
+                codigo: "2.4",
+                nombre: "Tiempo de exposición",
+                criterio: "Desviación ≤ 10%, CV ≤ 10%",
+              },
               { codigo: "2.5", nombre: "Tensión (kVp)", criterio: "Desviación ≤ 10%, CV ≤ 5%" },
               { codigo: "2.6", nombre: "CHR", criterio: "≥ mínimo según kV" },
               { codigo: "2.7", nombre: "Rendimiento", criterio: "Linealidad ≤ 10%, CV ≤ 5%" },

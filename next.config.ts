@@ -31,6 +31,8 @@ const nextConfig: NextConfig = {
               `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
               "font-src 'self'",
               "worker-src 'self' blob:",
+              // Permite la vista previa del pre-informe (PDF servido como blob:)
+              "frame-src 'self' blob:",
               "frame-ancestors 'none'",
             ].join("; "),
           },

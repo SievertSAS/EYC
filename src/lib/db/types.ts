@@ -145,7 +145,7 @@ export interface Equipo extends Partial<SyncFields> {
   creado_en?: string;
 }
 
-export interface EquipoMovimiento {
+export interface EquipoMovimiento extends Partial<SyncFields> {
   id?: string;
   equipo_id: string;
   ubicacion_anterior_id?: string;

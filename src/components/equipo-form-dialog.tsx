@@ -261,7 +261,9 @@ export function EquipoFormDialog({
               </Label>
               <Select value={tipoEquipo} onValueChange={(v) => setTipoEquipo(v ?? "")}>
                 <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
-                  <SelectValue placeholder="Seleccionar tipo..." />
+                  <SelectValue placeholder="Seleccionar tipo...">
+                    {(v) => TIPO_LABELS[v as string] ?? (v as string) ?? "Seleccionar tipo..."}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {TIPOS_EQUIPO.map((tipo) => (
@@ -302,7 +304,12 @@ export function EquipoFormDialog({
                 </Label>
                 <Select value={bucky} onValueChange={(v) => setBucky(v ?? "")}>
                   <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
-                    <SelectValue placeholder="Seleccionar..." />
+                    <SelectValue placeholder="Seleccionar...">
+                      {(v) =>
+                        ({ Si: "Sí", No: "No", No_aplica: "No aplica" })[v as string] ||
+                        "Seleccionar..."
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Si">Sí</SelectItem>
@@ -383,7 +390,15 @@ export function EquipoFormDialog({
               </Label>
               <Select value={genFase} onValueChange={(v) => setGenFase(v ?? "")}>
                 <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
-                  <SelectValue placeholder="Seleccionar fase..." />
+                  <SelectValue placeholder="Seleccionar fase...">
+                    {(v) =>
+                      ({
+                        monofasico: "Monofásico",
+                        trifasico: "Trifásico",
+                        alta_frecuencia: "Alta Frecuencia",
+                      })[v as string] || "Seleccionar fase..."
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="monofasico">Monofásico</SelectItem>

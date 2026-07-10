@@ -55,6 +55,7 @@ const TABLE_LABELS: Record<string, string> = {
   municipios: "Municipios",
   ubicaciones_rx: "Ubicaciones",
   equipos: "Equipos",
+  equipo_movimientos: "Traslados de equipo",
   tubos: "Tubos",
   colimadores: "Colimadores",
   gantry: "Gantry",
@@ -158,6 +159,7 @@ const SYNC_TABLES = [
   { local: "sedes", remote: "sedes" },
   { local: "ubicaciones_rx", remote: "ubicaciones_rx" },
   { local: "equipos", remote: "equipos" },
+  { local: "equipo_movimientos", remote: "equipo_movimientos" },
   { local: "tubos", remote: "tubos" },
   { local: "colimadores", remote: "colimadores" },
   { local: "gantry", remote: "gantry" },
@@ -317,9 +319,7 @@ async function pushTable(
     const data = prepareForRemote(record as Record<string, unknown>, localTable);
 
     try {
-      const { error } = await supabase
-        .from(remoteTable)
-        .upsert(data, { onConflict: "id" });
+      const { error } = await supabase.from(remoteTable).upsert(data, { onConflict: "id" });
 
       if (error) throw error;
 
@@ -376,8 +376,7 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
     const data = prepareForRemote(record as Record<string, unknown>, localTable);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from(remote) as any)
-      .upsert(data, { onConflict: "id" });
+    const { error } = await (supabase.from(remote) as any).upsert(data, { onConflict: "id" });
 
     if (error) throw error;
 

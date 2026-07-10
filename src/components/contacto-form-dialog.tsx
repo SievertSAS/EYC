@@ -150,7 +150,9 @@ export function ContactoFormDialog({
             </Label>
             <Select value={cargo} onValueChange={(v) => setCargo(v ?? "")}>
               <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
-                <SelectValue placeholder="Seleccionar cargo..." />
+                <SelectValue placeholder="Seleccionar cargo...">
+                  {(v) => CARGO_OPTIONS.find((opt) => opt.value === v)?.label || "Seleccionar cargo..."}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {CARGO_OPTIONS.map((opt) => (

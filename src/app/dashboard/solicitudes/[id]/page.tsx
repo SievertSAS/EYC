@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -127,6 +127,40 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
     []
   );
 
+  // IDs de equipos sin visita (para inicializar/reconciliar la selección)
+  const equiposSinVisitaIds = useMemo(() => {
+    if (!data) return [];
+    const conVisita = new Set(data.visitas.map((v) => v.equipo_id));
+    return data.equipos.filter((e) => !conVisita.has(e.id!)).map((e) => e.id!);
+  }, [data]);
+
+  // Selección de equipos a programar. Por defecto todos los pendientes quedan
+  // marcados; se conservan los "destildados" por el usuario para equipos ya vistos.
+  const [selectedEquipos, setSelectedEquipos] = useState<Set<string>>(new Set());
+  const seenPendingRef = useRef<Set<string>>(new Set());
+  const pendingKey = equiposSinVisitaIds.join(",");
+  useEffect(() => {
+    setSelectedEquipos((prev) => {
+      const next = new Set<string>();
+      for (const id of equiposSinVisitaIds) {
+        const seen = seenPendingRef.current.has(id);
+        if (seen ? prev.has(id) : true) next.add(id);
+      }
+      return next;
+    });
+    seenPendingRef.current = new Set(equiposSinVisitaIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey]);
+
+  function toggleEquipo(id: string) {
+    setSelectedEquipos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   if (!isReady || data === undefined) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -160,6 +194,8 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   // Equipos que ya tienen visita creada
   const equiposConVisita = new Set(visitas.map((v) => v.equipo_id));
   const equiposSinVisita = equipos.filter((e) => !equiposConVisita.has(e.id!));
+  // Equipos marcados para programar en esta tanda
+  const equiposAProgramar = equiposSinVisita.filter((e) => selectedEquipos.has(e.id!));
 
   // Valores efectivos para programar: lo seleccionado, o lo ya guardado en la solicitud
   const tecnicoValue =
@@ -167,7 +203,8 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   const fechaVisitaValue = fechaVisitaSel || solicitud.fecha_estimada_visita || "";
 
   async function handleCrearVisitas() {
-    if (equiposSinVisita.length === 0 || !tecnicoValue) return;
+    const aProgramar = equiposSinVisita.filter((e) => selectedEquipos.has(e.id!));
+    if (aProgramar.length === 0 || !tecnicoValue) return;
     setCreatingVisita(true);
     setResultado(null);
     try {
@@ -184,7 +221,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       let pruebasTotal = 0;
       const errores: string[] = [];
 
-      for (const eq of equiposSinVisita) {
+      for (const eq of aProgramar) {
         const result = await crearVisitaDesdeSolicitud(solicitudId, eq.id!);
         if (result.success) {
           exitosas++;
@@ -195,7 +232,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       }
 
       setResultado({
-        total: equiposSinVisita.length,
+        total: aProgramar.length,
         exitosas,
         pruebasCreadas: pruebasTotal,
         errores,
@@ -390,9 +427,43 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
               </h3>
               <p className="text-sm text-slate-500 font-medium mt-1">
                 {equiposSinVisita.length === 1
-                  ? `1 equipo pendiente: ${equiposSinVisita[0].gen_marca ?? ""} ${equiposSinVisita[0].gen_modelo ?? ""} ${equiposSinVisita[0].tipo_equipo ? `(${equiposSinVisita[0].tipo_equipo})` : ""}`.trim()
-                  : `${equiposSinVisita.length} equipos pendientes en esta ubicación.`}
+                  ? "1 equipo pendiente en esta ubicación."
+                  : `${equiposSinVisita.length} equipos pendientes en esta ubicación. Selecciona cuáles programar.`}
               </p>
+            </div>
+
+            {/* Selección de equipos a programar */}
+            <div className="space-y-2">
+              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                Equipos a programar
+              </Label>
+              <div className="space-y-2">
+                {equiposSinVisita.map((eq) => {
+                  const nombre =
+                    [eq.gen_marca, eq.gen_modelo].filter(Boolean).join(" ") ||
+                    eq.tipo_equipo ||
+                    `Equipo #${eq.id}`;
+                  return (
+                    <label
+                      key={eq.id}
+                      className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-primary/40 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedEquipos.has(eq.id!)}
+                        onChange={() => toggleEquipo(eq.id!)}
+                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-700 truncate">{nombre}</p>
+                        {eq.tipo_equipo && (
+                          <p className="text-[11px] text-slate-400 font-medium">{eq.tipo_equipo}</p>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Técnico y fecha de la visita */}
@@ -403,7 +474,11 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                 </Label>
                 <Select value={tecnicoValue} onValueChange={(v) => setTecnicoSel(v ?? "")}>
                   <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium bg-white">
-                    <SelectValue placeholder="Seleccionar técnico..." />
+                    <SelectValue placeholder="Seleccionar técnico...">
+                      {(v) =>
+                        tecnicos.find((t) => String(t.id) === v)?.nombre || "Seleccionar técnico..."
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {tecnicos.map((t) => (
@@ -430,7 +505,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex justify-end">
               <Button
                 className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
-                disabled={creatingVisita || !tecnicoValue}
+                disabled={creatingVisita || !tecnicoValue || equiposAProgramar.length === 0}
                 onClick={handleCrearVisitas}
               >
                 {creatingVisita ? (
@@ -441,27 +516,13 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                 ) : (
                   <>
                     <ClipboardCheck className="w-4 h-4 mr-2" />
-                    {equiposSinVisita.length === 1
+                    {equiposAProgramar.length <= 1
                       ? "Crear Visita"
-                      : `Crear ${equiposSinVisita.length} Visitas`}
+                      : `Crear ${equiposAProgramar.length} Visitas`}
                   </>
                 )}
               </Button>
             </div>
-
-            {equiposSinVisita.length > 1 && (
-              <div className="flex flex-wrap gap-2">
-                {equiposSinVisita.map((eq) => (
-                  <span
-                    key={eq.id}
-                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-600"
-                  >
-                    {eq.gen_marca ?? ""} {eq.gen_modelo ?? ""}
-                    {eq.tipo_equipo ? ` (${eq.tipo_equipo})` : ""}
-                  </span>
-                ))}
-              </div>
-            )}
 
             {resultado && (
               <div

@@ -917,12 +917,17 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
           conceptoParrafo =
             "La inspección visual evidenció condiciones que requieren corrección, al identificarse elementos que no cumplen con los criterios de aceptación establecidos para el estado físico del equipo, las condiciones de operación o los elementos de protección radiológica.";
           accionesTexto =
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesNoConforme ||
             "Se recomienda corregir las condiciones no conformes identificadas durante la inspección visual y verificar nuevamente el cumplimiento de los criterios establecidos antes de continuar con la operación del equipo.";
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La inspección visual evidenció que el estado físico del equipo, las condiciones de operación de la instalación y los elementos de protección radiológica cumplen con los criterios establecidos para la operación segura del equipo evaluado.";
-          accionesTexto = "No se requieren acciones correctivas.";
+          accionesTexto =
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
+            "No se requieren acciones correctivas.";
         }
       } else if (esAuto21) {
         if (esPendiente) {
@@ -932,12 +937,17 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
           conceptoParrafo =
             "Las dosis equivalentes anuales estimadas en algunas áreas evaluadas superan los niveles de restricción de dosis establecidos para áreas supervisadas, por lo que las condiciones radiológicas de la instalación requieren evaluación y adopción de medidas correctivas.";
           accionesTexto =
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesNoConforme ||
             "Se recomienda evaluar las condiciones de blindaje de la instalación, revisar la carga de trabajo del equipo y adoptar las medidas de protección radiológica necesarias para garantizar el cumplimiento de los niveles de restricción de dosis establecidos. Una vez subsanada la condición identificada, se deberá repetir el estudio radiométrico para verificar el cumplimiento de los criterios establecidos.";
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "Las dosis equivalentes anuales estimadas en las áreas evaluadas se encuentran por debajo de los niveles de restricción de dosis establecidos para áreas controladas y supervisadas, por lo que las condiciones radiológicas de la instalación se consideran aceptables para la operación del equipo evaluado.";
-          accionesTexto = "No se requieren acciones correctivas.";
+          accionesTexto =
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
+            "No se requieren acciones correctivas.";
         }
       } else if (codigo === "2.4" && aplica) {
         if (esPendiente) {
@@ -1189,12 +1199,16 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
           conceptoParrafo =
             "El sistema cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
           accionesTexto =
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
             "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "El sistema no cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
           accionesTexto =
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesNoConforme ||
             "Se deberá verificar el detector, el sistema de procesamiento de imagen y las condiciones de exposición, y repetir la prueba para confirmar el cumplimiento de los criterios establecidos.";
         }
       } else if (codigo === "2.12" && aplica) {

@@ -290,8 +290,13 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
   }, [isReady, visitaId]);
 
   // ─── Initialize default DDI rows (6 tomas: grupo 1 ×3, grupos 2-4 ×1) ───
+  // Guard síncrono contra reinvocaciones del efecto (misma consulta
+  // combinada reejecutándose) antes de que el bulkAdd previo se refleje.
+  const ddiInsertadoRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.ddiMediciones.length > 0) return;
+    if (ddiInsertadoRef.current === visitaId) return;
+    ddiInsertadoRef.current = visitaId;
     const now = new Date().toISOString();
     const rows = [
       { grupo: 1, toma_numero: 1 },
@@ -322,7 +327,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
     const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
     if (t1?.ei_base != null) setBaseEi29(String(t1.ei_base));
     if (t1?.di_base != null) setBaseDi29(String(t1.di_base));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(data?.ddiMediciones.length ?? 0) > 0]);
 
   // ─── Save helpers ───
@@ -375,7 +380,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
@@ -396,7 +401,7 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
 
   async function removeImage(pruebaCodigo: string, slot: string) {
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) await db.conv_evidencias.delete(existing.id);
   }
@@ -483,8 +488,8 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
             DDI/EI, Integridad y Uniformidad CR
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
-            Control de calidad del indicador de dosis digital, repetibilidad, inspeccion de cassettes
-            y uniformidad de pantallas IP.
+            Control de calidad del indicador de dosis digital, repetibilidad, inspeccion de
+            cassettes y uniformidad de pantallas IP.
           </p>
         </div>
         <Button
@@ -507,7 +512,11 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
       {/* Setup */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Pruebas 2.9 / 2.10 — Setup" title="Preparacion DDI/EI" icon={MonitorCheck}>
+          <StepHeader
+            step="Pruebas 2.9 / 2.10 — Setup"
+            title="Preparacion DDI/EI"
+            icon={MonitorCheck}
+          >
             Configura el montaje para la medicion del indicador de dosis digital.
           </StepHeader>
 
@@ -532,8 +541,8 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Registro de mediciones" title="Disparos DDI/EI" icon={MonitorCheck}>
-            Grupo 1 (3 repeticiones) para prueba 2.9 y repetibilidad 2.10. Grupos 2-4 para
-            cassettes adicionales.
+            Grupo 1 (3 repeticiones) para prueba 2.9 y repetibilidad 2.10. Grupos 2-4 para cassettes
+            adicionales.
           </StepHeader>
 
           <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
@@ -606,7 +615,11 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
       {/* Valores base para 2.9 */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Valores base" title="Referencia visita anterior (2.9)" icon={MonitorCheck}>
+          <StepHeader
+            step="Valores base"
+            title="Referencia visita anterior (2.9)"
+            icon={MonitorCheck}
+          >
             Si es primera visita, estos campos quedan vacios y se establece la referencia.
           </StepHeader>
           <div className="grid grid-cols-2 gap-3">
@@ -720,14 +733,21 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
 
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.14" title="Integridad y limpieza de cassettes / pantallas IP" icon={MonitorCheck}>
+          <StepHeader
+            step="Prueba 2.14"
+            title="Integridad y limpieza de cassettes / pantallas IP"
+            icon={MonitorCheck}
+          >
             Inspecciona cada cassette o detector CR disponible.
           </StepHeader>
 
           <Alert>Solicitar al cliente que realice limpieza antes de la inspeccion.</Alert>
 
           {(data.cassettes ?? []).map((c, idx) => (
-            <CollapsibleSection key={c.id} title={`Cassette ${idx + 1}${c.serie_detector ? ` — ${c.serie_detector}` : ""}`}>
+            <CollapsibleSection
+              key={c.id}
+              title={`Cassette ${idx + 1}${c.serie_detector ? ` — ${c.serie_detector}` : ""}`}
+            >
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -744,7 +764,10 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {CAMPOS_CASSETTE.map((campo) => (
-                    <div key={campo.key} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div
+                      key={campo.key}
+                      className="flex items-center justify-between p-2 bg-slate-50 rounded-lg"
+                    >
                       <span className="text-[11px] font-medium text-slate-600">{campo.label}</span>
                       <ConceptoSelect
                         value={c[campo.key]}
@@ -795,13 +818,15 @@ export default function GrupoDPage({ params }: { params: Promise<{ id: string }>
 
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.15" title="Uniformidad de sensibilidad de pantallas IP CR" icon={MonitorCheck}>
+          <StepHeader
+            step="Prueba 2.15"
+            title="Uniformidad de sensibilidad de pantallas IP CR"
+            icon={MonitorCheck}
+          >
             Mide la uniformidad del EI entre cassettes. Tecnica: 70 kVp, Cu 1mm, distancia 100 cm.
           </StepHeader>
 
-          <Tip>
-            Solo aplica a sistemas CR (con cassettes). No aplica a detectores DR fijos.
-          </Tip>
+          <Tip>Solo aplica a sistemas CR (con cassettes). No aplica a detectores DR fijos.</Tip>
 
           <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
             <table className="w-full min-w-[500px] text-xs">

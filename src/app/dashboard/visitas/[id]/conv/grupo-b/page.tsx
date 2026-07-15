@@ -338,8 +338,16 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   }, [isReady, visitaId]);
 
   // ─── Initialize setup ───
+  // Guard síncrono: la consulta combinada (data) se reejecuta cada vez que
+  // cualquiera de sus tablas cambia — incluida la que escribe el efecto
+  // hermano de disparos. Eso puede reinvocar este efecto antes de que el
+  // insert previo se refleje en `data`, duplicando filas. El ref evita un
+  // segundo insert dentro del mismo montaje/visita.
+  const setupInsertadoRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.setup) return;
+    if (setupInsertadoRef.current === visitaId) return;
+    setupInsertadoRef.current = visitaId;
     db.conv_raysafe_setup.add({
       id: randomUUID(),
       visita_id: visitaId,
@@ -350,9 +358,12 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     });
   }, [data, visitaId]);
 
-  // ─── Initialize default shots ───
+  // ─── Initialize default shots ─── (mismo guard, ver arriba)
+  const disparosInsertadosRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.mediciones.length > 0) return;
+    if (disparosInsertadosRef.current === visitaId) return;
+    disparosInsertadosRef.current = visitaId;
     const now = new Date().toISOString();
     let toma = 1;
     const rows: import("@/lib/equipos/convencional/db/types").ConvRaysafeMedicion[] = [];
@@ -414,7 +425,9 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     );
   }, [data, visitaId]);
 
-  // ─── Copiar nominales de con_rejilla → kerma (una sola vez) ───
+  // ─── Backfill: rellenar sin_rejilla/kerma vacíos con la técnica ya
+  //     capturada en con_rejilla (solo huecos — nunca sobreescribe lo ya
+  //     digitado). Cubre visitas empezadas antes de este cambio. ───
   useEffect(() => {
     if (!data) return;
     const conRejillaMap = new Map(
@@ -422,17 +435,22 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
         .filter((m) => m.tipo_medicion === "con_rejilla" && m.programa_clinico)
         .map((m) => [m.programa_clinico!, m])
     );
-    for (const k of data.mediciones.filter((m) => m.tipo_medicion === "kerma")) {
-      if (!k.id || !k.programa_clinico) continue;
-      const ref = conRejillaMap.get(k.programa_clinico);
+    for (const m of data.mediciones) {
+      if (!m.id || !m.programa_clinico) continue;
+      const ref = conRejillaMap.get(m.programa_clinico);
       if (!ref) continue;
       const updates: Record<string, unknown> = {};
-      if (k.kv_nominal == null && ref.kv_nominal != null) updates.kv_nominal = ref.kv_nominal;
-      if (k.ma_nominal == null && ref.ma_nominal != null) updates.ma_nominal = ref.ma_nominal;
-      if (k.tiempo_nominal_s == null && ref.tiempo_nominal_s != null)
-        updates.tiempo_nominal_s = ref.tiempo_nominal_s;
-      if (k.mas_nominal == null && ref.mas_nominal != null) updates.mas_nominal = ref.mas_nominal;
-      if (Object.keys(updates).length > 0) db.conv_raysafe_mediciones.update(k.id, updates);
+      if (m.tipo_medicion === "sin_rejilla") {
+        if (m.kv_nominal == null && ref.kv_nominal != null) updates.kv_nominal = ref.kv_nominal;
+        if (m.ma_nominal == null && ref.ma_nominal != null) updates.ma_nominal = ref.ma_nominal;
+        if (m.tiempo_nominal_s == null && ref.tiempo_nominal_s != null)
+          updates.tiempo_nominal_s = ref.tiempo_nominal_s;
+        if (m.mas_nominal == null && ref.mas_nominal != null) updates.mas_nominal = ref.mas_nominal;
+      } else if (m.tipo_medicion === "kerma") {
+        if (m.kv_nominal == null && ref.kv_nominal != null) updates.kv_nominal = ref.kv_nominal;
+        if (m.mas_nominal == null && ref.mas_nominal != null) updates.mas_nominal = ref.mas_nominal;
+      }
+      if (Object.keys(updates).length > 0) db.conv_raysafe_mediciones.update(m.id, updates);
     }
   }, [data, visitaId]);
 
@@ -494,6 +512,32 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
+  /**
+   * "Con rejilla" es la única técnica editable para un programa clínico; al
+   * guardarla se propaga a la toma "sin rejilla" (mismos 4 campos) y a la
+   * toma "kerma" (solo kV y mAs, los únicos que esa tabla usa) del mismo
+   * programa, para no digitar la misma técnica tres veces.
+   */
+  async function updateNominalConRejilla(
+    conRejillaId: string,
+    programaClinico: string | undefined,
+    field: CampoNominal,
+    value: number | undefined
+  ) {
+    await db.conv_raysafe_mediciones.update(conRejillaId, { [field]: value });
+    if (!programaClinico) return;
+    const sinRejillaMatch = sinRejilla.find((m) => m.programa_clinico === programaClinico);
+    if (sinRejillaMatch?.id) {
+      await db.conv_raysafe_mediciones.update(sinRejillaMatch.id, { [field]: value });
+    }
+    if (field === "kv_nominal" || field === "mas_nominal") {
+      const kermaMatch = kerma.find((m) => m.programa_clinico === programaClinico);
+      if (kermaMatch?.id) {
+        await db.conv_raysafe_mediciones.update(kermaMatch.id, { [field]: value });
+      }
+    }
+  }
+
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
@@ -533,6 +577,11 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
   const conRejilla = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "con_rejilla");
   const sinRejilla = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "sin_rejilla");
   const kerma = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "kerma");
+  // "Con rejilla" es la única técnica editable; sin rejilla y kerma la reflejan
+  // en espejo por programa clínico (misma técnica real, sin volver a digitarla).
+  const conRejillaPorPrograma = new Map(
+    conRejilla.filter((m) => m.programa_clinico).map((m) => [m.programa_clinico!, m])
+  );
 
   // ─── Loading ───
   if (!isReady || data === undefined) {
@@ -829,7 +878,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                 </tr>
               </thead>
               <tbody>
-                {conRejilla.map((m, idx) => (
+                {conRejilla.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                     <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
                     <td className="py-1.5 px-1.5 font-medium text-slate-700">
@@ -845,9 +894,12 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                             defaultValue={m[field] ?? ""}
                             onBlur={(e) =>
                               m.id &&
-                              updateMedicion(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
+                              updateNominalConRejilla(
+                                m.id,
+                                m.programa_clinico,
+                                field,
+                                e.target.value ? parseFloat(e.target.value) : undefined
+                              )
                             }
                           />
                         </td>
@@ -888,7 +940,8 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             title="Mediciones SIN rejilla (programas clínicos)"
             icon={Zap}
           >
-            Mismos programas pero sin rejilla. Necesario para calcular la dosis al receptor.
+            Mismos programas pero sin rejilla. Necesario para calcular la dosis al receptor. La
+            técnica (kV, mA, t, mAs) se toma automáticamente de &ldquo;Con rejilla&rdquo;.
           </StepHeader>
 
           <Tip>
@@ -964,66 +1017,66 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                 </tr>
               </thead>
               <tbody>
-                {sinRejilla.map((m) => (
-                  <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
-                    <td className="py-1.5 px-1.5 font-medium text-slate-700">
-                      {m.programa_clinico}
-                    </td>
-                    {(["kv_nominal", "ma_nominal", "tiempo_nominal_s", "mas_nominal"] as const).map(
-                      (field) => (
+                {sinRejilla.map((m) => {
+                  const ref = m.programa_clinico
+                    ? conRejillaPorPrograma.get(m.programa_clinico)
+                    : undefined;
+                  return (
+                    <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1.5 font-medium text-slate-700">
+                        {m.programa_clinico}
+                      </td>
+                      {(
+                        ["kv_nominal", "ma_nominal", "tiempo_nominal_s", "mas_nominal"] as const
+                      ).map((field) => (
                         <td key={field} className="py-1.5 px-1.5">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
-                            defaultValue={m[field] ?? ""}
-                            onBlur={(e) =>
-                              m.id &&
-                              updateMedicion(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
-                            }
+                          <CeldaLectura
+                            value={ref?.[field] ?? null}
+                            tono="espejo"
+                            widthClass="w-16"
                           />
                         </td>
-                      )
-                    )}
-                    {(["kv_medido", "tiempo_medido_s", "dosis_medida_mgy"] as const).map(
-                      (field) => (
-                        <td key={field} className="py-1.5 px-1.5">
-                          <Input
-                            type="number"
-                            step="0.001"
-                            className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                            defaultValue={m[field] ?? ""}
-                            placeholder="—"
-                            onBlur={(e) =>
-                              m.id &&
-                              updateMedicion(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
-                            }
-                          />
-                        </td>
-                      )
-                    )}
-                    <td className="py-1.5 px-1.5">
-                      <Input
-                        type="number"
-                        step="0.001"
-                        className="rounded-lg h-7 text-xs font-medium border-amber-200 bg-amber-50/50 w-20"
-                        defaultValue={m.dosis_base_mgy ?? ""}
-                        placeholder="—"
-                        onBlur={(e) =>
-                          m.id &&
-                          updateMedicion(m.id, {
-                            dosis_base_mgy: e.target.value ? parseFloat(e.target.value) : undefined,
-                          })
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))}
+                      ))}
+                      {(["kv_medido", "tiempo_medido_s", "dosis_medida_mgy"] as const).map(
+                        (field) => (
+                          <td key={field} className="py-1.5 px-1.5">
+                            <Input
+                              type="number"
+                              step="0.001"
+                              className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
+                              defaultValue={m[field] ?? ""}
+                              placeholder="—"
+                              onBlur={(e) =>
+                                m.id &&
+                                updateMedicion(m.id, {
+                                  [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                                })
+                              }
+                            />
+                          </td>
+                        )
+                      )}
+                      <td className="py-1.5 px-1.5">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          className="rounded-lg h-7 text-xs font-medium border-amber-200 bg-amber-50/50 w-20"
+                          defaultValue={m.dosis_base_mgy ?? ""}
+                          placeholder="—"
+                          onBlur={(e) =>
+                            m.id &&
+                            updateMedicion(m.id, {
+                              dosis_base_mgy: e.target.value
+                                ? parseFloat(e.target.value)
+                                : undefined,
+                            })
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1039,6 +1092,7 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
             icon={Zap}
           >
             Mide el Kerma en aire y calcula el factor de corrección del producto dosis-área (PKA).
+            El kV y mAs se toman automáticamente de &ldquo;Con rejilla&rdquo;.
           </StepHeader>
 
           <Alert>Retire el filtro de cobre antes de estas mediciones.</Alert>
@@ -1077,42 +1131,61 @@ export default function GrupoBPage({ params }: { params: Promise<{ id: string }>
                 </tr>
               </thead>
               <tbody>
-                {kerma.map((m) => (
-                  <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1 font-black text-primary">{m.toma_numero}</td>
-                    <td className="py-1.5 px-1 font-medium text-slate-700">{m.programa_clinico}</td>
-                    {(
-                      [
-                        "kv_nominal",
-                        "mas_nominal",
-                        "dap_nominal",
-                        "distancia_foco_sensor_cm" as "dap_nominal",
-                        "distancia_foco_detector_cm" as "dap_nominal",
-                        "ancho_irradiacion_cm",
-                        "largo_irradiacion_cm",
-                        "dosis_medida_mgy",
-                      ] as const
-                    ).map((field) => (
-                      <td key={field} className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                          defaultValue={
-                            ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
-                          }
-                          placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, {
-                              [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
+                {kerma.map((m) => {
+                  const ref = m.programa_clinico
+                    ? conRejillaPorPrograma.get(m.programa_clinico)
+                    : undefined;
+                  return (
+                    <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="py-1.5 px-1 font-black text-primary">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1 font-medium text-slate-700">
+                        {m.programa_clinico}
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <CeldaLectura
+                          value={ref?.kv_nominal ?? null}
+                          tono="espejo"
+                          widthClass="w-20"
                         />
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      <td className="py-1.5 px-1">
+                        <CeldaLectura
+                          value={ref?.mas_nominal ?? null}
+                          tono="espejo"
+                          widthClass="w-20"
+                        />
+                      </td>
+                      {(
+                        [
+                          "dap_nominal",
+                          "distancia_foco_sensor_cm" as "dap_nominal",
+                          "distancia_foco_detector_cm" as "dap_nominal",
+                          "ancho_irradiacion_cm",
+                          "largo_irradiacion_cm",
+                          "dosis_medida_mgy",
+                        ] as const
+                      ).map((field) => (
+                        <td key={field} className="py-1.5 px-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
+                            defaultValue={
+                              ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
+                            }
+                            placeholder="—"
+                            onBlur={(e) =>
+                              m.id &&
+                              updateMedicion(m.id, {
+                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                              })
+                            }
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

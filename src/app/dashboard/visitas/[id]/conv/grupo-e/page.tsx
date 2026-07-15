@@ -99,7 +99,11 @@ function CollapsibleSection({
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
         <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
-        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-slate-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-slate-400" />
+        )}
       </button>
       {open && <div className="p-3 space-y-3">{children}</div>}
     </div>
@@ -239,16 +243,43 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
   }, [isReady, visitaId]);
 
   // ─── Initialize singletons ───
+  // Guard síncrono por tabla: la consulta combinada se reejecuta cada vez que
+  // cualquiera de las 6 tablas cambia (incluida la que escribe este mismo
+  // efecto), pudiendo reinvocarlo antes de que un insert previo se refleje
+  // en `data` y duplicar filas. Un ref por singleton evita el doble insert.
+  const colimacionInsertadaRef = useRef<string | null>(null);
+  const resolucionInsertadaRef = useRef<string | null>(null);
+  const bajoContrasteInsertadoRef = useRef<string | null>(null);
+  const mtfInsertadoRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data) return;
     const now = new Date().toISOString();
-    if (!data.colimacion) {
-      db.conv_colimacion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now, sync_status: "pending" as const, last_modified: now });
+    if (!data.colimacion && colimacionInsertadaRef.current !== visitaId) {
+      colimacionInsertadaRef.current = visitaId;
+      db.conv_colimacion.add({
+        id: randomUUID(),
+        visita_id: visitaId,
+        sid_cm: 100,
+        tecnica_kv: 75,
+        creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
+      });
     }
-    if (!data.resolucion) {
-      db.conv_resolucion.add({ id: randomUUID(), visita_id: visitaId, sid_cm: 100, tecnica_kv: 75, creado_en: now, sync_status: "pending" as const, last_modified: now });
+    if (!data.resolucion && resolucionInsertadaRef.current !== visitaId) {
+      resolucionInsertadaRef.current = visitaId;
+      db.conv_resolucion.add({
+        id: randomUUID(),
+        visita_id: visitaId,
+        sid_cm: 100,
+        tecnica_kv: 75,
+        creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
+      });
     }
-    if (!data.bajoContraste) {
+    if (!data.bajoContraste && bajoContrasteInsertadoRef.current !== visitaId) {
+      bajoContrasteInsertadoRef.current = visitaId;
       db.conv_bajo_contraste.add({
         id: randomUUID(),
         visita_id: visitaId,
@@ -259,7 +290,8 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
         last_modified: now,
       });
     }
-    if (!data.mtf) {
+    if (!data.mtf && mtfInsertadoRef.current !== visitaId) {
+      mtfInsertadoRef.current = visitaId;
       db.conv_mtf.add({
         id: randomUUID(),
         visita_id: visitaId,
@@ -322,7 +354,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
@@ -343,7 +375,7 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
 
   async function removeImage(pruebaCodigo: string, slot: string) {
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) await db.conv_evidencias.delete(existing.id);
   }
@@ -388,16 +420,14 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
         if (!center) return { uniformidades: [] as number[], max: null as number | null };
         const uniformidades = [1, 2, 3, 4].map((i) => {
           const roi = num(det[`roi_${i}_vmp_${suffix}` as keyof typeof det]);
-          return roi && center ? Math.abs(100 * (roi - center) / center) : 0;
+          return roi && center ? Math.abs((100 * (roi - center)) / center) : 0;
         });
         return { uniformidades, max: Math.max(...uniformidades) };
       };
       const ac = calcOrientation("ac");
       const ca = calcOrientation("ca");
       const maxGlobal =
-        ac.max !== null && ca.max !== null
-          ? Math.max(ac.max, ca.max)
-          : ac.max ?? ca.max;
+        ac.max !== null && ca.max !== null ? Math.max(ac.max, ca.max) : (ac.max ?? ca.max);
       return { det, ac, ca, maxGlobal };
     });
   }, [data?.uniformidadDet]);
@@ -474,8 +504,13 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           ═══════════════════════════════════════════ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.3" title="Sistema de colimacion y perpendicularidad" icon={Target}>
-            Coincidencia del campo luminoso con el campo de radiacion. Tolerancia: &lt; 2% por lado, &lt; 4% total.
+          <StepHeader
+            step="Prueba 2.3"
+            title="Sistema de colimacion y perpendicularidad"
+            icon={Target}
+          >
+            Coincidencia del campo luminoso con el campo de radiacion. Tolerancia: &lt; 2% por lado,
+            &lt; 4% total.
           </StepHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -496,9 +531,17 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           <CollapsibleSection title="Tecnica y distancia">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SID (cm)</label>
-                <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={colim?.sid_cm ?? 100}
-                  onBlur={(e) => updateColimacion({ sid_cm: e.target.value ? parseFloat(e.target.value) : 100 })} />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  SID (cm)
+                </label>
+                <Input
+                  type="number"
+                  className="rounded-xl h-9 text-sm font-medium"
+                  defaultValue={colim?.sid_cm ?? 100}
+                  onBlur={(e) =>
+                    updateColimacion({ sid_cm: e.target.value ? parseFloat(e.target.value) : 100 })
+                  }
+                />
               </div>
               {[
                 ["tecnica_kv", "kVp", "75"],
@@ -506,11 +549,23 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 ["tecnica_mas", "mAs", ""],
               ].map(([field, label, ph]) => (
                 <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
-                  <Input type="number" step="0.01" className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={(colim as Record<string, unknown> | undefined)?.[field] as string ?? ""}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {label}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="rounded-xl h-9 text-sm font-medium"
+                    defaultValue={
+                      ((colim as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                    }
                     placeholder={ph}
-                    onBlur={(e) => updateColimacion({ [field]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                    onBlur={(e) =>
+                      updateColimacion({
+                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -523,18 +578,50 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 <div key={d.key} className="grid grid-cols-3 gap-2 items-end">
                   <div className="text-xs font-black text-primary">{d.label}</div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase">Nominal (cm)</label>
-                    <Input type="number" step="0.1" className="rounded-lg h-8 text-xs font-medium"
-                      defaultValue={(colim as Record<string, unknown> | undefined)?.[`${d.key}_nominal`] as string ?? ""}
+                    <label className="text-[9px] font-black text-slate-400 uppercase">
+                      Nominal (cm)
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      className="rounded-lg h-8 text-xs font-medium"
+                      defaultValue={
+                        ((colim as Record<string, unknown> | undefined)?.[
+                          `${d.key}_nominal`
+                        ] as string) ?? ""
+                      }
                       placeholder="—"
-                      onBlur={(e) => updateColimacion({ [`${d.key}_nominal`]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                      onBlur={(e) =>
+                        updateColimacion({
+                          [`${d.key}_nominal`]: e.target.value
+                            ? parseFloat(e.target.value)
+                            : undefined,
+                        })
+                      }
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase">Medido (cm)</label>
-                    <Input type="number" step="0.1" className="rounded-lg h-8 text-xs font-medium border-blue-200 bg-blue-50/50"
-                      defaultValue={(colim as Record<string, unknown> | undefined)?.[`${d.key}_medido`] as string ?? ""}
+                    <label className="text-[9px] font-black text-slate-400 uppercase">
+                      Medido (cm)
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      className="rounded-lg h-8 text-xs font-medium border-blue-200 bg-blue-50/50"
+                      defaultValue={
+                        ((colim as Record<string, unknown> | undefined)?.[
+                          `${d.key}_medido`
+                        ] as string) ?? ""
+                      }
                       placeholder="—"
-                      onBlur={(e) => updateColimacion({ [`${d.key}_medido`]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                      onBlur={(e) =>
+                        updateColimacion({
+                          [`${d.key}_medido`]: e.target.value
+                            ? parseFloat(e.target.value)
+                            : undefined,
+                        })
+                      }
+                    />
                   </div>
                 </div>
               ))}
@@ -548,9 +635,16 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-slate-200">
-                      {["Direccion", "Nominal", "Medido", "Dif (cm)", "Var %", "Tol", ""].map((h) => (
-                        <th key={h} className="text-[9px] font-black text-slate-400 uppercase text-left py-1.5 px-1.5">{h}</th>
-                      ))}
+                      {["Direccion", "Nominal", "Medido", "Dif (cm)", "Var %", "Tol", ""].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            className="text-[9px] font-black text-slate-400 uppercase text-left py-1.5 px-1.5"
+                          >
+                            {h}
+                          </th>
+                        )
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -560,16 +654,26 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                         <td className="py-1.5 px-1.5 font-mono">{d.nominal || "—"}</td>
                         <td className="py-1.5 px-1.5 font-mono">{d.medido || "—"}</td>
                         <td className="py-1.5 px-1.5 font-mono">{d.diff.toFixed(1)}</td>
-                        <td className="py-1.5 px-1.5 font-mono font-bold">{d.varPct.toFixed(1)}%</td>
+                        <td className="py-1.5 px-1.5 font-mono font-bold">
+                          {d.varPct.toFixed(1)}%
+                        </td>
                         <td className="py-1.5 px-1.5 text-slate-400">&lt; 2%</td>
-                        <td className="py-1.5 px-1.5"><ConceptoBadge concepto={d.concepto} /></td>
+                        <td className="py-1.5 px-1.5">
+                          <ConceptoBadge concepto={d.concepto} />
+                        </td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-slate-200">
-                      <td className="py-1.5 px-1.5 font-black text-slate-700" colSpan={4}>Total</td>
-                      <td className="py-1.5 px-1.5 font-mono font-black">{colimacionResults.totalVar.toFixed(1)}%</td>
+                      <td className="py-1.5 px-1.5 font-black text-slate-700" colSpan={4}>
+                        Total
+                      </td>
+                      <td className="py-1.5 px-1.5 font-mono font-black">
+                        {colimacionResults.totalVar.toFixed(1)}%
+                      </td>
                       <td className="py-1.5 px-1.5 text-slate-400">&lt; 4%</td>
-                      <td className="py-1.5 px-1.5"><ConceptoBadge concepto={colimacionResults.conceptoTotal} /></td>
+                      <td className="py-1.5 px-1.5">
+                        <ConceptoBadge concepto={colimacionResults.conceptoTotal} />
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -587,12 +691,16 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
             >
               <option value="">Seleccionar posicion</option>
               {POSICIONES_ESFERA.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
               ))}
             </select>
             {colimacionResults?.perpConcepto && (
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs font-medium text-slate-600">Concepto perpendicularidad</span>
+                <span className="text-xs font-medium text-slate-600">
+                  Concepto perpendicularidad
+                </span>
                 <ConceptoBadge concepto={colimacionResults.perpConcepto} />
               </div>
             )}
@@ -605,7 +713,11 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           ═══════════════════════════════════════════ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.11" title="Uniformidad y artefactos del detector" icon={Target}>
+          <StepHeader
+            step="Prueba 2.11"
+            title="Uniformidad y artefactos del detector"
+            icon={Target}
+          >
             Analisis de ROIs en imagenes DICOM a 0° y 180°. Se repite por cada chasis CR o DR.
           </StepHeader>
 
@@ -614,30 +726,60 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           <Alert>Poner filtro de cobre a la salida del tubo. Colimar para cubrir el cobre.</Alert>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ImageSlot label="Imagen DICOM 0°" evidencia={getEvidencia("2.11", "dicom_0")}
-              onCapture={(f) => captureImage("2.11", "dicom_0", f)} onRemove={() => removeImage("2.11", "dicom_0")} />
-            <ImageSlot label="Imagen DICOM 180°" evidencia={getEvidencia("2.11", "dicom_180")}
-              onCapture={(f) => captureImage("2.11", "dicom_180", f)} onRemove={() => removeImage("2.11", "dicom_180")} />
+            <ImageSlot
+              label="Imagen DICOM 0°"
+              evidencia={getEvidencia("2.11", "dicom_0")}
+              onCapture={(f) => captureImage("2.11", "dicom_0", f)}
+              onRemove={() => removeImage("2.11", "dicom_0")}
+            />
+            <ImageSlot
+              label="Imagen DICOM 180°"
+              evidencia={getEvidencia("2.11", "dicom_180")}
+              onCapture={(f) => captureImage("2.11", "dicom_180", f)}
+              onRemove={() => removeImage("2.11", "dicom_180")}
+            />
           </div>
 
           {uniformidadResults.map((ur, idx) => (
-            <CollapsibleSection key={ur.det.id} title={`Detector ${idx + 1}${ur.det.serie_detector ? ` — ${ur.det.serie_detector}` : ""}`}>
+            <CollapsibleSection
+              key={ur.det.id}
+              title={`Detector ${idx + 1}${ur.det.serie_detector ? ` — ${ur.det.serie_detector}` : ""}`}
+            >
               <div className="space-y-3">
-                <Input className="rounded-xl h-8 text-xs font-medium" placeholder="Serie del detector"
+                <Input
+                  className="rounded-xl h-8 text-xs font-medium"
+                  placeholder="Serie del detector"
                   defaultValue={ur.det.serie_detector ?? ""}
-                  onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { serie_detector: e.target.value || undefined })} />
+                  onBlur={(e) =>
+                    ur.det.id &&
+                    updateUniformidadDet(ur.det.id, { serie_detector: e.target.value || undefined })
+                  }
+                />
 
                 {/* Tolerancia */}
                 <div className="flex items-center gap-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">Tolerancia (%)</label>
-                  <Input type="number" step="1" className="rounded-lg h-7 text-xs font-medium w-20"
+                  <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">
+                    Tolerancia (%)
+                  </label>
+                  <Input
+                    type="number"
+                    step="1"
+                    className="rounded-lg h-7 text-xs font-medium w-20"
                     defaultValue={ur.det.tolerancia_pct ?? 15}
-                    onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { tolerancia_pct: e.target.value ? parseFloat(e.target.value) : 15 })} />
+                    onBlur={(e) =>
+                      ur.det.id &&
+                      updateUniformidadDet(ur.det.id, {
+                        tolerancia_pct: e.target.value ? parseFloat(e.target.value) : 15,
+                      })
+                    }
+                  />
                 </div>
 
                 {(["ac", "ca"] as const).map((orient) => (
                   <div key={orient} className="space-y-2">
-                    <p className="text-[10px] font-black text-slate-500 uppercase">{orient === "ac" ? "0° (Anodo-Catodo)" : "180° (Catodo-Anodo)"}</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase">
+                      {orient === "ac" ? "0° (Anodo-Catodo)" : "180° (Catodo-Anodo)"}
+                    </p>
                     <div className="grid grid-cols-5 gap-2">
                       {[0, 1, 2, 3, 4].map((i) => {
                         const vmpField = `roi_${i}_vmp_${orient}` as keyof typeof ur.det;
@@ -647,21 +789,46 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                             <label className="text-[9px] font-black text-slate-400 uppercase">
                               {i === 0 ? "ROIc" : `ROI${i}`}
                             </label>
-                            <Input type="number" step="0.1" className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50"
-                              defaultValue={ur.det[vmpField] as number ?? ""}
+                            <Input
+                              type="number"
+                              step="0.1"
+                              className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50"
+                              defaultValue={(ur.det[vmpField] as number) ?? ""}
                               placeholder="VMP"
-                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [vmpField]: e.target.value ? parseFloat(e.target.value) : undefined })} />
-                            <Input type="number" step="0.1" className="rounded-lg h-7 text-xs font-medium border-slate-200"
-                              defaultValue={ur.det[desvField] as number ?? ""}
+                              onBlur={(e) =>
+                                ur.det.id &&
+                                updateUniformidadDet(ur.det.id, {
+                                  [vmpField]: e.target.value
+                                    ? parseFloat(e.target.value)
+                                    : undefined,
+                                })
+                              }
+                            />
+                            <Input
+                              type="number"
+                              step="0.1"
+                              className="rounded-lg h-7 text-xs font-medium border-slate-200"
+                              defaultValue={(ur.det[desvField] as number) ?? ""}
                               placeholder="Desv."
-                              onBlur={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { [desvField]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                              onBlur={(e) =>
+                                ur.det.id &&
+                                updateUniformidadDet(ur.det.id, {
+                                  [desvField]: e.target.value
+                                    ? parseFloat(e.target.value)
+                                    : undefined,
+                                })
+                              }
+                            />
                           </div>
                         );
                       })}
                     </div>
                     {(orient === "ac" ? ur.ac : ur.ca).max !== null && (
                       <p className="text-[10px] text-slate-500">
-                        Uniformidad max: <span className="font-black text-slate-800">{(orient === "ac" ? ur.ac : ur.ca).max?.toFixed(1)}%</span>
+                        Uniformidad max:{" "}
+                        <span className="font-black text-slate-800">
+                          {(orient === "ac" ? ur.ac : ur.ca).max?.toFixed(1)}%
+                        </span>
                       </p>
                     )}
                   </div>
@@ -670,45 +837,77 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 {/* Artefactos */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded" checked={ur.det.pixeles_defectuosos ?? false}
-                      onChange={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { pixeles_defectuosos: e.target.checked })} />
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={ur.det.pixeles_defectuosos ?? false}
+                      onChange={(e) =>
+                        ur.det.id &&
+                        updateUniformidadDet(ur.det.id, { pixeles_defectuosos: e.target.checked })
+                      }
+                    />
                     <span className="text-xs text-slate-600">Pixeles defectuosos</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded" checked={ur.det.artefactos ?? false}
-                      onChange={(e) => ur.det.id && updateUniformidadDet(ur.det.id, { artefactos: e.target.checked })} />
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={ur.det.artefactos ?? false}
+                      onChange={(e) =>
+                        ur.det.id &&
+                        updateUniformidadDet(ur.det.id, { artefactos: e.target.checked })
+                      }
+                    />
                     <span className="text-xs text-slate-600">Artefactos visibles</span>
                   </div>
                 </div>
 
-                {ur.maxGlobal !== null && (() => {
-                  const tolerancia = ur.det.tolerancia_pct ?? 15;
-                  const conforme = ur.maxGlobal <= tolerancia && !ur.det.pixeles_defectuosos && !ur.det.artefactos;
-                  return (
-                    <div className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-bold text-slate-700">Uniformidad max global</span>
-                        <span className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
-                          {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                {ur.maxGlobal !== null &&
+                  (() => {
+                    const tolerancia = ur.det.tolerancia_pct ?? 15;
+                    const conforme =
+                      ur.maxGlobal <= tolerancia &&
+                      !ur.det.pixeles_defectuosos &&
+                      !ur.det.artefactos;
+                    return (
+                      <div
+                        className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-bold text-slate-700">
+                            Uniformidad max global
+                          </span>
+                          <span
+                            className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                          >
+                            {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                        >
+                          {ur.maxGlobal.toFixed(1)}%
                         </span>
                       </div>
-                      <span className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
-                        {ur.maxGlobal.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
 
-                <button type="button" onClick={() => ur.det.id && removeUniformidadDet(ur.det.id)}
-                  className="text-xs text-red-400 hover:text-red-600 font-bold">
+                <button
+                  type="button"
+                  onClick={() => ur.det.id && removeUniformidadDet(ur.det.id)}
+                  className="text-xs text-red-400 hover:text-red-600 font-bold"
+                >
                   Eliminar detector
                 </button>
               </div>
             </CollapsibleSection>
           ))}
 
-          <Button variant="outline" className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
-            onClick={addUniformidadDet}>
+          <Button
+            variant="outline"
+            className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+            onClick={addUniformidadDet}
+          >
             <Plus className="w-4 h-4 mr-2" /> Agregar detector / chasis
           </Button>
         </CardContent>
@@ -719,64 +918,123 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           ═══════════════════════════════════════════ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.12" title="Resolucion espacial de alto contraste" icon={Target}>
+          <StepHeader
+            step="Prueba 2.12"
+            title="Resolucion espacial de alto contraste"
+            icon={Target}
+          >
             Identifica el grupo de barras mas fino visible en el patron de resolucion.
           </StepHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ImageSlot label="Foto montaje experimental" evidencia={getEvidencia("2.12", "montaje_resolucion")}
-              onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)} onRemove={() => removeImage("2.12", "montaje_resolucion")} />
-            <ImageSlot label="Radiografía del patrón de resolución" evidencia={getEvidencia("2.12", "dicom_resolucion")}
-              onCapture={(f) => captureImage("2.12", "dicom_resolucion", f)} onRemove={() => removeImage("2.12", "dicom_resolucion")} />
+            <ImageSlot
+              label="Foto montaje experimental"
+              evidencia={getEvidencia("2.12", "montaje_resolucion")}
+              onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)}
+              onRemove={() => removeImage("2.12", "montaje_resolucion")}
+            />
+            <ImageSlot
+              label="Radiografía del patrón de resolución"
+              evidencia={getEvidencia("2.12", "dicom_resolucion")}
+              onCapture={(f) => captureImage("2.12", "dicom_resolucion", f)}
+              onRemove={() => removeImage("2.12", "dicom_resolucion")}
+            />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SID (cm)</label>
-              <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.sid_cm ?? 100}
-                onBlur={(e) => updateResolucion({ sid_cm: e.target.value ? parseFloat(e.target.value) : 100 })} />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                SID (cm)
+              </label>
+              <Input
+                type="number"
+                className="rounded-xl h-9 text-sm font-medium"
+                defaultValue={resol?.sid_cm ?? 100}
+                onBlur={(e) =>
+                  updateResolucion({ sid_cm: e.target.value ? parseFloat(e.target.value) : 100 })
+                }
+              />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">kVp</label>
-              <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.tecnica_kv ?? 75}
-                onBlur={(e) => updateResolucion({ tecnica_kv: e.target.value ? parseFloat(e.target.value) : undefined })} />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                kVp
+              </label>
+              <Input
+                type="number"
+                className="rounded-xl h-9 text-sm font-medium"
+                defaultValue={resol?.tecnica_kv ?? 75}
+                onBlur={(e) =>
+                  updateResolucion({
+                    tecnica_kv: e.target.value ? parseFloat(e.target.value) : undefined,
+                  })
+                }
+              />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">mAs</label>
-              <Input type="number" className="rounded-xl h-9 text-sm font-medium" defaultValue={resol?.tecnica_mas ?? ""}
-                onBlur={(e) => updateResolucion({ tecnica_mas: e.target.value ? parseFloat(e.target.value) : undefined })} />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                mAs
+              </label>
+              <Input
+                type="number"
+                className="rounded-xl h-9 text-sm font-medium"
+                defaultValue={resol?.tecnica_mas ?? ""}
+                onBlur={(e) =>
+                  updateResolucion({
+                    tecnica_mas: e.target.value ? parseFloat(e.target.value) : undefined,
+                  })
+                }
+              />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">pl/mm visibles</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              pl/mm visibles
+            </label>
             <select
               className="w-full rounded-xl h-9 text-sm font-black border border-blue-200 bg-blue-50/50 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
               value={resol?.pares_lineas_plmm ?? ""}
-              onChange={(e) => updateResolucion({ pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined })}>
+              onChange={(e) =>
+                updateResolucion({
+                  pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined,
+                })
+              }
+            >
               <option value="">— Seleccionar —</option>
-              {[5.0, 4.6, 4.3, 4.0, 3.9, 3.7, 3.4, 3.1, 2.8, 2.5, 2.4, 2.3, 2.0, 1.8, 1.6, 1.4, 1.2, 1.0, 0.9, 0.8, 0.7, 0.6].map((v) => (
-                <option key={v} value={v}>{v.toFixed(1)} pl/mm</option>
+              {[
+                5.0, 4.6, 4.3, 4.0, 3.9, 3.7, 3.4, 3.1, 2.8, 2.5, 2.4, 2.3, 2.0, 1.8, 1.6, 1.4, 1.2,
+                1.0, 0.9, 0.8, 0.7, 0.6,
+              ].map((v) => (
+                <option key={v} value={v}>
+                  {v.toFixed(1)} pl/mm
+                </option>
               ))}
             </select>
           </div>
 
-          {resol?.pares_lineas_plmm != null && (() => {
-            const conforme = resol.pares_lineas_plmm >= 2.4;
-            return (
-              <div className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-bold text-slate-700">Resolución espacial</span>
-                  <span className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
-                    {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+          {resol?.pares_lineas_plmm != null &&
+            (() => {
+              const conforme = resol.pares_lineas_plmm >= 2.4;
+              return (
+                <div
+                  className={`flex items-center justify-between p-2 rounded-lg ${conforme ? "bg-green-50" : "bg-red-50"}`}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-bold text-slate-700">Resolución espacial</span>
+                    <span
+                      className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                    >
+                      {conforme ? "FAVORABLE" : "NO FAVORABLE"}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                  >
+                    {resol.pares_lineas_plmm.toFixed(1)} pl/mm
                   </span>
                 </div>
-                <span className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}>
-                  {resol.pares_lineas_plmm.toFixed(1)} pl/mm
-                </span>
-              </div>
-            );
-          })()}
+              );
+            })()}
         </CardContent>
       </Card>
 
@@ -785,12 +1043,20 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           ═══════════════════════════════════════════ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.13" title="Umbral de sensibilidad a bajo contraste" icon={Target}>
+          <StepHeader
+            step="Prueba 2.13"
+            title="Umbral de sensibilidad a bajo contraste"
+            icon={Target}
+          >
             Marca los niveles de contraste visibles en la imagen del phantom.
           </StepHeader>
 
-          <ImageSlot label="Montaje patron bajo contraste" evidencia={getEvidencia("2.13", "montaje_bajo_contraste")}
-            onCapture={(f) => captureImage("2.13", "montaje_bajo_contraste", f)} onRemove={() => removeImage("2.13", "montaje_bajo_contraste")} />
+          <ImageSlot
+            label="Montaje patron bajo contraste"
+            evidencia={getEvidencia("2.13", "montaje_bajo_contraste")}
+            onCapture={(f) => captureImage("2.13", "montaje_bajo_contraste", f)}
+            onRemove={() => removeImage("2.13", "montaje_bajo_contraste")}
+          />
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {NIVELES_CONTRASTE.map((nc) => {
@@ -820,14 +1086,22 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
           ═══════════════════════════════════════════ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Prueba 2.16" title="Funcion de transferencia de modulacion (MTF)" icon={Target}>
+          <StepHeader
+            step="Prueba 2.16"
+            title="Funcion de transferencia de modulacion (MTF)"
+            icon={Target}
+          >
             Analisis MTF con ImageJ. Registra los valores MTF50 y MTF20 horizontal y vertical.
           </StepHeader>
 
           <Alert>Quitar el filtro de cobre para esta prueba.</Alert>
 
-          <ImageSlot label="Imagen DICOM para MTF" evidencia={getEvidencia("2.16", "dicom_mtf")}
-            onCapture={(f) => captureImage("2.16", "dicom_mtf", f)} onRemove={() => removeImage("2.16", "dicom_mtf")} />
+          <ImageSlot
+            label="Imagen DICOM para MTF"
+            evidencia={getEvidencia("2.16", "dicom_mtf")}
+            onCapture={(f) => captureImage("2.16", "dicom_mtf", f)}
+            onRemove={() => removeImage("2.16", "dicom_mtf")}
+          />
 
           <CollapsibleSection title="Tecnica y parametros">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -838,11 +1112,23 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 ["nyquist_lpmm", "Nyquist (lp/mm)", "3.33"],
               ].map(([field, label, ph]) => (
                 <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
-                  <Input type="number" step="0.01" className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={(mtfData as Record<string, unknown> | undefined)?.[field] as string ?? ""}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {label}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="rounded-xl h-9 text-sm font-medium"
+                    defaultValue={
+                      ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                    }
                     placeholder={ph}
-                    onBlur={(e) => updateMtf({ [field]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                    onBlur={(e) =>
+                      updateMtf({
+                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -857,11 +1143,23 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 ["mtf20_vertical", "MTF20 Vertical (lp/mm)"],
               ].map(([field, label]) => (
                 <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
-                  <Input type="number" step="0.01" className="rounded-xl h-9 text-sm font-medium border-blue-200 bg-blue-50/50"
-                    defaultValue={(mtfData as Record<string, unknown> | undefined)?.[field] as string ?? ""}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {label}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="rounded-xl h-9 text-sm font-medium border-blue-200 bg-blue-50/50"
+                    defaultValue={
+                      ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                    }
                     placeholder="—"
-                    onBlur={(e) => updateMtf({ [field]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                    onBlur={(e) =>
+                      updateMtf({
+                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -877,11 +1175,23 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
                 ["mtf20_base_vertical", "MTF20 Base Vert."],
               ].map(([field, label]) => (
                 <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
-                  <Input type="number" step="0.01" className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={(mtfData as Record<string, unknown> | undefined)?.[field] as string ?? ""}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {label}
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="rounded-xl h-9 text-sm font-medium"
+                    defaultValue={
+                      ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                    }
                     placeholder="—"
-                    onBlur={(e) => updateMtf({ [field]: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                    onBlur={(e) =>
+                      updateMtf({
+                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                  />
                 </div>
               ))}
             </div>

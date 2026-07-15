@@ -57,9 +57,7 @@ const DISPAROS_CAE: {
   { toma: 15, kv: 81, cu: 3, sensor: "Centro", para: "2.20 esp" },
 ];
 
-const SLOTS_IMAGEN = [
-  { slot: "montaje_cae", label: "Montaje experimental CAE" },
-];
+const SLOTS_IMAGEN = [{ slot: "montaje_cae", label: "Montaje experimental CAE" }];
 
 // ─── Helpers ───
 
@@ -298,8 +296,13 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
   }, [isReady, visitaId]);
 
   // ─── Initialize default rows ───
+  // Guard síncrono contra reinvocaciones del efecto (misma consulta
+  // combinada reejecutándose) antes de que el bulkAdd previo se refleje.
+  const disparosInsertadosRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.mediciones.length > 0) return;
+    if (disparosInsertadosRef.current === visitaId) return;
+    disparosInsertadosRef.current = visitaId;
     const now = new Date().toISOString();
     const rows = DISPAROS_CAE.map((d) => ({
       id: randomUUID(),
@@ -323,7 +326,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
       await db.conv_evidencias.update(existing.id, { blob_local: blob });
@@ -344,7 +347,7 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
 
   async function removeImage(pruebaCodigo: string, slot: string) {
     const existing = data?.evidencias?.find(
-      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot,
+      (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) await db.conv_evidencias.delete(existing.id);
   }
@@ -509,7 +512,8 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
             Control Automatico de Exposicion (CAE)
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
-            Verifica sensibilidad, consistencia entre sensores, repetibilidad y compensacion del CAE.
+            Verifica sensibilidad, consistencia entre sensores, repetibilidad y compensacion del
+            CAE.
           </p>
         </div>
         <Button
@@ -532,12 +536,8 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
             Configura el CAE y coloca el atenuador de cobre.
           </StepHeader>
 
-          <Alert>
-            Revisar la configuracion del colimador — debe estar en modo MANUAL.
-          </Alert>
-          <Alert>
-            Si se mueve la placa de cobre, se debe repetir toda la ronda de disparos.
-          </Alert>
+          <Alert>Revisar la configuracion del colimador — debe estar en modo MANUAL.</Alert>
+          <Alert>Si se mueve la placa de cobre, se debe repetir toda la ronda de disparos.</Alert>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {SLOTS_IMAGEN.map((s) => (
@@ -569,16 +569,25 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
             <table className="w-full min-w-[800px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
-                  {["#", "kVp", "Cu (mm)", "Sensor CAE", "mAs", "EI", "D.I.", "TEI", "DAP", "Para"].map(
-                    (label) => (
-                      <th
-                        key={label}
-                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
-                      >
-                        {label}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    "#",
+                    "kVp",
+                    "Cu (mm)",
+                    "Sensor CAE",
+                    "mAs",
+                    "EI",
+                    "D.I.",
+                    "TEI",
+                    "DAP",
+                    "Para",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -587,12 +596,8 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
-                      <td className="py-1.5 px-1.5 text-slate-600 font-mono">
-                        {m.kv_nominal}
-                      </td>
-                      <td className="py-1.5 px-1.5 text-slate-600 font-mono">
-                        {m.espesor_cu_mm}
-                      </td>
+                      <td className="py-1.5 px-1.5 text-slate-600 font-mono">{m.kv_nominal}</td>
+                      <td className="py-1.5 px-1.5 text-slate-600 font-mono">{m.espesor_cu_mm}</td>
                       <td className="py-1.5 px-1.5 text-slate-600 font-medium text-[11px]">
                         {m.posicion_sensor}
                       </td>
@@ -627,9 +632,16 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       </Card>
 
       {/* ═══ VALORES BASE (Precarga) ═══ */}
-      <Card key={`setup-${setup?.id ?? "new"}`} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card
+        key={`setup-${setup?.id ?? "new"}`}
+        className="border-none shadow-sm rounded-2xl bg-white overflow-hidden"
+      >
         <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Valores base" title="Valores de referencia (visita anterior)" icon={SlidersHorizontal}>
+          <StepHeader
+            step="Valores base"
+            title="Valores de referencia (visita anterior)"
+            icon={SlidersHorizontal}
+          >
             Si es la primera visita, estos campos quedan vacios y se establece la referencia.
           </StepHeader>
 
@@ -666,9 +678,18 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
             <div className="space-y-3">
               {(
                 [
-                  { kv: "60", fields: { mas: "mas_base_60kv", ei: "ei_base_60kv", di: "di_base_60kv" } },
-                  { kv: "70", fields: { mas: "mas_base_70kv", ei: "ei_base_70kv", di: "di_base_70kv" } },
-                  { kv: "81", fields: { mas: "mas_base_81kv", ei: "ei_base_81kv", di: "di_base_81kv" } },
+                  {
+                    kv: "60",
+                    fields: { mas: "mas_base_60kv", ei: "ei_base_60kv", di: "di_base_60kv" },
+                  },
+                  {
+                    kv: "70",
+                    fields: { mas: "mas_base_70kv", ei: "ei_base_70kv", di: "di_base_70kv" },
+                  },
+                  {
+                    kv: "81",
+                    fields: { mas: "mas_base_81kv", ei: "ei_base_81kv", di: "di_base_81kv" },
+                  },
                 ] as const
               ).map(({ kv, fields }) => (
                 <div key={kv} className="grid grid-cols-4 gap-2 items-end">
@@ -699,9 +720,18 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
             <div className="space-y-3">
               {(
                 [
-                  { cu: "1", fields: { mas: "mas_base_cu1", ei: "ei_base_cu1", di: "di_base_cu1" } },
-                  { cu: "2", fields: { mas: "mas_base_cu2", ei: "ei_base_cu2", di: "di_base_cu2" } },
-                  { cu: "3", fields: { mas: "mas_base_cu3", ei: "ei_base_cu3", di: "di_base_cu3" } },
+                  {
+                    cu: "1",
+                    fields: { mas: "mas_base_cu1", ei: "ei_base_cu1", di: "di_base_cu1" },
+                  },
+                  {
+                    cu: "2",
+                    fields: { mas: "mas_base_cu2", ei: "ei_base_cu2", di: "di_base_cu2" },
+                  },
+                  {
+                    cu: "3",
+                    fields: { mas: "mas_base_cu3", ei: "ei_base_cu3", di: "di_base_cu3" },
+                  },
                 ] as const
               ).map(({ cu, fields }) => (
                 <div key={cu} className="grid grid-cols-4 gap-2 items-end">
@@ -760,7 +790,11 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       {/* 2.18 Consistencia */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
-          <StepHeader step="Prueba 2.18" title="Consistencia entre sensores del CAE" icon={SlidersHorizontal}>
+          <StepHeader
+            step="Prueba 2.18"
+            title="Consistencia entre sensores del CAE"
+            icon={SlidersHorizontal}
+          >
             Variacion (MAX-MIN)/promedio entre las 7 combinaciones de sensor. Limite: &le; 30%.
           </StepHeader>
           <ResultRow
@@ -788,7 +822,8 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Prueba 2.19" title="Repetibilidad del CAE" icon={SlidersHorizontal}>
-            CV (desviacion estandar / promedio) de las 4 repeticiones (tomas 9-12). Limite: CV &le; 10%.
+            CV (desviacion estandar / promedio) de las 4 repeticiones (tomas 9-12). Limite: CV &le;
+            10%.
           </StepHeader>
           <ResultRow
             label="Carga (mAs)"
@@ -849,7 +884,11 @@ export default function GrupoCaePage({ params }: { params: Promise<{ id: string 
       {/* 2.20 Compensación espesores */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
-          <StepHeader step="Prueba 2.20b" title="Compensacion por espesores" icon={SlidersHorizontal}>
+          <StepHeader
+            step="Prueba 2.20b"
+            title="Compensacion por espesores"
+            icon={SlidersHorizontal}
+          >
             Variacion de cada parametro respecto a base por espesor de Cu. Limite: &le; 30%.
           </StepHeader>
           {(["1", "2", "3"] as const).map((cu) => {

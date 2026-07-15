@@ -77,9 +77,7 @@ async function getInfoPercentage(visita: {
     : undefined;
   const solicitud = await db.solicitudes.get(visita.solicitud_id);
   const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
-  const tubo = equipo?.id
-    ? await db.tubos.where("equipo_id").equals(equipo.id).first()
-    : undefined;
+  const tubo = equipo?.id ? await db.tubos.where("equipo_id").equals(equipo.id).first() : undefined;
 
   return pct([
     visita.fecha_visita,
@@ -134,25 +132,165 @@ async function getConvGrupoAPercentage(visitaId: string): Promise<number> {
   return Math.round(setupFields * 0.2 + medPct * 0.3 + inspeccionPct * 0.4 + elemPct * 0.1);
 }
 
+// ─── Grupo B: RaySafe (pruebas 2.4–2.8, 2.21) ───
+
+async function getConvGrupoBPercentage(visitaId: string): Promise<number> {
+  const [setup, mediciones] = await Promise.all([
+    db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
+    db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).toArray(),
+  ]);
+
+  const setupPct = pct([setup?.distancia_foco_sensor_d1_cm, setup?.distancia_foco_detector_d2_cm]);
+
+  const porTipo = (tipo: string) => mediciones.filter((m) => m.tipo_medicion === tipo);
+  const filledPct = (rows: typeof mediciones, camposClave: (keyof (typeof mediciones)[0])[]) => {
+    if (rows.length === 0) return 0;
+    const filled = rows.filter((r) => camposClave.every((c) => notEmpty(r[c]))).length;
+    return Math.round((filled / rows.length) * 100);
+  };
+
+  const principalesPct = filledPct(porTipo("principal"), [
+    "kv_medido",
+    "tiempo_medido_s",
+    "dosis_medida_mgy",
+  ]);
+  const conRejillaPct = filledPct(porTipo("con_rejilla"), ["kv_medido", "dosis_medida_mgy"]);
+  const sinRejillaPct = filledPct(porTipo("sin_rejilla"), ["kv_medido", "dosis_medida_mgy"]);
+  const kermaPct = filledPct(porTipo("kerma"), ["dosis_medida_mgy", "dap_nominal"]);
+
+  // Pesos: setup 5%, principales 45%, con rejilla 15%, sin rejilla 15%, kerma 20%
+  return Math.round(
+    setupPct * 0.05 +
+      principalesPct * 0.45 +
+      conRejillaPct * 0.15 +
+      sinRejillaPct * 0.15 +
+      kermaPct * 0.2
+  );
+}
+
+// ─── Grupo C: CAE (pruebas 2.17–2.20) ───
+
+async function getConvGrupoCPercentage(visitaId: string): Promise<number> {
+  const [setup, mediciones] = await Promise.all([
+    db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
+    db.conv_cae_mediciones.where("visita_id").equals(visitaId).toArray(),
+  ]);
+
+  const setupPct = pct([
+    setup?.mas_base_217,
+    setup?.mas_base_60kv,
+    setup?.mas_base_70kv,
+    setup?.mas_base_81kv,
+    setup?.mas_base_cu1,
+    setup?.mas_base_cu2,
+    setup?.mas_base_cu3,
+  ]);
+
+  const medFilled = mediciones.filter((m) => notEmpty(m.carga_mas) && notEmpty(m.ei)).length;
+  const medPct = mediciones.length ? Math.round((medFilled / mediciones.length) * 100) : 0;
+
+  // Pesos: base de referencia 15%, disparos 85%
+  return Math.round(setupPct * 0.15 + medPct * 0.85);
+}
+
+// ─── Grupo D: DDI/EI, cassettes, uniformidad CR (pruebas 2.9, 2.10, 2.14, 2.15) ───
+
+async function getConvGrupoDPercentage(visitaId: string): Promise<number> {
+  const [ddi, cassettes, uniformidad] = await Promise.all([
+    db.conv_ddi_mediciones.where("visita_id").equals(visitaId).toArray(),
+    db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).toArray(),
+    db.conv_uniformidad_cr.where("visita_id").equals(visitaId).toArray(),
+  ]);
+
+  const ddiFilled = ddi.filter((m) => notEmpty(m.ei)).length;
+  const ddiPct = ddi.length ? Math.round((ddiFilled / ddi.length) * 100) : 0;
+
+  const cassetteFilled = cassettes.filter((c) => notEmpty(c.concepto)).length;
+  const cassettePct =
+    cassettes.length > 0 ? Math.round((cassetteFilled / cassettes.length) * 100) : 0;
+
+  const uniformidadFilled = uniformidad.filter((u) => notEmpty(u.ei)).length;
+  const uniformidadPct =
+    uniformidad.length > 0 ? Math.round((uniformidadFilled / uniformidad.length) * 100) : 0;
+
+  // Pesos: DDI/EI 50%, cassettes 30%, uniformidad CR 20%
+  return Math.round(ddiPct * 0.5 + cassettePct * 0.3 + uniformidadPct * 0.2);
+}
+
+// ─── Grupo E: colimación, resolución, bajo contraste, MTF (pruebas 2.3, 2.11–2.13, 2.16) ───
+
+async function getConvGrupoEPercentage(visitaId: string): Promise<number> {
+  const [colimacion, resolucion, bajoContraste, mtf, uniformidadDetector] = await Promise.all([
+    db.conv_colimacion.where("visita_id").equals(visitaId).first(),
+    db.conv_resolucion.where("visita_id").equals(visitaId).first(),
+    db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
+    db.conv_mtf.where("visita_id").equals(visitaId).first(),
+    db.conv_uniformidad_detector.where("visita_id").equals(visitaId).toArray(),
+  ]);
+
+  const colimacionPct = pct([
+    colimacion?.anodo_medido,
+    colimacion?.catodo_medido,
+    colimacion?.izquierda_medido,
+    colimacion?.derecha_medido,
+    colimacion?.posicion_esfera,
+  ]);
+
+  const resolucionPct = pct([resolucion?.pares_lineas_plmm]);
+
+  const bajoContrastePct = pct([
+    bajoContraste?.contraste_9_4,
+    bajoContraste?.contraste_8_0,
+    bajoContraste?.contraste_5_6,
+    bajoContraste?.contraste_4_0,
+    bajoContraste?.contraste_2_8,
+    bajoContraste?.contraste_1_8,
+    bajoContraste?.contraste_1_3,
+    bajoContraste?.contraste_0_9,
+  ]);
+
+  const mtfPct = pct([mtf?.mtf50_horizontal, mtf?.mtf50_vertical]);
+
+  const detectorFilled = uniformidadDetector.filter(
+    (d) => notEmpty(d.roi_0_vmp_ac) || notEmpty(d.roi_0_vmp_ca)
+  ).length;
+  const detectorPct =
+    uniformidadDetector.length > 0
+      ? Math.round((detectorFilled / uniformidadDetector.length) * 100)
+      : 0;
+
+  // Pesos: colimación 25%, uniformidad detector 25%, resolución 15%, bajo contraste 20%, MTF 15%
+  return Math.round(
+    colimacionPct * 0.25 +
+      detectorPct * 0.25 +
+      resolucionPct * 0.15 +
+      bajoContrastePct * 0.2 +
+      mtfPct * 0.15
+  );
+}
+
 // ─── Main: getModuleStatuses ───
 
-export async function getModuleStatuses(
-  visitaId: string,
-): Promise<Record<string, ModuleProgress>> {
+export async function getModuleStatuses(visitaId: string): Promise<Record<string, ModuleProgress>> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) return {};
 
-  const infoPct = await getInfoPercentage(visita);
-  const grupoAPct = await getConvGrupoAPercentage(visitaId);
+  const [infoPct, grupoAPct, grupoBPct, grupoCPct, grupoDPct, grupoEPct] = await Promise.all([
+    getInfoPercentage(visita),
+    getConvGrupoAPercentage(visitaId),
+    getConvGrupoBPercentage(visitaId),
+    getConvGrupoCPercentage(visitaId),
+    getConvGrupoDPercentage(visitaId),
+    getConvGrupoEPercentage(visitaId),
+  ]);
 
-  // Los demás grupos se implementan conforme se construyen
   return {
     info: toProgress(infoPct),
     "grupo-a": toProgress(grupoAPct),
-    "grupo-b": toProgress(0),
-    "grupo-c": toProgress(0),
-    "grupo-d": toProgress(0),
-    "grupo-e": toProgress(0),
+    "grupo-b": toProgress(grupoBPct),
+    "grupo-c": toProgress(grupoCPct),
+    "grupo-d": toProgress(grupoDPct),
+    "grupo-e": toProgress(grupoEPct),
     "pre-informe": toProgress(0),
   };
 }
@@ -184,7 +322,7 @@ export async function getVisitCompleteness(visitaId: string): Promise<VisitCompl
 // ─── Bulk (simplificado para listado de visitas) ───
 
 export async function getVisitCompletenessBulk(
-  visitaIds: string[],
+  visitaIds: string[]
 ): Promise<Map<string, VisitCompleteness>> {
   if (visitaIds.length === 0) return new Map();
 

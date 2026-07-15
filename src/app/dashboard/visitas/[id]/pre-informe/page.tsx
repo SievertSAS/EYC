@@ -72,7 +72,20 @@ function SeccionCard({
 }) {
   const Icon = GRUPO_ICONS[catalogo.grupo] ?? FileText;
   const analisisRef = useRef<HTMLTextAreaElement>(null);
+  const accionesRef = useRef<HTMLTextAreaElement>(null);
   const sinCriterio = !tieneCriterio(catalogo.codigo);
+
+  // Acciones correctivas con predeterminado editable — solo 2.1, 2.2 y 2.13
+  // (las demás pruebas usan el textarea libre, solo visible en No conforme).
+  const tieneAccionesPredeterminadas = Boolean(
+    catalogo.accionesConforme || catalogo.accionesNoConforme
+  );
+  const accionDefault =
+    conceptoEfectivo === "Conforme"
+      ? catalogo.accionesConforme
+      : conceptoEfectivo === "No_conforme"
+        ? catalogo.accionesNoConforme
+        : undefined;
 
   return (
     <div
@@ -150,19 +163,50 @@ function SeccionCard({
             </p>
           </div>
 
-          {/* Acciones correctivas */}
-          {conceptoEfectivo === "No_conforme" && (
+          {/* Acciones correctivas — 2.1/2.2/2.13 traen predeterminado editable
+              según el concepto (Conforme/No conforme); el resto usa texto
+              libre, solo visible cuando el concepto es No conforme. */}
+          {tieneAccionesPredeterminadas && accionDefault != null ? (
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Acciones correctivas
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Acciones correctivas
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (accionesRef.current) accionesRef.current.value = accionDefault;
+                    onUpdateAcciones(accionDefault);
+                  }}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Restaurar predeterminado
+                </button>
+              </div>
               <textarea
+                ref={accionesRef}
+                key={`${seccion.id}-${conceptoEfectivo}`}
                 className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                defaultValue={seccion.acciones_correctivas ?? ""}
+                defaultValue={seccion.acciones_correctivas ?? accionDefault}
                 placeholder="Describa las acciones correctivas requeridas..."
                 onBlur={(e) => onUpdateAcciones(e.target.value)}
               />
             </div>
+          ) : (
+            conceptoEfectivo === "No_conforme" && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Acciones correctivas
+                </label>
+                <textarea
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  defaultValue={seccion.acciones_correctivas ?? ""}
+                  placeholder="Describa las acciones correctivas requeridas..."
+                  onBlur={(e) => onUpdateAcciones(e.target.value)}
+                />
+              </div>
+            )
           )}
 
           {/* Análisis — solo para secciones con texto de análisis (2.2).

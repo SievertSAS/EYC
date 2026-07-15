@@ -40,15 +40,16 @@ import {
 
 /** Catálogo de elementos de protección radiológica estandarizados */
 const CATALOGO_ELEMENTOS_PROTECCION = [
-  "Chaleco plomado",
-  "Protector de tiroides",
-  "Guantes plomados",
-  "Gafas plomadas",
-  "Protector gonadal",
   "Biombo plomado / mampara móvil",
-  "Falda plomada",
+  "Chaleco plomado",
+  "Delantal con cuello incluido",
   "Delantal plomado",
+  "Falda plomada",
+  "Gafas plomadas",
+  "Guantes plomados",
   "Porta-sueros plomado",
+  "Protector de tiroides",
+  "Protector gonadal",
   "Otro",
 ];
 
@@ -340,8 +341,16 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
   }, [isReady, visitaId]);
 
   // ─── Initialize setup if missing ───
+  // Guard síncrono: la consulta combinada (data) se vuelve a ejecutar cada vez
+  // que CUALQUIERA de sus 5 tablas cambia — incluida la que escribe este mismo
+  // efecto u otro hermano (p.ej. inspección). Eso puede reinvocar el efecto
+  // antes de que el insert previo se refleje en `data`, duplicando filas. El
+  // ref evita un segundo insert dentro del mismo montaje/visita.
+  const setupInsertadoRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.setup) return;
+    if (setupInsertadoRef.current === visitaId) return;
+    setupInsertadoRef.current = visitaId;
     db.conv_levantamiento_setup.add({
       id: randomUUID(),
       visita_id: visitaId,
@@ -353,9 +362,12 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
     });
   }, [data, visitaId]);
 
-  // ─── Initialize inspection items if missing ───
+  // ─── Initialize inspection items if missing ─── (mismo guard, ver arriba)
+  const inspeccionInsertadaRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.inspeccion.length > 0) return;
+    if (inspeccionInsertadaRef.current === visitaId) return;
+    inspeccionInsertadaRef.current = visitaId;
     const now = new Date().toISOString();
     const items: ConvInspeccionItem[] = [
       ...ITEMS_INSPECCION_EQUIPO.map((_, i) => ({
@@ -363,6 +375,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
         visita_id: visitaId,
         seccion: "equipo" as const,
         item_numero: i + 1,
+        concepto: "Conforme" as const,
         creado_en: now,
       })),
       ...ITEMS_CONDICIONES_OPERACION.map((_, i) => ({
@@ -370,6 +383,7 @@ export default function GrupoAPage({ params }: { params: Promise<{ id: string }>
         visita_id: visitaId,
         seccion: "condiciones_operacion" as const,
         item_numero: i + 1,
+        concepto: "Conforme" as const,
         creado_en: now,
       })),
     ];

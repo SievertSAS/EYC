@@ -19,6 +19,10 @@ export interface SeccionInfoCatalogo {
   criterio: string;
   /** Texto por defecto del análisis (editable por el físico, p.ej. 2.2) */
   analisis?: string;
+  /** Acciones correctivas predeterminadas cuando el concepto es Conforme/Favorable (editable) */
+  accionesConforme?: string;
+  /** Acciones correctivas predeterminadas cuando el concepto es No conforme/No favorable (editable) */
+  accionesNoConforme?: string;
 }
 
 export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
@@ -35,6 +39,9 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se realizó el levantamiento radiométrico mediante mediciones de radiación dispersa en puntos representativos del área donde se encuentra instalado el equipo de radiología general. Las mediciones se efectuaron utilizando una cámara de ionización o un detector de estado sólido calibrado en términos de dosis equivalente ambiental H*(10), posicionando un simulador de dispersión en la ubicación habitual del paciente durante la exposición, aplicando la técnica máxima utilizada en la práctica clínica. Los puntos de medición evaluados se presentan en el diagrama radiométrico de la instalación.",
     criterio:
       "Área controlada (trabajadores): H*(10) <= 5 mSv/año. Área supervisada (público): H*(10) <= 0.5 mSv/año.",
+    accionesConforme: "No se requieren acciones correctivas.",
+    accionesNoConforme:
+      "Se recomienda evaluar las condiciones de blindaje de la instalación, revisar la carga de trabajo del equipo y adoptar las medidas de protección radiológica necesarias para garantizar el cumplimiento de los niveles de restricción de dosis establecidos. Una vez subsanada la condición identificada, se deberá repetir el estudio radiométrico para verificar el cumplimiento de los criterios establecidos.",
   },
   {
     codigo: "2.2",
@@ -51,6 +58,9 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La inspección visual se considera aceptable cuando los componentes visibles del equipo y las condiciones de operación de la instalación se encuentran en buen estado físico, sin deterioros, fugas o defectos que puedan comprometer la protección radiológica del operador, los pacientes o el público.",
     analisis:
       "La inspección visual realizada al equipo de radiografía general y a las condiciones de operación de la instalación permitió verificar que los componentes visibles del sistema de rayos X se encuentran en adecuado estado físico, con el fin de identificar deterioros, fugas de aceite, daños mecánicos o anomalías en los cables de alimentación y control.\n\nAsimismo, se revisaron las condiciones de operación del equipo, la señalización de radioprotección y los elementos de seguridad presentes en la instalación para determinar si son consistentes con los requerimientos para la operación segura del equipo evaluado.",
+    accionesConforme: "No se requieren acciones correctivas.",
+    accionesNoConforme:
+      "Se recomienda corregir las condiciones no conformes identificadas durante la inspección visual y verificar nuevamente el cumplimiento de los criterios establecidos antes de continuar con la operación del equipo.",
   },
   {
     codigo: "2.3",
@@ -165,7 +175,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     orden: 11,
     objetivo:
       "Evaluar e identificar la fuente de los artefactos visualizados en las imágenes radiográficas digitales. Verificar la uniformidad de la imagen.",
-    instrumentacion: "Detector de imagen CR o DR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
+    instrumentacion:
+      "Detector de imagen CR o DR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
       "La evaluación de uniformidad del detector se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, obteniendo imágenes uniformes del detector mediante la interposición de una lámina de cobre y registrando el valor medio de píxel en diferentes regiones de interés (ROI) distribuidas en la imagen. Adicionalmente, se realizó inspección visual para identificar la presencia de píxeles defectuosos o artefactos.",
     criterio:
@@ -196,13 +207,18 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La prueba se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, utilizando el módulo de bajo contraste del fantoma correspondiente. Se adquirió la imagen bajo condiciones representativas de operación y se evaluó visualmente la cantidad de detalles de bajo contraste visibles en la imagen.",
     criterio:
       "Debe observarse una cantidad mayor a tres masas o tener un porcentaje de contraste inferior a 4 %.",
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",
+    accionesNoConforme:
+      "Se deberá verificar el detector, el sistema de procesamiento de imagen y las condiciones de exposición, y repetir la prueba para confirmar el cumplimiento de los criterios establecidos.",
   },
   {
     codigo: "2.14",
     nombre: "Integridad y limpieza de cassettes y pantallas IP",
     grupo: "D",
     orden: 14,
-    objetivo: "Verificar la integridad, limpieza y la ausencia de otros defectos en los cassettes y pantallas de fósforo fotoestimulable (IP CR).",
+    objetivo:
+      "Verificar la integridad, limpieza y la ausencia de otros defectos en los cassettes y pantallas de fósforo fotoestimulable (IP CR).",
     instrumentacion: "Cassettes y paño antimotas.",
     metodologia:
       "La verificación de integridad y limpieza de los cassettes y pantallas IP se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, mediante inspección visual de los cassettes y de las pantallas de fósforo fotoestimulable (IP).\n\nDurante la inspección se verificó la correcta identificación de las IP CR y de los cassettes, se examinaron posibles defectos externos, así como la presencia de polvo o rayaduras en las pantallas. En caso necesario, las pantallas se limpiaron siguiendo las recomendaciones del fabricante.",

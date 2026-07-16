@@ -468,13 +468,7 @@ export interface Solicitud extends Partial<SyncFields> {
 
 // ─── Ejecución de visita ───
 
-export type EstadoVisita =
-  | "asignada"
-  | "en_progreso"
-  | "completada"
-  | "pre_informe"
-  | "en_revision"
-  | "aprobada";
+export type EstadoVisita = "asignada" | "en_progreso" | "en_revision" | "aprobada" | "enviada";
 
 export interface VisitaEjecucion extends SyncFields {
   id?: string;
@@ -763,6 +757,8 @@ export interface InformeVersion {
   generado_por_id?: string;
   revisado_por_id?: string;
   pdf_url?: string;
+  /** SHA-256 (hex) del PDF oficial almacenado — fingerprint anti-manipulación */
+  pdf_hash?: string;
   fecha_generacion: string;
   fecha_revision?: string;
   fecha_aprobacion?: string;

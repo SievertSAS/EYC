@@ -41,11 +41,15 @@ async function determinarConceptoGeneral(visitaId: string): Promise<"FAVORABLE" 
 
 /**
  * Crea un informe y su primera versión a partir de una visita aprobada.
+ * Si la visita ya tenía un informe (re-aprobación tras una corrección
+ * solicitada por el cliente), en vez de crear uno nuevo agrega una versión
+ * adicional sobre el mismo número de informe — así se conserva la
+ * trazabilidad completa en la hoja de vida del equipo.
  *
  * @param visitaId - ID de la visita aprobada
  * @param ingenieroId - ID del ingeniero que aprobó
  * @param tecnicoId - ID del técnico que ejecutó la visita
- * @returns El informe creado
+ * @returns El informe (creado o actualizado)
  */
 export async function crearInformeDesdeVisita(
   visitaId: string,
@@ -55,18 +59,46 @@ export async function crearInformeDesdeVisita(
   const visita = await db.visitas.get(visitaId);
   if (!visita) throw new Error("Visita no encontrada");
 
-  // Verificar que no exista ya un informe para esta visita
-  const existente = await db.informes.where("visita_id").equals(visitaId).first();
-  if (existente) return existente;
-
   const now = new Date();
   const fechaEmision = now.toISOString().split("T")[0]; // YYYY-MM-DD
   const fechaVencimiento = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate())
     .toISOString()
     .split("T")[0];
+  const conceptoGeneral = await determinarConceptoGeneral(visitaId);
+
+  const existente = await db.informes.where("visita_id").equals(visitaId).first();
+
+  if (existente?.id) {
+    // Re-aprobación tras corrección por cliente: nueva versión, mismo informe
+    const nuevaVersionNum = existente.version_actual + 1;
+    await db.informes.update(existente.id, {
+      version_actual: nuevaVersionNum,
+      concepto_general: conceptoGeneral,
+      fecha_emision: fechaEmision,
+      fecha_vencimiento: fechaVencimiento,
+      estado: "aprobado",
+    });
+
+    const version: InformeVersion = {
+      id: randomUUID(),
+      informe_id: existente.id,
+      numero_version: nuevaVersionNum,
+      motivo_cambio: "correccion_cliente",
+      descripcion_cambio: "Nueva versión tras ajustes solicitados por el cliente",
+      generado_por_id: tecnicoId,
+      revisado_por_id: ingenieroId,
+      fecha_generacion: now.toISOString(),
+      fecha_revision: now.toISOString(),
+      fecha_aprobacion: now.toISOString(),
+      estado: "aprobado",
+      creado_en: now.toISOString(),
+    };
+    await db.informe_versiones.add(version);
+
+    return { ...existente, version_actual: nuevaVersionNum, concepto_general: conceptoGeneral };
+  }
 
   const numeroInforme = await generarNumeroInforme();
-  const conceptoGeneral = await determinarConceptoGeneral(visitaId);
 
   const informe: Informe = {
     id: randomUUID(),

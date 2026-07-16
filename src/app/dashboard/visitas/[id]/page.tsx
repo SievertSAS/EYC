@@ -1,13 +1,13 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
-import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StateTimeline } from "@/components/state-timeline";
 import { VisitActionBar } from "@/components/visit-action-bar";
 import {
@@ -16,6 +16,8 @@ import {
   type ModuleProgress,
 } from "@/lib/workflow/module-completeness";
 import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
+import { crearInformeDesdeVisita } from "@/lib/workflow/informe-service";
+import { publicarVersionOficial } from "@/lib/workflow/publicar-informe";
 import { getModules, getDefaultModules } from "@/lib/equipos/registry";
 import type { ModuloVisita } from "@/lib/equipos/types";
 import {
@@ -33,6 +35,7 @@ import {
   Loader2,
   AlertCircle,
   Lock,
+  ShieldAlert,
   MessageSquareWarning,
   ClipboardList,
   Target,
@@ -93,7 +96,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   const visitaId = id;
   const { isReady } = useDb();
   const { role } = useRole();
-  const router = useRouter();
+  const [generandoInforme, setGenerandoInforme] = useState(false);
 
   const data = useLiveQuery(async () => {
     if (!isReady || !visitaId) return null;
@@ -110,6 +113,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
     const sede = ubicacion
       ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? "")
       : undefined;
+    const informe = await db.informes.where("visita_id").equals(visitaId).first();
 
     // Module statuses y completitud
     const moduleStatuses = await getModuleStatuses(visitaId);
@@ -122,6 +126,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
       sede,
       cliente,
       solicitud,
+      informe,
       moduleStatuses,
       completeness,
     };
@@ -155,11 +160,32 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const { visita, equipo, ubicacion, sede, cliente, moduleStatuses, completeness } = data;
+  const { visita, equipo, ubicacion, sede, cliente, informe, moduleStatuses, completeness } = data;
   const estadoConfig = ESTADO_CONFIG[visita.estado_visita];
   const isLocked = visita.estado_visita === "asignada";
   const hasRevisionNotes =
     visita.observaciones_revision && visita.estado_visita === "en_progreso" && visita.devuelto_en;
+  const faltaInforme =
+    (visita.estado_visita === "aprobada" || visita.estado_visita === "enviada") && !informe;
+
+  async function handleGenerarInforme() {
+    if (!role) return;
+    setGenerandoInforme(true);
+    try {
+      const nuevoInforme = await crearInformeDesdeVisita(
+        visitaId,
+        role.usuarioId,
+        visita.tecnico_id ?? role.usuarioId
+      );
+      if (nuevoInforme.id) {
+        await publicarVersionOficial(nuevoInforme.id, visitaId);
+      }
+    } catch (err) {
+      console.error("[Visita] Error al generar el informe faltante:", err);
+    } finally {
+      setGenerandoInforme(false);
+    }
+  }
 
   // Módulos dinámicos del paquete del equipo
   const packageModulos = equipo?.tipo_equipo ? getModules(equipo.tipo_equipo) : getDefaultModules();
@@ -186,6 +212,37 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
             </span>
           </div>
           <p className="text-sm text-amber-700 font-medium ml-7">{visita.observaciones_revision}</p>
+        </div>
+      )}
+
+      {/* Banner: informe faltante (visita aprobada/enviada sin registro de informe) */}
+      {faltaInforme && (
+        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-black text-amber-800">
+              Esta visita no tiene un informe generado
+            </span>
+          </div>
+          <p className="text-sm text-amber-700 font-medium ml-7">
+            Puede pasar si se aprobó antes de que existiera este control. Genera el informe (con QR
+            de verificación) para que quede disponible en la hoja de vida del equipo.
+          </p>
+          <div className="ml-7">
+            <Button
+              onClick={handleGenerarInforme}
+              disabled={generandoInforme}
+              size="sm"
+              className="rounded-xl font-black bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {generandoInforme ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <ShieldAlert className="w-4 h-4 mr-2" />
+              )}
+              Generar informe
+            </Button>
+          </div>
         </div>
       )}
 
@@ -233,24 +290,26 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
           <StateTimeline currentState={visita.estado_visita} />
 
           {/* Barra de progreso */}
-          {visita.estado_visita !== "asignada" && visita.estado_visita !== "aprobada" && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Progreso
-                </span>
-                <span className="text-xs font-black text-slate-600">
-                  {completeness.completed}/{completeness.total} módulos
-                </span>
+          {visita.estado_visita !== "asignada" &&
+            visita.estado_visita !== "aprobada" &&
+            visita.estado_visita !== "enviada" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Progreso
+                  </span>
+                  <span className="text-xs font-black text-slate-600">
+                    {completeness.completed}/{completeness.total} módulos
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${completeness.percentage}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${completeness.percentage}%` }}
-                />
-              </div>
-            </div>
-          )}
+            )}
         </CardContent>
       </Card>
 
@@ -326,9 +385,6 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
         estadoVisita={visita.estado_visita}
         onTransition={() => {
           // useLiveQuery se actualiza automáticamente
-        }}
-        onGenerarPreInforme={() => {
-          router.push(`/dashboard/visitas/${id}/pre-informe`);
         }}
         progressText={
           visita.estado_visita === "en_progreso"

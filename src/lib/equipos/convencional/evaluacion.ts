@@ -16,6 +16,7 @@ import type {
   ConvCaeSetup,
   ConvCaeMedicion,
 } from "@/lib/equipos/convencional/db/types";
+import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 
 // ============================================================
 //  Evaluación automática de conformidad — informe convencional
@@ -265,23 +266,57 @@ function evaluar212(d: DatosEvalConv): Concepto | undefined {
   return plmm >= 2.4 ? "Conforme" : "No_conforme";
 }
 
-/** 2.13 — Umbral de bajo contraste (>3 masas visibles o alcanza umbral bajo). */
-function evaluar213(d: DatosEvalConv): Concepto | undefined {
-  const bc = d.bajoContraste;
+const KEYS_BC = [
+  "contraste_9_4",
+  "contraste_8_0",
+  "contraste_5_6",
+  "contraste_4_0",
+  "contraste_2_8",
+  "contraste_1_8",
+  "contraste_1_3",
+  "contraste_0_9",
+] as const;
+
+const MASAS_MM_KEYS = [
+  "masa_1",
+  "masa_2",
+  "masa_3",
+  "masa_4",
+  "masa_5",
+  "masa_6",
+  "masa_7",
+  "masa_8",
+] as const;
+
+export interface Detalle213 {
+  formato: "contraste" | "masas";
+  visibles: number;
+  conforme: boolean;
+}
+
+/**
+ * 2.13 — Umbral de bajo contraste. Fuente única de verdad para el conteo de
+ * masas/niveles visibles y el veredicto, consumida por el evaluador y el PDF
+ * (evita que ambos recalculen la misma regla por separado).
+ */
+export function detalle213(datos: { bajoContraste?: ConvBajoContraste }): Detalle213 | undefined {
+  const bc = datos.bajoContraste;
   if (!bc) return undefined;
-  const KEYS_BC = [
-    "contraste_9_4",
-    "contraste_8_0",
-    "contraste_5_6",
-    "contraste_4_0",
-    "contraste_2_8",
-    "contraste_1_8",
-    "contraste_1_3",
-    "contraste_0_9",
-  ] as const;
+  const formato = bc.formato ?? "contraste";
+  if (formato === "masas") {
+    const visibles = MASAS_MM_KEYS.filter((k) => bc[k]).length;
+    return { formato, visibles, conforme: visibles > 3 };
+  }
   const visibles = KEYS_BC.filter((k) => bc[k]).length;
   const bajoUmb = bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9;
-  return visibles > 3 || !!bajoUmb ? "Conforme" : "No_conforme";
+  return { formato, visibles, conforme: visibles > 3 || !!bajoUmb };
+}
+
+/** 2.13 — Umbral de bajo contraste (>3 masas visibles o alcanza umbral bajo). */
+function evaluar213(d: DatosEvalConv): Concepto | undefined {
+  const det = detalle213(d);
+  if (!det) return undefined;
+  return det.conforme ? "Conforme" : "No_conforme";
 }
 
 /** 2.14 — Inspección de cassettes/pantallas IP (rollup). */
@@ -509,4 +544,36 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     caeSetup,
     caeMediciones,
   };
+}
+
+export interface EstadoGrupoPruebas {
+  total: number;
+  pendientes: number;
+}
+
+/**
+ * Estado de resolución de las 21 pruebas, agrupado por letra de grupo (A-E).
+ * Una prueba cuenta como resuelta (no pendiente) si está excluida del
+ * informe (incluida === false), si no tiene criterio evaluable (2.8), o si
+ * el evaluador ya produjo un veredicto. Mismo criterio que usa el editor
+ * del pre-informe para su contador de "pendientes".
+ */
+export async function getEstadoPruebasPorGrupo(
+  visitaId: string
+): Promise<Record<string, EstadoGrupoPruebas>> {
+  const [datos, secciones] = await Promise.all([
+    cargarTablasConv(visitaId),
+    db.conv_informe_secciones.where("visita_id").equals(visitaId).toArray(),
+  ]);
+  const inclMap = new Map(secciones.map((s) => [s.prueba_codigo, s.incluida]));
+
+  const porGrupo: Record<string, EstadoGrupoPruebas> = {};
+  for (const cat of CATALOGO_SECCIONES) {
+    const g = (porGrupo[cat.grupo] ??= { total: 0, pendientes: 0 });
+    g.total++;
+    const incluida = inclMap.get(cat.codigo) ?? true;
+    if (!incluida || !tieneCriterio(cat.codigo)) continue;
+    if (evaluarConceptoPrueba(cat.codigo, datos) == null) g.pendientes++;
+  }
+  return porGrupo;
 }

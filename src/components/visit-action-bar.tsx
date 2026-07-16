@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Play,
   CheckCircle2,
@@ -48,25 +49,21 @@ interface VisitActionBarProps {
   estadoVisita: EstadoVisita;
   /** Callback tras una transición exitosa */
   onTransition?: (newState: EstadoVisita) => void;
-  /** Para la acción "devolver" — el ingeniero escribe observaciones */
-  observacionesRevision?: string;
   /** Info de progreso para mostrar junto al botón */
   progressText?: string;
-  /** Callback al presionar "Generar Pre-Informe" — navega a la ruta */
-  onGenerarPreInforme?: () => void;
 }
 
 export function VisitActionBar({
   visitaId,
   estadoVisita,
   onTransition,
-  observacionesRevision,
   progressText,
-  onGenerarPreInforme,
 }: VisitActionBarProps) {
   const { role } = useRole();
   const [loading, setLoading] = useState(false);
   const [gateErrors, setGateErrors] = useState<GateResult | null>(null);
+  const [pendingReasonAction, setPendingReasonAction] = useState<ActionDefinition | null>(null);
+  const [razon, setRazon] = useState("");
 
   if (!role) return null;
 
@@ -86,12 +83,13 @@ export function VisitActionBar({
         </div>
       );
     }
-    if (estadoVisita === "aprobada") {
+    if (estadoVisita === "aprobada" || estadoVisita === "enviada") {
+      const label = estadoVisita === "enviada" ? "Informe enviado al cliente" : "Visita aprobada";
       return (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 md:static md:border-0 md:bg-transparent md:p-0 md:mt-6 z-20">
           <div className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-50 rounded-2xl border border-emerald-200">
             <BadgeCheck className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm font-bold text-emerald-700">Visita aprobada</span>
+            <span className="text-sm font-bold text-emerald-700">{label}</span>
           </div>
         </div>
       );
@@ -99,13 +97,12 @@ export function VisitActionBar({
     return null;
   }
 
-  async function handleAction(actionDef: ActionDefinition) {
+  async function runTransition(actionDef: ActionDefinition, observaciones?: string) {
     if (!role) return;
     setGateErrors(null);
     setLoading(true);
 
     try {
-      // Si tiene gate, verificar primero
       if (actionDef.hasGate) {
         const gate = await checkGate(visitaId, actionDef.action);
         if (!gate.canProceed) {
@@ -115,23 +112,14 @@ export function VisitActionBar({
         }
       }
 
-      // Caso especial: generar pre-informe navega a la ruta del PDF
-      if (actionDef.action === "generar_pre_informe" && onGenerarPreInforme) {
-        // Primero transicionar el estado
-        const result = await executeTransition(visitaId, actionDef.action, role.cargo);
-        if (result.success) {
-          onGenerarPreInforme();
-          onTransition?.(result.newState!);
-        }
-        setLoading(false);
-        return;
-      }
-
       const result = await executeTransition(visitaId, actionDef.action, role.cargo, {
-        observaciones_revision: observacionesRevision,
+        observaciones_revision: observaciones,
+        usuarioId: role.usuarioId,
       });
 
       if (result.success) {
+        setPendingReasonAction(null);
+        setRazon("");
         onTransition?.(result.newState!);
       } else if (result.gateResult) {
         setGateErrors(result.gateResult);
@@ -141,6 +129,15 @@ export function VisitActionBar({
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleAction(actionDef: ActionDefinition) {
+    if (actionDef.requiereRazon) {
+      setGateErrors(null);
+      setPendingReasonAction(actionDef);
+      return;
+    }
+    void runTransition(actionDef);
   }
 
   return (
@@ -159,6 +156,45 @@ export function VisitActionBar({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Formulario inline de razón (devolver / solicitar ajustes cliente) */}
+      {pendingReasonAction && (
+        <div className="mb-3 p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
+          <p className="text-sm font-black text-amber-800">{pendingReasonAction.label}</p>
+          <Textarea
+            value={razon}
+            onChange={(e) => setRazon(e.target.value)}
+            placeholder="Describe el motivo..."
+            className="rounded-xl bg-white"
+            rows={3}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="ghost"
+              className="rounded-xl font-bold"
+              onClick={() => {
+                setPendingReasonAction(null);
+                setRazon("");
+              }}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className={`rounded-xl font-black ${VARIANT_CLASSES[pendingReasonAction.variant] ?? VARIANT_CLASSES.warning}`}
+              onClick={() => runTransition(pendingReasonAction, razon.trim())}
+              disabled={loading || !razon.trim()}
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RotateCcw className="w-4 h-4 mr-2" />
+              )}
+              Confirmar
+            </Button>
+          </div>
         </div>
       )}
 

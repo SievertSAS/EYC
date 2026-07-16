@@ -11,11 +11,11 @@ import type { RolUsuario } from "@/lib/db/types";
 
 export type VisitAction =
   | "iniciar_visita"
-  | "completar_visita"
-  | "generar_pre_informe"
   | "enviar_revision"
   | "aprobar"
-  | "devolver";
+  | "devolver"
+  | "marcar_enviado"
+  | "solicitar_ajustes_cliente";
 
 export interface ActionDefinition {
   action: VisitAction;
@@ -25,6 +25,8 @@ export interface ActionDefinition {
   roles: RolUsuario[];
   /** Si true, ejecuta validación de módulos antes de permitir */
   hasGate: boolean;
+  /** Si true, la UI debe pedir una razón escrita antes de ejecutar */
+  requiereRazon?: boolean;
   variant: "primary" | "success" | "warning" | "destructive";
   icon: string; // nombre del icono de lucide-react
 }
@@ -58,37 +60,14 @@ const TRANSITIONS: Record<EstadoVisita, ActionDefinition[]> = {
   ],
   en_progreso: [
     {
-      action: "completar_visita",
-      label: "Completar Visita",
-      description: "Marcar como completada (requiere módulos obligatorios)",
-      target: "completada",
+      action: "enviar_revision",
+      label: "Enviar a Revisión",
+      description:
+        "Marcar como lista y enviar al ingeniero para revisión (requiere módulos obligatorios)",
+      target: "en_revision",
       roles: ["tecnico"],
       hasGate: true,
       variant: "success",
-      icon: "CheckCircle2",
-    },
-  ],
-  completada: [
-    {
-      action: "generar_pre_informe",
-      label: "Generar Pre-Informe",
-      description: "Generar el PDF del pre-informe",
-      target: "pre_informe",
-      roles: ["tecnico"],
-      hasGate: false,
-      variant: "primary",
-      icon: "FileText",
-    },
-  ],
-  pre_informe: [
-    {
-      action: "enviar_revision",
-      label: "Enviar a Revisión",
-      description: "Enviar al ingeniero para revisión y aprobación",
-      target: "en_revision",
-      roles: ["tecnico"],
-      hasGate: false,
-      variant: "primary",
       icon: "Send",
     },
   ],
@@ -110,11 +89,36 @@ const TRANSITIONS: Record<EstadoVisita, ActionDefinition[]> = {
       target: "en_progreso",
       roles: ["tecnico", "coordinador", "programador"],
       hasGate: false,
+      requiereRazon: true,
       variant: "warning",
       icon: "RotateCcw",
     },
   ],
-  aprobada: [],
+  aprobada: [
+    {
+      action: "marcar_enviado",
+      label: "Marcar como Enviado",
+      description: "Confirmar que el informe ya fue entregado al cliente",
+      target: "enviada",
+      roles: ["coordinador", "programador"],
+      hasGate: false,
+      variant: "primary",
+      icon: "Send",
+    },
+  ],
+  enviada: [
+    {
+      action: "solicitar_ajustes_cliente",
+      label: "Solicitar Ajustes (Cliente)",
+      description: "El cliente reportó que se necesitan ajustes — devolver al técnico",
+      target: "en_progreso",
+      roles: ["coordinador", "programador"],
+      hasGate: false,
+      requiereRazon: true,
+      variant: "warning",
+      icon: "RotateCcw",
+    },
+  ],
 };
 
 // ─── Orden de estados para timeline ───
@@ -122,10 +126,9 @@ const TRANSITIONS: Record<EstadoVisita, ActionDefinition[]> = {
 export const ESTADO_ORDER: EstadoVisita[] = [
   "asignada",
   "en_progreso",
-  "completada",
-  "pre_informe",
   "en_revision",
   "aprobada",
+  "enviada",
 ];
 
 export const ESTADO_CONFIG: Record<
@@ -144,18 +147,6 @@ export const ESTADO_CONFIG: Record<
     bgColor: "bg-amber-100",
     borderColor: "border-amber-200",
   },
-  completada: {
-    label: "Completada",
-    color: "text-blue-700",
-    bgColor: "bg-blue-100",
-    borderColor: "border-blue-200",
-  },
-  pre_informe: {
-    label: "Pre-Informe",
-    color: "text-indigo-700",
-    bgColor: "bg-indigo-100",
-    borderColor: "border-indigo-200",
-  },
   en_revision: {
     label: "En Revisión",
     color: "text-purple-700",
@@ -168,16 +159,21 @@ export const ESTADO_CONFIG: Record<
     bgColor: "bg-emerald-100",
     borderColor: "border-emerald-200",
   },
+  enviada: {
+    label: "Enviada",
+    color: "text-blue-700",
+    bgColor: "bg-blue-100",
+    borderColor: "border-blue-200",
+  },
 };
 
 // ─── Mapeo visita → solicitud pipeline ───
 
 const SOLICITUD_SYNC: Partial<Record<EstadoVisita, string>> = {
   en_progreso: "ejecucion",
-  completada: "ejecucion",
-  pre_informe: "ejecucion",
   en_revision: "ejecucion",
   aprobada: "notificado",
+  enviada: "enviado",
 };
 
 // ─── API pública ───
@@ -205,7 +201,7 @@ export function canTransition(
  * Retorna si puede proceder y los errores de bloqueo.
  */
 export async function checkGate(visitaId: string, action: VisitAction): Promise<GateResult> {
-  if (action === "completar_visita") {
+  if (action === "enviar_revision") {
     const completeness = await getVisitCompleteness(visitaId);
     if (completeness.blocking.length > 0) {
       return {
@@ -228,7 +224,7 @@ export async function executeTransition(
   visitaId: string,
   action: VisitAction,
   cargo: RolUsuario,
-  extra?: { observaciones_revision?: string }
+  extra?: { observaciones_revision?: string; usuarioId?: string }
 ): Promise<TransitionResult> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) {
@@ -260,18 +256,47 @@ export async function executeTransition(
     last_modified: new Date().toISOString(),
   };
 
-  // Si es devolución, guardar observaciones
-  if (action === "devolver" && extra?.observaciones_revision) {
+  // Si es devolución (interna o por cliente), guardar observaciones
+  if (
+    (action === "devolver" || action === "solicitar_ajustes_cliente") &&
+    extra?.observaciones_revision
+  ) {
     updateData.observaciones_revision = extra.observaciones_revision;
     updateData.devuelto_en = new Date().toISOString();
   }
 
-  // Si se re-inicia tras devolución, limpiar observaciones
-  if (action === "iniciar_visita") {
-    // No limpiar — el banner las muestra hasta que se resuelvan
+  await db.visitas.update(visitaId, updateData);
+
+  // Si el cliente solicitó ajustes, el informe ya emitido queda en corrección
+  let informeAfectadoId: string | undefined;
+  if (action === "solicitar_ajustes_cliente") {
+    const informe = await db.informes.where("visita_id").equals(visitaId).first();
+    if (informe?.id) {
+      await db.informes.update(informe.id, { estado: "correccion_cliente" });
+      informeAfectadoId = informe.id;
+    }
   }
 
-  await db.visitas.update(visitaId, updateData);
+  // Al aprobar: crear/versionar el informe y publicar el PDF oficial (QR+hash).
+  // Centralizado aquí (no en el handler de un botón específico) para que ocurra
+  // sin importar qué pantalla dispare la transición "aprobar".
+  if (action === "aprobar" && extra?.usuarioId) {
+    const { crearInformeDesdeVisita } = await import("./informe-service");
+    const informe = await crearInformeDesdeVisita(
+      visitaId,
+      extra.usuarioId,
+      visita.tecnico_id ?? extra.usuarioId
+    );
+    if (informe.id) {
+      informeAfectadoId = informe.id;
+      const { publicarVersionOficial } = await import("./publicar-informe");
+      publicarVersionOficial(informe.id, visitaId).then((r) => {
+        if (!r.success) {
+          console.error("[VisitStateMachine] No se pudo publicar la versión oficial:", r.error);
+        }
+      });
+    }
+  }
 
   // Sincronizar estado del pipeline de la solicitud
   const newPipelineEstado = SOLICITUD_SYNC[actionDef.target];
@@ -288,6 +313,9 @@ export async function executeTransition(
   pushSingle("visitas", visitaId);
   if (newPipelineEstado && visita.solicitud_id) {
     pushSingle("solicitudes", visita.solicitud_id);
+  }
+  if (informeAfectadoId) {
+    pushSingle("informes", informeAfectadoId);
   }
 
   return { success: true, newState: actionDef.target };

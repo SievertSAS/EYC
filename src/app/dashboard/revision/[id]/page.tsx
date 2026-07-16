@@ -13,7 +13,6 @@ import { StateTimeline } from "@/components/state-timeline";
 import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
 import { executeTransition } from "@/lib/workflow/visit-state-machine";
 import { getVisitCompleteness } from "@/lib/workflow/module-completeness";
-import { crearInformeDesdeVisita } from "@/lib/workflow/informe-service";
 import {
   ArrowLeft,
   MapPin,
@@ -164,14 +163,12 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
     if (!role) return;
     setLoading("aprobar");
     try {
-      const result = await executeTransition(visitaId, "aprobar", role.cargo);
+      // executeTransition ya crea el informe y publica la versión oficial
+      // (PDF con QR + hash) internamente al aprobar, sin importar la pantalla.
+      const result = await executeTransition(visitaId, "aprobar", role.cargo, {
+        usuarioId: role.usuarioId,
+      });
       if (result.success) {
-        // Crear informe automáticamente
-        await crearInformeDesdeVisita(
-          visitaId,
-          role.usuarioId,
-          visita.tecnico_id ?? role.usuarioId
-        );
         router.push("/dashboard/revision");
       }
     } catch (err) {
@@ -318,7 +315,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Acciones de revisión */}
-      {(visita.estado_visita === "en_revision" || visita.estado_visita === "pre_informe") && (
+      {visita.estado_visita === "en_revision" && (
         <div className="space-y-4">
           <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight">
             Decisión

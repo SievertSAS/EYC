@@ -268,7 +268,10 @@ function getTextoPrueba(codigo: string): TextoPrueba {
 //  Generar el PDF
 // ============================================================
 
-export async function generarPreInforme(visitaId: string): Promise<Blob | null> {
+export async function generarPreInforme(
+  visitaId: string,
+  opts?: { qrDataUrl?: string }
+): Promise<Blob | null> {
   const [{ jsPDF }, { default: autoTable }, logoBase64] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -278,6 +281,9 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   const datosRaw = await recopilarDatos(visitaId);
   if (!datosRaw) return null;
   const datos: DatosInforme = datosRaw;
+  // Versión oficial (sin marca de agua): la visita ya fue aprobada o entregada
+  const esFinal =
+    datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
 
   // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
   const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
@@ -300,13 +306,38 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   function addParagraph(text: string, fontSize = 9, indent = 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, CONTENT_WIDTH - indent);
+    const width = CONTENT_WIDTH - indent;
+    const lines: string[] = doc.splitTextToSize(text, width);
     checkPage(lines.length * 4.2 + 2);
     // Re-aplicar estilos: checkPage puede agregar página nueva y addHeader cambia font/color
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(...COLOR_BLACK);
-    doc.text(lines, MARGIN + indent, y, { align: "justify", maxWidth: CONTENT_WIDTH - indent });
+    const x0 = MARGIN + indent;
+    const spaceWidth = doc.getTextWidth(" ");
+    // Justificación manual palabra por palabra: el align:"justify" nativo de
+    // jsPDF reparte el espacio sobrante letra por letra (se ve muy mal), y
+    // además estira también la última línea de cada párrafo. Aquí solo se
+    // separan las palabras de las líneas intermedias; la última línea (y los
+    // párrafos de una sola línea) se dejan alineados a la izquierda.
+    lines.forEach((line, i) => {
+      const lineY = y + i * 4.2;
+      const words = line.split(" ").filter(Boolean);
+      const isLast = i === lines.length - 1;
+      if (isLast || words.length < 2) {
+        doc.text(line, x0, lineY);
+        return;
+      }
+      const naturalWidth = doc.getTextWidth(line);
+      const extraPerGap = Math.max(0, width - naturalWidth) / (words.length - 1);
+      let cx = x0;
+      words.forEach((word, wi) => {
+        doc.text(word, cx, lineY);
+        if (wi < words.length - 1) {
+          cx += doc.getTextWidth(word) + spaceWidth + extraPerGap;
+        }
+      });
+    });
     y += lines.length * 4.2 + 2;
   }
 
@@ -382,7 +413,23 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   doc.setFont("helvetica", "bold");
   doc.text("Versión:", MARGIN, y);
   doc.setFont("helvetica", "normal");
-  doc.text("PRE-INFORME", MARGIN + 40, y);
+  doc.text(esFinal ? "OFICIAL" : "PRE-INFORME", MARGIN + 40, y);
+
+  // QR de verificación (solo en la versión oficial, si se proveyó)
+  if (opts?.qrDataUrl) {
+    const qrSize = 26;
+    const qrX = PAGE_WIDTH - MARGIN - qrSize;
+    const qrY = 8;
+    try {
+      doc.addImage(opts.qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(...COLOR_GRAY);
+      doc.text("Verificar informe", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+    } catch {
+      // Si el QR no se puede dibujar, la portada sigue sin él
+    }
+  }
 
   // Recuadro: Identificación de la unidad
   y += 12;
@@ -1632,31 +1679,33 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
     y
   );
 
-  // ─── Marca de agua PRE-INFORME ───
-  pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(55);
-    doc.setTextColor(130, 90, 242);
-    doc.setGState(
-      new (
-        doc as unknown as {
-          GState: new (opts: { opacity: number }) => unknown;
-        }
-      ).GState({ opacity: 0.06 })
-    );
-    doc.text("PRE-INFORME", PAGE_WIDTH / 2, 150, {
-      align: "center",
-      angle: 45,
-    });
-    doc.setGState(
-      new (
-        doc as unknown as {
-          GState: new (opts: { opacity: number }) => unknown;
-        }
-      ).GState({ opacity: 1 })
-    );
+  // ─── Marca de agua PRE-INFORME (solo mientras no sea la versión oficial) ───
+  if (!esFinal) {
+    pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(55);
+      doc.setTextColor(130, 90, 242);
+      doc.setGState(
+        new (
+          doc as unknown as {
+            GState: new (opts: { opacity: number }) => unknown;
+          }
+        ).GState({ opacity: 0.06 })
+      );
+      doc.text("PRE-INFORME", PAGE_WIDTH / 2, 150, {
+        align: "center",
+        angle: 45,
+      });
+      doc.setGState(
+        new (
+          doc as unknown as {
+            GState: new (opts: { opacity: number }) => unknown;
+          }
+        ).GState({ opacity: 1 })
+      );
+    }
   }
 
   // ─── Footers ───
@@ -1726,7 +1775,13 @@ function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPa
   const fechaCorta = datos.visita.fecha_visita
     ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO")
     : "";
-  doc.text(`${fechaCorta} — Pre-informe sujeto a revisión`, MARGIN, 292);
+  const esFinal =
+    datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
+  doc.text(
+    `${fechaCorta}${esFinal ? " — Informe oficial" : " — Pre-informe sujeto a revisión"}`,
+    MARGIN,
+    292
+  );
   doc.text(`Página ${currentPage} de ${totalPages}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
 
   // Línea inferior púrpura

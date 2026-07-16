@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -19,11 +19,14 @@ import {
   Hash,
   Download,
   RefreshCw,
+  ShieldCheck,
   Loader2,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { generarPreInforme } from "@/lib/pdf/generar-pre-informe";
+import { publicarVersionOficial } from "@/lib/workflow/publicar-informe";
 
 // ============================================================
 //  Detalle de informe con historial de versiones
@@ -63,6 +66,8 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const informeId = id;
   const { isReady } = useDb();
+  const [publicando, setPublicando] = useState(false);
+  const [publicarError, setPublicarError] = useState<string | null>(null);
 
   const data = useLiveQuery(async () => {
     if (!isReady || !informeId) return null;
@@ -128,6 +133,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const { informe, equipo, cliente, visita, versiones, vigente } = data;
+  const versionActual = versiones.find((v) => v.numero_version === informe.version_actual);
 
   async function handleRegenerar() {
     if (!visita) return;
@@ -139,6 +145,18 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
       }
     } catch (err) {
       console.error("[Informe] Error al regenerar PDF:", err);
+    }
+  }
+
+  async function handlePublicar() {
+    if (!informe.id || !visita?.id) return;
+    setPublicando(true);
+    setPublicarError(null);
+    try {
+      const result = await publicarVersionOficial(informe.id, visita.id);
+      if (!result.success) setPublicarError(result.error ?? "Error desconocido");
+    } finally {
+      setPublicando(false);
     }
   }
 
@@ -212,14 +230,54 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
+          {/* Versión oficial: hash / estado de publicación */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-black text-slate-600">
+                Versión oficial (v{informe.version_actual})
+              </span>
+            </div>
+            {versionActual?.pdf_hash ? (
+              <p className="text-[11px] font-mono text-slate-500 break-all">
+                SHA-256: {versionActual.pdf_hash}
+              </p>
+            ) : (
+              <p className="text-xs text-amber-600 font-bold">
+                Aún no se ha publicado el PDF oficial con QR de verificación.
+              </p>
+            )}
+            {publicarError && (
+              <div className="flex items-center gap-2 text-xs text-red-600 font-bold">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                {publicarError}
+              </div>
+            )}
+          </div>
+
           {/* Acciones */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-wrap gap-3 pt-2">
+            {!versionActual?.pdf_hash && (
+              <Button
+                onClick={handlePublicar}
+                disabled={publicando || !visita}
+                className="rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {publicando ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                )}
+                Publicar versión oficial
+              </Button>
+            )}
             <Button
               onClick={handleRegenerar}
-              className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+              variant="outline"
+              className="rounded-xl font-black border-slate-200"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              Regenerar PDF
+              Regenerar PDF (vista rápida)
             </Button>
           </div>
         </CardContent>

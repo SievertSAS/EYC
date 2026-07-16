@@ -224,7 +224,7 @@ export async function executeTransition(
   visitaId: string,
   action: VisitAction,
   cargo: RolUsuario,
-  extra?: { observaciones_revision?: string }
+  extra?: { observaciones_revision?: string; usuarioId?: string }
 ): Promise<TransitionResult> {
   const visita = await db.visitas.get(visitaId);
   if (!visita) {
@@ -274,6 +274,27 @@ export async function executeTransition(
     if (informe?.id) {
       await db.informes.update(informe.id, { estado: "correccion_cliente" });
       informeAfectadoId = informe.id;
+    }
+  }
+
+  // Al aprobar: crear/versionar el informe y publicar el PDF oficial (QR+hash).
+  // Centralizado aquí (no en el handler de un botón específico) para que ocurra
+  // sin importar qué pantalla dispare la transición "aprobar".
+  if (action === "aprobar" && extra?.usuarioId) {
+    const { crearInformeDesdeVisita } = await import("./informe-service");
+    const informe = await crearInformeDesdeVisita(
+      visitaId,
+      extra.usuarioId,
+      visita.tecnico_id ?? extra.usuarioId
+    );
+    if (informe.id) {
+      informeAfectadoId = informe.id;
+      const { publicarVersionOficial } = await import("./publicar-informe");
+      publicarVersionOficial(informe.id, visitaId).then((r) => {
+        if (!r.success) {
+          console.error("[VisitStateMachine] No se pudo publicar la versión oficial:", r.error);
+        }
+      });
     }
   }
 

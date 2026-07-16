@@ -268,7 +268,10 @@ function getTextoPrueba(codigo: string): TextoPrueba {
 //  Generar el PDF
 // ============================================================
 
-export async function generarPreInforme(visitaId: string): Promise<Blob | null> {
+export async function generarPreInforme(
+  visitaId: string,
+  opts?: { qrDataUrl?: string }
+): Promise<Blob | null> {
   const [{ jsPDF }, { default: autoTable }, logoBase64] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -411,6 +414,22 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   doc.text("Versión:", MARGIN, y);
   doc.setFont("helvetica", "normal");
   doc.text(esFinal ? "OFICIAL" : "PRE-INFORME", MARGIN + 40, y);
+
+  // QR de verificación (solo en la versión oficial, si se proveyó)
+  if (opts?.qrDataUrl) {
+    const qrSize = 26;
+    const qrX = PAGE_WIDTH - MARGIN - qrSize;
+    const qrY = 8;
+    try {
+      doc.addImage(opts.qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(...COLOR_GRAY);
+      doc.text("Verificar informe", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+    } catch {
+      // Si el QR no se puede dibujar, la portada sigue sin él
+    }
+  }
 
   // Recuadro: Identificación de la unidad
   y += 12;

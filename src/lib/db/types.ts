@@ -757,6 +757,8 @@ export interface InformeVersion {
   generado_por_id?: string;
   revisado_por_id?: string;
   pdf_url?: string;
+  /** SHA-256 (hex) del PDF oficial almacenado — fingerprint anti-manipulación */
+  pdf_hash?: string;
   fecha_generacion: string;
   fecha_revision?: string;
   fecha_aprobacion?: string;

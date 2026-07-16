@@ -114,6 +114,7 @@ export function VisitActionBar({
 
       const result = await executeTransition(visitaId, actionDef.action, role.cargo, {
         observaciones_revision: observaciones,
+        usuarioId: role.usuarioId,
       });
 
       if (result.success) {

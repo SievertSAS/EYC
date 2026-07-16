@@ -444,6 +444,8 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
     );
   }
 
+  const readOnly = data.visita.estado_visita !== "en_progreso";
+
   return (
     <div className="space-y-6 pb-10">
       <Link
@@ -463,6 +465,16 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
           Organiza las secciones, asigna conceptos y genera el PDF.
         </p>
       </div>
+
+      {readOnly && (
+        <div className="flex items-center gap-2 py-3 px-4 bg-amber-50 rounded-2xl border border-amber-200">
+          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <span className="text-sm font-bold text-amber-700">
+            Informe en revisión o aprobado — solo lectura. Aún puedes generar y descargar el PDF
+            vigente.
+          </span>
+        </div>
+      )}
 
       {/* Stats bar */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
@@ -499,6 +511,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
                 size="sm"
                 className="rounded-xl text-[10px] font-bold h-8"
                 onClick={() => toggleAll(true)}
+                disabled={readOnly}
               >
                 Incluir todas
               </Button>
@@ -507,6 +520,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
                 size="sm"
                 className="rounded-xl text-[10px] font-bold h-8"
                 onClick={() => toggleAll(false)}
+                disabled={readOnly}
               >
                 Excluir todas
               </Button>
@@ -547,7 +561,7 @@ export default function PreInformePage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Secciones de pruebas */}
-      <div className="space-y-2">
+      <div className={`space-y-2 ${readOnly ? "pointer-events-none opacity-60" : ""}`}>
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
           Pruebas de control de calidad
         </p>

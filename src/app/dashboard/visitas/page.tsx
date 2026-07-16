@@ -37,9 +37,9 @@ const FILTER_TABS: { id: FilterTab; label: string; states: EstadoVisita[] }[] = 
   {
     id: "en_progreso",
     label: "En Progreso",
-    states: ["en_progreso", "completada", "pre_informe", "en_revision"],
+    states: ["en_progreso", "en_revision"],
   },
-  { id: "completadas", label: "Completadas", states: ["aprobada"] },
+  { id: "completadas", label: "Completadas", states: ["aprobada", "enviada"] },
 ];
 
 export default function VisitasPage() {
@@ -151,9 +151,10 @@ export default function VisitasPage() {
     todas: visitas.length,
     pendientes: visitas.filter((v) => v.visita.estado_visita === "asignada").length,
     en_progreso: visitas.filter((v) =>
-      ["en_progreso", "completada", "pre_informe", "en_revision"].includes(v.visita.estado_visita)
+      ["en_progreso", "en_revision"].includes(v.visita.estado_visita)
     ).length,
-    completadas: visitas.filter((v) => v.visita.estado_visita === "aprobada").length,
+    completadas: visitas.filter((v) => ["aprobada", "enviada"].includes(v.visita.estado_visita))
+      .length,
   };
 
   return (
@@ -235,7 +236,9 @@ export default function VisitasPage() {
                     ({ visita, equipo, ubicacion, sede, cliente, completeness }) => {
                       const estado = ESTADO_CONFIG[visita.estado_visita];
                       const muestraProgreso =
-                        visita.estado_visita !== "asignada" && visita.estado_visita !== "aprobada";
+                        visita.estado_visita !== "asignada" &&
+                        visita.estado_visita !== "aprobada" &&
+                        visita.estado_visita !== "enviada";
 
                       return (
                         <TableRow
@@ -347,7 +350,8 @@ export default function VisitasPage() {
                             )}
                             {/* Progress pill */}
                             {visita.estado_visita !== "asignada" &&
-                              visita.estado_visita !== "aprobada" && (
+                              visita.estado_visita !== "aprobada" &&
+                              visita.estado_visita !== "enviada" && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
                                   {completeness.completed}/{completeness.total}
                                 </span>

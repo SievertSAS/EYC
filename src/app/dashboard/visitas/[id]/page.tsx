@@ -5,7 +5,6 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
-import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StateTimeline } from "@/components/state-timeline";
@@ -93,7 +92,6 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   const visitaId = id;
   const { isReady } = useDb();
   const { role } = useRole();
-  const router = useRouter();
 
   const data = useLiveQuery(async () => {
     if (!isReady || !visitaId) return null;
@@ -233,24 +231,26 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
           <StateTimeline currentState={visita.estado_visita} />
 
           {/* Barra de progreso */}
-          {visita.estado_visita !== "asignada" && visita.estado_visita !== "aprobada" && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Progreso
-                </span>
-                <span className="text-xs font-black text-slate-600">
-                  {completeness.completed}/{completeness.total} módulos
-                </span>
+          {visita.estado_visita !== "asignada" &&
+            visita.estado_visita !== "aprobada" &&
+            visita.estado_visita !== "enviada" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Progreso
+                  </span>
+                  <span className="text-xs font-black text-slate-600">
+                    {completeness.completed}/{completeness.total} módulos
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${completeness.percentage}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${completeness.percentage}%` }}
-                />
-              </div>
-            </div>
-          )}
+            )}
         </CardContent>
       </Card>
 
@@ -326,9 +326,6 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
         estadoVisita={visita.estado_visita}
         onTransition={() => {
           // useLiveQuery se actualiza automáticamente
-        }}
-        onGenerarPreInforme={() => {
-          router.push(`/dashboard/visitas/${id}/pre-informe`);
         }}
         progressText={
           visita.estado_visita === "en_progreso"

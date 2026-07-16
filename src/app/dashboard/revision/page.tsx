@@ -32,10 +32,7 @@ export default function RevisionPage() {
     if (!isReady) return undefined;
 
     // Obtener visitas pendientes de revisión
-    const pendientes = await db.visitas
-      .where("estado_visita")
-      .anyOf(["pre_informe", "en_revision"])
-      .toArray();
+    const pendientes = await db.visitas.where("estado_visita").equals("en_revision").toArray();
 
     const enriched = await Promise.all(
       pendientes.map(async (visita) => {

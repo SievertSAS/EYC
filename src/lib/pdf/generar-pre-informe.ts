@@ -278,6 +278,9 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   const datosRaw = await recopilarDatos(visitaId);
   if (!datosRaw) return null;
   const datos: DatosInforme = datosRaw;
+  // Versión oficial (sin marca de agua): la visita ya fue aprobada o entregada
+  const esFinal =
+    datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
 
   // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
   const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
@@ -407,7 +410,7 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   doc.setFont("helvetica", "bold");
   doc.text("Versión:", MARGIN, y);
   doc.setFont("helvetica", "normal");
-  doc.text("PRE-INFORME", MARGIN + 40, y);
+  doc.text(esFinal ? "OFICIAL" : "PRE-INFORME", MARGIN + 40, y);
 
   // Recuadro: Identificación de la unidad
   y += 12;
@@ -1657,31 +1660,33 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
     y
   );
 
-  // ─── Marca de agua PRE-INFORME ───
-  pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(55);
-    doc.setTextColor(130, 90, 242);
-    doc.setGState(
-      new (
-        doc as unknown as {
-          GState: new (opts: { opacity: number }) => unknown;
-        }
-      ).GState({ opacity: 0.06 })
-    );
-    doc.text("PRE-INFORME", PAGE_WIDTH / 2, 150, {
-      align: "center",
-      angle: 45,
-    });
-    doc.setGState(
-      new (
-        doc as unknown as {
-          GState: new (opts: { opacity: number }) => unknown;
-        }
-      ).GState({ opacity: 1 })
-    );
+  // ─── Marca de agua PRE-INFORME (solo mientras no sea la versión oficial) ───
+  if (!esFinal) {
+    pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(55);
+      doc.setTextColor(130, 90, 242);
+      doc.setGState(
+        new (
+          doc as unknown as {
+            GState: new (opts: { opacity: number }) => unknown;
+          }
+        ).GState({ opacity: 0.06 })
+      );
+      doc.text("PRE-INFORME", PAGE_WIDTH / 2, 150, {
+        align: "center",
+        angle: 45,
+      });
+      doc.setGState(
+        new (
+          doc as unknown as {
+            GState: new (opts: { opacity: number }) => unknown;
+          }
+        ).GState({ opacity: 1 })
+      );
+    }
   }
 
   // ─── Footers ───
@@ -1751,7 +1756,13 @@ function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPa
   const fechaCorta = datos.visita.fecha_visita
     ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO")
     : "";
-  doc.text(`${fechaCorta} — Pre-informe sujeto a revisión`, MARGIN, 292);
+  const esFinal =
+    datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
+  doc.text(
+    `${fechaCorta}${esFinal ? " — Informe oficial" : " — Pre-informe sujeto a revisión"}`,
+    MARGIN,
+    292
+  );
   doc.text(`Página ${currentPage} de ${totalPages}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
 
   // Línea inferior púrpura

@@ -29,9 +29,7 @@ export default function DashboardPage() {
 
     const asignadas = allVisitas.filter((v) => v.estado_visita === "asignada").length;
     const enProgreso = allVisitas.filter((v) => v.estado_visita === "en_progreso").length;
-    const pendientesRevision = allVisitas.filter((v) =>
-      ["pre_informe", "en_revision"].includes(v.estado_visita)
-    ).length;
+    const pendientesRevision = allVisitas.filter((v) => v.estado_visita === "en_revision").length;
     const aprobadas = allVisitas.filter((v) => v.estado_visita === "aprobada").length;
 
     const informesCount = await db.informes.count();

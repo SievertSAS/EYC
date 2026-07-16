@@ -468,13 +468,7 @@ export interface Solicitud extends Partial<SyncFields> {
 
 // ─── Ejecución de visita ───
 
-export type EstadoVisita =
-  | "asignada"
-  | "en_progreso"
-  | "completada"
-  | "pre_informe"
-  | "en_revision"
-  | "aprobada";
+export type EstadoVisita = "asignada" | "en_progreso" | "en_revision" | "aprobada" | "enviada";
 
 export interface VisitaEjecucion extends SyncFields {
   id?: string;

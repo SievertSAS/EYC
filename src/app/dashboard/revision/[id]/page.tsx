@@ -318,7 +318,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Acciones de revisión */}
-      {(visita.estado_visita === "en_revision" || visita.estado_visita === "pre_informe") && (
+      {visita.estado_visita === "en_revision" && (
         <div className="space-y-4">
           <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight">
             Decisión

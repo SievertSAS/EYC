@@ -341,6 +341,17 @@ export interface ConvBajoContraste extends Partial<SyncFields> {
   contraste_1_8?: boolean;
   contraste_1_3?: boolean;
   contraste_0_9?: boolean;
+  /** Plantilla usada — por defecto "contraste" (compatibilidad con datos existentes) */
+  formato?: "contraste" | "masas";
+  /** 8 masas (mm): visible sí/no — plantilla alterna, mismo orden que NIVELES_MASAS */
+  masa_1?: boolean;
+  masa_2?: boolean;
+  masa_3?: boolean;
+  masa_4?: boolean;
+  masa_5?: boolean;
+  masa_6?: boolean;
+  masa_7?: boolean;
+  masa_8?: boolean;
   concepto?: "Conforme" | "No_conforme";
   creado_en?: string;
 }

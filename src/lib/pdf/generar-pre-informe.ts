@@ -300,13 +300,38 @@ export async function generarPreInforme(visitaId: string): Promise<Blob | null> 
   function addParagraph(text: string, fontSize = 9, indent = 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, CONTENT_WIDTH - indent);
+    const width = CONTENT_WIDTH - indent;
+    const lines: string[] = doc.splitTextToSize(text, width);
     checkPage(lines.length * 4.2 + 2);
     // Re-aplicar estilos: checkPage puede agregar página nueva y addHeader cambia font/color
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(...COLOR_BLACK);
-    doc.text(lines, MARGIN + indent, y, { align: "justify", maxWidth: CONTENT_WIDTH - indent });
+    const x0 = MARGIN + indent;
+    const spaceWidth = doc.getTextWidth(" ");
+    // Justificación manual palabra por palabra: el align:"justify" nativo de
+    // jsPDF reparte el espacio sobrante letra por letra (se ve muy mal), y
+    // además estira también la última línea de cada párrafo. Aquí solo se
+    // separan las palabras de las líneas intermedias; la última línea (y los
+    // párrafos de una sola línea) se dejan alineados a la izquierda.
+    lines.forEach((line, i) => {
+      const lineY = y + i * 4.2;
+      const words = line.split(" ").filter(Boolean);
+      const isLast = i === lines.length - 1;
+      if (isLast || words.length < 2) {
+        doc.text(line, x0, lineY);
+        return;
+      }
+      const naturalWidth = doc.getTextWidth(line);
+      const extraPerGap = Math.max(0, width - naturalWidth) / (words.length - 1);
+      let cx = x0;
+      words.forEach((word, wi) => {
+        doc.text(word, cx, lineY);
+        if (wi < words.length - 1) {
+          cx += doc.getTextWidth(word) + spaceWidth + extraPerGap;
+        }
+      });
+    });
     y += lines.length * 4.2 + 2;
   }
 

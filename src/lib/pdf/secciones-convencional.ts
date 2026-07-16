@@ -28,6 +28,7 @@ import {
   ITEMS_CONDICIONES_OPERACION,
 } from "@/lib/equipos/convencional/inspeccion-items";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
+import { detalle213 } from "@/lib/equipos/convencional/evaluacion";
 
 // ============================================================
 //  Secciones del pre-informe para el equipo CONVENCIONAL
@@ -2045,6 +2046,17 @@ const NIVELES_BC = [
   { key: "contraste_0_9" as const, label: "0,9 %" },
 ];
 
+const NIVELES_MASAS_MM = [
+  { key: "masa_1" as const, label: "8 mm" },
+  { key: "masa_2" as const, label: "6 mm" },
+  { key: "masa_3" as const, label: "4 mm" },
+  { key: "masa_4" as const, label: "2 mm" },
+  { key: "masa_5" as const, label: "0 mm" },
+  { key: "masa_6" as const, label: "0 mm" },
+  { key: "masa_7" as const, label: "0 mm" },
+  { key: "masa_8" as const, label: "0 mm" },
+];
+
 function render213(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
   const bc = conv.bajoContraste;
@@ -2071,13 +2083,17 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
 
+  const det = detalle213(conv);
+  const esMasas = (bc?.formato ?? "contraste") === "masas";
+  const niveles = esMasas ? NIVELES_MASAS_MM : NIVELES_BC;
+
   ctx.checkPage(24);
   addCaption(ctx, "Tabla 2.13.1. Evaluación del umbral de sensibilidad a bajo contraste");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["% Contraste", ...NIVELES_BC.map((n) => n.label)]],
-    body: [["¿Visible?", ...NIVELES_BC.map((n) => (bc?.[n.key] ? "SI" : "NO"))]],
+    head: [[esMasas ? "Masas (mm)" : "% Contraste", ...niveles.map((n) => n.label)]],
+    body: [["¿Visible?", ...niveles.map((n) => (bc?.[n.key] ? "SI" : "NO"))]],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
     bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
     columnStyles: { 0: { halign: "left" as const } },
@@ -2094,20 +2110,19 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
   // ── 2.13.5 Análisis ──
   ctx.addSubsectionTitle("2.13.5.", "Análisis");
 
-  const visibles = bc ? NIVELES_BC.filter((n) => bc[n.key]).length : null;
-  const bajoUmb =
-    bc && (bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9);
-  const conforme = visibles != null && (visibles > 3 || bajoUmb);
-
-  if (visibles == null) {
+  if (!det) {
     ctx.addParagraph("No se registraron datos para esta prueba.");
-  } else if (conforme) {
+  } else if (det.conforme) {
     ctx.addParagraph(
       "Se observa una cantidad de masas superiores a las requeridas por el sistema."
     );
+  } else if (esMasas) {
+    ctx.addParagraph(
+      `Se observa una cantidad de masas visible de ${det.visibles}, que no supera el mínimo requerido.`
+    );
   } else {
     ctx.addParagraph(
-      `Se observa una cantidad de masas visible de ${visibles}, que no supera el mínimo requerido, y ninguno de los niveles de contraste evaluados alcanza valores por debajo del 4 %.`
+      `Se observa una cantidad de masas visible de ${det.visibles}, que no supera el mínimo requerido, y ninguno de los niveles de contraste evaluados alcanza valores por debajo del 4 %.`
     );
   }
 

@@ -206,6 +206,17 @@ const NIVELES_CONTRASTE = [
   { key: "contraste_0_9" as const, label: "0.9%" },
 ];
 
+const NIVELES_MASAS = [
+  { key: "masa_1" as const, label: "8 mm" },
+  { key: "masa_2" as const, label: "6 mm" },
+  { key: "masa_3" as const, label: "4 mm" },
+  { key: "masa_4" as const, label: "2 mm" },
+  { key: "masa_5" as const, label: "0 mm" },
+  { key: "masa_6" as const, label: "0 mm" },
+  { key: "masa_7" as const, label: "0 mm" },
+  { key: "masa_8" as const, label: "0 mm" },
+];
+
 const POSICIONES_ESFERA = [
   { value: "Centro", label: "Centro — < 1.5°" },
   { value: "Primer circulo", label: "Primer circulo — < 3°" },
@@ -1058,26 +1069,56 @@ export default function GrupoEPage({ params }: { params: Promise<{ id: string }>
             onRemove={() => removeImage("2.13", "montaje_bajo_contraste")}
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {NIVELES_CONTRASTE.map((nc) => {
-              const checked = bc?.[nc.key] ?? false;
-              return (
-                <button
-                  key={nc.key}
-                  type="button"
-                  onClick={() => updateBajoContraste({ [nc.key]: !checked })}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${
-                    checked
-                      ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-white text-slate-400 hover:border-slate-300"
-                  }`}
-                >
-                  <p className="text-xs font-black">{nc.label}</p>
-                  <p className="text-[10px] mt-0.5">{checked ? "Visible" : "No visible"}</p>
-                </button>
-              );
-            })}
-          </div>
+          {(() => {
+            const formato = bc?.formato ?? "contraste";
+            const niveles = formato === "masas" ? NIVELES_MASAS : NIVELES_CONTRASTE;
+            return (
+              <>
+                <div className="inline-flex rounded-xl border border-slate-200 p-1 bg-slate-50">
+                  {(
+                    [
+                      { value: "contraste" as const, label: "% Contraste" },
+                      { value: "masas" as const, label: "Masas (mm)" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateBajoContraste({ formato: opt.value })}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                        formato === opt.value
+                          ? "bg-white text-primary shadow-sm"
+                          : "text-slate-400 hover:text-slate-600"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {niveles.map((nc) => {
+                    const checked = bc?.[nc.key] ?? false;
+                    return (
+                      <button
+                        key={nc.key}
+                        type="button"
+                        onClick={() => updateBajoContraste({ [nc.key]: !checked })}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          checked
+                            ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-white text-slate-400 hover:border-slate-300"
+                        }`}
+                      >
+                        <p className="text-xs font-black">{nc.label}</p>
+                        <p className="text-[10px] mt-0.5">{checked ? "Visible" : "No visible"}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 

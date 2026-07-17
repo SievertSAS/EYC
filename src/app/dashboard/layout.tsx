@@ -28,6 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   width={120}
                   height={40}
                   className="h-7 w-auto object-contain"
+                  unoptimized
                 />
               </header>
 

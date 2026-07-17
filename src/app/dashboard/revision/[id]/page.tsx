@@ -291,9 +291,8 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
               const status =
                 completeness.modules.find((m) => m.id === modulo.id)?.status ?? "sin_iniciar";
               const Icon = resolveIcon(modulo.icon);
-              const ruta = modulo.ruta ?? modulo.id;
               return (
-                <Link key={modulo.id} href={`/dashboard/visitas/${id}/${ruta}`}>
+                <Link key={modulo.id} href={`/dashboard/visitas/${id}?modulo=${modulo.id}`}>
                   <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between gap-3">

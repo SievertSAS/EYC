@@ -70,9 +70,7 @@ function LoginForm() {
       router.refresh();
 
       // Sincronizar en background — no bloquea la navegación
-      fullSync().catch(() =>
-        console.warn("[Login] Sync inicial falló, se reintentará después")
-      );
+      fullSync().catch(() => console.warn("[Login] Sync inicial falló, se reintentará después"));
     } catch {
       setError("Error de conexión. Verifica tu internet.");
     } finally {
@@ -92,6 +90,7 @@ function LoginForm() {
             height={80}
             className="h-auto w-auto object-contain"
             priority
+            unoptimized
           />
         </div>
 

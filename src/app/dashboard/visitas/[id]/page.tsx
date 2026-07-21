@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, type ComponentType } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -10,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StateTimeline } from "@/components/state-timeline";
 import { VisitActionBar } from "@/components/visit-action-bar";
+import { InfoModulo } from "@/components/visita-modulos/info-modulo";
+import { GrupoAModulo } from "@/components/visita-modulos/grupo-a-modulo";
+import { GrupoBModulo } from "@/components/visita-modulos/grupo-b-modulo";
+import { GrupoCModulo } from "@/components/visita-modulos/grupo-c-modulo";
+import { GrupoDModulo } from "@/components/visita-modulos/grupo-d-modulo";
+import { GrupoEModulo } from "@/components/visita-modulos/grupo-e-modulo";
+import { PreInformeModulo } from "@/components/visita-modulos/pre-informe-modulo";
+import { irAModulo } from "@/lib/modulo-nav";
 import {
   getModuleStatuses,
   getVisitCompleteness,
@@ -79,6 +88,17 @@ const INFO_MODULE = {
   tipo: "readonly" as const,
 };
 
+/** Componente de cada módulo, mostrado dentro del workspace sin navegación de Next (offline-safe) */
+const MODULO_COMPONENTS: Record<string, ComponentType<{ visitaId: string }>> = {
+  info: InfoModulo,
+  "grupo-a": GrupoAModulo,
+  "grupo-b": GrupoBModulo,
+  "grupo-c": GrupoCModulo,
+  "grupo-d": GrupoDModulo,
+  "grupo-e": GrupoEModulo,
+  "pre-informe": PreInformeModulo,
+};
+
 function PercentBadge({ value }: { value: number }) {
   const color =
     value === 100
@@ -97,6 +117,8 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   const { isReady } = useDb();
   const { role } = useRole();
   const [generandoInforme, setGenerandoInforme] = useState(false);
+  const searchParams = useSearchParams();
+  const moduloParam = searchParams.get("modulo");
 
   const data = useLiveQuery(async () => {
     if (!isReady || !visitaId) return null;
@@ -191,6 +213,20 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   const packageModulos = equipo?.tipo_equipo ? getModules(equipo.tipo_equipo) : getDefaultModules();
   // Prepend info module + package modules
   const MODULOS = [INFO_MODULE, ...packageModulos];
+
+  // Módulo seleccionado vía ?modulo= — se renderiza dentro del workspace sin
+  // navegación de Next.js, para que el cambio entre módulos funcione offline.
+  const moduloSeleccionado =
+    moduloParam &&
+    MODULOS.some((m) => m.id === moduloParam) &&
+    !(isLocked && moduloParam !== "info")
+      ? MODULO_COMPONENTS[moduloParam]
+      : undefined;
+
+  if (moduloSeleccionado) {
+    const ModuloComponent = moduloSeleccionado;
+    return <ModuloComponent visitaId={visitaId} />;
+  }
 
   return (
     <div className="space-y-6 pb-24 md:pb-6">
@@ -325,7 +361,6 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
               percentage: 0,
             };
             const Icon = resolveIcon(modulo.icon);
-            const ruta = modulo.ruta ?? modulo.id;
             const locked = isLocked && modulo.id !== "info";
 
             const cardContent = (
@@ -371,9 +406,14 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
             return locked ? (
               <div key={modulo.id}>{cardContent}</div>
             ) : (
-              <Link key={modulo.id} href={`/dashboard/visitas/${id}/${ruta}`}>
+              <button
+                key={modulo.id}
+                type="button"
+                onClick={() => irAModulo(id, modulo.id)}
+                className="text-left w-full"
+              >
                 {cardContent}
-              </Link>
+              </button>
             );
           })}
         </div>

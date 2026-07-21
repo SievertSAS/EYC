@@ -72,6 +72,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
 
     const fetchAndSetCargo = async (uid: string) => {
+      if (!navigator.onLine) return;
       const { data, error } = await supabase
         .from("usuarios")
         .select("cargo")

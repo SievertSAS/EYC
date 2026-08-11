@@ -433,12 +433,32 @@ async function pullMasterTable(
   const dexieTable = getDexieTable(tableName);
   if (!dexieTable) return 0;
 
-  const { data, error } = await supabase.from(tableName).select("*");
-  if (error) throw error;
-  if (!data || data.length === 0) return 0;
+  // PostgREST trunca silenciosamente las respuestas a `max_rows` (config.toml)
+  // sin devolver error, asi que paginamos con .range() ordenando por id para
+  // garantizar cobertura completa y determinista entre paginas.
+  const PAGE_SIZE = 500;
+  const allData: SyncableRecord[] = [];
+  let offset = 0;
 
-  await dexieTable.bulkPut(data);
-  return data.length;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select("*")
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    allData.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  if (allData.length === 0) return 0;
+
+  await dexieTable.bulkPut(allData);
+  return allData.length;
 }
 
 /**

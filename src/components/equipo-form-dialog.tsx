@@ -104,6 +104,9 @@ export function EquipoFormDialog({
     equipo?.distancia_foco_paciente?.toString() ?? ""
   );
   const [bucky, setBucky] = useState(equipo?.bucky ?? "");
+  const [marca, setMarca] = useState(equipo?.marca ?? "");
+  const [modelo, setModelo] = useState(equipo?.modelo ?? "");
+  const [numeroSerie, setNumeroSerie] = useState(equipo?.numero_serie ?? "");
 
   // Generador
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
@@ -153,6 +156,9 @@ export function EquipoFormDialog({
         sistema_adquisicion: sistemaAdq || undefined,
         distancia_foco_paciente: distanciaFoco ? parseFloat(distanciaFoco) : undefined,
         bucky: (bucky as Equipo["bucky"]) || undefined,
+        marca: marca || undefined,
+        modelo: modelo || undefined,
+        numero_serie: numeroSerie || undefined,
         gen_marca: genMarca || undefined,
         gen_modelo: genModelo || undefined,
         gen_numero_serie: genSerie || undefined,
@@ -318,6 +324,43 @@ export function EquipoFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                  Marca
+                </Label>
+                <Input
+                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  placeholder="Marca"
+                  value={marca}
+                  onChange={(e) => setMarca(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                  Modelo
+                </Label>
+                <Input
+                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  placeholder="Modelo"
+                  value={modelo}
+                  onChange={(e) => setModelo(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                No. Serie
+              </Label>
+              <Input
+                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                placeholder="Número de serie"
+                value={numeroSerie}
+                onChange={(e) => setNumeroSerie(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">

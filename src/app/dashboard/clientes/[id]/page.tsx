@@ -567,7 +567,10 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 min-w-0">
                                               <p className="text-sm font-bold text-slate-800 truncate">
-                                                {[equipo.gen_marca, equipo.gen_modelo]
+                                                {[
+                                                  equipo.marca ?? equipo.gen_marca,
+                                                  equipo.modelo ?? equipo.gen_modelo,
+                                                ]
                                                   .filter(Boolean)
                                                   .join(" ") || "Equipo sin marca"}
                                               </p>
@@ -580,8 +583,8 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                                                 ? (TIPO_EQUIPO_LABELS[equipo.tipo_equipo] ??
                                                   equipo.tipo_equipo)
                                                 : "Tipo no definido"}
-                                              {equipo.gen_numero_serie
-                                                ? ` • S/N: ${equipo.gen_numero_serie}`
+                                              {(equipo.numero_serie ?? equipo.gen_numero_serie)
+                                                ? ` • S/N: ${equipo.numero_serie ?? equipo.gen_numero_serie}`
                                                 : ""}
                                             </p>
                                           </div>
@@ -590,7 +593,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                                               variant="ghost"
                                               size="sm"
                                               className="rounded-lg text-slate-400 hover:text-primary flex-shrink-0"
-                                              aria-label={`Editar equipo ${equipo.gen_marca ?? ""} ${equipo.gen_modelo ?? ""}`}
+                                              aria-label={`Editar equipo ${equipo.marca ?? equipo.gen_marca ?? ""} ${equipo.modelo ?? equipo.gen_modelo ?? ""}`}
                                               onClick={() => {
                                                 setEquipoUbicacionId(ubicacion.id!);
                                                 setEditEquipo(equipo);

@@ -132,6 +132,10 @@ export interface Equipo extends Partial<SyncFields> {
   sistema_adquisicion?: string;
   distancia_foco_paciente?: number;
   bucky?: "Si" | "No" | "No_aplica";
+  // Identificación del equipo (placa general del aparato)
+  marca?: string;
+  modelo?: string;
+  numero_serie?: string;
   // Generador
   gen_marca?: string;
   gen_modelo?: string;

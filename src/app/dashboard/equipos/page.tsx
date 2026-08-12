@@ -73,6 +73,9 @@ export default function EquiposPage() {
     if (search) {
       const q = search.toLowerCase();
       const haystack = [
+        d.equipo.marca,
+        d.equipo.modelo,
+        d.equipo.numero_serie,
         d.equipo.gen_marca,
         d.equipo.gen_modelo,
         d.equipo.gen_numero_serie,
@@ -193,12 +196,13 @@ export default function EquiposPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-black text-slate-900 text-sm sm:text-base truncate">
-                            {equipo.gen_marca ?? "Sin marca"} {equipo.gen_modelo ?? ""}
+                            {equipo.marca ?? equipo.gen_marca ?? "Sin marca"}{" "}
+                            {equipo.modelo ?? equipo.gen_modelo ?? ""}
                           </p>
-                          {equipo.gen_numero_serie && (
+                          {(equipo.numero_serie ?? equipo.gen_numero_serie) && (
                             <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
                               <Hash className="w-3 h-3" />
-                              {equipo.gen_numero_serie}
+                              {equipo.numero_serie ?? equipo.gen_numero_serie}
                             </p>
                           )}
                         </div>
@@ -253,7 +257,7 @@ export default function EquiposPage() {
                           variant="ghost"
                           size="sm"
                           className="rounded-lg text-slate-400 hover:text-primary"
-                          aria-label={`Editar equipo ${equipo.gen_marca ?? ""} ${equipo.gen_modelo ?? ""}`}
+                          aria-label={`Editar equipo ${equipo.marca ?? equipo.gen_marca ?? ""} ${equipo.modelo ?? equipo.gen_modelo ?? ""}`}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();

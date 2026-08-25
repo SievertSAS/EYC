@@ -3,6 +3,7 @@ import { createClient } from "./client";
 import type { SyncStatus } from "@/lib/db/types";
 import { logger } from "@/lib/logger";
 import type { EntityTable } from "dexie";
+import { isDue, recordFailure, recordSuccess } from "./sync-retry";
 
 type SyncableRecord = { id?: string; sync_status?: SyncStatus; [key: string]: unknown };
 
@@ -316,6 +317,13 @@ async function pushTable(
 
   for (const record of pending) {
     const localId = record.id as string;
+
+    // Un registro con retry programado no se vuelve a pushear en el
+    // ciclo automático hasta que llegue su `next_attempt_at` — evita
+    // martillar el backend con el mismo error en cada ciclo de sync.
+    const retry = await db.sync_retry.get([localTable, localId]);
+    if (retry && !isDue(retry)) continue;
+
     const data = prepareForRemote(record as Record<string, unknown>, localTable);
 
     try {
@@ -327,10 +335,14 @@ async function pushTable(
         sync_status: "synced" as SyncStatus,
         last_modified: new Date().toISOString(),
       });
+      await recordSuccess(localTable, localId);
 
       pushed++;
     } catch (err) {
-      await dexieTable.update(localId, { sync_status: "error" as SyncStatus });
+      const finalStatus = await recordFailure(localTable, localId, err);
+      if (finalStatus === "failed") {
+        await dexieTable.update(localId, { sync_status: "failed" as SyncStatus });
+      }
 
       const { message, detail } = describeError(err);
       errors.push({
@@ -373,6 +385,11 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
     const record = await dexieTable.get(localId);
     if (!record || record.sync_status !== "pending") return false;
 
+    // Igual que en pushTable: si hay un retry programado en el futuro,
+    // no reintentar todavía — el técnico puede forzarlo con retryRecord.
+    const retry = await db.sync_retry.get([localTable, localId]);
+    if (retry && !isDue(retry)) return false;
+
     const data = prepareForRemote(record as Record<string, unknown>, localTable);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -384,12 +401,62 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
       sync_status: "synced" as SyncStatus,
       last_modified: new Date().toISOString(),
     });
+    await recordSuccess(localTable, localId);
 
     logger.info("sync:push-single", `${localTable}#${localId.slice(0, 8)} synced`);
     return true;
   } catch (err) {
+    const finalStatus = await recordFailure(localTable, localId, err);
+    if (finalStatus === "failed") {
+      const dexieTable = getDexieTable(localTable);
+      if (dexieTable) await dexieTable.update(localId, { sync_status: "failed" as SyncStatus });
+    }
     logger.warn("sync:push-single", `${localTable}#${localId} failed (will retry)`, err);
     return false;
+  }
+}
+
+/**
+ * Reintento manual de un registro puntual — se salta el schedule de
+ * backoff de `sync_retry` y fuerza el push inmediato. Pensado para que
+ * el técnico de campo pueda reintentar un registro "failed" sin esperar
+ * al próximo ciclo automático ni depender de un rol de coordinador.
+ */
+export async function retryRecord(localTable: string, localId: string): Promise<void> {
+  const remote = SYNC_TABLES.find((t) => t.local === localTable)?.remote;
+  if (!remote) return;
+
+  const dexieTable = getDexieTable(localTable);
+  if (!dexieTable) return;
+
+  const record = await dexieTable.get(localId);
+  if (!record) return;
+
+  try {
+    const supabase = createClient();
+    const data = prepareForRemote(record as Record<string, unknown>, localTable);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from(remote) as any).upsert(data, { onConflict: "id" });
+
+    if (error) throw error;
+
+    await dexieTable.update(localId, {
+      sync_status: "synced" as SyncStatus,
+      last_modified: new Date().toISOString(),
+    });
+    await recordSuccess(localTable, localId);
+
+    logger.info(
+      "sync:retry-record",
+      `${localTable}#${localId.slice(0, 8)} synced (reintento manual)`
+    );
+  } catch (err) {
+    const finalStatus = await recordFailure(localTable, localId, err);
+    if (finalStatus === "failed") {
+      await dexieTable.update(localId, { sync_status: "failed" as SyncStatus });
+    }
+    logger.warn("sync:retry-record", `${localTable}#${localId} reintento manual falló`, err);
   }
 }
 

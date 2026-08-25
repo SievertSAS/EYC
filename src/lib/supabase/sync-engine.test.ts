@@ -19,7 +19,7 @@ vi.mock("./client", () => ({
 
 // Import estático: `vi.mock` se hoistea sobre los imports, así que el mock
 // de "./client" ya está activo cuando `sync-engine.ts` se evalúa.
-import { fullSync, pullSyncTable } from "./sync-engine";
+import { fullSync, pullSyncTable, pushAllPending, retryRecord } from "./sync-engine";
 
 // ============================================================
 //  pullSyncTable — paginación keyset (PR1: sync-engine-entrega-garantizada)
@@ -144,5 +144,75 @@ describe("sync-engine — fullSync (integración con pullSyncTable)", () => {
     await expect(db.clientes.count()).resolves.toBe(3);
     const meta = await db.sync_meta.get("clientes");
     expect(meta?.last_pulled_at).toBeDefined();
+  });
+});
+
+// ============================================================
+//  Push con schedule de retry (PR2: sync-engine-entrega-garantizada)
+//
+//  Un registro con una fila en `sync_retry` cuyo `next_attempt_at` está
+//  en el futuro no debe volver a pushearse en el ciclo automático hasta
+//  que llegue esa hora. `retryRecord` permite al técnico saltarse ese
+//  schedule y forzar el push inmediato de un registro puntual.
+// ============================================================
+
+describe("sync-engine — push respeta el schedule de sync_retry", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("no vuelve a pushear un registro con next_attempt_at en el futuro", async () => {
+    await db.clientes.put({
+      id: "id-pending",
+      nombre_cliente: "Cliente pendiente",
+      nit: "NIT-1",
+      sync_status: "pending",
+    });
+
+    const futureIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await db.sync_retry.put({
+      table_name: "clientes",
+      record_id: "id-pending",
+      attempts: 2,
+      next_attempt_at: futureIso,
+      status: "retrying",
+      last_error: "network error",
+      updated_at: new Date().toISOString(),
+    });
+
+    const { pushed } = await pushAllPending();
+
+    expect(pushed).toBe(0);
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(0);
+    const record = await db.clientes.get("id-pending");
+    expect(record?.sync_status).toBe("pending");
+  });
+
+  it("retryRecord pushea inmediatamente saltándose el schedule de next_attempt_at futuro", async () => {
+    await db.clientes.put({
+      id: "id-pending",
+      nombre_cliente: "Cliente pendiente",
+      nit: "NIT-1",
+      sync_status: "pending",
+    });
+
+    const futureIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await db.sync_retry.put({
+      table_name: "clientes",
+      record_id: "id-pending",
+      attempts: 2,
+      next_attempt_at: futureIso,
+      status: "retrying",
+      last_error: "network error",
+      updated_at: new Date().toISOString(),
+    });
+
+    await retryRecord("clientes", "id-pending");
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(1);
+    const record = await db.clientes.get("id-pending");
+    expect(record?.sync_status).toBe("synced");
+    await expect(db.sync_retry.get(["clientes", "id-pending"])).resolves.toBeUndefined();
   });
 });

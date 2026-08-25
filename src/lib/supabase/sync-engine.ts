@@ -4,6 +4,7 @@ import type { SyncStatus } from "@/lib/db/types";
 import { logger } from "@/lib/logger";
 import type { EntityTable } from "dexie";
 import { isDue, recordFailure, recordSuccess } from "./sync-retry";
+import { withSyncLock } from "./sync-lock";
 
 type SyncableRecord = { id?: string; sync_status?: SyncStatus; [key: string]: unknown };
 
@@ -210,10 +211,38 @@ const MASTER_TABLES = [
 ] as const;
 
 /**
- * Ejecuta un ciclo completo de sincronización.
- * Push primero (para no perder cambios locales), luego Pull.
+ * Ejecuta un ciclo completo de sincronización, protegido por
+ * `withSyncLock` (single-flight — ver sync-lock.ts) para evitar que
+ * dos disparadores (botón manual, auto-sync, mensaje del Service
+ * Worker a otra pestaña) corran fullSync al mismo tiempo.
+ *
+ * Si ya hay una sincronización en curso, el ciclo se omite y se
+ * refleja como un error `_lock` en `result.errors` — mismo patrón que
+ * el error `_auth` cuando no hay sesión — sin romper el contrato de
+ * retorno `SyncResult` que ya consumen los callers existentes.
  */
 export async function fullSync(): Promise<SyncResult> {
+  const lockResult = await withSyncLock(runFullSync);
+  if (!lockResult.ran) {
+    logger.info("sync:lock", "fullSync omitido: ya hay una sincronización en curso");
+    return {
+      pushed: 0,
+      pulled: 0,
+      errors: [
+        {
+          table: "_lock",
+          recordId: "0",
+          error: "Sincronización omitida: ya hay otra sincronización en curso",
+          action: "push",
+        },
+      ],
+      timestamp: new Date().toISOString(),
+    };
+  }
+  return lockResult.value;
+}
+
+async function runFullSync(): Promise<SyncResult> {
   const result: SyncResult = {
     pushed: 0,
     pulled: 0,
@@ -463,8 +492,23 @@ export async function retryRecord(localTable: string, localId: string): Promise<
 /**
  * Push de todos los registros pendientes (sin pull).
  * Usado por el auto-sync periódico — más liviano que fullSync.
+ *
+ * Protegido por `withSyncLock` (single-flight — ver sync-lock.ts) para
+ * no correr en paralelo con otro pushAllPending o con fullSync. Si ya
+ * hay una sincronización en curso, se omite este ciclo — mismo shape
+ * de retorno que el caso offline (`{ pushed: 0, errors: 0 }`), solo
+ * distinguible por el log emitido.
  */
 export async function pushAllPending(): Promise<{ pushed: number; errors: number }> {
+  const lockResult = await withSyncLock(runPushAllPending);
+  if (!lockResult.ran) {
+    logger.info("sync:lock", "pushAllPending omitido: ya hay una sincronización en curso");
+    return { pushed: 0, errors: 0 };
+  }
+  return lockResult.value;
+}
+
+async function runPushAllPending(): Promise<{ pushed: number; errors: number }> {
   if (!navigator.onLine) return { pushed: 0, errors: 0 };
 
   const supabase = createClient();

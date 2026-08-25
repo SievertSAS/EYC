@@ -16,7 +16,6 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { ConnectionBadge } from "@/components/connection-badge";
 
 export default function DashboardPage() {
   const { isReady } = useDb();
@@ -57,9 +56,6 @@ export default function DashboardPage() {
           Resumen general de operaciones
         </p>
       </div>
-
-      {/* Estado de conexión */}
-      <ConnectionBadge />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">

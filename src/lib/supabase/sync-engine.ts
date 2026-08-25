@@ -452,6 +452,21 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
  * al próximo ciclo automático ni depender de un rol de coordinador.
  */
 export async function retryRecord(localTable: string, localId: string): Promise<void> {
+  const result = await withSyncLock(() => retryRecordUnlocked(localTable, localId));
+
+  if (!result.ran) {
+    // Ya hay otra sincronización en curso (reintento automático de backoff,
+    // fullSync o pushAllPending) — el técnico puede volver a tocar el botón
+    // si hace falta. No es un error: el lock permite solo un intento, este
+    // se salta.
+    logger.info(
+      "sync:retry-record",
+      `${localTable}#${localId.slice(0, 8)} reintento manual omitido (sync en curso)`
+    );
+  }
+}
+
+async function retryRecordUnlocked(localTable: string, localId: string): Promise<void> {
   const remote = SYNC_TABLES.find((t) => t.local === localTable)?.remote;
   if (!remote) return;
 

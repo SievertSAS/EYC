@@ -215,6 +215,27 @@ describe("sync-engine — push respeta el schedule de sync_retry", () => {
     expect(record?.sync_status).toBe("synced");
     await expect(db.sync_retry.get(["clientes", "id-pending"])).resolves.toBeUndefined();
   });
+
+  it("retryRecord pasa por el lock de concurrencia: dos reintentos simultáneos del mismo registro pushean una sola vez", async () => {
+    await db.clientes.put({
+      id: "id-concurrent-retry",
+      nombre_cliente: "Cliente reintento concurrente",
+      nit: "NIT-CR",
+      sync_status: "failed",
+    });
+
+    // Reintento manual del técnico "al mismo tiempo" que un reintento
+    // automático de backoff sobre el mismo registro: el lock permite solo
+    // un intento, el perdedor se salta sin lanzar error.
+    await Promise.all([
+      retryRecord("clientes", "id-concurrent-retry"),
+      retryRecord("clientes", "id-concurrent-retry"),
+    ]);
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(1);
+    const record = await db.clientes.get("id-concurrent-retry");
+    expect(record?.sync_status).toBe("synced");
+  });
 });
 
 // ============================================================

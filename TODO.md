@@ -47,6 +47,8 @@
 - **module-completeness.ts**: consulta tablas `conv_*`, no las genericas
 - **module-nav.tsx**: sin modulos viejos hardcodeados
 - **Limpieza**: eliminadas paginas viejas, rutas prefijadas por equipo (`conv/grupo-*`)
+- **Sync bidireccional de tablas `conv_*`**: las 21 tablas ya estan en `SYNC_TABLES` (`lib/supabase/sync-engine.ts`)
+- **Entrega garantizada del sync**: paginacion por keyset en `pullSyncTable` (evita truncamiento silencioso de PostgREST), reintentos con backoff exponencial y estado `failed` terminal, lock single-flight entre disparadores, indicador global de pendientes/errores
 
 ### 🔲 Pendiente — Infraestructura
 
@@ -63,8 +65,7 @@
 - Redimensionamiento y compresion para PDF
 
 #### Sync engine
-- Agregar tablas `conv_*` al sync bidireccional (`lib/supabase/sync-engine.ts`)
-- Crear tablas correspondientes en Supabase (PostgreSQL)
+- Crear tablas correspondientes en Supabase (PostgreSQL) para las 21 `conv_*` — confirmar que existen con el mismo esquema, si no, los push/pull van a fallar en silencio
 - Actualizar `lib/supabase/types.ts` con los tipos de las tablas nuevas
 
 #### Control de cambios (trackChange)

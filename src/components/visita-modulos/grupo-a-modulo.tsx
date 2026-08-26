@@ -5,9 +5,10 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle } from "@/lib/supabase/sync-engine";
+import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
+  Check,
   Gauge,
   Plus,
   Trash2,
@@ -29,6 +30,8 @@ import { Button } from "@/components/ui/button";
 import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
+import { SetupField } from "@/components/visita-modulos/setup-field";
+import { useRowSavedFlash } from "@/hooks/use-row-saved";
 import type { ConvInspeccionItem } from "@/lib/equipos/convencional/db/types";
 
 // ─── Constants ───
@@ -321,6 +324,9 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
   const pruebasGrupoA = getManualGrupo("A");
+  // Indicador liviano de "guardado" para filas de las tablas de mediciones,
+  // elementos de protección e inspección visual — ver useRowSavedFlash.
+  const { isSaved, flash } = useRowSavedFlash();
 
   // ─── Live data from dedicated conv_ tables ───
   const data = useLiveQuery(async () => {
@@ -404,7 +410,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
     setupTimer.current = setTimeout(() => {
       const payload = setupPending.current;
       setupPending.current = {};
-      db.conv_levantamiento_setup.update(data.setup!.id!, payload);
+      updateAndSync("conv_levantamiento_setup", data.setup!.id!, payload);
     }, 600);
   }
 
@@ -442,7 +448,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
     if (tipoArea === "controlada") concepto = dosis <= 5 ? "Conforme" : "No_conforme";
     else if (tipoArea === "supervisada") concepto = dosis <= 0.5 ? "Conforme" : "No_conforme";
 
-    await db.conv_mediciones.update(id, {
+    await updateAndSync("conv_mediciones", id, {
       ...fields,
       tasa_dosis_msv_h: msvH || undefined,
       factor_uso_u: u,
@@ -458,7 +464,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function updateInspeccionItem(id: string, fields: Record<string, unknown>) {
-    await db.conv_inspeccion_items.update(id, fields);
+    await updateAndSync("conv_inspeccion_items", id, fields);
   }
 
   async function addElemento() {
@@ -474,7 +480,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function updateElemento(id: string, fields: Record<string, unknown>) {
-    await db.conv_elementos_proteccion.update(id, fields);
+    await updateAndSync("conv_elementos_proteccion", id, fields);
   }
 
   async function removeElemento(id: string) {
@@ -669,42 +675,22 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
               tasa promedio.
             </Tip>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Fondo natural (μSv/h)
-                </label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  defaultValue={setup?.fondo_natural_usv_h ?? ""}
-                  onBlur={(e) =>
-                    updateSetup({
-                      fondo_natural_usv_h: e.target.value ? parseFloat(e.target.value) : undefined,
-                    })
-                  }
-                  placeholder="Ej: 0.08"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Distancia tubo — operario (m)
-                </label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  defaultValue={setup?.distancia_tubo_operario_m ?? ""}
-                  onBlur={(e) =>
-                    updateSetup({
-                      distancia_tubo_operario_m: e.target.value
-                        ? parseFloat(e.target.value)
-                        : undefined,
-                    })
-                  }
-                  placeholder="Ej: 2.5"
-                />
-              </div>
+              <SetupField
+                label="Fondo natural (μSv/h)"
+                step="0.001"
+                defaultValue={setup?.fondo_natural_usv_h ?? ""}
+                placeholder="Ej: 0.08"
+                onSave={(v) => updateSetup({ fondo_natural_usv_h: v ? parseFloat(v) : undefined })}
+              />
+              <SetupField
+                label="Distancia tubo — operario (m)"
+                step="0.1"
+                defaultValue={setup?.distancia_tubo_operario_m ?? ""}
+                placeholder="Ej: 2.5"
+                onSave={(v) =>
+                  updateSetup({ distancia_tubo_operario_m: v ? parseFloat(v) : undefined })
+                }
+              />
             </div>
           </CollapsibleSection>
 
@@ -722,23 +708,14 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                   ["tecnica_mas", "Exposición (mAs)", "20"],
                 ] as const
               ).map(([field, label, ph]) => (
-                <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {label}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={setup?.[field] ?? ""}
-                    onBlur={(e) =>
-                      updateSetup({
-                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder={ph}
-                  />
-                </div>
+                <SetupField
+                  key={field}
+                  label={label}
+                  step="0.01"
+                  defaultValue={setup?.[field] ?? ""}
+                  placeholder={ph}
+                  onSave={(v) => updateSetup({ [field]: v ? parseFloat(v) : undefined })}
+                />
               ))}
             </div>
           </CollapsibleSection>
@@ -801,18 +778,10 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Semanas laborales
-                </label>
-                <Input
-                  type="number"
-                  className="rounded-xl h-9 text-sm font-medium"
+                <SetupField
+                  label="Semanas laborales"
                   defaultValue={setup?.semanas_laborales ?? 50}
-                  onBlur={(e) =>
-                    updateSetup({
-                      semanas_laborales: e.target.value ? parseFloat(e.target.value) : 50,
-                    })
-                  }
+                  onSave={(v) => updateSetup({ semanas_laborales: v ? parseFloat(v) : 50 })}
                 />
                 {semanasLaborales < 50 && (
                   <p className="text-[10px] font-bold text-amber-600">
@@ -872,15 +841,22 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1.5 font-black text-primary">{m.punto_numero}</td>
+                      <td className="py-1.5 px-1.5 font-black text-primary">
+                        <span className="inline-flex items-center gap-1">
+                          {m.punto_numero}
+                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        </span>
+                      </td>
                       <td className="py-1.5 px-1.5">
                         <Input
                           className="rounded-lg h-7 text-xs font-medium border-slate-200"
                           defaultValue={m.ubicacion_descripcion}
                           placeholder="Ej: Puerta principal"
-                          onBlur={(e) =>
-                            m.id && updateMedicion(m.id, { ubicacion_descripcion: e.target.value })
-                          }
+                          onBlur={(e) => {
+                            if (!m.id) return;
+                            updateMedicion(m.id, { ubicacion_descripcion: e.target.value });
+                            flash(m.id);
+                          }}
                         />
                       </td>
                       <td className="py-1.5 px-1.5">
@@ -894,6 +870,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                             if (!m.id) return;
                             const usv = e.target.value ? parseFloat(e.target.value) : undefined;
                             updateMedicion(m.id, { tasa_dosis_usv_h: usv });
+                            flash(m.id);
                           }}
                         />
                       </td>
@@ -904,10 +881,13 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                         <select
                           className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
                           defaultValue={m.factor_ocupacion_t ?? 1}
-                          onChange={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, { factor_ocupacion_t: parseFloat(e.target.value) })
-                          }
+                          onChange={(e) => {
+                            if (!m.id) return;
+                            updateMedicion(m.id, {
+                              factor_ocupacion_t: parseFloat(e.target.value),
+                            });
+                            flash(m.id);
+                          }}
                         >
                           <option value={1}>1</option>
                           <option value={0.5}>0.5</option>
@@ -920,10 +900,11 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                         <select
                           className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
                           defaultValue={m.factor_uso_u ?? 1}
-                          onChange={(e) =>
-                            m.id &&
-                            updateMedicion(m.id, { factor_uso_u: parseFloat(e.target.value) })
-                          }
+                          onChange={(e) => {
+                            if (!m.id) return;
+                            updateMedicion(m.id, { factor_uso_u: parseFloat(e.target.value) });
+                            flash(m.id);
+                          }}
                         >
                           <option value={0.3}>0.3</option>
                           <option value={0.7}>0.7</option>
@@ -934,9 +915,11 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                         <select
                           className="rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white w-full"
                           defaultValue={m.tipo_area ?? ""}
-                          onChange={(e) =>
-                            m.id && updateMedicion(m.id, { tipo_area: e.target.value || undefined })
-                          }
+                          onChange={(e) => {
+                            if (!m.id) return;
+                            updateMedicion(m.id, { tipo_area: e.target.value || undefined });
+                            flash(m.id);
+                          }}
                         >
                           <option value="">—</option>
                           <option value="controlada">Controlada</option>
@@ -1141,14 +1124,23 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
               <tbody>
                 {(data.elementos ?? []).map((elem, idx) => (
                   <tr key={elem.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">{idx + 1}</td>
+                    <td className="py-1.5 px-1.5 font-black text-primary">
+                      <span className="inline-flex items-center gap-1">
+                        {idx + 1}
+                        {elem.id && isSaved(elem.id) && (
+                          <Check className="w-3 h-3 text-emerald-500" />
+                        )}
+                      </span>
+                    </td>
                     <td className="py-1.5 px-1.5">
                       <select
                         className="w-full rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white"
                         defaultValue={elem.descripcion}
-                        onChange={(e) =>
-                          elem.id && updateElemento(elem.id, { descripcion: e.target.value })
-                        }
+                        onChange={(e) => {
+                          if (!elem.id) return;
+                          updateElemento(elem.id, { descripcion: e.target.value });
+                          flash(elem.id);
+                        }}
                       >
                         <option value="">Seleccionar elemento</option>
                         {CATALOGO_ELEMENTOS_PROTECCION.map((nombre) => (
@@ -1163,22 +1155,24 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                         type="number"
                         className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
                         defaultValue={elem.cantidad ?? ""}
-                        onBlur={(e) =>
-                          elem.id &&
+                        onBlur={(e) => {
+                          if (!elem.id) return;
                           updateElemento(elem.id, {
                             cantidad: e.target.value ? parseInt(e.target.value) : undefined,
-                          })
-                        }
+                          });
+                          flash(elem.id);
+                        }}
                       />
                     </td>
                     <td className="py-1.5 px-1.5">
                       <select
                         className="rounded-xl font-bold text-xs h-9 px-2 border border-slate-200 bg-white text-slate-600 min-w-[110px]"
                         defaultValue={elem.tipo_paciente ?? ""}
-                        onChange={(e) =>
-                          elem.id &&
-                          updateElemento(elem.id, { tipo_paciente: e.target.value || undefined })
-                        }
+                        onChange={(e) => {
+                          if (!elem.id) return;
+                          updateElemento(elem.id, { tipo_paciente: e.target.value || undefined });
+                          flash(elem.id);
+                        }}
                       >
                         <option value="">Seleccionar</option>
                         <option value="adulto">Adulto</option>
@@ -1188,7 +1182,11 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                     <td className="py-1.5 px-1.5">
                       <ConceptoSelect
                         value={elem.concepto}
-                        onChange={(v) => elem.id && updateElemento(elem.id, { concepto: v })}
+                        onChange={(v) => {
+                          if (!elem.id) return;
+                          updateElemento(elem.id, { concepto: v });
+                          flash(elem.id);
+                        }}
                       />
                     </td>
                     <td className="py-1.5 px-1.5">
@@ -1196,9 +1194,11 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                         className="rounded-lg h-7 text-xs font-medium border-slate-200"
                         placeholder="Estado, grosor, etc."
                         defaultValue={elem.observacion ?? ""}
-                        onBlur={(e) =>
-                          elem.id && updateElemento(elem.id, { observacion: e.target.value })
-                        }
+                        onBlur={(e) => {
+                          if (!elem.id) return;
+                          updateElemento(elem.id, { observacion: e.target.value });
+                          flash(elem.id);
+                        }}
                       />
                     </td>
                     <td className="py-1.5 px-1.5">

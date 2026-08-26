@@ -25,6 +25,7 @@ import {
   pullSyncTable,
   pushAllPending,
   retryRecord,
+  updateAndSync,
 } from "./sync-engine";
 
 // ============================================================
@@ -355,5 +356,91 @@ describe("sync-engine — getPendingRecords", () => {
     const pending = await getPendingRecords();
 
     expect(pending).toEqual([]);
+  });
+});
+
+// ============================================================
+//  updateAndSync — helper compartido para updates de módulos de
+//  captura (Grupo A-E, Convencional)
+//
+//  Bug real: las funciones `update(...)` de los módulos de prueba NO
+//  marcaban `sync_status: "pending"` ni llamaban a `pushSingle` tras
+//  actualizar un registro ya sincronizado — el cambio quedaba huérfano
+//  en Dexie para siempre, sin ningún indicio visible en la UI. Este
+//  helper centraliza "actualizar + marcar pendiente + pushear ya" para
+//  que ningún módulo pueda repetir el bug.
+// ============================================================
+
+describe("sync-engine — updateAndSync", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("aplica el patch, marca sync_status pending y lo deja synced tras el push exitoso", async () => {
+    await db.clientes.put({
+      id: "id-existente",
+      nombre_cliente: "Cliente original",
+      nit: "NIT-1",
+      sync_status: "synced",
+      last_modified: "2020-01-01T00:00:00.000Z",
+    });
+
+    await updateAndSync("clientes", "id-existente", { nombre_cliente: "Cliente actualizado" });
+
+    const record = await db.clientes.get("id-existente");
+    expect(record?.nombre_cliente).toBe("Cliente actualizado");
+    expect(record?.sync_status).toBe("synced");
+    expect(record?.last_modified).not.toBe("2020-01-01T00:00:00.000Z");
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(1);
+  });
+
+  it("envía a Supabase los datos ya actualizados (no la versión vieja)", async () => {
+    await db.clientes.put({
+      id: "id-existente",
+      nombre_cliente: "Cliente original",
+      nit: "NIT-1",
+      sync_status: "synced",
+    });
+
+    await updateAndSync("clientes", "id-existente", { nombre_cliente: "Cliente actualizado" });
+
+    const remote = await fakeClient.from("clientes").select("*");
+    const remoteRecord = (remote.data as { id: string; nombre_cliente: string }[]).find(
+      (r) => r.id === "id-existente"
+    );
+    expect(remoteRecord?.nombre_cliente).toBe("Cliente actualizado");
+  });
+
+  it("ignora un sync_status/last_modified que venga en el patch — siempre gana pending + timestamp nuevo", async () => {
+    await db.clientes.put({
+      id: "id-existente",
+      nombre_cliente: "Cliente original",
+      nit: "NIT-1",
+      sync_status: "synced",
+    });
+
+    await updateAndSync("clientes", "id-existente", {
+      nombre_cliente: "Cliente actualizado",
+      // El caller no debería mandar esto, pero probamos robustez ante el caso.
+      sync_status: "conflict",
+      last_modified: "1999-01-01T00:00:00.000Z",
+    });
+
+    const record = await db.clientes.get("id-existente");
+    // Tras el push exitoso queda "synced" (no "conflict", que es lo que
+    // el patch intentaba forzar) y el timestamp es el del push, no 1999.
+    expect(record?.sync_status).toBe("synced");
+    expect(record?.last_modified).not.toBe("1999-01-01T00:00:00.000Z");
+  });
+
+  it("no rompe ni llama a pushSingle cuando el registro no existe", async () => {
+    await expect(
+      updateAndSync("clientes", "id-inexistente", { nombre_cliente: "Nadie" })
+    ).resolves.toBeUndefined();
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(0);
+    await expect(db.clientes.get("id-inexistente")).resolves.toBeUndefined();
   });
 });

@@ -5,10 +5,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
 import { useDb } from "@/components/db-provider";
+import { updateAndSync } from "@/lib/supabase/sync-engine";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
+  Check,
   FileText,
   Download,
   Eye,
@@ -74,6 +76,20 @@ function SeccionCard({
   const analisisRef = useRef<HTMLTextAreaElement>(null);
   const accionesRef = useRef<HTMLTextAreaElement>(null);
   const sinCriterio = !tieneCriterio(catalogo.codigo);
+  const [savedAcciones, setSavedAcciones] = useState(false);
+  const [savedObservaciones, setSavedObservaciones] = useState(false);
+
+  const handleUpdateAcciones = (v: string) => {
+    onUpdateAcciones(v);
+    setSavedAcciones(true);
+    setTimeout(() => setSavedAcciones(false), 1500);
+  };
+
+  const handleUpdateObservaciones = (v: string) => {
+    onUpdateObservaciones(v);
+    setSavedObservaciones(true);
+    setTimeout(() => setSavedObservaciones(false), 1500);
+  };
 
   // Acciones correctivas con predeterminado editable — solo 2.1, 2.2 y 2.13
   // (las demás pruebas usan el textarea libre, solo visible en No conforme).
@@ -169,14 +185,15 @@ function SeccionCard({
           {tieneAccionesPredeterminadas && accionDefault != null ? (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   Acciones correctivas
+                  {savedAcciones && <Check className="w-3 h-3 text-emerald-500" />}
                 </label>
                 <button
                   type="button"
                   onClick={() => {
                     if (accionesRef.current) accionesRef.current.value = accionDefault;
-                    onUpdateAcciones(accionDefault);
+                    handleUpdateAcciones(accionDefault);
                   }}
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
                 >
@@ -190,20 +207,21 @@ function SeccionCard({
                 className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 defaultValue={seccion.acciones_correctivas ?? accionDefault}
                 placeholder="Describa las acciones correctivas requeridas..."
-                onBlur={(e) => onUpdateAcciones(e.target.value)}
+                onBlur={(e) => handleUpdateAcciones(e.target.value)}
               />
             </div>
           ) : (
             conceptoEfectivo === "No_conforme" && (
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   Acciones correctivas
+                  {savedAcciones && <Check className="w-3 h-3 text-emerald-500" />}
                 </label>
                 <textarea
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   defaultValue={seccion.acciones_correctivas ?? ""}
                   placeholder="Describa las acciones correctivas requeridas..."
-                  onBlur={(e) => onUpdateAcciones(e.target.value)}
+                  onBlur={(e) => handleUpdateAcciones(e.target.value)}
                 />
               </div>
             )
@@ -214,15 +232,16 @@ function SeccionCard({
           {catalogo.analisis && (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   Análisis
+                  {savedObservaciones && <Check className="w-3 h-3 text-emerald-500" />}
                 </label>
                 <button
                   type="button"
                   onClick={() => {
                     const def = catalogo.analisis ?? "";
                     if (analisisRef.current) analisisRef.current.value = def;
-                    onUpdateObservaciones(def);
+                    handleUpdateObservaciones(def);
                   }}
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
                 >
@@ -235,7 +254,7 @@ function SeccionCard({
                 className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 defaultValue={seccion.observaciones ?? catalogo.analisis ?? ""}
                 placeholder="Análisis de la inspección visual..."
-                onBlur={(e) => onUpdateObservaciones(e.target.value)}
+                onBlur={(e) => handleUpdateObservaciones(e.target.value)}
               />
             </div>
           )}
@@ -362,13 +381,15 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
   // ─── Update helpers ───
   async function updateSeccion(id: string, fields: Partial<ConvInformeSeccion>) {
-    await db.conv_informe_secciones.update(id, fields);
+    await updateAndSync("conv_informe_secciones", id, fields);
   }
 
   // ─── Toggle all ───
   async function toggleAll(incluida: boolean) {
     await Promise.all(
-      secciones.map((s) => s.id && db.conv_informe_secciones.update(s.id, { incluida }))
+      secciones.map((s) =>
+        s.id ? updateAndSync("conv_informe_secciones", s.id, { incluida }) : undefined
+      )
     );
   }
 

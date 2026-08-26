@@ -702,6 +702,17 @@ export interface ErrorRecord {
   tableLabel: string;
   id: string;
   preview: string;
+  /**
+   * "error": recuperable por el ciclo automático — `retryErrorRecords()`
+   * lo vuelve a poner en "pending". "failed": agotó `MAX_ATTEMPTS` o tuvo
+   * un error permanente (ver sync-retry.ts) — es terminal, solo se
+   * reintenta manualmente con `retryRecord(table, id)`.
+   */
+  status: "error" | "failed";
+  /** Intentos consumidos, si el registro tiene fila en `sync_retry` */
+  attempts?: number;
+  /** Próximo intento automático programado, si aplica */
+  nextAttemptAt?: string;
 }
 
 export async function getErrorRecords(): Promise<ErrorRecord[]> {
@@ -712,9 +723,10 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
       const dexieTable = getDexieTable(table.local);
       if (!dexieTable) continue;
 
-      const errored = await dexieTable.where("sync_status").equals("error").toArray();
+      const errored = await dexieTable.where("sync_status").anyOf(["error", "failed"]).toArray();
       for (const rec of errored) {
         const id = (rec.id as string) ?? "";
+        const retry = await db.sync_retry.get([table.local, id]);
         results.push({
           table: table.local,
           tableLabel: tableLabel(table.local),
@@ -722,6 +734,9 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
           preview: String(
             rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? id.slice(0, 8)
           ),
+          status: rec.sync_status as "error" | "failed",
+          attempts: retry?.attempts,
+          nextAttemptAt: retry?.next_attempt_at,
         });
       }
     } catch {
@@ -751,6 +766,36 @@ export async function retryErrorRecords(): Promise<number> {
   return count;
 }
 
+// ─── Contadores globales de pendientes/errores ───
+
+/**
+ * Cuenta, entre todas las `SYNC_TABLES`, cuántos registros están en
+ * `sync_status="pending"` y cuántos en `"error"` o `"failed"` (juntos,
+ * en `errorCount`). Usa `.count()` indexado de Dexie — nunca
+ * `.toArray().length` — para no traer los registros completos solo
+ * para contarlos. Base de `useSyncCounters()` (indicador global en la
+ * UI) y reutilizable para diagnóstico fuera de React.
+ */
+export async function countSyncStatuses(): Promise<{ pendingCount: number; errorCount: number }> {
+  let pendingCount = 0;
+  let errorCount = 0;
+
+  for (const table of SYNC_TABLES) {
+    try {
+      const dexieTable = getDexieTable(table.local);
+      if (!dexieTable) continue;
+
+      pendingCount += await dexieTable.where("sync_status").equals("pending").count();
+      errorCount += await dexieTable.where("sync_status").equals("error").count();
+      errorCount += await dexieTable.where("sync_status").equals("failed").count();
+    } catch (err) {
+      logger.error("sync:counters", `Error contando registros en ${table.local}`, err);
+    }
+  }
+
+  return { pendingCount, errorCount };
+}
+
 // ─── Estado de conectividad ───
 
 export async function checkSyncStatus(): Promise<{
@@ -774,19 +819,7 @@ export async function checkSyncStatus(): Promise<{
     }
   }
 
-  let pendingCount = 0;
-  let errorCount = 0;
-  for (const table of SYNC_TABLES) {
-    try {
-      const dexieTable = getDexieTable(table.local);
-      if (dexieTable) {
-        pendingCount += await dexieTable.where("sync_status").equals("pending").count();
-        errorCount += await dexieTable.where("sync_status").equals("error").count();
-      }
-    } catch (err) {
-      logger.error("sync:status", `Error contando registros en ${table.local}`, err);
-    }
-  }
+  const { pendingCount, errorCount } = await countSyncStatuses();
 
   return { online, authenticated, pendingCount, errorCount };
 }

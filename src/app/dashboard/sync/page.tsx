@@ -23,6 +23,7 @@ import {
   checkSyncStatus,
   getErrorRecords,
   retryErrorRecords,
+  retryRecord,
   type SyncResult,
   type ErrorRecord,
 } from "@/lib/supabase/sync-engine";
@@ -40,6 +41,7 @@ export default function SyncPage() {
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
   const [errorRecords, setErrorRecords] = useState<ErrorRecord[]>([]);
   const [errorsExpanded, setErrorsExpanded] = useState(false);
+  const [retryingRecordId, setRetryingRecordId] = useState<string | null>(null);
 
   const refreshStatus = useCallback(async () => {
     const s = await checkSyncStatus();
@@ -88,6 +90,22 @@ export default function SyncPage() {
       await refreshStatus();
     } finally {
       setRetrying(false);
+    }
+  }
+
+  /**
+   * Reintento manual de un registro puntual con sync_status="failed" —
+   * terminal, no lo toca `retryErrorRecords()` (solo mueve "error" a
+   * "pending"). El técnico de campo puede forzarlo libremente, sin
+   * gate de rol (ver retryRecord en sync-engine.ts).
+   */
+  async function handleRetryRecord(rec: ErrorRecord) {
+    setRetryingRecordId(`${rec.table}-${rec.id}`);
+    try {
+      await retryRecord(rec.table, rec.id);
+      await refreshStatus();
+    } finally {
+      setRetryingRecordId(null);
     }
   }
 
@@ -232,21 +250,53 @@ export default function SyncPage() {
 
             {errorsExpanded && (
               <div className="space-y-2">
-                {errorRecords.map((rec) => (
-                  <div
-                    key={`${rec.table}-${rec.id}`}
-                    className="p-3 bg-white border border-red-200 rounded-xl text-sm font-medium flex items-center gap-3"
-                  >
-                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-red-700 font-black">{rec.tableLabel}</span>
-                      <span className="text-red-500 ml-2 truncate">{rec.preview}</span>
+                {errorRecords.map((rec) => {
+                  const recordKey = `${rec.table}-${rec.id}`;
+                  return (
+                    <div
+                      key={recordKey}
+                      className="p-3 bg-white border border-red-200 rounded-xl text-sm font-medium flex items-center gap-3"
+                    >
+                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div>
+                          <span className="text-red-700 font-black">{rec.tableLabel}</span>
+                          <span className="text-red-500 ml-2 truncate">{rec.preview}</span>
+                          {rec.status === "failed" && (
+                            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-red-400">
+                              Fallido
+                            </span>
+                          )}
+                        </div>
+                        {typeof rec.attempts === "number" && (
+                          <p className="text-[11px] text-red-400 font-mono mt-0.5">
+                            {rec.attempts} intento{rec.attempts !== 1 ? "s" : ""}
+                            {rec.nextAttemptAt &&
+                              ` — próximo: ${new Date(rec.nextAttemptAt).toLocaleString("es-CO")}`}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-red-300 font-mono flex-shrink-0">
+                        #{rec.id}
+                      </span>
+                      {rec.status === "failed" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-lg font-black text-red-700 hover:bg-red-100 h-8 px-3 flex-shrink-0"
+                          disabled={retryingRecordId === recordKey || !status?.online}
+                          onClick={() => handleRetryRecord(rec)}
+                        >
+                          {retryingRecordId === recordKey ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                      )}
                     </div>
-                    <span className="text-[10px] text-red-300 font-mono flex-shrink-0">
-                      #{rec.id}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

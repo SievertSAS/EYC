@@ -242,6 +242,29 @@ export async function fullSync(): Promise<SyncResult> {
   return lockResult.value;
 }
 
+/**
+ * `getUser()` con un reintento tras un breve delay si la primera lectura
+ * no encuentra sesión. Existe por el bug del primer login: `fullSync()`
+ * se dispara fire-and-forget justo después de `signInWithPassword` sobre
+ * una instancia de Supabase recién creada, cuya sesión puede tardar en
+ * asentarse (lectura async de storage) — sin este reintento, ese primer
+ * pull fallaba en silencio y la app quedaba vacía hasta el próximo login.
+ */
+export async function getAuthenticatedUser(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  retries = 1,
+  delayMs = 500
+): Promise<{ id: string } | null> {
+  for (let attempt = 0; ; attempt++) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user || attempt >= retries) return user;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 async function runFullSync(): Promise<SyncResult> {
   const result: SyncResult = {
     pushed: 0,
@@ -252,9 +275,7 @@ async function runFullSync(): Promise<SyncResult> {
 
   const supabase = createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthenticatedUser(supabase);
   if (!user) {
     result.errors.push({
       table: "_auth",
@@ -571,9 +592,7 @@ async function runPushAllPending(): Promise<{ pushed: number; errors: number }> 
   if (!navigator.onLine) return { pushed: 0, errors: 0 };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthenticatedUser(supabase);
   if (!user) return { pushed: 0, errors: 0 };
 
   let totalPushed = 0;
@@ -590,6 +609,59 @@ async function runPushAllPending(): Promise<{ pushed: number; errors: number }> 
   }
 
   return { pushed: totalPushed, errors: totalErrors };
+}
+
+/**
+ * Pull incremental de las tablas de campo (`SYNC_TABLES`), sin tocar las
+ * tablas maestras — pensado para correr periódicamente junto al
+ * auto-sync (cada 5 min), no solo al loguear o tocar el botón manual.
+ *
+ * Antes de esto, un dispositivo sin cambios propios pendientes de subir
+ * nunca se enteraba de cambios que hizo otro usuario (ej. una visita
+ * recién asignada por un coordinador) salvo que cerrara/reabriera
+ * sesión o el Background Sync del navegador disparara — mecanismo no
+ * soportado en Safari/iOS/Firefox y con timing no garantizado en Chrome.
+ *
+ * Deliberadamente NO recorre `MASTER_TABLES`: son datos de referencia
+ * que cambian poco y ya se refrescan por completo al loguear/sincronizar
+ * manualmente — correr ese reemplazo completo cada 5 min sería más
+ * costoso de lo que vale para este caso de uso.
+ *
+ * Protegido por `withSyncLock`, igual que `pushAllPending`/`fullSync`.
+ */
+export async function pullAllPending(): Promise<{ pulled: number; errors: number }> {
+  const lockResult = await withSyncLock(runPullAllPending);
+  if (!lockResult.ran) {
+    logger.info("sync:lock", "pullAllPending omitido: ya hay una sincronización en curso");
+    return { pulled: 0, errors: 0 };
+  }
+  return lockResult.value;
+}
+
+async function runPullAllPending(): Promise<{ pulled: number; errors: number }> {
+  if (!navigator.onLine) return { pulled: 0, errors: 0 };
+
+  const supabase = createClient();
+  const user = await getAuthenticatedUser(supabase);
+  if (!user) return { pulled: 0, errors: 0 };
+
+  let totalPulled = 0;
+  let totalErrors = 0;
+
+  for (const table of SYNC_TABLES) {
+    try {
+      totalPulled += await pullSyncTable(supabase, table.local, table.remote);
+    } catch (err) {
+      totalErrors++;
+      logger.error("sync:pull-incremental", `Error descargando ${tableLabel(table.local)}`, err);
+    }
+  }
+
+  if (totalPulled > 0) {
+    logger.info("sync:auto", `Auto-pull: ${totalPulled} registros actualizados`);
+  }
+
+  return { pulled: totalPulled, errors: totalErrors };
 }
 
 /**

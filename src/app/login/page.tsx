@@ -3,6 +3,7 @@
 import { Suspense, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fullSync } from "@/lib/supabase/sync-engine";
+import { logger } from "@/lib/logger";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,8 +70,17 @@ function LoginForm() {
       router.push(redirect);
       router.refresh();
 
-      // Sincronizar en background — no bloquea la navegación
-      fullSync().catch(() => console.warn("[Login] Sync inicial falló, se reintentará después"));
+      // Sincronizar en background — no bloquea la navegación. fullSync()
+      // no lanza en fallos esperados (ej. sin sesión, sin conexión), así
+      // que el resultado hay que inspeccionarlo para no perder el rastro
+      // de un pull inicial fallido — antes quedaba 100% en silencio.
+      fullSync()
+        .then((result) => {
+          if (result.errors.length > 0) {
+            logger.warn("login:sync-inicial", "Sync inicial con errores", result.errors);
+          }
+        })
+        .catch((err) => logger.error("login:sync-inicial", "Sync inicial falló", err));
     } catch {
       setError("Error de conexión. Verifica tu internet.");
     } finally {

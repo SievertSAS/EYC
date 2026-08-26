@@ -5,7 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
+import { deleteAndSync, pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Check,
@@ -336,10 +336,22 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
     const [setup, mediciones, inspeccion, elementos, evidencias] = await Promise.all([
       db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
-      db.conv_mediciones.where("visita_id").equals(visitaId).sortBy("punto_numero"),
+      db.conv_mediciones
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .sortBy("punto_numero"),
       db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray(),
-      db.conv_elementos_proteccion.where("visita_id").equals(visitaId).toArray(),
-      db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
+      db.conv_elementos_proteccion
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .toArray(),
+      db.conv_evidencias
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .toArray(),
     ]);
 
     return { visita, setup, mediciones, inspeccion, elementos, evidencias };
@@ -460,7 +472,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function removeMedicion(id: string) {
-    await db.conv_mediciones.delete(id);
+    await deleteAndSync("conv_mediciones", id);
   }
 
   async function updateInspeccionItem(id: string, fields: Record<string, unknown>) {
@@ -484,12 +496,12 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function removeElemento(id: string) {
-    await db.conv_elementos_proteccion.delete(id);
+    await deleteAndSync("conv_elementos_proteccion", id);
     // Limpiar la foto asociada al elemento para no dejar evidencias huérfanas
     const foto = data?.evidencias?.find(
       (e) => e.prueba_codigo === "2.2" && e.slot === `elemento_${id}`
     );
-    if (foto?.id) await db.conv_evidencias.delete(foto.id);
+    if (foto?.id) await deleteAndSync("conv_evidencias", foto.id);
   }
 
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
@@ -518,7 +530,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
     const existing = data?.evidencias?.find(
       (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
-    if (existing?.id) await db.conv_evidencias.delete(existing.id);
+    if (existing?.id) await deleteAndSync("conv_evidencias", existing.id);
   }
 
   // ─── Derived values ───

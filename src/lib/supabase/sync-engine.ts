@@ -471,6 +471,25 @@ export async function updateAndSync(
 }
 
 /**
+ * Borrado con propagación — soft-delete.
+ *
+ * Un `dexieTable.delete(id)` puro es solo local: nunca avisa al motor
+ * de sync, así que la fila queda huérfana en Supabase para siempre.
+ * En vez de eso, marcamos el registro con `deleted_at` (vía
+ * `updateAndSync`, mismo mecanismo que un edit cualquiera) — mismo
+ * UPSERT local-first que ya usa todo el motor. El registro sigue
+ * existiendo en Dexie; la UI debe filtrar `deleted_at` en sus queries
+ * para dejar de mostrarlo.
+ *
+ * Del otro lado, `applyRemoteSyncRecord` reconoce `deleted_at` en un
+ * registro remoto y hace `dexieTable.delete()` local de verdad — así
+ * un segundo dispositivo se entera de la baja.
+ */
+export async function deleteAndSync(localTable: string, id: string): Promise<void> {
+  await updateAndSync(localTable, id, { deleted_at: new Date().toISOString() });
+}
+
+/**
  * Reintento manual de un registro puntual — se salta el schedule de
  * backoff de `sync_retry` y fuerza el push inmediato. Pensado para que
  * el técnico de campo pueda reintentar un registro "failed" sin esperar
@@ -628,6 +647,13 @@ async function applyRemoteSyncRecord(
   const localRecord = await dexieTable.get(remoteRecord.id as string);
 
   if (!localRecord || localRecord.sync_status === "synced") {
+    // Soft-delete: el remoto trae `deleted_at` seteado — se borra la
+    // copia local de verdad (no se deja como fantasma con put), para
+    // que este dispositivo se entere de la baja hecha en otro lado.
+    if (remoteRecord.deleted_at) {
+      await dexieTable.delete(remoteRecord.id as string);
+      return 1;
+    }
     await dexieTable.put({ ...remoteRecord, sync_status: "synced" as SyncStatus });
     return 1;
   }

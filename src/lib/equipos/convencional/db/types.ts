@@ -50,6 +50,8 @@ export interface ConvMedicionRadiometrica extends Partial<SyncFields> {
   concepto?: "Conforme" | "No_conforme";
   observacion?: string;
   creado_en?: string;
+  /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */
+  deleted_at?: string;
 }
 
 // ─── Grupo A: Inspección Visual (prueba 2.2) ───
@@ -76,6 +78,8 @@ export interface ConvElementoProteccion extends Partial<SyncFields> {
   concepto?: "Conforme" | "No_conforme" | "No_aplica";
   observacion?: string;
   creado_en?: string;
+  /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */
+  deleted_at?: string;
 }
 
 // ─── Grupo B: RaySafe ───
@@ -231,6 +235,8 @@ export interface ConvCassetteInspeccion extends Partial<SyncFields> {
   concepto?: "Conforme" | "No_conforme";
   observacion?: string;
   creado_en?: string;
+  /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */
+  deleted_at?: string;
 }
 
 /** Medición de uniformidad CR (prueba 2.15) — 1 por cassette por visita */
@@ -244,6 +250,8 @@ export interface ConvUniformidadCr extends Partial<SyncFields> {
   di?: number;
   tei?: number;
   creado_en?: string;
+  /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */
+  deleted_at?: string;
 }
 
 // ─── Grupo E: Colimación, Resolución, Contraste, MTF ───
@@ -306,6 +314,8 @@ export interface ConvUniformidadDetector extends Partial<SyncFields> {
   artefactos?: boolean;
   artefactos_descripcion?: string;
   creado_en?: string;
+  /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */
+  deleted_at?: string;
 }
 
 /** Prueba 2.12 — Resolución espacial alto contraste */
@@ -438,4 +448,6 @@ export interface ConvEvidencia extends Partial<SyncFields> {
   url_storage?: string;
   fecha_captura?: string;
   creado_en?: string;
+  /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */
+  deleted_at?: string;
 }

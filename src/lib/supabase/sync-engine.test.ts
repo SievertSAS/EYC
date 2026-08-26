@@ -20,6 +20,7 @@ vi.mock("./client", () => ({
 // Import estático: `vi.mock` se hoistea sobre los imports, así que el mock
 // de "./client" ya está activo cuando `sync-engine.ts` se evalúa.
 import {
+  deleteAndSync,
   fullSync,
   getPendingRecords,
   pullSyncTable,
@@ -442,5 +443,106 @@ describe("sync-engine — updateAndSync", () => {
 
     expect(fakeClient.callCount("clientes", "upsert")).toBe(0);
     await expect(db.clientes.get("id-inexistente")).resolves.toBeUndefined();
+  });
+});
+
+// ============================================================
+//  Propagación de borrados — soft-delete (feat/sync-borrados-soft-delete)
+//
+//  Un `dexieTable.delete(id)` puro nunca avisa al motor de sync: la
+//  fila queda huérfana en Supabase. `deleteAndSync` marca el registro
+//  con `deleted_at` (viaja como cualquier otro cambio, mismo UPSERT
+//  local-first) en vez de borrarlo de entrada. El pull, del otro lado,
+//  debe reconocer `deleted_at` en un registro remoto y SÍ borrar la
+//  copia local — así un segundo dispositivo se entera de la baja.
+// ============================================================
+
+describe("sync-engine — deleteAndSync (soft-delete local + push)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("no borra la fila de Dexie: la marca con deleted_at y sync_status pending, luego la sincroniza", async () => {
+    await db.conv_mediciones.put({
+      id: "id-to-delete",
+      visita_id: "visita-1",
+      punto_numero: 1,
+      ubicacion_descripcion: "Consola",
+      sync_status: "synced",
+    });
+
+    await deleteAndSync("conv_mediciones", "id-to-delete");
+
+    // (a) el registro AÚN EXISTE en Dexie, con deleted_at seteado —
+    // no se hizo dexieTable.delete() de entrada.
+    const local = await db.conv_mediciones.get("id-to-delete");
+    expect(local).toBeDefined();
+    expect(local?.deleted_at).toBeTruthy();
+
+    // (b) terminó sync_status "synced" tras el push inmediato.
+    expect(local?.sync_status).toBe("synced");
+
+    // (c) Supabase (fake) recibió el deleted_at en el upsert — el
+    // borrado viajó como cualquier otro cambio de campo.
+    expect(fakeClient.callCount("conv_mediciones", "upsert")).toBe(1);
+    const { data } = await fakeClient.from("conv_mediciones").select("*");
+    const remoteRow = data?.find((r: FakeRow) => r.id === "id-to-delete");
+    expect(remoteRow?.deleted_at).toBeTruthy();
+  });
+});
+
+describe("sync-engine — pullSyncTable borra localmente cuando el remoto trae deleted_at", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("una fila remota con deleted_at seteado se borra de verdad en Dexie (no queda como fantasma)", async () => {
+    await db.conv_mediciones.put({
+      id: "id-remote-deleted",
+      visita_id: "visita-1",
+      punto_numero: 1,
+      ubicacion_descripcion: "Consola",
+      sync_status: "synced",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+
+    fakeClient.seedTable("conv_mediciones", [
+      {
+        id: "id-remote-deleted",
+        visita_id: "visita-1",
+        punto_numero: 1,
+        ubicacion_descripcion: "Consola",
+        last_modified: "2026-02-01T00:00:00.000Z",
+        deleted_at: "2026-02-01T00:00:00.000Z",
+        sync_status: "synced",
+      },
+    ]);
+
+    const pulled = await pullSyncTable(fakeClient, "conv_mediciones", "conv_mediciones");
+
+    expect(pulled).toBe(1);
+    await expect(db.conv_mediciones.get("id-remote-deleted")).resolves.toBeUndefined();
+  });
+
+  it("una fila remota SIN deleted_at se sigue aplicando con put normal (no rompe el flujo existente)", async () => {
+    fakeClient.seedTable("conv_mediciones", [
+      {
+        id: "id-remote-normal",
+        visita_id: "visita-1",
+        punto_numero: 1,
+        ubicacion_descripcion: "Consola",
+        last_modified: "2026-02-01T00:00:00.000Z",
+        sync_status: "synced",
+      },
+    ]);
+
+    const pulled = await pullSyncTable(fakeClient, "conv_mediciones", "conv_mediciones");
+
+    expect(pulled).toBe(1);
+    const local = await db.conv_mediciones.get("id-remote-normal");
+    expect(local).toBeDefined();
+    expect(local?.sync_status).toBe("synced");
   });
 });

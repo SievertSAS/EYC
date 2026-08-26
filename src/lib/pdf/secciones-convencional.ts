@@ -199,20 +199,44 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   ] = await Promise.all([
     db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
     db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
-    db.conv_mediciones.where("visita_id").equals(visitaId).sortBy("punto_numero"),
+    db.conv_mediciones
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .sortBy("punto_numero"),
     db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray(),
-    db.conv_elementos_proteccion.where("visita_id").equals(visitaId).toArray(),
+    db.conv_elementos_proteccion
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
     db.conv_resultados_prueba.where("visita_id").equals(visitaId).toArray(),
-    db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
+    db.conv_evidencias
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
     db.conv_colimacion.where("visita_id").equals(visitaId).first(),
     db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
     db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
     db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
-    db.conv_uniformidad_detector.where("visita_id").equals(visitaId).sortBy("item_numero"),
+    db.conv_uniformidad_detector
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .sortBy("item_numero"),
     db.conv_resolucion.where("visita_id").equals(visitaId).first(),
     db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
-    db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).sortBy("item_numero"),
-    db.conv_uniformidad_cr.where("visita_id").equals(visitaId).sortBy("item_numero"),
+    db.conv_cassette_inspeccion
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .sortBy("item_numero"),
+    db.conv_uniformidad_cr
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .sortBy("item_numero"),
     db.conv_mtf.where("visita_id").equals(visitaId).first(),
     db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
     db.conv_cae_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),

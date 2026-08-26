@@ -5,7 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
+import { deleteAndSync, pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
   Check,
@@ -285,9 +285,21 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
 
     const [ddiMediciones, cassettes, uniformidad, evidencias] = await Promise.all([
       db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
-      db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).sortBy("item_numero"),
-      db.conv_uniformidad_cr.where("visita_id").equals(visitaId).sortBy("item_numero"),
-      db.conv_evidencias.where("visita_id").equals(visitaId).toArray(),
+      db.conv_cassette_inspeccion
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .sortBy("item_numero"),
+      db.conv_uniformidad_cr
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .sortBy("item_numero"),
+      db.conv_evidencias
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .toArray(),
     ]);
 
     return { visita, ddiMediciones, cassettes, uniformidad, evidencias };
@@ -359,7 +371,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function removeCassette(id: string) {
-    await db.conv_cassette_inspeccion.delete(id);
+    await deleteAndSync("conv_cassette_inspeccion", id);
   }
 
   async function addUniformidad() {
@@ -380,7 +392,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function removeUniformidad(id: string) {
-    await db.conv_uniformidad_cr.delete(id);
+    await deleteAndSync("conv_uniformidad_cr", id);
   }
 
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
@@ -409,7 +421,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     const existing = data?.evidencias?.find(
       (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
-    if (existing?.id) await db.conv_evidencias.delete(existing.id);
+    if (existing?.id) await deleteAndSync("conv_evidencias", existing.id);
   }
 
   function getEvidencia(prueba: string, slot: string) {

@@ -510,18 +510,38 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     caeSetup,
     caeMediciones,
   ] = await Promise.all([
-    db.conv_mediciones.where("visita_id").equals(visitaId).toArray(),
+    db.conv_mediciones
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
     db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray(),
-    db.conv_elementos_proteccion.where("visita_id").equals(visitaId).toArray(),
+    db.conv_elementos_proteccion
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
     db.conv_colimacion.where("visita_id").equals(visitaId).first(),
     db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
     db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).toArray(),
     db.conv_ddi_mediciones.where("visita_id").equals(visitaId).toArray(),
-    db.conv_uniformidad_detector.where("visita_id").equals(visitaId).toArray(),
+    db.conv_uniformidad_detector
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
     db.conv_resolucion.where("visita_id").equals(visitaId).first(),
     db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
-    db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).toArray(),
-    db.conv_uniformidad_cr.where("visita_id").equals(visitaId).toArray(),
+    db.conv_cassette_inspeccion
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
+    db.conv_uniformidad_cr
+      .where("visita_id")
+      .equals(visitaId)
+      .filter((r) => !r.deleted_at)
+      .toArray(),
     db.conv_mtf.where("visita_id").equals(visitaId).first(),
     db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
     db.conv_cae_mediciones.where("visita_id").equals(visitaId).toArray(),

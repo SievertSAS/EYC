@@ -461,11 +461,88 @@ async function pullMasterTable(
   return allData.length;
 }
 
+const SYNC_PAGE_SIZE = 500;
+
+/**
+ * Aplica un registro remoto individual al Dexie local, resolviendo el
+ * conflicto si hay cambios locales pendientes (cualquier sync_status
+ * distinto de "synced" se trata como cambio local sin confirmar).
+ * Devuelve 1 si el registro se escribió como "synced", 0 si fue conflicto.
+ */
+async function applyRemoteSyncRecord(
+  dexieTable: EntityTable<SyncableRecord, "id">,
+  localTable: string,
+  remoteRecord: SyncableRecord
+): Promise<number> {
+  const localRecord = await dexieTable.get(remoteRecord.id as string);
+
+  if (!localRecord || localRecord.sync_status === "synced") {
+    await dexieTable.put({ ...remoteRecord, sync_status: "synced" as SyncStatus });
+    return 1;
+  }
+
+  // Conflicto: hay cambios locales pendientes — mantener versión local
+  logger.warn(
+    "sync:pull",
+    `Conflicto en ${localTable}#${remoteRecord.id} — manteniendo versión local`
+  );
+  await dexieTable.update(localRecord.id as string, { sync_status: "conflict" as SyncStatus });
+  return 0;
+}
+
+/**
+ * Recorre todas las páginas de una tabla de sincronización usando keyset
+ * pagination por `id` (no offset: un offset puede saltear filas si se
+ * insertan registros nuevos durante el pull). El filtro incremental
+ * `.gt("last_modified", lastSynced)` se mantiene fijo en cada página.
+ *
+ * Se detiene al recibir una página más corta que SYNC_PAGE_SIZE. Si
+ * cualquier página falla, la excepción se propaga sin procesar el resto —
+ * las páginas ya procesadas quedan persistidas en Dexie, pero el llamador
+ * NO debe avanzar el watermark de sync_meta en ese caso.
+ */
+async function pullSyncPages(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  dexieTable: EntityTable<SyncableRecord, "id">,
+  localTable: string,
+  remoteTable: string,
+  lastSynced: string | null
+): Promise<number> {
+  let pulled = 0;
+  let cursor: string | null = null;
+
+  for (;;) {
+    let query = supabase.from(remoteTable).select("*");
+    if (lastSynced) {
+      query = query.gt("last_modified", lastSynced);
+    }
+    if (cursor) {
+      query = query.gt("id", cursor);
+    }
+    query = query.order("id", { ascending: true }).limit(SYNC_PAGE_SIZE);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    for (const remoteRecord of data as SyncableRecord[]) {
+      pulled += await applyRemoteSyncRecord(dexieTable, localTable, remoteRecord);
+    }
+
+    cursor = data[data.length - 1].id as string;
+    if (data.length < SYNC_PAGE_SIZE) break;
+  }
+
+  return pulled;
+}
+
 /**
  * Pull tabla de sincronización: solo registros modificados después
- * de la última sync local.
+ * de la última sync local, paginando por keyset (`id`) para no perder
+ * filas cuando la tabla supera el límite `max_rows` de PostgREST.
  */
-async function pullSyncTable(
+export async function pullSyncTable(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   localTable: string,
@@ -475,36 +552,15 @@ async function pullSyncTable(
   if (!dexieTable) return 0;
 
   const lastSynced = await getLastSyncTimestamp(localTable);
+  // El watermark se captura ANTES de paginar: cualquier registro modificado
+  // mientras el pull está en curso quedará cubierto en la próxima sync.
+  const pullStartedAt = new Date().toISOString();
 
-  let query = supabase.from(remoteTable).select("*");
-  if (lastSynced) {
-    query = query.gt("last_modified", lastSynced);
-  }
+  const pulled = await pullSyncPages(supabase, dexieTable, localTable, remoteTable, lastSynced);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  if (!data || data.length === 0) return 0;
-
-  let pulled = 0;
-  for (const remoteRecord of data) {
-    const localRecord = await dexieTable.get(remoteRecord.id);
-
-    if (!localRecord) {
-      await dexieTable.put({ ...remoteRecord, sync_status: "synced" as SyncStatus });
-      pulled++;
-    } else if (localRecord.sync_status === "synced") {
-      await dexieTable.put({ ...remoteRecord, sync_status: "synced" as SyncStatus });
-      pulled++;
-    } else {
-      // Conflicto: hay cambios locales pendientes — mantener versión local
-      console.warn(
-        `[Sync] Conflicto en ${localTable}#${remoteRecord.id} — manteniendo versión local`
-      );
-      await dexieTable.update(localRecord.id, { sync_status: "conflict" as SyncStatus });
-    }
-  }
-
-  await setLastSyncTimestamp(localTable, new Date().toISOString());
+  // Solo se persiste el watermark si TODAS las páginas se procesaron sin
+  // error — si pullSyncPages lanza, esta línea nunca se alcanza.
+  await setLastSyncTimestamp(localTable, pullStartedAt);
   return pulled;
 }
 

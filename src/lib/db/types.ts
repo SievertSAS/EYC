@@ -4,12 +4,34 @@
 // ============================================================
 
 /** Estado de sincronización para registros offline */
-export type SyncStatus = "pending" | "synced" | "conflict" | "error";
+export type SyncStatus = "pending" | "synced" | "conflict" | "error" | "failed";
 
 /** Campos comunes de sincronización */
 export interface SyncFields {
   sync_status: SyncStatus;
   last_modified: string; // ISO timestamp
+}
+
+// ─── Retry con backoff exponencial ───
+
+/**
+ * Estado de reintento de un registro que falló al pushear a Supabase.
+ * Clave compuesta `[table_name+record_id]` — una fila por registro con
+ * push pendiente/fallido. Se borra al lograr un push exitoso.
+ */
+export interface SyncRetry {
+  table_name: string;
+  record_id: string;
+  /** Número de intentos consumidos, 1..MAX_ATTEMPTS (ver sync-retry.ts) */
+  attempts: number;
+  /** ISO timestamp — no reintentar automáticamente antes de esta hora */
+  next_attempt_at: string;
+  /** "retrying" mientras queden intentos disponibles; "failed" cuando se agotan o el error es permanente */
+  status: "retrying" | "failed";
+  last_error: string;
+  /** Código de error de Postgres/PostgREST, si está disponible */
+  last_error_code?: string;
+  updated_at: string;
 }
 
 // ─── Tipos de equipo ───

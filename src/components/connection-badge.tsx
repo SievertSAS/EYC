@@ -1,15 +1,18 @@
 "use client";
 
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, CloudUpload, AlertTriangle } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useDb } from "@/components/db-provider";
+import { useSyncCounters } from "@/hooks/use-sync-counters";
 
 /**
- * Badge que muestra el estado de conexión y de la base de datos local.
+ * Badge que muestra el estado de conexión, de la base de datos local y
+ * el indicador global de registros pendientes/con error de sincronizar.
  */
 export function ConnectionBadge() {
   const isOnline = useOnlineStatus();
   const { isReady, error } = useDb();
+  const { pendingCount, errorCount } = useSyncCounters();
 
   return (
     <div className="flex items-center gap-2 flex-wrap" role="status" aria-live="polite">
@@ -22,9 +25,9 @@ export function ConnectionBadge() {
           </span>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-200">
-          <WifiOff className="w-3 h-3 text-amber-700" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-100 border border-red-200">
+          <WifiOff className="w-3 h-3 text-red-600" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-red-600">
             Sin conexión
           </span>
         </div>
@@ -47,6 +50,26 @@ export function ConnectionBadge() {
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Cargando DB...
+          </span>
+        </div>
+      )}
+
+      {/* Pendientes de sincronizar */}
+      {pendingCount > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-200">
+          <CloudUpload className="w-3 h-3 text-amber-700" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+            {pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
+
+      {/* Con error de sincronización */}
+      {errorCount > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-100 border border-red-200">
+          <AlertTriangle className="w-3 h-3 text-red-600" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-red-600">
+            {errorCount} con error
           </span>
         </div>
       )}

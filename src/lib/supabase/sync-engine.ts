@@ -3,6 +3,8 @@ import { createClient } from "./client";
 import type { SyncStatus } from "@/lib/db/types";
 import { logger } from "@/lib/logger";
 import type { EntityTable } from "dexie";
+import { isDue, recordFailure, recordSuccess } from "./sync-retry";
+import { withSyncLock } from "./sync-lock";
 
 type SyncableRecord = { id?: string; sync_status?: SyncStatus; [key: string]: unknown };
 
@@ -209,10 +211,38 @@ const MASTER_TABLES = [
 ] as const;
 
 /**
- * Ejecuta un ciclo completo de sincronización.
- * Push primero (para no perder cambios locales), luego Pull.
+ * Ejecuta un ciclo completo de sincronización, protegido por
+ * `withSyncLock` (single-flight — ver sync-lock.ts) para evitar que
+ * dos disparadores (botón manual, auto-sync, mensaje del Service
+ * Worker a otra pestaña) corran fullSync al mismo tiempo.
+ *
+ * Si ya hay una sincronización en curso, el ciclo se omite y se
+ * refleja como un error `_lock` en `result.errors` — mismo patrón que
+ * el error `_auth` cuando no hay sesión — sin romper el contrato de
+ * retorno `SyncResult` que ya consumen los callers existentes.
  */
 export async function fullSync(): Promise<SyncResult> {
+  const lockResult = await withSyncLock(runFullSync);
+  if (!lockResult.ran) {
+    logger.info("sync:lock", "fullSync omitido: ya hay una sincronización en curso");
+    return {
+      pushed: 0,
+      pulled: 0,
+      errors: [
+        {
+          table: "_lock",
+          recordId: "0",
+          error: "Sincronización omitida: ya hay otra sincronización en curso",
+          action: "push",
+        },
+      ],
+      timestamp: new Date().toISOString(),
+    };
+  }
+  return lockResult.value;
+}
+
+async function runFullSync(): Promise<SyncResult> {
   const result: SyncResult = {
     pushed: 0,
     pulled: 0,
@@ -316,6 +346,13 @@ async function pushTable(
 
   for (const record of pending) {
     const localId = record.id as string;
+
+    // Un registro con retry programado no se vuelve a pushear en el
+    // ciclo automático hasta que llegue su `next_attempt_at` — evita
+    // martillar el backend con el mismo error en cada ciclo de sync.
+    const retry = await db.sync_retry.get([localTable, localId]);
+    if (retry && !isDue(retry)) continue;
+
     const data = prepareForRemote(record as Record<string, unknown>, localTable);
 
     try {
@@ -327,10 +364,14 @@ async function pushTable(
         sync_status: "synced" as SyncStatus,
         last_modified: new Date().toISOString(),
       });
+      await recordSuccess(localTable, localId);
 
       pushed++;
     } catch (err) {
-      await dexieTable.update(localId, { sync_status: "error" as SyncStatus });
+      const finalStatus = await recordFailure(localTable, localId, err);
+      if (finalStatus === "failed") {
+        await dexieTable.update(localId, { sync_status: "failed" as SyncStatus });
+      }
 
       const { message, detail } = describeError(err);
       errors.push({
@@ -373,6 +414,11 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
     const record = await dexieTable.get(localId);
     if (!record || record.sync_status !== "pending") return false;
 
+    // Igual que en pushTable: si hay un retry programado en el futuro,
+    // no reintentar todavía — el técnico puede forzarlo con retryRecord.
+    const retry = await db.sync_retry.get([localTable, localId]);
+    if (retry && !isDue(retry)) return false;
+
     const data = prepareForRemote(record as Record<string, unknown>, localTable);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -384,20 +430,100 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
       sync_status: "synced" as SyncStatus,
       last_modified: new Date().toISOString(),
     });
+    await recordSuccess(localTable, localId);
 
     logger.info("sync:push-single", `${localTable}#${localId.slice(0, 8)} synced`);
     return true;
   } catch (err) {
+    const finalStatus = await recordFailure(localTable, localId, err);
+    if (finalStatus === "failed") {
+      const dexieTable = getDexieTable(localTable);
+      if (dexieTable) await dexieTable.update(localId, { sync_status: "failed" as SyncStatus });
+    }
     logger.warn("sync:push-single", `${localTable}#${localId} failed (will retry)`, err);
     return false;
   }
 }
 
 /**
+ * Reintento manual de un registro puntual — se salta el schedule de
+ * backoff de `sync_retry` y fuerza el push inmediato. Pensado para que
+ * el técnico de campo pueda reintentar un registro "failed" sin esperar
+ * al próximo ciclo automático ni depender de un rol de coordinador.
+ */
+export async function retryRecord(localTable: string, localId: string): Promise<void> {
+  const result = await withSyncLock(() => retryRecordUnlocked(localTable, localId));
+
+  if (!result.ran) {
+    // Ya hay otra sincronización en curso (reintento automático de backoff,
+    // fullSync o pushAllPending) — el técnico puede volver a tocar el botón
+    // si hace falta. No es un error: el lock permite solo un intento, este
+    // se salta.
+    logger.info(
+      "sync:retry-record",
+      `${localTable}#${localId.slice(0, 8)} reintento manual omitido (sync en curso)`
+    );
+  }
+}
+
+async function retryRecordUnlocked(localTable: string, localId: string): Promise<void> {
+  const remote = SYNC_TABLES.find((t) => t.local === localTable)?.remote;
+  if (!remote) return;
+
+  const dexieTable = getDexieTable(localTable);
+  if (!dexieTable) return;
+
+  const record = await dexieTable.get(localId);
+  if (!record) return;
+
+  try {
+    const supabase = createClient();
+    const data = prepareForRemote(record as Record<string, unknown>, localTable);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from(remote) as any).upsert(data, { onConflict: "id" });
+
+    if (error) throw error;
+
+    await dexieTable.update(localId, {
+      sync_status: "synced" as SyncStatus,
+      last_modified: new Date().toISOString(),
+    });
+    await recordSuccess(localTable, localId);
+
+    logger.info(
+      "sync:retry-record",
+      `${localTable}#${localId.slice(0, 8)} synced (reintento manual)`
+    );
+  } catch (err) {
+    const finalStatus = await recordFailure(localTable, localId, err);
+    if (finalStatus === "failed") {
+      await dexieTable.update(localId, { sync_status: "failed" as SyncStatus });
+    }
+    logger.warn("sync:retry-record", `${localTable}#${localId} reintento manual falló`, err);
+  }
+}
+
+/**
  * Push de todos los registros pendientes (sin pull).
  * Usado por el auto-sync periódico — más liviano que fullSync.
+ *
+ * Protegido por `withSyncLock` (single-flight — ver sync-lock.ts) para
+ * no correr en paralelo con otro pushAllPending o con fullSync. Si ya
+ * hay una sincronización en curso, se omite este ciclo — mismo shape
+ * de retorno que el caso offline (`{ pushed: 0, errors: 0 }`), solo
+ * distinguible por el log emitido.
  */
 export async function pushAllPending(): Promise<{ pushed: number; errors: number }> {
+  const lockResult = await withSyncLock(runPushAllPending);
+  if (!lockResult.ran) {
+    logger.info("sync:lock", "pushAllPending omitido: ya hay una sincronización en curso");
+    return { pushed: 0, errors: 0 };
+  }
+  return lockResult.value;
+}
+
+async function runPushAllPending(): Promise<{ pushed: number; errors: number }> {
   if (!navigator.onLine) return { pushed: 0, errors: 0 };
 
   const supabase = createClient();
@@ -591,6 +717,17 @@ export interface ErrorRecord {
   tableLabel: string;
   id: string;
   preview: string;
+  /**
+   * "error": recuperable por el ciclo automático — `retryErrorRecords()`
+   * lo vuelve a poner en "pending". "failed": agotó `MAX_ATTEMPTS` o tuvo
+   * un error permanente (ver sync-retry.ts) — es terminal, solo se
+   * reintenta manualmente con `retryRecord(table, id)`.
+   */
+  status: "error" | "failed";
+  /** Intentos consumidos, si el registro tiene fila en `sync_retry` */
+  attempts?: number;
+  /** Próximo intento automático programado, si aplica */
+  nextAttemptAt?: string;
 }
 
 export async function getErrorRecords(): Promise<ErrorRecord[]> {
@@ -601,9 +738,10 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
       const dexieTable = getDexieTable(table.local);
       if (!dexieTable) continue;
 
-      const errored = await dexieTable.where("sync_status").equals("error").toArray();
+      const errored = await dexieTable.where("sync_status").anyOf(["error", "failed"]).toArray();
       for (const rec of errored) {
         const id = (rec.id as string) ?? "";
+        const retry = await db.sync_retry.get([table.local, id]);
         results.push({
           table: table.local,
           tableLabel: tableLabel(table.local),
@@ -611,6 +749,9 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
           preview: String(
             rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? id.slice(0, 8)
           ),
+          status: rec.sync_status as "error" | "failed",
+          attempts: retry?.attempts,
+          nextAttemptAt: retry?.next_attempt_at,
         });
       }
     } catch {
@@ -640,6 +781,36 @@ export async function retryErrorRecords(): Promise<number> {
   return count;
 }
 
+// ─── Contadores globales de pendientes/errores ───
+
+/**
+ * Cuenta, entre todas las `SYNC_TABLES`, cuántos registros están en
+ * `sync_status="pending"` y cuántos en `"error"` o `"failed"` (juntos,
+ * en `errorCount`). Usa `.count()` indexado de Dexie — nunca
+ * `.toArray().length` — para no traer los registros completos solo
+ * para contarlos. Base de `useSyncCounters()` (indicador global en la
+ * UI) y reutilizable para diagnóstico fuera de React.
+ */
+export async function countSyncStatuses(): Promise<{ pendingCount: number; errorCount: number }> {
+  let pendingCount = 0;
+  let errorCount = 0;
+
+  for (const table of SYNC_TABLES) {
+    try {
+      const dexieTable = getDexieTable(table.local);
+      if (!dexieTable) continue;
+
+      pendingCount += await dexieTable.where("sync_status").equals("pending").count();
+      errorCount += await dexieTable.where("sync_status").equals("error").count();
+      errorCount += await dexieTable.where("sync_status").equals("failed").count();
+    } catch (err) {
+      logger.error("sync:counters", `Error contando registros en ${table.local}`, err);
+    }
+  }
+
+  return { pendingCount, errorCount };
+}
+
 // ─── Estado de conectividad ───
 
 export async function checkSyncStatus(): Promise<{
@@ -663,19 +834,7 @@ export async function checkSyncStatus(): Promise<{
     }
   }
 
-  let pendingCount = 0;
-  let errorCount = 0;
-  for (const table of SYNC_TABLES) {
-    try {
-      const dexieTable = getDexieTable(table.local);
-      if (dexieTable) {
-        pendingCount += await dexieTable.where("sync_status").equals("pending").count();
-        errorCount += await dexieTable.where("sync_status").equals("error").count();
-      }
-    } catch (err) {
-      logger.error("sync:status", `Error contando registros en ${table.local}`, err);
-    }
-  }
+  const { pendingCount, errorCount } = await countSyncStatuses();
 
   return { online, authenticated, pendingCount, errorCount };
 }

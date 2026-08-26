@@ -30,6 +30,7 @@ import type {
   InformeVersion,
   ChangeLog,
   SyncMeta,
+  SyncRetry,
 } from "./types";
 import type {
   ConvLevantamientoSetup,
@@ -84,6 +85,8 @@ class EyCDatabase extends Dexie {
   informe_versiones!: EntityTable<InformeVersion, "id">;
   change_logs!: EntityTable<ChangeLog, "id">;
   sync_meta!: EntityTable<SyncMeta, "table_name">;
+  /** Clave compuesta `[table_name+record_id]` — Dexie no soporta EntityTable con PK compuesta */
+  sync_retry!: Dexie.Table<SyncRetry, [string, string]>;
 
   // ─── Convencional (tablas dedicadas) ───
   conv_levantamiento_setup!: EntityTable<ConvLevantamientoSetup, "id">;
@@ -311,6 +314,14 @@ class EyCDatabase extends Dexie {
     // ─────────────────────────────────────────────────────────────
     this.version(14).stores({
       equipo_movimientos: "id, equipo_id, ubicacion_nueva_id, sync_status",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v15 — retry con backoff exponencial para push fallido.
+    //  Tabla nueva, aditiva — no migra ni toca tablas existentes.
+    // ─────────────────────────────────────────────────────────────
+    this.version(15).stores({
+      sync_retry: "&[table_name+record_id], table_name, next_attempt_at",
     });
   }
 }

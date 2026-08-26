@@ -19,7 +19,7 @@ vi.mock("./client", () => ({
 
 // Import estático: `vi.mock` se hoistea sobre los imports, así que el mock
 // de "./client" ya está activo cuando `sync-engine.ts` se evalúa.
-import { fullSync, pullSyncTable } from "./sync-engine";
+import { fullSync, pullSyncTable, pushAllPending, retryRecord } from "./sync-engine";
 
 // ============================================================
 //  pullSyncTable — paginación keyset (PR1: sync-engine-entrega-garantizada)
@@ -144,5 +144,145 @@ describe("sync-engine — fullSync (integración con pullSyncTable)", () => {
     await expect(db.clientes.count()).resolves.toBe(3);
     const meta = await db.sync_meta.get("clientes");
     expect(meta?.last_pulled_at).toBeDefined();
+  });
+});
+
+// ============================================================
+//  Push con schedule de retry (PR2: sync-engine-entrega-garantizada)
+//
+//  Un registro con una fila en `sync_retry` cuyo `next_attempt_at` está
+//  en el futuro no debe volver a pushearse en el ciclo automático hasta
+//  que llegue esa hora. `retryRecord` permite al técnico saltarse ese
+//  schedule y forzar el push inmediato de un registro puntual.
+// ============================================================
+
+describe("sync-engine — push respeta el schedule de sync_retry", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("no vuelve a pushear un registro con next_attempt_at en el futuro", async () => {
+    await db.clientes.put({
+      id: "id-pending",
+      nombre_cliente: "Cliente pendiente",
+      nit: "NIT-1",
+      sync_status: "pending",
+    });
+
+    const futureIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await db.sync_retry.put({
+      table_name: "clientes",
+      record_id: "id-pending",
+      attempts: 2,
+      next_attempt_at: futureIso,
+      status: "retrying",
+      last_error: "network error",
+      updated_at: new Date().toISOString(),
+    });
+
+    const { pushed } = await pushAllPending();
+
+    expect(pushed).toBe(0);
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(0);
+    const record = await db.clientes.get("id-pending");
+    expect(record?.sync_status).toBe("pending");
+  });
+
+  it("retryRecord pushea inmediatamente saltándose el schedule de next_attempt_at futuro", async () => {
+    await db.clientes.put({
+      id: "id-pending",
+      nombre_cliente: "Cliente pendiente",
+      nit: "NIT-1",
+      sync_status: "pending",
+    });
+
+    const futureIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await db.sync_retry.put({
+      table_name: "clientes",
+      record_id: "id-pending",
+      attempts: 2,
+      next_attempt_at: futureIso,
+      status: "retrying",
+      last_error: "network error",
+      updated_at: new Date().toISOString(),
+    });
+
+    await retryRecord("clientes", "id-pending");
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(1);
+    const record = await db.clientes.get("id-pending");
+    expect(record?.sync_status).toBe("synced");
+    await expect(db.sync_retry.get(["clientes", "id-pending"])).resolves.toBeUndefined();
+  });
+
+  it("retryRecord pasa por el lock de concurrencia: dos reintentos simultáneos del mismo registro pushean una sola vez", async () => {
+    await db.clientes.put({
+      id: "id-concurrent-retry",
+      nombre_cliente: "Cliente reintento concurrente",
+      nit: "NIT-CR",
+      sync_status: "failed",
+    });
+
+    // Reintento manual del técnico "al mismo tiempo" que un reintento
+    // automático de backoff sobre el mismo registro: el lock permite solo
+    // un intento, el perdedor se salta sin lanzar error.
+    await Promise.all([
+      retryRecord("clientes", "id-concurrent-retry"),
+      retryRecord("clientes", "id-concurrent-retry"),
+    ]);
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(1);
+    const record = await db.clientes.get("id-concurrent-retry");
+    expect(record?.sync_status).toBe("synced");
+  });
+});
+
+// ============================================================
+//  Lock de concurrencia (PR3: sync-engine-entrega-garantizada)
+//
+//  fullSync/pushAllPending están envueltos con withSyncLock (ver
+//  sync-lock.ts) para que solo un ciclo de sync corra a la vez —
+//  necesario porque el Service Worker dispara SYNC_REQUESTED a cada
+//  tab abierta (sw-register.tsx) y cada una corre fullSync() en su
+//  propio contexto.
+// ============================================================
+
+describe("sync-engine — lock de concurrencia", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("fullSync: una segunda llamada concurrente se omite con un error _lock, sin duplicar el ciclo", async () => {
+    const [first, second] = await Promise.all([fullSync(), fullSync()]);
+
+    expect(first.errors.find((e) => e.table === "_lock")).toBeUndefined();
+    expect(second.pushed).toBe(0);
+    expect(second.pulled).toBe(0);
+    expect(second.errors).toEqual([
+      {
+        table: "_lock",
+        recordId: "0",
+        error: "Sincronización omitida: ya hay otra sincronización en curso",
+        action: "push",
+      },
+    ]);
+  });
+
+  it("pushAllPending: la segunda llamada concurrente se omite y no duplica el push del mismo registro pendiente", async () => {
+    await db.clientes.put({
+      id: "id-concurrent",
+      nombre_cliente: "Cliente concurrente",
+      nit: "NIT-CONC",
+      sync_status: "pending",
+    });
+
+    const [first, second] = await Promise.all([pushAllPending(), pushAllPending()]);
+
+    expect(fakeClient.callCount("clientes", "upsert")).toBe(1);
+    expect(first.pushed + second.pushed).toBe(1);
+    const record = await db.clientes.get("id-concurrent");
+    expect(record?.sync_status).toBe("synced");
   });
 });

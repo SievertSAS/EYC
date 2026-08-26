@@ -15,11 +15,12 @@ Motor: [`src/lib/supabase/sync-engine.ts`](../src/lib/supabase/sync-engine.ts).
 
 | Grupo | Ejemplos | Dirección |
 |-------|----------|-----------|
-| **SYNC_TABLES** (bidireccional) | `clientes`, `sedes`, `equipos`, `solicitudes`, `visitas`, datos de campo | Push + Pull |
+| **SYNC_TABLES** (bidireccional) | `clientes`, `sedes`, `equipos`, `solicitudes`, `visitas`, datos de campo, las 21 tablas `conv_*` | Push + Pull |
 | **MASTER_TABLES** (solo descarga) | `departamentos`, `municipios`, `usuarios`, `prueba_definiciones`, `informes`, `rol_permisos`… | Pull (reemplazo total) |
 
-> **Pendiente:** las tablas `conv_*` aún **no** están en `SYNC_TABLES` ni existen sus tablas en
-> Supabase. Es una tarea abierta en [`../TODO.md`](../TODO.md).
+> **Pendiente:** confirmar que las tablas `conv_*` existen en Supabase con el mismo esquema —
+> el código ya las incluye en `SYNC_TABLES`, pero si la tabla remota no existe el push/pull
+> falla en silencio. Es una tarea abierta en [`../TODO.md`](../TODO.md).
 
 ## 6.3 Ciclo `fullSync()`
 

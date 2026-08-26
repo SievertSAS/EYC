@@ -1,11 +1,12 @@
 "use client";
 
-import { use, useState, type ComponentType } from "react";
+import { use, useMemo, useState, type ComponentType } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
+import { logger } from "@/lib/logger";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,6 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
 
 /** Mapa de nombres de icono → componente Lucide */
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -113,7 +113,26 @@ function PercentBadge({ value }: { value: number }) {
 
 export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const visitaId = id;
+  // Fuente de verdad del id: se deriva de window.location.pathname en vez de
+  // confiar ciegamente en `params`. Offline, el Service Worker puede servir
+  // el documento de la plantilla genérica de OTRA visita (ver public/sw.js)
+  // cuando la ruta nunca fue cacheada; ese documento trae embebido el `id`
+  // de params de la visita original, que no corresponde a la URL real. Usar
+  // el id de la URL evita cargar/editar offline los datos de la visita
+  // equivocada (crítico por cumplimiento regulatorio de radioprotección).
+  const visitaId = useMemo(() => {
+    if (typeof window === "undefined") return id;
+    const urlId = window.location.pathname.split("/").pop();
+    if (urlId && urlId !== id) {
+      logger.warn(
+        "VisitaWorkspacePage",
+        "El id de params no coincide con el id de la URL; se usa el de la URL",
+        { paramsId: id, urlId, pathname: window.location.pathname }
+      );
+      return urlId;
+    }
+    return urlId || id;
+  }, [id]);
   const { isReady } = useDb();
   const { role } = useRole();
   const [generandoInforme, setGenerandoInforme] = useState(false);
@@ -166,12 +185,13 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   if (data === null) {
     return (
       <div className="space-y-6">
-        <Link
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- navegación dura intencional (ver src/lib/visita-nav.ts): permite offline vía Service Worker */}
+        <a
           href="/dashboard/visitas"
           className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Volver a visitas
-        </Link>
+        </a>
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />
@@ -231,12 +251,13 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       {/* Navegación */}
-      <Link
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- navegación dura intencional (ver src/lib/visita-nav.ts): permite offline vía Service Worker */}
+      <a
         href="/dashboard/visitas"
         className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Volver a visitas
-      </Link>
+      </a>
 
       {/* Banner de devolución del ingeniero */}
       {hasRevisionNotes && (
@@ -409,7 +430,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
               <button
                 key={modulo.id}
                 type="button"
-                onClick={() => irAModulo(id, modulo.id)}
+                onClick={() => irAModulo(visitaId, modulo.id)}
                 className="text-left w-full"
               >
                 {cardContent}

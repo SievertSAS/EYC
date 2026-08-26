@@ -10,12 +10,24 @@ const CACHE_NAME = "sievert-eyc-v1";
 const APP_SHELL = [
   "/",
   "/dashboard",
+  "/dashboard/visitas",
   "/offline.html",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/logo-sievert.png",
 ];
+
+// Key sintética bajo la que se guarda una copia genérica del documento del
+// workspace de una visita (/dashboard/visitas/<id>), para servirla offline
+// cuando el usuario entra directo a una visita que nunca fue cacheada.
+const VISITA_DETAIL_TEMPLATE_KEY = "/__visita-detail-template__";
+
+// Debe mantenerse en sync con `isVisitaDetailPath` de src/lib/visita-nav.ts.
+// El SW es vanilla JS sin bundler y no puede importar el código de la app.
+function isVisitaDetailPath(pathname) {
+  return /^\/dashboard\/visitas\/[^/]+\/?$/.test(pathname);
+}
 
 // ─── Install: pre-cachear app shell ───
 self.addEventListener("install", (event) => {
@@ -79,7 +91,7 @@ self.addEventListener("fetch", (event) => {
 // ─── Estrategias de caching ───
 
 async function cacheFirstWithNetwork(request) {
-  const cached = await caches.match(request);
+  const cached = await caches.match(request, { ignoreVary: true });
   if (cached) return cached;
 
   try {
@@ -96,16 +108,36 @@ async function cacheFirstWithNetwork(request) {
 }
 
 async function networkFirstWithFallback(request) {
+  const url = new URL(request.url);
+  const esNavegacionAVisita = request.mode === "navigate" && isVisitaDetailPath(url.pathname);
+
   try {
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
+
+      // Además de la key normal, guardamos una copia genérica del documento
+      // del workspace de visita: sirve de plantilla para visitas que nunca
+      // se cachearon individualmente (ver fallback más abajo).
+      if (esNavegacionAVisita) {
+        cache.put(new Request(VISITA_DETAIL_TEMPLATE_KEY), response.clone());
+      }
     }
     return response;
   } catch {
-    const cached = await caches.match(request);
+    const cached = await caches.match(request, { ignoreVary: true });
     if (cached) return cached;
+
+    // Fallback: si es el workspace de una visita nunca cacheada, servir la
+    // plantilla genérica antes de caer al fallback de /dashboard. El id real
+    // de la URL se revalida en cliente contra window.location.pathname
+    // (ver src/app/dashboard/visitas/[id]/page.tsx) para no operar sobre la
+    // visita equivocada.
+    if (esNavegacionAVisita) {
+      const template = await caches.match(VISITA_DETAIL_TEMPLATE_KEY);
+      if (template) return template;
+    }
 
     // Fallback: devolver la página principal cacheada o la página offline
     if (request.mode === "navigate") {

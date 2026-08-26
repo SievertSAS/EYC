@@ -387,7 +387,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   `Equipo #${eq.id}`
                 : null;
               return (
-                <Link key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
+                <a key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
                   <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-center justify-between gap-3">
@@ -409,7 +409,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
+                </a>
               );
             })}
           </div>

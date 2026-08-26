@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DbProvider } from "@/components/db-provider";
 import { RoleProvider } from "@/components/role-provider";
+import { ConnectionBadge } from "@/components/connection-badge";
 import Image from "next/image";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -35,8 +36,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {/* Contenido principal */}
               <main
                 id="main-content"
-                className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 gradient-bg min-h-screen"
+                className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 gradient-bg min-h-screen space-y-6"
               >
+                {/* Estado de conexión — visible en todas las pantallas del dashboard */}
+                <ConnectionBadge />
+
                 {children}
               </main>
             </SidebarInset>

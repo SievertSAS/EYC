@@ -19,7 +19,13 @@ vi.mock("./client", () => ({
 
 // Import estático: `vi.mock` se hoistea sobre los imports, así que el mock
 // de "./client" ya está activo cuando `sync-engine.ts` se evalúa.
-import { fullSync, pullSyncTable, pushAllPending, retryRecord } from "./sync-engine";
+import {
+  fullSync,
+  getPendingRecords,
+  pullSyncTable,
+  pushAllPending,
+  retryRecord,
+} from "./sync-engine";
 
 // ============================================================
 //  pullSyncTable — paginación keyset (PR1: sync-engine-entrega-garantizada)
@@ -284,5 +290,70 @@ describe("sync-engine — lock de concurrencia", () => {
     expect(first.pushed + second.pushed).toBe(1);
     const record = await db.clientes.get("id-concurrent");
     expect(record?.sync_status).toBe("synced");
+  });
+});
+
+// ============================================================
+//  getPendingRecords — lista de registros en cola normal (sync-status-bar)
+//
+//  Análoga a getErrorRecords(), pero filtra sync_status === "pending"
+//  en vez de "error"/"failed". Usada por /dashboard/sync para mostrar
+//  también los pendientes, no solo los errores.
+// ============================================================
+
+describe("sync-engine — getPendingRecords", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  it("trae solo los registros con sync_status pending, con el mismo shape que getErrorRecords", async () => {
+    await db.clientes.put({
+      id: "id-1",
+      nombre_cliente: "Cliente pendiente",
+      nit: "NIT-1",
+      sync_status: "pending",
+    });
+    await db.clientes.put({
+      id: "id-2",
+      nombre_cliente: "Cliente sincronizado",
+      nit: "NIT-2",
+      sync_status: "synced",
+    });
+    await db.clientes.put({
+      id: "id-3",
+      nombre_cliente: "Cliente con error",
+      nit: "NIT-3",
+      sync_status: "error",
+    });
+    await db.clientes.put({
+      id: "id-4",
+      nombre_cliente: "Cliente fallido",
+      nit: "NIT-4",
+      sync_status: "failed",
+    });
+
+    const pending = await getPendingRecords();
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({
+      table: "clientes",
+      tableLabel: "Clientes",
+      id: "id-1",
+      preview: "Cliente pendiente",
+      status: "pending",
+    });
+  });
+
+  it("devuelve un array vacío cuando no hay registros pending", async () => {
+    await db.clientes.put({
+      id: "id-1",
+      nombre_cliente: "Cliente sincronizado",
+      nit: "NIT-1",
+      sync_status: "synced",
+    });
+
+    const pending = await getPendingRecords();
+
+    expect(pending).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DbProvider } from "@/components/db-provider";
 import { RoleProvider } from "@/components/role-provider";
-import { ConnectionBadge } from "@/components/connection-badge";
+import { SyncStatusBar } from "@/components/sync-status-bar";
 import Image from "next/image";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,10 +18,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               Ir al contenido principal
             </a>
+            {/* Franja fija de estado de sincronización — persiste en toda la app */}
+            <SyncStatusBar />
             <AppSidebar />
-            <SidebarInset>
+            <SidebarInset className="pt-9">
               {/* Header móvil con trigger del sidebar */}
-              <header className="flex items-center gap-3 p-4 md:hidden border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+              <header className="flex items-center gap-3 p-4 md:hidden border-b border-border bg-white/80 backdrop-blur-sm sticky top-9 z-10">
                 <SidebarTrigger className="text-slate-600" />
                 <Image
                   src="/logo-sievert.png"
@@ -38,9 +40,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 id="main-content"
                 className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 gradient-bg min-h-screen space-y-6"
               >
-                {/* Estado de conexión — visible en todas las pantallas del dashboard */}
-                <ConnectionBadge />
-
                 {children}
               </main>
             </SidebarInset>

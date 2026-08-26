@@ -22,11 +22,82 @@ import {
   fullSync,
   checkSyncStatus,
   getErrorRecords,
+  getPendingRecords,
   retryErrorRecords,
   retryRecord,
   type SyncResult,
   type ErrorRecord,
+  type SyncRecordPreview,
 } from "@/lib/supabase/sync-engine";
+
+/** Fila de un registro pendiente o con error — reusada en ambas listas. */
+function SyncRecordRow({
+  rec,
+  theme,
+  online,
+  retryingRecordId,
+  onRetry,
+}: {
+  rec: SyncRecordPreview;
+  theme: "red" | "amber";
+  online: boolean;
+  retryingRecordId: string | null;
+  onRetry: (rec: SyncRecordPreview) => void;
+}) {
+  const recordKey = `${rec.table}-${rec.id}`;
+  const border = theme === "red" ? "border-red-200" : "border-amber-200";
+  const textStrong = theme === "red" ? "text-red-700" : "text-amber-700";
+  const textSoft = theme === "red" ? "text-red-500" : "text-amber-600";
+  const textMuted = theme === "red" ? "text-red-400" : "text-amber-500";
+  const iconColor = theme === "red" ? "text-red-400" : "text-amber-500";
+
+  return (
+    <div
+      key={recordKey}
+      className={`p-3 bg-white border ${border} rounded-xl text-sm font-medium flex items-center gap-3`}
+    >
+      <AlertCircle className={`w-4 h-4 ${iconColor} flex-shrink-0`} />
+      <div className="min-w-0 flex-1">
+        <div>
+          <span className={`${textStrong} font-black`}>{rec.tableLabel}</span>
+          <span className={`${textSoft} ml-2 truncate`}>{rec.preview}</span>
+          {rec.status === "failed" && (
+            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-red-400">
+              Fallido
+            </span>
+          )}
+        </div>
+        {typeof rec.attempts === "number" && (
+          <p className={`text-[11px] ${textMuted} font-mono mt-0.5`}>
+            {rec.attempts} intento{rec.attempts !== 1 ? "s" : ""}
+            {rec.nextAttemptAt &&
+              ` — próximo: ${new Date(rec.nextAttemptAt).toLocaleString("es-CO")}`}
+          </p>
+        )}
+      </div>
+      <span
+        className={`text-[10px] ${theme === "red" ? "text-red-300" : "text-amber-300"} font-mono flex-shrink-0`}
+      >
+        #{rec.id}
+      </span>
+      {rec.status === "failed" && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="rounded-lg font-black text-red-700 hover:bg-red-100 h-8 px-3 flex-shrink-0"
+          disabled={retryingRecordId === recordKey || !online}
+          onClick={() => onRetry(rec)}
+        >
+          {retryingRecordId === recordKey ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="w-3.5 h-3.5" />
+          )}
+        </Button>
+      )}
+    </div>
+  );
+}
 
 export default function SyncPage() {
   const [status, setStatus] = useState<{
@@ -41,17 +112,15 @@ export default function SyncPage() {
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
   const [errorRecords, setErrorRecords] = useState<ErrorRecord[]>([]);
   const [errorsExpanded, setErrorsExpanded] = useState(false);
+  const [pendingRecords, setPendingRecords] = useState<SyncRecordPreview[]>([]);
+  const [pendingExpanded, setPendingExpanded] = useState(false);
   const [retryingRecordId, setRetryingRecordId] = useState<string | null>(null);
 
   const refreshStatus = useCallback(async () => {
     const s = await checkSyncStatus();
     setStatus(s);
-    if (s.errorCount > 0) {
-      const records = await getErrorRecords();
-      setErrorRecords(records);
-    } else {
-      setErrorRecords([]);
-    }
+    setErrorRecords(s.errorCount > 0 ? await getErrorRecords() : []);
+    setPendingRecords(s.pendingCount > 0 ? await getPendingRecords() : []);
   }, []);
 
   useEffect(() => {
@@ -250,53 +319,16 @@ export default function SyncPage() {
 
             {errorsExpanded && (
               <div className="space-y-2">
-                {errorRecords.map((rec) => {
-                  const recordKey = `${rec.table}-${rec.id}`;
-                  return (
-                    <div
-                      key={recordKey}
-                      className="p-3 bg-white border border-red-200 rounded-xl text-sm font-medium flex items-center gap-3"
-                    >
-                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div>
-                          <span className="text-red-700 font-black">{rec.tableLabel}</span>
-                          <span className="text-red-500 ml-2 truncate">{rec.preview}</span>
-                          {rec.status === "failed" && (
-                            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-red-400">
-                              Fallido
-                            </span>
-                          )}
-                        </div>
-                        {typeof rec.attempts === "number" && (
-                          <p className="text-[11px] text-red-400 font-mono mt-0.5">
-                            {rec.attempts} intento{rec.attempts !== 1 ? "s" : ""}
-                            {rec.nextAttemptAt &&
-                              ` — próximo: ${new Date(rec.nextAttemptAt).toLocaleString("es-CO")}`}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-red-300 font-mono flex-shrink-0">
-                        #{rec.id}
-                      </span>
-                      {rec.status === "failed" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-lg font-black text-red-700 hover:bg-red-100 h-8 px-3 flex-shrink-0"
-                          disabled={retryingRecordId === recordKey || !status?.online}
-                          onClick={() => handleRetryRecord(rec)}
-                        >
-                          {retryingRecordId === recordKey ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
+                {errorRecords.map((rec) => (
+                  <SyncRecordRow
+                    key={`${rec.table}-${rec.id}`}
+                    rec={rec}
+                    theme="red"
+                    online={!!status?.online}
+                    retryingRecordId={retryingRecordId}
+                    onRetry={handleRetryRecord}
+                  />
+                ))}
               </div>
             )}
 
@@ -318,6 +350,44 @@ export default function SyncPage() {
                 </>
               )}
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Registros pendientes — detalle expandible */}
+      {pendingRecords.length > 0 && (
+        <Card className="border-2 border-amber-200 shadow-none rounded-2xl bg-amber-50 overflow-hidden">
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <button
+              className="w-full flex items-center justify-between"
+              onClick={() => setPendingExpanded(!pendingExpanded)}
+            >
+              <h3 className="text-base font-black text-amber-700 tracking-tight flex items-center gap-2">
+                <CloudUpload className="w-5 h-5" />
+                {pendingRecords.length} registro{pendingRecords.length !== 1 ? "s" : ""} sin subir
+                todavía
+              </h3>
+              {pendingExpanded ? (
+                <ChevronUp className="w-5 h-5 text-amber-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-amber-400" />
+              )}
+            </button>
+
+            {pendingExpanded && (
+              <div className="space-y-2">
+                {pendingRecords.map((rec) => (
+                  <SyncRecordRow
+                    key={`${rec.table}-${rec.id}`}
+                    rec={rec}
+                    theme="amber"
+                    online={!!status?.online}
+                    retryingRecordId={retryingRecordId}
+                    onRetry={handleRetryRecord}
+                  />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

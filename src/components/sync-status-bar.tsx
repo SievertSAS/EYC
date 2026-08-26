@@ -11,13 +11,15 @@ import { formatRelativeTime } from "@/lib/format-relative-time";
 const LAST_SYNC_KEY = "ultima-sync-exitosa";
 
 /**
- * Franja fija de estado de sincronización — reemplaza a `ConnectionBadge`.
+ * Franja de estado de sincronización — reemplaza a `ConnectionBadge`.
  *
- * Chrome permanente (nunca se desmonta, sin auto-hide): el incidente que
- * motivó este componente fue justamente un fallo de sync que no dejó
- * ningún rastro visible. El estado "Sincronizado" queda pintado hasta el
- * próximo cambio, y el chip de error (si `errorCount > 0`) se muestra
- * SIEMPRE en paralelo a cualquier otro estado, nunca reemplazado por él.
+ * Solo se muestra sin conexión, con más de un cambio pendiente, o con
+ * algún error — no en el camino feliz online con 0-1 pendientes, para no
+ * parpadear ámbar→verde en cada guardado individual de un campo (mala
+ * experiencia). El chip de error, cuando aplica, se muestra SIEMPRE en
+ * paralelo a cualquier otro estado, nunca reemplazado por él — y el
+ * timestamp de última sync exitosa se sigue guardando aunque la franja
+ * esté oculta, para no perder ese rastro.
  */
 export function SyncStatusBar() {
   const isOnline = useOnlineStatus();
@@ -35,6 +37,9 @@ export function SyncStatusBar() {
     if (!isSynced) return;
     window.localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   }, [isSynced]);
+
+  const shouldShow = !!error || !isReady || !isOnline || pendingCount > 1 || errorCount > 0;
+  if (!shouldShow) return null;
 
   const lastSync =
     typeof window === "undefined" ? null : window.localStorage.getItem(LAST_SYNC_KEY);
@@ -72,7 +77,7 @@ export function SyncStatusBar() {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed top-0 inset-x-0 md:left-(--sidebar-width) z-30 h-9 flex items-center justify-between px-3 sm:px-4 ${colorClasses}`}
+      className={`sticky top-0 z-30 h-9 flex items-center justify-between px-3 sm:px-4 ${colorClasses}`}
     >
       <Link
         href="/dashboard/sync"

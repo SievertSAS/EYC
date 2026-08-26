@@ -89,13 +89,36 @@ describe("SyncStatusBar", () => {
     expect(screen.queryByText(/quedan 5/i)).toBeNull();
   });
 
-  it("estado sincronizado no muestra el chip de error si errorCount es 0", () => {
+  it("no muestra nada en el camino feliz (online, 0 pendientes, sin errores)", () => {
     mockState({ isOnline: true, pendingCount: 0, errorCount: 0 });
+
+    const { container } = render(<SyncStatusBar />);
+
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("no muestra nada con un solo pendiente online — evita el parpadeo por cada guardado", () => {
+    mockState({ isOnline: true, pendingCount: 1, errorCount: 0 });
+
+    const { container } = render(<SyncStatusBar />);
+
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("sí se muestra online con más de un pendiente", () => {
+    mockState({ isOnline: true, pendingCount: 2, errorCount: 0 });
 
     render(<SyncStatusBar />);
 
-    expect(screen.getByText(/sincronizado/i)).toBeTruthy();
-    expect(screen.queryByText(/con error/i)).toBeNull();
+    expect(screen.getByText(/quedan 2/i)).toBeTruthy();
+  });
+
+  it("se muestra igual si hay un solo pendiente pero también hay errores", () => {
+    mockState({ isOnline: true, pendingCount: 1, errorCount: 1 });
+
+    render(<SyncStatusBar />);
+
+    expect(screen.getByText(/1 con error/i)).toBeTruthy();
   });
 
   it("el chip de error aparece en paralelo en estado sincronizando cuando errorCount > 0", () => {

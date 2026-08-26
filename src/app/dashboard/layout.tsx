@@ -18,10 +18,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               Ir al contenido principal
             </a>
-            {/* Franja fija de estado de sincronización — persiste en toda la app */}
-            <SyncStatusBar />
             <AppSidebar />
-            <SidebarInset className="pt-9">
+            <SidebarInset>
+              {/* Estado de sincronización — solo visible si hay algo que atender
+                  (sin conexión, backlog, o error); no ocupa espacio si no. */}
+              <SyncStatusBar />
+
               {/* Header móvil con trigger del sidebar */}
               <header className="flex items-center gap-3 p-4 md:hidden border-b border-border bg-white/80 backdrop-blur-sm sticky top-9 z-10">
                 <SidebarTrigger className="text-slate-600" />

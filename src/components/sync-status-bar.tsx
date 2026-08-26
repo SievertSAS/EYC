@@ -72,7 +72,7 @@ export function SyncStatusBar() {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed top-0 inset-x-0 z-30 h-9 flex items-center justify-between px-3 sm:px-4 ${colorClasses}`}
+      className={`fixed top-0 inset-x-0 md:left-(--sidebar-width) z-30 h-9 flex items-center justify-between px-3 sm:px-4 ${colorClasses}`}
     >
       <Link
         href="/dashboard/sync"

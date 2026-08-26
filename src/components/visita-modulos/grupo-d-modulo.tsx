@@ -5,9 +5,10 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle } from "@/lib/supabase/sync-engine";
+import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
+  Check,
   MonitorCheck,
   Loader2,
   AlertCircle,
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
+import { useRowSavedFlash } from "@/hooks/use-row-saved";
 
 // ─── Helpers ───
 
@@ -271,6 +273,9 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
   const pruebasManual = getManualGrupo("D");
+  // Indicador liviano de "guardado" para las tablas de disparos DDI,
+  // cassettes y uniformidad — ver useRowSavedFlash.
+  const { isSaved, flash } = useRowSavedFlash();
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
@@ -320,6 +325,8 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   // ─── Valores base (precarga) para 2.9 ───
   const [baseEi29, setBaseEi29] = useState("");
   const [baseDi29, setBaseDi29] = useState("");
+  const [savedEiBase, setSavedEiBase] = useState(false);
+  const [savedDiBase, setSavedDiBase] = useState(false);
 
   // Initialize base values from DB record once data loads
   useEffect(() => {
@@ -331,7 +338,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
 
   // ─── Save helpers ───
   async function updateDdi(id: string, fields: Record<string, unknown>) {
-    await db.conv_ddi_mediciones.update(id, fields);
+    await updateAndSync("conv_ddi_mediciones", id, fields);
   }
 
   async function addCassette() {
@@ -348,7 +355,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function updateCassette(id: string, fields: Record<string, unknown>) {
-    await db.conv_cassette_inspeccion.update(id, fields);
+    await updateAndSync("conv_cassette_inspeccion", id, fields);
   }
 
   async function removeCassette(id: string) {
@@ -369,7 +376,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function updateUniformidad(id: string, fields: Record<string, unknown>) {
-    await db.conv_uniformidad_cr.update(id, fields);
+    await updateAndSync("conv_uniformidad_cr", id, fields);
   }
 
   async function removeUniformidad(id: string) {
@@ -575,15 +582,22 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1.5 font-black text-primary">
                         {isFirstInGroup ? m.grupo : ""}
                       </td>
-                      <td className="py-1.5 px-1.5 text-slate-500 font-mono">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1.5 text-slate-500 font-mono">
+                        <span className="inline-flex items-center gap-1">
+                          {m.toma_numero}
+                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        </span>
+                      </td>
                       <td className="py-1.5 px-1.5">
                         <Input
                           className="rounded-lg h-7 text-xs font-medium border-slate-200 w-28"
                           defaultValue={m.serie_detector ?? ""}
                           placeholder="Serie"
-                          onBlur={(e) =>
-                            m.id && updateDdi(m.id, { serie_detector: e.target.value || undefined })
-                          }
+                          onBlur={(e) => {
+                            if (!m.id) return;
+                            updateDdi(m.id, { serie_detector: e.target.value || undefined });
+                            flash(m.id);
+                          }}
                         />
                       </td>
                       <td className="py-1.5 px-1.5 text-slate-600 font-mono">{m.kv_nominal}</td>
@@ -595,12 +609,13 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                             className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
                             defaultValue={m[field] ?? ""}
                             placeholder="—"
-                            onBlur={(e) =>
-                              m.id &&
+                            onBlur={(e) => {
+                              if (!m.id) return;
                               updateDdi(m.id, {
                                 [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
-                            }
+                              });
+                              flash(m.id);
+                            }}
                           />
                         </td>
                       ))}
@@ -625,8 +640,9 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           </StepHeader>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                 EI base
+                {savedEiBase && <Check className="w-3 h-3 text-emerald-500" />}
               </label>
               <Input
                 type="number"
@@ -636,14 +652,19 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 onChange={(e) => setBaseEi29(e.target.value)}
                 onBlur={(e) => {
                   const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
-                  if (t1?.id) updateDdi(t1.id, { ei_base: parseFloat(e.target.value) || null });
+                  if (t1?.id) {
+                    updateDdi(t1.id, { ei_base: parseFloat(e.target.value) || null });
+                    setSavedEiBase(true);
+                    setTimeout(() => setSavedEiBase(false), 1500);
+                  }
                 }}
                 placeholder="—"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                 D.I. base
+                {savedDiBase && <Check className="w-3 h-3 text-emerald-500" />}
               </label>
               <Input
                 type="number"
@@ -653,7 +674,11 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 onChange={(e) => setBaseDi29(e.target.value)}
                 onBlur={(e) => {
                   const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
-                  if (t1?.id) updateDdi(t1.id, { di_base: parseFloat(e.target.value) || null });
+                  if (t1?.id) {
+                    updateDdi(t1.id, { di_base: parseFloat(e.target.value) || null });
+                    setSavedDiBase(true);
+                    setTimeout(() => setSavedDiBase(false), 1500);
+                  }
                 }}
                 placeholder="—"
               />
@@ -751,16 +776,19 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
             >
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     Serie del detector
+                    {c.id && isSaved(c.id) && <Check className="w-3 h-3 text-emerald-500" />}
                   </label>
                   <Input
                     className="rounded-xl h-8 text-xs font-medium"
                     defaultValue={c.serie_detector ?? ""}
                     placeholder="Ej: SN-12345"
-                    onBlur={(e) =>
-                      c.id && updateCassette(c.id, { serie_detector: e.target.value || undefined })
-                    }
+                    onBlur={(e) => {
+                      if (!c.id) return;
+                      updateCassette(c.id, { serie_detector: e.target.value || undefined });
+                      flash(c.id);
+                    }}
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -772,7 +800,11 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                       <span className="text-[11px] font-medium text-slate-600">{campo.label}</span>
                       <ConceptoSelect
                         value={c[campo.key]}
-                        onChange={(v) => c.id && updateCassette(c.id, { [campo.key]: v })}
+                        onChange={(v) => {
+                          if (!c.id) return;
+                          updateCassette(c.id, { [campo.key]: v });
+                          flash(c.id);
+                        }}
                       />
                     </div>
                   ))}
@@ -781,16 +813,22 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                   <span className="text-[11px] font-bold text-slate-700">Concepto global</span>
                   <ConceptoSelect
                     value={c.concepto}
-                    onChange={(v) => c.id && updateCassette(c.id, { concepto: v })}
+                    onChange={(v) => {
+                      if (!c.id) return;
+                      updateCassette(c.id, { concepto: v });
+                      flash(c.id);
+                    }}
                   />
                 </div>
                 <Input
                   className="rounded-xl h-8 text-xs font-medium"
                   placeholder="Observaciones"
                   defaultValue={c.observacion ?? ""}
-                  onBlur={(e) =>
-                    c.id && updateCassette(c.id, { observacion: e.target.value || undefined })
-                  }
+                  onBlur={(e) => {
+                    if (!c.id) return;
+                    updateCassette(c.id, { observacion: e.target.value || undefined });
+                    flash(c.id);
+                  }}
                 />
                 <button
                   type="button"
@@ -846,16 +884,22 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
               <tbody>
                 {(data.uniformidad ?? []).map((u) => (
                   <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">{u.item_numero}</td>
+                    <td className="py-1.5 px-1.5 font-black text-primary">
+                      <span className="inline-flex items-center gap-1">
+                        {u.item_numero}
+                        {u.id && isSaved(u.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                      </span>
+                    </td>
                     <td className="py-1.5 px-1.5">
                       <Input
                         className="rounded-lg h-7 text-xs font-medium border-slate-200 w-28"
                         defaultValue={u.serie_cassette ?? ""}
                         placeholder="Serie"
-                        onBlur={(e) =>
-                          u.id &&
-                          updateUniformidad(u.id, { serie_cassette: e.target.value || undefined })
-                        }
+                        onBlur={(e) => {
+                          if (!u.id) return;
+                          updateUniformidad(u.id, { serie_cassette: e.target.value || undefined });
+                          flash(u.id);
+                        }}
                       />
                     </td>
                     {(["carga_mas", "ei", "di", "tei"] as const).map((field) => (
@@ -866,12 +910,13 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                           className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
                           defaultValue={u[field] ?? ""}
                           placeholder="—"
-                          onBlur={(e) =>
-                            u.id &&
+                          onBlur={(e) => {
+                            if (!u.id) return;
                             updateUniformidad(u.id, {
                               [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
+                            });
+                            flash(u.id);
+                          }}
                         />
                       </td>
                     ))}

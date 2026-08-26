@@ -5,9 +5,10 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle } from "@/lib/supabase/sync-engine";
+import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
+  Check,
   SlidersHorizontal,
   Loader2,
   AlertCircle,
@@ -26,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
+import { SetupField } from "@/components/visita-modulos/setup-field";
+import { useRowSavedFlash } from "@/hooks/use-row-saved";
 
 // ─── Constants ───
 
@@ -278,6 +281,9 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
   const pruebasManual = getManualGrupo("C");
+  // Indicador liviano de "guardado" para la tabla de 15 disparos — ver
+  // useRowSavedFlash.
+  const { isSaved, flash } = useRowSavedFlash();
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
@@ -319,7 +325,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
 
   // ─── Save helpers ───
   async function updateMedicion(id: string, fields: Record<string, unknown>) {
-    await db.conv_cae_mediciones.update(id, fields);
+    await updateAndSync("conv_cae_mediciones", id, fields);
   }
 
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
@@ -368,7 +374,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
 
   async function saveSetup(fields: Record<string, number | undefined>) {
     if (setup?.id) {
-      await db.conv_cae_setup.update(setup.id, fields);
+      await updateAndSync("conv_cae_setup", setup.id, fields);
     } else {
       const newId = await db.conv_cae_setup.add({
         id: randomUUID(),
@@ -596,7 +602,12 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                   const disp = DISPAROS_CAE.find((d) => d.toma === m.toma_numero);
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1.5 font-black text-primary">
+                        <span className="inline-flex items-center gap-1">
+                          {m.toma_numero}
+                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        </span>
+                      </td>
                       <td className="py-1.5 px-1.5 text-slate-600 font-mono">{m.kv_nominal}</td>
                       <td className="py-1.5 px-1.5 text-slate-600 font-mono">{m.espesor_cu_mm}</td>
                       <td className="py-1.5 px-1.5 text-slate-600 font-medium text-[11px]">
@@ -611,12 +622,13 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                             className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
                             defaultValue={m[field] ?? ""}
                             placeholder="—"
-                            onBlur={(e) =>
-                              m.id &&
+                            onBlur={(e) => {
+                              if (!m.id) return;
                               updateMedicion(m.id, {
                                 [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
-                            }
+                              });
+                              flash(m.id);
+                            }}
                           />
                         </td>
                       ))}
@@ -656,19 +668,14 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                   { label: "D.I. base", field: "di_base_217" },
                 ] as const
               ).map(({ label, field }) => (
-                <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {label}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={setup?.[field] ?? ""}
-                    placeholder="—"
-                    onBlur={(e) => saveSetup({ [field]: parseSetupField(e.target.value) })}
-                  />
-                </div>
+                <SetupField
+                  key={field}
+                  label={label}
+                  step="0.01"
+                  defaultValue={setup?.[field] ?? ""}
+                  placeholder="—"
+                  onSave={(v) => saveSetup({ [field]: parseSetupField(v) })}
+                />
               ))}
             </div>
           </CollapsibleSection>
@@ -696,19 +703,15 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                 <div key={kv} className="grid grid-cols-4 gap-2 items-end">
                   <div className="text-xs font-black text-primary">{kv} kVp</div>
                   {(["mas", "ei", "di"] as const).map((f) => (
-                    <div key={f} className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase">
-                        {f === "mas" ? "mAs" : f === "ei" ? "EI" : "D.I."}
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="rounded-lg h-8 text-xs font-medium"
-                        defaultValue={setup?.[fields[f]] ?? ""}
-                        placeholder="—"
-                        onBlur={(e) => saveSetup({ [fields[f]]: parseSetupField(e.target.value) })}
-                      />
-                    </div>
+                    <SetupField
+                      key={f}
+                      label={f === "mas" ? "mAs" : f === "ei" ? "EI" : "D.I."}
+                      step="0.01"
+                      className="rounded-lg h-8 text-xs font-medium"
+                      defaultValue={setup?.[fields[f]] ?? ""}
+                      placeholder="—"
+                      onSave={(v) => saveSetup({ [fields[f]]: parseSetupField(v) })}
+                    />
                   ))}
                 </div>
               ))}
@@ -738,19 +741,15 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                 <div key={cu} className="grid grid-cols-4 gap-2 items-end">
                   <div className="text-xs font-black text-primary">Cu {cu} mm</div>
                   {(["mas", "ei", "di"] as const).map((f) => (
-                    <div key={f} className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase">
-                        {f === "mas" ? "mAs" : f === "ei" ? "EI" : "D.I."}
-                      </label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="rounded-lg h-8 text-xs font-medium"
-                        defaultValue={setup?.[fields[f]] ?? ""}
-                        placeholder="—"
-                        onBlur={(e) => saveSetup({ [fields[f]]: parseSetupField(e.target.value) })}
-                      />
-                    </div>
+                    <SetupField
+                      key={f}
+                      label={f === "mas" ? "mAs" : f === "ei" ? "EI" : "D.I."}
+                      step="0.01"
+                      className="rounded-lg h-8 text-xs font-medium"
+                      defaultValue={setup?.[fields[f]] ?? ""}
+                      placeholder="—"
+                      onSave={(v) => saveSetup({ [fields[f]]: parseSetupField(v) })}
+                    />
                   ))}
                 </div>
               ))}

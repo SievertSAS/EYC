@@ -5,9 +5,10 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle } from "@/lib/supabase/sync-engine";
+import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
+  Check,
   Target,
   Loader2,
   AlertCircle,
@@ -27,6 +28,8 @@ import { Button } from "@/components/ui/button";
 import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
+import { SetupField } from "@/components/visita-modulos/setup-field";
+import { useRowSavedFlash } from "@/hooks/use-row-saved";
 
 // ─── Helpers ───
 
@@ -232,6 +235,9 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
   const pruebasManual = getManualGrupo("E");
+  // Indicador liviano de "guardado" para la tabla de uniformidad de
+  // detectores — ver useRowSavedFlash.
+  const { isSaved, flash } = useRowSavedFlash();
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
@@ -321,23 +327,23 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
     if (!data?.colimacion?.id) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      db.conv_colimacion.update(data.colimacion!.id!, fields);
+      updateAndSync("conv_colimacion", data.colimacion!.id!, fields);
     }, 600);
   }
 
   function updateResolucion(fields: Record<string, unknown>) {
     if (!data?.resolucion?.id) return;
-    db.conv_resolucion.update(data.resolucion.id, fields);
+    updateAndSync("conv_resolucion", data.resolucion.id, fields);
   }
 
   function updateBajoContraste(fields: Record<string, unknown>) {
     if (!data?.bajoContraste?.id) return;
-    db.conv_bajo_contraste.update(data.bajoContraste.id, fields);
+    updateAndSync("conv_bajo_contraste", data.bajoContraste.id, fields);
   }
 
   function updateMtf(fields: Record<string, unknown>) {
     if (!data?.mtf?.id) return;
-    db.conv_mtf.update(data.mtf.id, fields);
+    updateAndSync("conv_mtf", data.mtf.id, fields);
   }
 
   async function addUniformidadDet() {
@@ -354,7 +360,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   async function updateUniformidadDet(id: string, fields: Record<string, unknown>) {
-    await db.conv_uniformidad_detector.update(id, fields);
+    await updateAndSync("conv_uniformidad_detector", id, fields);
   }
 
   async function removeUniformidadDet(id: string) {
@@ -542,43 +548,26 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
 
           <CollapsibleSection title="Tecnica y distancia">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  SID (cm)
-                </label>
-                <Input
-                  type="number"
-                  className="rounded-xl h-9 text-sm font-medium"
-                  defaultValue={colim?.sid_cm ?? 100}
-                  onBlur={(e) =>
-                    updateColimacion({ sid_cm: e.target.value ? parseFloat(e.target.value) : 100 })
-                  }
-                />
-              </div>
+              <SetupField
+                label="SID (cm)"
+                defaultValue={colim?.sid_cm ?? 100}
+                onSave={(v) => updateColimacion({ sid_cm: v ? parseFloat(v) : 100 })}
+              />
               {[
                 ["tecnica_kv", "kVp", "75"],
                 ["tecnica_ma", "mA", ""],
                 ["tecnica_mas", "mAs", ""],
               ].map(([field, label, ph]) => (
-                <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {label}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={
-                      ((colim as Record<string, unknown> | undefined)?.[field] as string) ?? ""
-                    }
-                    placeholder={ph}
-                    onBlur={(e) =>
-                      updateColimacion({
-                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                  />
-                </div>
+                <SetupField
+                  key={field}
+                  label={label}
+                  step="0.01"
+                  defaultValue={
+                    ((colim as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                  }
+                  placeholder={ph}
+                  onSave={(v) => updateColimacion({ [field]: v ? parseFloat(v) : undefined })}
+                />
               ))}
             </div>
           </CollapsibleSection>
@@ -589,52 +578,34 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
               {DIRECCIONES.map((d) => (
                 <div key={d.key} className="grid grid-cols-3 gap-2 items-end">
                   <div className="text-xs font-black text-primary">{d.label}</div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase">
-                      Nominal (cm)
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      className="rounded-lg h-8 text-xs font-medium"
-                      defaultValue={
-                        ((colim as Record<string, unknown> | undefined)?.[
-                          `${d.key}_nominal`
-                        ] as string) ?? ""
-                      }
-                      placeholder="—"
-                      onBlur={(e) =>
-                        updateColimacion({
-                          [`${d.key}_nominal`]: e.target.value
-                            ? parseFloat(e.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase">
-                      Medido (cm)
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      className="rounded-lg h-8 text-xs font-medium border-blue-200 bg-blue-50/50"
-                      defaultValue={
-                        ((colim as Record<string, unknown> | undefined)?.[
-                          `${d.key}_medido`
-                        ] as string) ?? ""
-                      }
-                      placeholder="—"
-                      onBlur={(e) =>
-                        updateColimacion({
-                          [`${d.key}_medido`]: e.target.value
-                            ? parseFloat(e.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                  </div>
+                  <SetupField
+                    label="Nominal (cm)"
+                    step="0.1"
+                    className="rounded-lg h-8 text-xs font-medium"
+                    defaultValue={
+                      ((colim as Record<string, unknown> | undefined)?.[
+                        `${d.key}_nominal`
+                      ] as string) ?? ""
+                    }
+                    placeholder="—"
+                    onSave={(v) =>
+                      updateColimacion({ [`${d.key}_nominal`]: v ? parseFloat(v) : undefined })
+                    }
+                  />
+                  <SetupField
+                    label="Medido (cm)"
+                    step="0.1"
+                    className="rounded-lg h-8 text-xs font-medium border-blue-200 bg-blue-50/50"
+                    defaultValue={
+                      ((colim as Record<string, unknown> | undefined)?.[
+                        `${d.key}_medido`
+                      ] as string) ?? ""
+                    }
+                    placeholder="—"
+                    onSave={(v) =>
+                      updateColimacion({ [`${d.key}_medido`]: v ? parseFloat(v) : undefined })
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -758,15 +729,26 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
               title={`Detector ${idx + 1}${ur.det.serie_detector ? ` — ${ur.det.serie_detector}` : ""}`}
             >
               <div className="space-y-3">
-                <Input
-                  className="rounded-xl h-8 text-xs font-medium"
-                  placeholder="Serie del detector"
-                  defaultValue={ur.det.serie_detector ?? ""}
-                  onBlur={(e) =>
-                    ur.det.id &&
-                    updateUniformidadDet(ur.det.id, { serie_detector: e.target.value || undefined })
-                  }
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    Serie del detector
+                    {ur.det.id && isSaved(ur.det.id) && (
+                      <Check className="w-3 h-3 text-emerald-500" />
+                    )}
+                  </label>
+                  <Input
+                    className="rounded-xl h-8 text-xs font-medium"
+                    placeholder="Serie del detector"
+                    defaultValue={ur.det.serie_detector ?? ""}
+                    onBlur={(e) => {
+                      if (!ur.det.id) return;
+                      updateUniformidadDet(ur.det.id, {
+                        serie_detector: e.target.value || undefined,
+                      });
+                      flash(ur.det.id);
+                    }}
+                  />
+                </div>
 
                 {/* Tolerancia */}
                 <div className="flex items-center gap-2">
@@ -778,12 +760,13 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     step="1"
                     className="rounded-lg h-7 text-xs font-medium w-20"
                     defaultValue={ur.det.tolerancia_pct ?? 15}
-                    onBlur={(e) =>
-                      ur.det.id &&
+                    onBlur={(e) => {
+                      if (!ur.det.id) return;
                       updateUniformidadDet(ur.det.id, {
                         tolerancia_pct: e.target.value ? parseFloat(e.target.value) : 15,
-                      })
-                    }
+                      });
+                      flash(ur.det.id);
+                    }}
                   />
                 </div>
 
@@ -807,14 +790,15 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                               className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50"
                               defaultValue={(ur.det[vmpField] as number) ?? ""}
                               placeholder="VMP"
-                              onBlur={(e) =>
-                                ur.det.id &&
+                              onBlur={(e) => {
+                                if (!ur.det.id) return;
                                 updateUniformidadDet(ur.det.id, {
                                   [vmpField]: e.target.value
                                     ? parseFloat(e.target.value)
                                     : undefined,
-                                })
-                              }
+                                });
+                                flash(ur.det.id);
+                              }}
                             />
                             <Input
                               type="number"
@@ -822,14 +806,15 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                               className="rounded-lg h-7 text-xs font-medium border-slate-200"
                               defaultValue={(ur.det[desvField] as number) ?? ""}
                               placeholder="Desv."
-                              onBlur={(e) =>
-                                ur.det.id &&
+                              onBlur={(e) => {
+                                if (!ur.det.id) return;
                                 updateUniformidadDet(ur.det.id, {
                                   [desvField]: e.target.value
                                     ? parseFloat(e.target.value)
                                     : undefined,
-                                })
-                              }
+                                });
+                                flash(ur.det.id);
+                              }}
                             />
                           </div>
                         );
@@ -954,49 +939,21 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                SID (cm)
-              </label>
-              <Input
-                type="number"
-                className="rounded-xl h-9 text-sm font-medium"
-                defaultValue={resol?.sid_cm ?? 100}
-                onBlur={(e) =>
-                  updateResolucion({ sid_cm: e.target.value ? parseFloat(e.target.value) : 100 })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                kVp
-              </label>
-              <Input
-                type="number"
-                className="rounded-xl h-9 text-sm font-medium"
-                defaultValue={resol?.tecnica_kv ?? 75}
-                onBlur={(e) =>
-                  updateResolucion({
-                    tecnica_kv: e.target.value ? parseFloat(e.target.value) : undefined,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                mAs
-              </label>
-              <Input
-                type="number"
-                className="rounded-xl h-9 text-sm font-medium"
-                defaultValue={resol?.tecnica_mas ?? ""}
-                onBlur={(e) =>
-                  updateResolucion({
-                    tecnica_mas: e.target.value ? parseFloat(e.target.value) : undefined,
-                  })
-                }
-              />
-            </div>
+            <SetupField
+              label="SID (cm)"
+              defaultValue={resol?.sid_cm ?? 100}
+              onSave={(v) => updateResolucion({ sid_cm: v ? parseFloat(v) : 100 })}
+            />
+            <SetupField
+              label="kVp"
+              defaultValue={resol?.tecnica_kv ?? 75}
+              onSave={(v) => updateResolucion({ tecnica_kv: v ? parseFloat(v) : undefined })}
+            />
+            <SetupField
+              label="mAs"
+              defaultValue={resol?.tecnica_mas ?? ""}
+              onSave={(v) => updateResolucion({ tecnica_mas: v ? parseFloat(v) : undefined })}
+            />
           </div>
 
           <div className="space-y-1">
@@ -1153,25 +1110,16 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                 ["pixel_size_mm", "Pixel size (mm)", "0.15"],
                 ["nyquist_lpmm", "Nyquist (lp/mm)", "3.33"],
               ].map(([field, label, ph]) => (
-                <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {label}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={
-                      ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
-                    }
-                    placeholder={ph}
-                    onBlur={(e) =>
-                      updateMtf({
-                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                  />
-                </div>
+                <SetupField
+                  key={field}
+                  label={label}
+                  step="0.01"
+                  defaultValue={
+                    ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                  }
+                  placeholder={ph}
+                  onSave={(v) => updateMtf({ [field]: v ? parseFloat(v) : undefined })}
+                />
               ))}
             </div>
           </CollapsibleSection>
@@ -1184,25 +1132,17 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                 ["mtf50_vertical", "MTF50 Vertical (lp/mm)"],
                 ["mtf20_vertical", "MTF20 Vertical (lp/mm)"],
               ].map(([field, label]) => (
-                <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {label}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="rounded-xl h-9 text-sm font-medium border-blue-200 bg-blue-50/50"
-                    defaultValue={
-                      ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
-                    }
-                    placeholder="—"
-                    onBlur={(e) =>
-                      updateMtf({
-                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                  />
-                </div>
+                <SetupField
+                  key={field}
+                  label={label}
+                  step="0.01"
+                  className="rounded-xl h-9 text-sm font-medium border-blue-200 bg-blue-50/50"
+                  defaultValue={
+                    ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                  }
+                  placeholder="—"
+                  onSave={(v) => updateMtf({ [field]: v ? parseFloat(v) : undefined })}
+                />
               ))}
             </div>
           </CollapsibleSection>
@@ -1216,25 +1156,16 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                 ["mtf50_base_vertical", "MTF50 Base Vert."],
                 ["mtf20_base_vertical", "MTF20 Base Vert."],
               ].map(([field, label]) => (
-                <div key={field} className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {label}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="rounded-xl h-9 text-sm font-medium"
-                    defaultValue={
-                      ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
-                    }
-                    placeholder="—"
-                    onBlur={(e) =>
-                      updateMtf({
-                        [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                  />
-                </div>
+                <SetupField
+                  key={field}
+                  label={label}
+                  step="0.01"
+                  defaultValue={
+                    ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
+                  }
+                  placeholder="—"
+                  onSave={(v) => updateMtf({ [field]: v ? parseFloat(v) : undefined })}
+                />
               ))}
             </div>
           </CollapsibleSection>

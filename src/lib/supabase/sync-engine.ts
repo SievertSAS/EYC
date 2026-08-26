@@ -446,6 +446,31 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
 }
 
 /**
+ * Actualiza un registro local Y lo marca para re-sincronizar en el mismo
+ * paso — evita el bug de "el update queda con sync_status viejo y nunca
+ * se vuelve a subir" (ver incidente de datos perdidos en Grupo A). Reusá
+ * esto en vez de llamar db.tabla.update(...) directo en cualquier módulo
+ * de captura.
+ */
+export async function updateAndSync(
+  localTable: string,
+  id: string,
+  patch: Record<string, unknown>
+): Promise<void> {
+  const dexieTable = getDexieTable(localTable);
+  if (!dexieTable) return;
+
+  const updated = await dexieTable.update(id, {
+    ...patch,
+    sync_status: "pending" as SyncStatus,
+    last_modified: new Date().toISOString(),
+  });
+  if (!updated) return;
+
+  await pushSingle(localTable, id);
+}
+
+/**
  * Reintento manual de un registro puntual — se salta el schedule de
  * backoff de `sync_retry` y fuerza el push inmediato. Pensado para que
  * el técnico de campo pueda reintentar un registro "failed" sin esperar

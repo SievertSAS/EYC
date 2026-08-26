@@ -5,9 +5,10 @@ import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
-import { pushSingle } from "@/lib/supabase/sync-engine";
+import { pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
   ArrowLeft,
+  Check,
   Zap,
   Trash2,
   Loader2,
@@ -31,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
+import { SetupField } from "@/components/visita-modulos/setup-field";
+import { useRowSavedFlash } from "@/hooks/use-row-saved";
 
 // ─── Constants ───
 
@@ -321,6 +324,9 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
   const [importVersion, setImportVersion] = useState(0);
   const pruebasGrupoB = getManualGrupo("B");
+  // Indicador liviano de "guardado" para las filas de las 4 tablas de
+  // disparos RaySafe — ver useRowSavedFlash.
+  const { isSaved, flash } = useRowSavedFlash();
 
   const data = useLiveQuery(async () => {
     if (!isReady || !visitaId) return null;
@@ -449,7 +455,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         if (m.kv_nominal == null && ref.kv_nominal != null) updates.kv_nominal = ref.kv_nominal;
         if (m.mas_nominal == null && ref.mas_nominal != null) updates.mas_nominal = ref.mas_nominal;
       }
-      if (Object.keys(updates).length > 0) db.conv_raysafe_mediciones.update(m.id, updates);
+      if (Object.keys(updates).length > 0) updateAndSync("conv_raysafe_mediciones", m.id, updates);
     }
   }, [data, visitaId]);
 
@@ -459,7 +465,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       const m = medicionesFiltradas[i];
       const r = rows[i];
       if (!m.id) continue;
-      await db.conv_raysafe_mediciones.update(m.id, {
+      await updateAndSync("conv_raysafe_mediciones", m.id, {
         kv_medido: r.kv ?? undefined,
         dosis_medida_mgy: r.dosis_mgy ?? undefined,
         tiempo_medido_s: r.tiempo_s ?? undefined,
@@ -491,12 +497,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     if (!data?.setup?.id) return;
     if (setupTimer.current) clearTimeout(setupTimer.current);
     setupTimer.current = setTimeout(() => {
-      db.conv_raysafe_setup.update(data.setup!.id!, fields);
+      updateAndSync("conv_raysafe_setup", data.setup!.id!, fields);
     }, 600);
   }
 
   async function updateMedicion(id: string, fields: Record<string, unknown>) {
-    await db.conv_raysafe_mediciones.update(id, fields);
+    await updateAndSync("conv_raysafe_mediciones", id, fields);
   }
 
   /** Propaga la técnica nominal a todas las tomas del mismo grupo (espejo). */
@@ -507,7 +513,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     if (grupoNumero == null) return;
     const tomas = principales.filter((p) => p.grupo_numero === grupoNumero);
     await Promise.all(
-      tomas.map((t) => (t.id ? db.conv_raysafe_mediciones.update(t.id, fields) : undefined))
+      tomas.map((t) => (t.id ? updateAndSync("conv_raysafe_mediciones", t.id, fields) : undefined))
     );
   }
 
@@ -523,16 +529,16 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     field: CampoNominal,
     value: number | undefined
   ) {
-    await db.conv_raysafe_mediciones.update(conRejillaId, { [field]: value });
+    await updateAndSync("conv_raysafe_mediciones", conRejillaId, { [field]: value });
     if (!programaClinico) return;
     const sinRejillaMatch = sinRejilla.find((m) => m.programa_clinico === programaClinico);
     if (sinRejillaMatch?.id) {
-      await db.conv_raysafe_mediciones.update(sinRejillaMatch.id, { [field]: value });
+      await updateAndSync("conv_raysafe_mediciones", sinRejillaMatch.id, { [field]: value });
     }
     if (field === "kv_nominal" || field === "mas_nominal") {
       const kermaMatch = kerma.find((m) => m.programa_clinico === programaClinico);
       if (kermaMatch?.id) {
-        await db.conv_raysafe_mediciones.update(kermaMatch.id, { [field]: value });
+        await updateAndSync("conv_raysafe_mediciones", kermaMatch.id, { [field]: value });
       }
     }
   }
@@ -662,21 +668,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
           </Alert>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Distancia foco-sensor (cm)
-              </label>
-              <Input
-                type="number"
-                className="rounded-xl h-9 text-sm font-medium"
-                defaultValue={setup?.distancia_foco_sensor_cm ?? 100}
-                onBlur={(e) =>
-                  updateSetup({
-                    distancia_foco_sensor_cm: e.target.value ? parseFloat(e.target.value) : 100,
-                  })
-                }
-              />
-            </div>
+            <SetupField
+              label="Distancia foco-sensor (cm)"
+              defaultValue={setup?.distancia_foco_sensor_cm ?? 100}
+              onSave={(v) => updateSetup({ distancia_foco_sensor_cm: v ? parseFloat(v) : 100 })}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -774,6 +770,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           if (esEspejo && isFirstInGroup)
                             updateNominalGrupo(m.grupo_numero, { [campo]: val });
                           else updateMedicion(m.id, { [campo]: val });
+                          flash(m.id);
                         }}
                       />
                     );
@@ -788,7 +785,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1 font-black text-primary">
                         {isFirstInGroup ? m.grupo_numero : ""}
                       </td>
-                      <td className="py-1.5 px-1 text-slate-500 font-mono">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1 text-slate-500 font-mono">
+                        <span className="inline-flex items-center gap-1">
+                          {m.toma_numero}
+                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        </span>
+                      </td>
                       <td className="py-1.5 px-1">{celdaNominal("kv_nominal", "w-16")}</td>
                       <td className="py-1.5 px-1">{celdaNominal("ma_nominal", "w-16")}</td>
                       <td className="py-1.5 px-1">
@@ -815,12 +817,13 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-16"
                           defaultValue={m.dap_medido ?? ""}
                           placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
+                          onBlur={(e) => {
+                            if (!m.id) return;
                             updateMedicion(m.id, {
                               dap_medido: e.target.value ? parseFloat(e.target.value) : undefined,
-                            })
-                          }
+                            });
+                            flash(m.id);
+                          }}
                         />
                       </td>
                       <td className="py-1.5 px-1 text-[10px] text-slate-400 font-medium">
@@ -881,7 +884,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               <tbody>
                 {conRejilla.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
+                    <td className="py-1.5 px-1.5 font-black text-primary">
+                      <span className="inline-flex items-center gap-1">
+                        {m.toma_numero}
+                        {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                      </span>
+                    </td>
                     <td className="py-1.5 px-1.5 font-medium text-slate-700">
                       {m.programa_clinico}
                     </td>
@@ -893,15 +901,16 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                             step="0.01"
                             className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
                             defaultValue={m[field] ?? ""}
-                            onBlur={(e) =>
-                              m.id &&
+                            onBlur={(e) => {
+                              if (!m.id) return;
                               updateNominalConRejilla(
                                 m.id,
                                 m.programa_clinico,
                                 field,
                                 e.target.value ? parseFloat(e.target.value) : undefined
-                              )
-                            }
+                              );
+                              flash(m.id);
+                            }}
                           />
                         </td>
                       )
@@ -915,12 +924,13 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                             className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
                             defaultValue={m[field] ?? ""}
                             placeholder="—"
-                            onBlur={(e) =>
-                              m.id &&
+                            onBlur={(e) => {
+                              if (!m.id) return;
                               updateMedicion(m.id, {
                                 [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
-                            }
+                              });
+                              flash(m.id);
+                            }}
                           />
                         </td>
                       )
@@ -951,42 +961,22 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
           </Tip>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Distancia foco-sensor d1 (cm)
-              </label>
-              <Input
-                type="number"
-                className="rounded-xl h-9 text-sm font-medium"
-                defaultValue={setup?.distancia_foco_sensor_d1_cm ?? ""}
-                placeholder="100"
-                onBlur={(e) =>
-                  updateSetup({
-                    distancia_foco_sensor_d1_cm: e.target.value
-                      ? parseFloat(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Distancia foco-detector d2 (cm)
-              </label>
-              <Input
-                type="number"
-                className="rounded-xl h-9 text-sm font-medium"
-                defaultValue={setup?.distancia_foco_detector_d2_cm ?? ""}
-                placeholder="110"
-                onBlur={(e) =>
-                  updateSetup({
-                    distancia_foco_detector_d2_cm: e.target.value
-                      ? parseFloat(e.target.value)
-                      : undefined,
-                  })
-                }
-              />
-            </div>
+            <SetupField
+              label="Distancia foco-sensor d1 (cm)"
+              defaultValue={setup?.distancia_foco_sensor_d1_cm ?? ""}
+              placeholder="100"
+              onSave={(v) =>
+                updateSetup({ distancia_foco_sensor_d1_cm: v ? parseFloat(v) : undefined })
+              }
+            />
+            <SetupField
+              label="Distancia foco-detector d2 (cm)"
+              defaultValue={setup?.distancia_foco_detector_d2_cm ?? ""}
+              placeholder="110"
+              onSave={(v) =>
+                updateSetup({ distancia_foco_detector_d2_cm: v ? parseFloat(v) : undefined })
+              }
+            />
           </div>
 
           <div
@@ -1024,7 +1014,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     : undefined;
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1.5 font-black text-primary">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1.5 font-black text-primary">
+                        <span className="inline-flex items-center gap-1">
+                          {m.toma_numero}
+                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        </span>
+                      </td>
                       <td className="py-1.5 px-1.5 font-medium text-slate-700">
                         {m.programa_clinico}
                       </td>
@@ -1048,12 +1043,13 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                               className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
                               defaultValue={m[field] ?? ""}
                               placeholder="—"
-                              onBlur={(e) =>
-                                m.id &&
+                              onBlur={(e) => {
+                                if (!m.id) return;
                                 updateMedicion(m.id, {
                                   [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                                })
-                              }
+                                });
+                                flash(m.id);
+                              }}
                             />
                           </td>
                         )
@@ -1065,14 +1061,15 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           className="rounded-lg h-7 text-xs font-medium border-amber-200 bg-amber-50/50 w-20"
                           defaultValue={m.dosis_base_mgy ?? ""}
                           placeholder="—"
-                          onBlur={(e) =>
-                            m.id &&
+                          onBlur={(e) => {
+                            if (!m.id) return;
                             updateMedicion(m.id, {
                               dosis_base_mgy: e.target.value
                                 ? parseFloat(e.target.value)
                                 : undefined,
-                            })
-                          }
+                            });
+                            flash(m.id);
+                          }}
                         />
                       </td>
                     </tr>
@@ -1138,7 +1135,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     : undefined;
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1 font-black text-primary">{m.toma_numero}</td>
+                      <td className="py-1.5 px-1 font-black text-primary">
+                        <span className="inline-flex items-center gap-1">
+                          {m.toma_numero}
+                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        </span>
+                      </td>
                       <td className="py-1.5 px-1 font-medium text-slate-700">
                         {m.programa_clinico}
                       </td>
@@ -1175,12 +1177,13 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                               ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
                             }
                             placeholder="—"
-                            onBlur={(e) =>
-                              m.id &&
+                            onBlur={(e) => {
+                              if (!m.id) return;
                               updateMedicion(m.id, {
                                 [field]: e.target.value ? parseFloat(e.target.value) : undefined,
-                              })
-                            }
+                              });
+                              flash(m.id);
+                            }}
                           />
                         </td>
                       ))}

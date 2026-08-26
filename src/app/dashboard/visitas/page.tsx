@@ -17,8 +17,7 @@ import {
   ArrowRight,
   Loader2,
 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { irAVisita } from "@/lib/visita-nav";
 import type { EstadoVisita } from "@/lib/db/types";
 import {
   Table,
@@ -43,7 +42,6 @@ const FILTER_TABS: { id: FilterTab; label: string; states: EstadoVisita[] }[] = 
 ];
 
 export default function VisitasPage() {
-  const router = useRouter();
   const { isReady } = useDb();
   const { role } = useRole();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("todas");
@@ -244,7 +242,7 @@ export default function VisitasPage() {
                         <TableRow
                           key={visita.id}
                           className="cursor-pointer group"
-                          onClick={() => router.push(`/dashboard/visitas/${visita.id}`)}
+                          onClick={() => irAVisita(visita.id!)}
                         >
                           <TableCell>
                             <div className="flex items-center gap-3 min-w-0">
@@ -306,7 +304,7 @@ export default function VisitasPage() {
             {filteredVisitas.map(({ visita, equipo, ubicacion, sede, cliente, completeness }) => {
               const estado = ESTADO_CONFIG[visita.estado_visita];
               return (
-                <Link key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
+                <a key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
                   <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
                     <CardContent className="p-4 sm:p-5 md:p-6">
                       <div className="flex items-start justify-between gap-3">
@@ -364,7 +362,7 @@ export default function VisitasPage() {
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
+                </a>
               );
             })}
           </div>

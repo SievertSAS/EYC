@@ -292,7 +292,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
                 completeness.modules.find((m) => m.id === modulo.id)?.status ?? "sin_iniciar";
               const Icon = resolveIcon(modulo.icon);
               return (
-                <Link key={modulo.id} href={`/dashboard/visitas/${id}?modulo=${modulo.id}`}>
+                <a key={modulo.id} href={`/dashboard/visitas/${id}?modulo=${modulo.id}`}>
                   <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -306,7 +306,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
+                </a>
               );
             }
           )}

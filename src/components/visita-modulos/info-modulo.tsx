@@ -31,7 +31,6 @@ import {
   Users,
   Eye,
 } from "lucide-react";
-import Link from "next/link";
 import { irAModulo } from "@/lib/modulo-nav";
 
 // ─── Helpers ───
@@ -459,12 +458,13 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   if (data === null) {
     return (
       <div className="space-y-6">
-        <Link
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- navegación dura intencional (ver src/lib/visita-nav.ts): permite offline vía Service Worker */}
+        <a
           href="/dashboard/visitas"
           className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Volver a visitas
-        </Link>
+        </a>
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="bg-red-100 p-6 rounded-3xl">
             <AlertCircle className="w-10 h-10 text-red-500" />

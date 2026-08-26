@@ -27,7 +27,6 @@ import {
   MonitorCheck,
   Target,
 } from "lucide-react";
-import Link from "next/link";
 import { irAModulo } from "@/lib/modulo-nav";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
@@ -430,12 +429,13 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   if (data === null) {
     return (
       <div className="space-y-6">
-        <Link
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- navegación dura intencional (ver src/lib/visita-nav.ts): permite offline vía Service Worker */}
+        <a
           href="/dashboard/visitas"
           className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary"
         >
           <ArrowLeft className="w-4 h-4" /> Volver
-        </Link>
+        </a>
         <div className="flex flex-col items-center py-20 gap-4">
           <AlertCircle className="w-10 h-10 text-red-500" />
           <p className="text-slate-500 font-bold">Visita no encontrada</p>

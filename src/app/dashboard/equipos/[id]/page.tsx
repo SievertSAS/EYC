@@ -215,7 +215,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
         ) : (
           <div className="space-y-2">
             {visitas.map((v) => (
-              <Link key={v.id} href={`/dashboard/visitas/${v.id}`}>
+              <a key={v.id} href={`/dashboard/visitas/${v.id}`}>
                 <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
                   <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -228,7 +228,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
                     <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />
                   </CardContent>
                 </Card>
-              </Link>
+              </a>
             ))}
           </div>
         )}

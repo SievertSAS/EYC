@@ -710,24 +710,48 @@ async function setLastSyncTimestamp(table: string, timestamp: string): Promise<v
   }
 }
 
-// ─── Diagnóstico de errores ───
+// ─── Diagnóstico de registros (errores y pendientes) ───
 
-export interface ErrorRecord {
+export interface SyncRecordPreview {
   table: string;
   tableLabel: string;
   id: string;
   preview: string;
   /**
-   * "error": recuperable por el ciclo automático — `retryErrorRecords()`
-   * lo vuelve a poner en "pending". "failed": agotó `MAX_ATTEMPTS` o tuvo
-   * un error permanente (ver sync-retry.ts) — es terminal, solo se
-   * reintenta manualmente con `retryRecord(table, id)`.
+   * "pending": en cola normal, aún no se intentó o espera su próximo
+   * ciclo de sync. "error": recuperable por el ciclo automático —
+   * `retryErrorRecords()` lo vuelve a poner en "pending". "failed": agotó
+   * `MAX_ATTEMPTS` o tuvo un error permanente (ver sync-retry.ts) — es
+   * terminal, solo se reintenta manualmente con `retryRecord(table, id)`.
    */
-  status: "error" | "failed";
+  status: "pending" | "error" | "failed";
   /** Intentos consumidos, si el registro tiene fila en `sync_retry` */
   attempts?: number;
   /** Próximo intento automático programado, si aplica */
   nextAttemptAt?: string;
+}
+
+/** Alias retrocompatible — `getErrorRecords()` sigue devolviendo este tipo. */
+export type ErrorRecord = SyncRecordPreview;
+
+/** Arma el preview de un registro (tabla + retry info) para error/pending lists */
+async function buildRecordPreview(
+  localTable: string,
+  rec: SyncableRecord
+): Promise<SyncRecordPreview> {
+  const id = (rec.id as string) ?? "";
+  const retry = await db.sync_retry.get([localTable, id]);
+  return {
+    table: localTable,
+    tableLabel: tableLabel(localTable),
+    id,
+    preview: String(
+      rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? id.slice(0, 8)
+    ),
+    status: rec.sync_status as "pending" | "error" | "failed",
+    attempts: retry?.attempts,
+    nextAttemptAt: retry?.next_attempt_at,
+  };
 }
 
 export async function getErrorRecords(): Promise<ErrorRecord[]> {
@@ -740,19 +764,33 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
 
       const errored = await dexieTable.where("sync_status").anyOf(["error", "failed"]).toArray();
       for (const rec of errored) {
-        const id = (rec.id as string) ?? "";
-        const retry = await db.sync_retry.get([table.local, id]);
-        results.push({
-          table: table.local,
-          tableLabel: tableLabel(table.local),
-          id,
-          preview: String(
-            rec.nombre_cliente ?? rec.nombre ?? rec.nombre_sede ?? rec.codigo ?? id.slice(0, 8)
-          ),
-          status: rec.sync_status as "error" | "failed",
-          attempts: retry?.attempts,
-          nextAttemptAt: retry?.next_attempt_at,
-        });
+        results.push(await buildRecordPreview(table.local, rec));
+      }
+    } catch {
+      // tabla sin sync_status — ignorar
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Registros en cola normal de sincronización (`sync_status === "pending"`).
+ * Mismo shape que `getErrorRecords()` — no fallaron, solo esperan su turno
+ * (o su `next_attempt_at` si ya tuvieron un intento previo fallido antes
+ * de volver a "pending" vía `retryErrorRecords()`).
+ */
+export async function getPendingRecords(): Promise<SyncRecordPreview[]> {
+  const results: SyncRecordPreview[] = [];
+
+  for (const table of SYNC_TABLES) {
+    try {
+      const dexieTable = getDexieTable(table.local);
+      if (!dexieTable) continue;
+
+      const pending = await dexieTable.where("sync_status").equals("pending").toArray();
+      for (const rec of pending) {
+        results.push(await buildRecordPreview(table.local, rec));
       }
     } catch {
       // tabla sin sync_status — ignorar

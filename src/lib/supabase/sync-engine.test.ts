@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { resetTestDb } from "@/test/db-reset";
 import {
@@ -22,7 +22,9 @@ vi.mock("./client", () => ({
 import {
   deleteAndSync,
   fullSync,
+  getAuthenticatedUser,
   getPendingRecords,
+  pullAllPending,
   pullSyncTable,
   pushAllPending,
   retryRecord,
@@ -544,5 +546,119 @@ describe("sync-engine — pullSyncTable borra localmente cuando el remoto trae d
     const local = await db.conv_mediciones.get("id-remote-normal");
     expect(local).toBeDefined();
     expect(local?.sync_status).toBe("synced");
+  });
+});
+
+// ============================================================
+//  getAuthenticatedUser — reintento de sesión (bug del primer login)
+//
+//  `fullSync()` se dispara en el login como fire-and-forget, justo
+//  después de `signInWithPassword`. La sesión de la nueva instancia
+//  de Supabase puede tardar en asentarse (lectura async de storage),
+//  así que un primer `getUser()` sin usuario no debe rendirse de
+//  entrada — reintenta una vez tras un breve delay.
+// ============================================================
+
+describe("sync-engine — getAuthenticatedUser", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reintenta una vez y devuelve el usuario si la sesión aparece en el segundo intento", async () => {
+    vi.useFakeTimers();
+    const getUser = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { user: null } })
+      .mockResolvedValueOnce({ data: { user: { id: "user-1" } } });
+
+    const promise = getAuthenticatedUser({ auth: { getUser } });
+    await vi.advanceTimersByTimeAsync(1000);
+    const user = await promise;
+
+    expect(user).toEqual({ id: "user-1" });
+    expect(getUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("devuelve el usuario de una sin esperar si el primer intento ya tiene sesión", async () => {
+    const getUser = vi.fn().mockResolvedValueOnce({ data: { user: { id: "user-1" } } });
+
+    const user = await getAuthenticatedUser({ auth: { getUser } });
+
+    expect(user).toEqual({ id: "user-1" });
+    expect(getUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("devuelve null si sigue sin sesión después del reintento (no reintenta indefinidamente)", async () => {
+    vi.useFakeTimers();
+    const getUser = vi.fn().mockResolvedValue({ data: { user: null } });
+
+    const promise = getAuthenticatedUser({ auth: { getUser } });
+    await vi.advanceTimersByTimeAsync(1000);
+    const user = await promise;
+
+    expect(user).toBeNull();
+    expect(getUser).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ============================================================
+//  pullAllPending — pull incremental periódico (auto-sync)
+//
+//  El auto-sync de 5 min solo empujaba cambios propios (pushAllPending)
+//  — un dispositivo sin nada propio pendiente nunca se enteraba de
+//  cambios de otro usuario (ej. una visita recién asignada) salvo que
+//  hiciera login de nuevo o el Background Sync del navegador disparara
+//  (no soportado en Safari/iOS/Firefox, timing no garantizado en Chrome).
+//  pullAllPending trae SYNC_TABLES de forma incremental (mismo watermark
+//  que ya usa pullSyncTable) SIN tocar MASTER_TABLES — más liviano que
+//  un fullSync() completo para correr cada 5 min.
+// ============================================================
+
+describe("sync-engine — pullAllPending", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("trae cambios de una tabla de sync (visitas) sin necesitar cambios locales propios", async () => {
+    fakeClient.seedTable("visitas", [
+      {
+        id: "visita-asignada",
+        solicitud_id: "sol-1",
+        tecnico_id: "tecnico-1",
+        estado_visita: "asignada",
+        last_modified: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+
+    const result = await pullAllPending();
+
+    expect(result.pulled).toBeGreaterThan(0);
+    const local = await db.visitas.get("visita-asignada");
+    expect(local).toBeDefined();
+    expect(local?.sync_status).toBe("synced");
+  });
+
+  it("no toca las tablas maestras — solo pull incremental de SYNC_TABLES", async () => {
+    fakeClient.seedTable("departamentos", [{ id: 1, nombre: "Bogotá D.C." }]);
+
+    await pullAllPending();
+
+    expect(fakeClient.callCount("departamentos", "select")).toBe(0);
+  });
+
+  it("devuelve 0 sin llamar a Supabase si no hay sesión activa", async () => {
+    fakeClient.setUser(null);
+    fakeClient.seedTable("visitas", [
+      {
+        id: "visita-sin-sesion",
+        last_modified: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+
+    const result = await pullAllPending();
+
+    expect(result.pulled).toBe(0);
+    await expect(db.visitas.get("visita-sin-sesion")).resolves.toBeUndefined();
   });
 });

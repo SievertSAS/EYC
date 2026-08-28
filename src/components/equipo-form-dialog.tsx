@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { db } from "@/lib/db";
 import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
@@ -122,6 +122,7 @@ export function EquipoFormDialog({
   const [filtAnadida, setFiltAnadida] = useState(equipo?.filtracion_anadida_mmal?.toString() ?? "");
 
   // ─── Tubo fields ───
+  const [tuboId, setTuboId] = useState<string | undefined>(undefined);
   const [tuboMarca, setTuboMarca] = useState("");
   const [tuboModelo, setTuboModelo] = useState("");
   const [tuboSerie, setTuboSerie] = useState("");
@@ -133,17 +134,74 @@ export function EquipoFormDialog({
   const [tuboFocoGrueso, setTuboFocoGrueso] = useState("");
 
   // ─── Colimador fields ───
+  const [colId, setColId] = useState<string | undefined>(undefined);
   const [colMarca, setColMarca] = useState("");
   const [colModelo, setColModelo] = useState("");
   const [colSerie, setColSerie] = useState("");
 
   // ─── Gantry fields ───
+  const [gantryId, setGantryId] = useState<string | undefined>(undefined);
   const [gantryMarca, setGantryMarca] = useState("");
   const [gantryModelo, setGantryModelo] = useState("");
   const [gantrySerie, setGantrySerie] = useState("");
   const [gantryDetector, setGantryDetector] = useState("");
 
   const [saving, setSaving] = useState(false);
+
+  // El padre controla `open` seteando el prop directamente (no vía
+  // onOpenChange), así que hay que repoblar el form acá — sin esto, reabrir
+  // el modal de edición muestra datos desactualizados del equipo.
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      setTipoEquipo(equipo?.tipo_equipo ?? "");
+      setSistemaAdq(equipo?.sistema_adquisicion ?? "");
+      setDistanciaFoco(equipo?.distancia_foco_paciente?.toString() ?? "");
+      setBucky(equipo?.bucky ?? "");
+      setMarca(equipo?.marca ?? "");
+      setModelo(equipo?.modelo ?? "");
+      setNumeroSerie(equipo?.numero_serie ?? "");
+      setGenMarca(equipo?.gen_marca ?? "");
+      setGenModelo(equipo?.gen_modelo ?? "");
+      setGenSerie(equipo?.gen_numero_serie ?? "");
+      setGenFechaFab(equipo?.gen_fecha_fabricacion ?? "");
+      setGenFase(equipo?.gen_fase ?? "");
+      setFiltInherente(equipo?.filtracion_inherente_mmal?.toString() ?? "");
+      setFiltAnadida(equipo?.filtracion_anadida_mmal?.toString() ?? "");
+
+      // Cargar tubo/colimador/gantry existentes del equipo (si los hay) para
+      // poder actualizarlos en vez de crear duplicados al guardar.
+      const [tubo, colimador, gantryReg] = equipo?.id
+        ? await Promise.all([
+            db.tubos.where("equipo_id").equals(equipo.id).first(),
+            db.colimadores.where("equipo_id").equals(equipo.id).first(),
+            db.gantry.where("equipo_id").equals(equipo.id).first(),
+          ])
+        : [undefined, undefined, undefined];
+
+      setTuboId(tubo?.id);
+      setTuboMarca(tubo?.marca ?? "");
+      setTuboModelo(tubo?.modelo ?? "");
+      setTuboSerie(tubo?.numero_serie ?? "");
+      setTuboTipo(tubo?.tipo ?? "");
+      setTuboMasMax(tubo?.mas_max?.toString() ?? "");
+      setTuboKvMax(tubo?.kv_max?.toString() ?? "");
+      setTuboMaMax(tubo?.ma_max?.toString() ?? "");
+      setTuboFocoFino(tubo?.foco_fino_mm?.toString() ?? "");
+      setTuboFocoGrueso(tubo?.foco_grueso_mm?.toString() ?? "");
+
+      setColId(colimador?.id);
+      setColMarca(colimador?.marca ?? "");
+      setColModelo(colimador?.modelo ?? "");
+      setColSerie(colimador?.numero_serie ?? "");
+
+      setGantryId(gantryReg?.id);
+      setGantryMarca(gantryReg?.marca ?? "");
+      setGantryModelo(gantryReg?.modelo ?? "");
+      setGantrySerie(gantryReg?.numero_serie ?? "");
+      setGantryDetector(gantryReg?.tipo_detector ?? "");
+    })();
+  }, [open, equipo]);
 
   async function handleSave() {
     setSaving(true);
@@ -180,8 +238,8 @@ export function EquipoFormDialog({
         equipoId = (await db.equipos.add({ ...equipoData, id: randomUUID() })) as string;
       }
 
-      // Guardar tubo si hay datos
-      let tuboId: string | undefined;
+      // Guardar tubo si hay datos (actualiza el existente en vez de duplicar)
+      let savedTuboId: string | undefined;
       if (tuboMarca || tuboModelo || tuboSerie) {
         const tuboData: Omit<Tubo, "id"> = {
           equipo_id: equipoId,
@@ -198,11 +256,16 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        tuboId = (await db.tubos.add({ ...tuboData, id: randomUUID() })) as string;
+        if (tuboId) {
+          await db.tubos.update(tuboId, tuboData);
+          savedTuboId = tuboId;
+        } else {
+          savedTuboId = (await db.tubos.add({ ...tuboData, id: randomUUID() })) as string;
+        }
       }
 
-      // Guardar colimador si hay datos
-      let colId: string | undefined;
+      // Guardar colimador si hay datos (actualiza el existente en vez de duplicar)
+      let savedColId: string | undefined;
       if (colMarca || colModelo || colSerie) {
         const colData: Omit<Colimador, "id"> = {
           equipo_id: equipoId,
@@ -213,11 +276,16 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        colId = (await db.colimadores.add({ ...colData, id: randomUUID() })) as string;
+        if (colId) {
+          await db.colimadores.update(colId, colData);
+          savedColId = colId;
+        } else {
+          savedColId = (await db.colimadores.add({ ...colData, id: randomUUID() })) as string;
+        }
       }
 
-      // Guardar gantry si hay datos
-      let gantryId: string | undefined;
+      // Guardar gantry si hay datos (actualiza el existente en vez de duplicar)
+      let savedGantryId: string | undefined;
       if (gantryMarca || gantryModelo || gantrySerie) {
         const gantryData: Omit<Gantry, "id"> = {
           equipo_id: equipoId,
@@ -229,16 +297,21 @@ export function EquipoFormDialog({
           sync_status: "pending",
           last_modified: now,
         };
-        gantryId = (await db.gantry.add({ ...gantryData, id: randomUUID() })) as string;
+        if (gantryId) {
+          await db.gantry.update(gantryId, gantryData);
+          savedGantryId = gantryId;
+        } else {
+          savedGantryId = (await db.gantry.add({ ...gantryData, id: randomUUID() })) as string;
+        }
       }
 
       onOpenChange(false);
       onSaved?.();
 
       pushSingle("equipos", equipoId);
-      if (tuboId) pushSingle("tubos", tuboId);
-      if (colId) pushSingle("colimadores", colId);
-      if (gantryId) pushSingle("gantry", gantryId);
+      if (savedTuboId) pushSingle("tubos", savedTuboId);
+      if (savedColId) pushSingle("colimadores", savedColId);
+      if (savedGantryId) pushSingle("gantry", savedGantryId);
     } catch (err) {
       console.error("[EquipoForm] Error:", err);
     } finally {

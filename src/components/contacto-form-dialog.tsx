@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { db } from "@/lib/db";
 import type { Contacto } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
@@ -75,6 +75,17 @@ export function ContactoFormDialog({
     setEmail(contacto?.email ?? "");
     setParaProgramar(contacto?.para_programar ?? defaultParaProgramar);
   }
+
+  // El padre controla `open` seteando el prop directamente (no vía
+  // onOpenChange), así que hay que repoblar el form acá — handleOpenChange
+  // solo dispara para cierres iniciados por Radix (Esc, overlay, botón).
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      resetForm();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contacto]);
 
   async function handleSave() {
     if (!nombre.trim()) return;
@@ -151,7 +162,9 @@ export function ContactoFormDialog({
             <Select value={cargo} onValueChange={(v) => setCargo(v ?? "")}>
               <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                 <SelectValue placeholder="Seleccionar cargo...">
-                  {(v) => CARGO_OPTIONS.find((opt) => opt.value === v)?.label || "Seleccionar cargo..."}
+                  {(v) =>
+                    CARGO_OPTIONS.find((opt) => opt.value === v)?.label || "Seleccionar cargo..."
+                  }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

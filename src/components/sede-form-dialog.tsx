@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Sede } from "@/lib/db/types";
@@ -123,6 +123,17 @@ export function SedeFormDialog({
     setDepartamentoTexto(sede?.departamento ?? "");
   }
 
+  // El padre controla `open` seteando el prop directamente (no vía
+  // onOpenChange), así que hay que repoblar el form acá — handleOpenChange
+  // solo dispara para cierres iniciados por Radix (Esc, overlay, botón).
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      resetForm();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sede]);
+
   async function handleSave() {
     if (!nombre.trim()) return;
     setSaving(true);
@@ -219,7 +230,9 @@ export function SedeFormDialog({
                     setMunicipioIdState("");
                   }}
                 >
-                  <ComboboxTrigger className={`${inputClass} h-11 data-[placeholder]:text-slate-400`}>
+                  <ComboboxTrigger
+                    className={`${inputClass} h-11 data-[placeholder]:text-slate-400`}
+                  >
                     <ComboboxValue placeholder="Seleccionar..." />
                   </ComboboxTrigger>
                   <ComboboxContent>
@@ -244,7 +257,9 @@ export function SedeFormDialog({
                   onValueChange={(m) => setMunicipioIdState(m ? String(m.id) : "")}
                   disabled={!departamentoId}
                 >
-                  <ComboboxTrigger className={`${inputClass} h-11 data-[placeholder]:text-slate-400`}>
+                  <ComboboxTrigger
+                    className={`${inputClass} h-11 data-[placeholder]:text-slate-400`}
+                  >
                     <ComboboxValue
                       placeholder={departamentoId ? "Seleccionar..." : "Elige departamento"}
                     />

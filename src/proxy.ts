@@ -96,16 +96,16 @@ export async function proxy(request: NextRequest) {
   let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
   try {
     const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      // Error de red o Supabase inalcanzable → confiar en cookie local si JWT no expirado
-      if (hasValidSessionCookie(allCookies)) {
-        return response;
-      }
-    } else {
+    // `error` acá es un rechazo explícito de Supabase (JWT inválido, expirado,
+    // forjado, sesión revocada) — Supabase SÍ respondió, así que NO hay que
+    // confiar en la cookie local sin verificar firma. Solo la excepción real
+    // de red (catch de abajo) representa "Supabase inalcanzable".
+    if (!error) {
       user = data.user;
     }
   } catch {
-    // Error de red total (fetch failed) → confiar en cookie local si JWT no expirado
+    // Excepción real de fetch (Supabase inalcanzable) → confiar en cookie
+    // local si el JWT no expiró, para no bloquear el uso offline-first.
     if (hasValidSessionCookie(allCookies)) {
       return response;
     }

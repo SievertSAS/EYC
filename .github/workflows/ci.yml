@@ -21,10 +21,16 @@ jobs:
       - run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
-      - name: Test
-        run: npx vitest run
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Test + coverage
+        run: npm run test:coverage
 
       - name: Build
         run: npx next build

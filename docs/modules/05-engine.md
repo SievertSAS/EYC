@@ -21,6 +21,9 @@ Evaluador puro de **fórmulas** (`evaluateFormula`) y **criterios de aceptación
 - `engine.ts` es un sandbox endurecido esperando fórmulas que todavía no
   existen. Esta pasada es "dejarlo correcto antes de que se use", no arreglar
   un bug de producción activo.
+- **Decisión pendiente: `engine.ts` (genérico) vs `evaluacion.ts` (a mano) —
+  issue #45.** Hay dos sistemas para lo mismo; hay que elegir uno (activar /
+  borrar / híbrido). El redesign #41 solo aplica si se decide mantenerlo.
 
 ## 2. API pública
 

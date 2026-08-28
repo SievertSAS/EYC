@@ -29,6 +29,7 @@ import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
 import { useRowSavedFlash } from "@/hooks/use-row-saved";
+import { useBlobPreviewUrl } from "@/hooks/use-blob-preview-url";
 
 // ─── Helpers ───
 
@@ -142,16 +143,7 @@ function ImageSlot({
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (evidencia?.blob_local) {
-      const url = URL.createObjectURL(evidencia.blob_local);
-      setPreview(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    setPreview(null);
-  }, [evidencia?.blob_local]);
+  const preview = useBlobPreviewUrl(evidencia?.blob_local);
 
   return (
     <div className="space-y-2">
@@ -340,13 +332,15 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   const [savedEiBase, setSavedEiBase] = useState(false);
   const [savedDiBase, setSavedDiBase] = useState(false);
 
-  // Initialize base values from DB record once data loads
-  useEffect(() => {
-    const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+  // Inicializar los valores base desde el registro de DB una sola vez, cuando
+  // `data` ya cargó: ajuste de estado en render (guardado, no en efecto).
+  const [baseInit, setBaseInit] = useState(false);
+  if (!baseInit && data?.ddiMediciones.length) {
+    const t1 = data.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+    setBaseInit(true);
     if (t1?.ei_base != null) setBaseEi29(String(t1.ei_base));
     if (t1?.di_base != null) setBaseDi29(String(t1.di_base));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [(data?.ddiMediciones.length ?? 0) > 0]);
+  }
 
   // ─── Save helpers ───
   async function updateDdi(id: string, fields: Record<string, unknown>) {

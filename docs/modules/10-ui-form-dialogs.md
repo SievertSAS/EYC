@@ -167,5 +167,5 @@ segundo es un input no controlado con guardado on-blur.
 - [x] `npm run verify` limpio (typecheck, lint 0 errores, format, 451 tests, build)
 - [x] Sin `eslint-disable` nuevo; removidos los 3 `exhaustive-deps` viejos
 - [ ] Sign-off del dueño
-- [ ] **Parte 2:** `visita-modulos/*`, `visit-action-bar`, `manual-drawer`,
-      re-escalar `react-hooks/set-state-in-effect` para esa ruta
+- [x] **Parte 2:** `visita-modulos/*`, `visit-action-bar`, `manual-drawer`,
+      re-escalar `react-hooks/set-state-in-effect` → ver `10-ui-visita-modulos.md`

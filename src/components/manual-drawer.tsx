@@ -25,9 +25,14 @@ export function ManualDrawer({ open, onClose, pruebas, pruebaCodigo }: ManualDra
   const [animating, setAnimating] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Animate in
+  // Animación de entrada/salida. `visible` controla el montaje y DEBE
+  // sobrevivir a `open === false` durante los 250 ms de la animación de
+  // salida, así que no puede derivarse en render. El setState síncrono acá
+  // es intencional (transición puntual de `open`, sin cascada), no el
+  // patrón que `react-hooks/set-state-in-effect` busca prevenir.
   useEffect(() => {
     if (open) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
       setVisible(true);
       requestAnimationFrame(() => requestAnimationFrame(() => setAnimating(true)));
     } else {
@@ -37,13 +42,20 @@ export function ManualDrawer({ open, onClose, pruebas, pruebaCodigo }: ManualDra
     }
   }, [open]);
 
-  // Sync initial prueba
-  useEffect(() => {
-    if (pruebaCodigo && pruebas.length > 0) {
+  // Posicionar el índice en la prueba pedida por `pruebaCodigo`. Se hace una
+  // vez por cada combinación distinta de (pruebaCodigo, pruebas ya cargadas)
+  // — ajuste de estado en render, no en efecto. No se re-dispara por un
+  // simple cambio de identidad del array `pruebas` (eso reiniciaría la
+  // navegación manual del usuario).
+  const syncKey = pruebas.length > 0 ? (pruebaCodigo ?? "") : null;
+  const [syncedFor, setSyncedFor] = useState<string | null>(null);
+  if (syncKey !== null && syncKey !== syncedFor) {
+    setSyncedFor(syncKey);
+    if (pruebaCodigo) {
       const idx = pruebas.findIndex((p) => p.codigo === pruebaCodigo);
       if (idx >= 0) setCurrentIdx(idx);
     }
-  }, [pruebaCodigo, pruebas]);
+  }
 
   // Scroll to top on prueba change
   useEffect(() => {

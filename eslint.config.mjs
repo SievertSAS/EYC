@@ -21,10 +21,22 @@ const eslintConfig = defineConfig([
     // módulo afectado re-escala la regla a "error" en su ruta (o corrige la
     // violación con test) como criterio de salida de su tier:
     //   - src/hooks/**            -> Tier 1
-    //   - src/components/visita-modulos/**, manual-drawer -> Tier 6
+    //   - src/components/visita-modulos/**, manual-drawer -> Tier 6 ✅ (abajo)
     //   - src/app/dashboard/**    -> Tier 7
     rules: {
       "react-hooks/set-state-in-effect": "warn",
+    },
+  },
+  {
+    // Tier 6 — ruta certificada. Las violaciones de `set-state-in-effect` en
+    // los módulos de captura de visita y en el manual-drawer se corrigieron
+    // (useBlobPreviewUrl para las previsualizaciones; ajuste de estado en
+    // render para la sincronización de props) y quedan cubiertas por
+    // smoke-tests. La única excepción justificada inline es la orquestación
+    // de animación de `manual-drawer`. La regla vuelve a "error" acá.
+    files: ["src/components/visita-modulos/**/*.{ts,tsx}", "src/components/manual-drawer.tsx"],
+    rules: {
+      "react-hooks/set-state-in-effect": "error",
     },
   },
   {

@@ -68,6 +68,15 @@ export default defineConfig({
         "src/hooks/use-reseed-on-open.ts": { lines: 100, functions: 100, branches: 90 },
         "src/components/state-timeline.tsx": { lines: 88, functions: 100, branches: 75 },
         "src/components/visita-modulos/setup-field.tsx": { lines: 90, functions: 80, branches: 70 },
+        // Tier 6 parte 2 — Módulo 16 (visita-modulos) + Módulo 18 restante.
+        // Los módulos de captura tienen SMOKE tests (3 estados de render por
+        // módulo): red suficiente para re-escalar `set-state-in-effect` a
+        // "error" en esa ruta. La cobertura profunda de cada tabla queda para
+        // Tier 3/4 cuando se recree el flujo completo. Floors = piso actual.
+        "src/hooks/use-blob-preview-url.ts": { lines: 78, functions: 70, branches: 45 },
+        "src/components/manual-drawer.tsx": { lines: 92, functions: 75, branches: 88 },
+        "src/components/visit-action-bar.tsx": { lines: 85, functions: 85, branches: 72 },
+        "src/components/visita-modulos/**": { lines: 33, functions: 15, branches: 16 },
       },
     },
   },

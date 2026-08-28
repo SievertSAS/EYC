@@ -113,7 +113,11 @@ async function getInfoPercentage(visita: {
 //  prueba legítimamente no aplica al equipo evaluado.
 
 function pctResueltas(g: { total: number; pendientes: number } | undefined): number {
-  if (!g || g.total === 0) return 100;
+  // Fail-safe (#6): un grupo sin pruebas cuenta como "sin iniciar", no
+  // "completo". Hoy es defensivo (para CONVENCIONAL cada grupo tiene 2-6
+  // secciones fijas del catálogo), pero evita que un paquete futuro con un
+  // grupo vacío pase el gate por default.
+  if (!g || g.total === 0) return 0;
   return Math.round(((g.total - g.pendientes) / g.total) * 100);
 }
 
@@ -132,7 +136,7 @@ export async function getModuleStatuses(visitaId: string): Promise<Record<string
   const pendientesGeneral = Object.values(estadoPorGrupo).reduce((acc, g) => acc + g.pendientes, 0);
   const preInformePct =
     totalGeneral === 0
-      ? 100
+      ? 0 // fail-safe (#6): sin pruebas → sin iniciar, no completo
       : Math.round(((totalGeneral - pendientesGeneral) / totalGeneral) * 100);
 
   return {

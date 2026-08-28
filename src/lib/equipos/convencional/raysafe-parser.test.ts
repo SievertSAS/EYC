@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import { parseRaysafeTsv, parseRaysafeXlsx } from "./raysafe-parser";
+import { parseRaysafeTsv, parseRaysafeXlsx, parseRaysafeFile } from "./raysafe-parser";
 
 // El parser convierte exports de RaySafe X2 en filas normalizadas. Es una
 // vía de ENTRADA de datos numéricos al informe — si parsea mal, los números
@@ -141,5 +141,41 @@ describe("parseRaysafeXlsx", () => {
     if (res.tipo === "simple") {
       expect(res.data[0]).toMatchObject({ numero: 1, kv: 75, dosis_mgy: 2.0 });
     }
+  });
+});
+
+describe("parseRaysafeFile — dispatch por extensión", () => {
+  it(".tsv / sin extensión xlsx → parsea como TSV", async () => {
+    const file = new File(["1\t\t\t\t80\t\t1.5"], "export.txt");
+    const rows = await parseRaysafeFile(file);
+    expect(rows).toEqual([
+      {
+        numero: 1,
+        kv: 80,
+        dosis_mgy: 1.5,
+        tiempo_s: null,
+        chr_mmal: null,
+        rendimiento_mgy_min: null,
+      },
+    ]);
+  });
+
+  it(".xlsx plantilla → devuelve principales", async () => {
+    const header = Array(19).fill("");
+    header[0] = "Grupo";
+    const dataRow = Array(19).fill("");
+    dataRow[6] = 1;
+    dataRow[10] = 90;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([header, dataRow]),
+      "Paso2_Principales"
+    );
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const file = new File([buf], "plantilla.xlsx");
+
+    const rows = await parseRaysafeFile(file);
+    expect(rows[0]).toMatchObject({ numero: 1, kv: 90 });
   });
 });

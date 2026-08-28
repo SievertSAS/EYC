@@ -349,9 +349,10 @@ function evaluar216(d: DatosEvalConv): Concepto | undefined {
       ? Math.abs((m.mtf50_vertical - m.mtf50_base_vertical) / m.mtf50_base_vertical) * 100
       : null;
   const vals = [desv50H, desv50V].filter((v): v is number => v != null);
-  const maxDesv = vals.length > 0 ? Math.max(...vals) : null;
-  const conforme = maxDesv != null ? maxDesv <= 10 : true;
-  return conforme ? "Conforme" : "No_conforme";
+  // #13: hay base pero ninguna desviación comparable → pendiente, no "Conforme".
+  // (El caso "no hay base" — primera medición — se decide prueba por prueba; ver issue.)
+  if (vals.length === 0) return undefined;
+  return Math.max(...vals) <= 10 ? "Conforme" : "No_conforme";
 }
 
 /** Variación relativa |medido - base| / |base|. */
@@ -371,8 +372,9 @@ function evaluar217(d: DatosEvalConv): Concepto | undefined {
     varRel(t9.ei, s?.ei_base_217),
     varRel(t9.di, s?.di_base_217),
   ].filter((v): v is number => v != null);
-  const maxVar = vals.length > 0 ? Math.max(...vals) : null;
-  return (maxVar != null ? maxVar <= 0.5 : true) ? "Conforme" : "No_conforme";
+  // #13: hay base pero ninguna medición comparable → pendiente, no "Conforme".
+  if (vals.length === 0) return undefined;
+  return Math.max(...vals) <= 0.5 ? "Conforme" : "No_conforme";
 }
 
 /** 2.18 — Consistencia de sensores CAE: rango ≤ 30%. */
@@ -387,8 +389,9 @@ function evaluar218(d: DatosEvalConv): Concepto | undefined {
     return m ? (Math.max(...arr) - Math.min(...arr)) / m : null;
   };
   const vals = [rangeVar(masVals), rangeVar(eiVals)].filter((v): v is number => v != null);
-  const maxVar = vals.length > 0 ? Math.max(...vals) : null;
-  return (maxVar != null ? maxVar <= 0.3 : true) ? "Conforme" : "No_conforme";
+  // #13: hay tomas pero sin valores comparables → pendiente, no "Conforme".
+  if (vals.length === 0) return undefined;
+  return Math.max(...vals) <= 0.3 ? "Conforme" : "No_conforme";
 }
 
 /** 2.19 — Repetibilidad CAE: CV ≤ 10%. */
@@ -405,8 +408,9 @@ function evaluar219(d: DatosEvalConv): Concepto | undefined {
     return m ? desviacion(arr) / m : null;
   };
   const vals = [cvFrac(masVals), cvFrac(eiVals)].filter((v): v is number => v != null);
-  const maxCv = vals.length > 0 ? Math.max(...vals) : null;
-  return (maxCv != null ? maxCv <= 0.1 : true) ? "Conforme" : "No_conforme";
+  // #13: hay tomas pero sin valores comparables → pendiente, no "Conforme".
+  if (vals.length === 0) return undefined;
+  return Math.max(...vals) <= 0.1 ? "Conforme" : "No_conforme";
 }
 
 /** 2.20 — Compensación CAE (kVp/espesores): variación ≤ 30% vs base. */
@@ -430,8 +434,9 @@ function evaluar220(d: DatosEvalConv): Concepto | undefined {
     varRel(byToma.get(15)?.carga_mas, s?.mas_base_cu3),
     varRel(byToma.get(15)?.ei, s?.ei_base_cu3),
   ].filter((v): v is number => v != null);
-  const maxVar = vals.length > 0 ? Math.max(...vals) : null;
-  return (maxVar != null ? maxVar <= 0.3 : true) ? "Conforme" : "No_conforme";
+  // #13: hay base pero ninguna medición comparable → pendiente, no "Conforme".
+  if (vals.length === 0) return undefined;
+  return Math.max(...vals) <= 0.3 ? "Conforme" : "No_conforme";
 }
 
 /** 2.21 — Dosis al receptor: |dosis·corrGeom - base| < 0.01 mGy. */
@@ -450,8 +455,9 @@ function evaluar221(d: DatosEvalConv): Concepto | undefined {
         : Math.abs(m.dosis_medida_mgy * corrGeom - m.dosis_base_mgy)
     )
     .filter((v): v is number => v != null);
-  const maxDiff = diffs.length > 0 ? Math.max(...diffs) : null;
-  return (maxDiff != null ? maxDiff < 0.01 : true) ? "Conforme" : "No_conforme";
+  // #13: hay base pero ninguna dosis comparable → pendiente, no "Conforme".
+  if (diffs.length === 0) return undefined;
+  return Math.max(...diffs) < 0.01 ? "Conforme" : "No_conforme";
 }
 
 const EVALUADORES: Record<string, (d: DatosEvalConv) => Concepto | undefined> = {

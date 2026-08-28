@@ -13,6 +13,7 @@ import type {
   Equipo,
   ValoresReferencia,
 } from "@/lib/db/types";
+import { logger } from "@/lib/logger";
 
 // ─── Helpers estadísticos ───
 
@@ -87,14 +88,16 @@ export const formulaHelpers = {
 // ─── Validación de expresiones ───
 
 /**
- * Allowlist de tokens válidos en fórmulas. Solo se permiten:
- * - Acceso a variables del contexto: row, rows, stats, Math, equipo, valores_ref, helpers
- * - Operadores aritméticos y lógicos
- * - Literales numéricos y strings
- * - Acceso a propiedades con punto (row.campo)
- * - Llamadas a funciones (stats.mean(...))
- * - Corchetes para acceso a arrays (rows[0])
- * - Ternarios, comparaciones, paréntesis
+ * DENYLIST (no allowlist — pese al nombre histórico de este módulo). La
+ * expresión se ejecuta con `new Function` bajo `"use strict"` con solo 7
+ * parámetros en scope (row, rows, stats, Math, equipo, valores_ref, helpers)
+ * y sin `globalThis`. Estas reglas bloquean las vías de escape conocidas
+ * (llegar a `.constructor` → `Function`, etc.). Un rediseño a allowlist real
+ * (parser) está en el backlog — ver docs/modules/05-engine.md #12c.
+ *
+ * Permitido: acceso con punto (`row.campo`), índice de array (`rows[0]`,
+ * `rows[i]`), acceso por clave string SIMPLE (`row['kvp_medido']`), llamadas
+ * (`stats.mean(...)`), aritmética, comparaciones, ternarios, paréntesis.
  */
 
 const BLOCKED_PATTERNS: RegExp[] = [
@@ -155,16 +158,20 @@ const UNICODE_ESCAPE = /\\u[\da-fA-F]{4}|\\u\{[\da-fA-F]+\}/;
 const TEMPLATE_LITERAL = /`/;
 
 /**
- * Bloquea CUALQUIER comilla dentro de corchetes: obj["constructor"],
- * obj["con"+"structor"], obj[("cons"+"tructor")], etc.
- *
- * El allowlist documentado solo permite corchetes para indexar arrays
- * (`rows[0]`, `rows[i]`) — nunca para acceso a propiedades por string. Un
- * regex anterior solo bloqueaba el patrón literal `["str"+`, evadible
- * partiendo el string en más pedazos o envolviéndolo en un `(...)` antes
- * del `+` (ej. `[("cons"+"tructor")]`), lo que permitía llegar a
- * `Function`/`globalThis` sin que ninguna palabra bloqueada apareciera
- * completa en el texto fuente.
+ * Acceso por clave string SIMPLE: `['kvp_medido']` / `["centro"]` — un solo
+ * identificador entre comillas, con espacios opcionales. Esto es legítimo
+ * (nombres de campo dinámicos). Los nombres peligrosos que caben acá
+ * (`['constructor']`, `['prototype']`) igual los atrapa `BLOCKED_PATTERNS`
+ * (`\bconstructor\b`, …) y `BRACKET_PROTO`.
+ */
+const SAFE_BRACKET_KEY = /\[\s*(['"])[A-Za-z_$][A-Za-z0-9_$]*\1\s*\]/g;
+
+/**
+ * Tras quitar los accesos por clave simple, CUALQUIER comilla que quede
+ * dentro de corchetes es sospechosa: concatenación (`["con"+"structor"]`),
+ * string envuelto en paréntesis (`[("cons"+"tructor")]`), varias comillas,
+ * etc. — vías para llegar a `Function`/`.constructor` sin que ninguna
+ * palabra bloqueada aparezca completa en el texto.
  */
 const SUSPICIOUS_BRACKET_ACCESS = /\[[^\]]*["'][^\]]*\]/;
 
@@ -188,7 +195,10 @@ function validateExpression(expr: string): void {
     throw new Error("Expresión de fórmula bloqueada: template literals no permitidos");
   }
 
-  if (SUSPICIOUS_BRACKET_ACCESS.test(expr)) {
+  // Se quitan primero los accesos por clave simple (`['campo']`) para no
+  // marcarlos como sospechosos; lo que quede con comilla en corchetes sí lo es.
+  const sinClavesSimples = expr.replace(SAFE_BRACKET_KEY, "[]");
+  if (SUSPICIOUS_BRACKET_ACCESS.test(sinClavesSimples)) {
     throw new Error("Expresión de fórmula bloqueada: concatenación en acceso por corchetes");
   }
 
@@ -244,8 +254,21 @@ export function evaluateFormula(
     if (typeof result === "number" && !isNaN(result) && isFinite(result)) {
       return result;
     }
+    // Resultado no numérico o no finito — dato insuficiente. Es esperable;
+    // no se loguea como error, pero se distingue del fallo duro de abajo.
     return null;
-  } catch {
+  } catch (err) {
+    // #12b: antes esto se tragaba en silencio y quedaba indistinguible de
+    // "sin dato". Ahora se registra. Un error de validación es un bug en la
+    // DEFINICIÓN de la fórmula (nunca debería llegar a producción); un error
+    // de runtime suele ser un campo faltante en los datos.
+    const msg = err instanceof Error ? err.message : String(err);
+    const esValidacion = msg.includes("Expresión de fórmula bloqueada");
+    logger[esValidacion ? "error" : "warn"](
+      "engine:formula",
+      `Fórmula "${formula.campo_resultado}" falló: ${msg}`,
+      { expresion: formula.expresion }
+    );
     return null;
   }
 }

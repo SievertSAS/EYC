@@ -86,6 +86,45 @@ export function hasPackage(tipoEquipo: TipoEquipo): boolean {
   return tipoEquipo in PACKAGES;
 }
 
+/** Error de "este tipo de equipo todavía no se puede trabajar". */
+export class NoPackageError extends Error {
+  readonly tipoEquipo: TipoEquipo;
+  constructor(tipoEquipo: TipoEquipo) {
+    super(
+      `No se puede crear una visita para "${tipoEquipo}": no hay paquete de pruebas definido. ` +
+        `Solo CONVENCIONAL está habilitado. Ver hallazgo #7 en docs/modules/06-grupos-registry.md.`
+    );
+    this.name = "NoPackageError";
+    this.tipoEquipo = tipoEquipo;
+  }
+}
+
+/**
+ * ¿Se puede crear una visita para este tipo de equipo HOY?
+ *
+ * Solo los tipos con paquete (`hasPackage`). Guard del hallazgo #7:
+ * `module-completeness.getModuleStatuses` solo produce estados para los ids
+ * del paquete CONVENCIONAL (`info`, `grupo-a`..`grupo-e`, `pre-informe`), NO
+ * para los de `MODULOS_DEFAULT` (`condiciones`, `levantamiento`, …). Una
+ * visita de un tipo sin paquete tendría todos sus módulos requeridos en
+ * "sin_iniciar" para siempre → nunca podría pasar el gate de "enviar a
+ * revisión".
+ *
+ * BACKLOG PRIORIZADO: antes de habilitar el segundo tipo de equipo hay que
+ * unificar esos ids entre `getModuleStatuses` y `getDefaultModules`, y
+ * recién ahí quitar este guard.
+ */
+export function canCreateVisitFor(tipoEquipo: TipoEquipo): boolean {
+  return hasPackage(tipoEquipo);
+}
+
+/** Lanza `NoPackageError` si el tipo de equipo no se puede trabajar todavía. */
+export function assertCanCreateVisitFor(tipoEquipo: TipoEquipo): void {
+  if (!canCreateVisitFor(tipoEquipo)) {
+    throw new NoPackageError(tipoEquipo);
+  }
+}
+
 /**
  * Lista todos los tipos de equipo con paquete definido.
  */

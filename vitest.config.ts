@@ -55,6 +55,11 @@ export default defineConfig({
         "src/lib/db/recovery.ts": { lines: 95, functions: 100, branches: 80 },
         "src/lib/db/seed.ts": { lines: 65, functions: 55, branches: 58 },
         "src/lib/db/index.ts": { lines: 63 },
+        // Tier 5 — PDF. Tests de contrato (smoke end-to-end + recopilarDatosConv);
+        // no snapshots de píxeles. Cobertura alta para un smoke porque
+        // generarPreInforme recorre casi toda la tubería de render.
+        "src/lib/pdf/generar-pre-informe.ts": { lines: 65, functions: 40, branches: 58 },
+        "src/lib/pdf/secciones-convencional.ts": { lines: 43, functions: 28, branches: 20 },
       },
     },
   },

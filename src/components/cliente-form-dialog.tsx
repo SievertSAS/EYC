@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { randomUUID } from "@/lib/uuid";
 import { db } from "@/lib/db";
 import type { Cliente } from "@/lib/db/types";
@@ -64,15 +65,11 @@ export function ClienteFormDialog({
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  // El padre controla `open` seteando el prop directamente (no vía
-  // onOpenChange), así que hay que repoblar el form acá — handleOpenChange
-  // solo dispara para cierres iniciados por Radix (Esc, overlay, botón).
-  useEffect(() => {
-    if (!open) return;
-    void (async () => {
-      setForm(cliente ? { ...cliente } : { ...EMPTY });
-    })();
-  }, [open, cliente]);
+  // Repoblar el form al reabrir (el padre controla `open` directo, no vía
+  // onOpenChange). Solo en la transición de apertura — ver useReseedOnOpen.
+  useReseedOnOpen(open, () => {
+    setForm(cliente ? { ...cliente } : { ...EMPTY });
+  });
 
   async function handleSave() {
     if (!form.nombre_cliente?.trim()) return;

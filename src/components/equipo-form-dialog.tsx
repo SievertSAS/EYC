@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
@@ -148,11 +149,9 @@ export function EquipoFormDialog({
 
   const [saving, setSaving] = useState(false);
 
-  // El padre controla `open` seteando el prop directamente (no vía
-  // onOpenChange), así que hay que repoblar el form acá — sin esto, reabrir
-  // el modal de edición muestra datos desactualizados del equipo.
-  useEffect(() => {
-    if (!open) return;
+  // Repoblar el form al reabrir (el padre controla `open` directo). Solo en
+  // la transición de apertura — ver useReseedOnOpen (#11).
+  useReseedOnOpen(open, () => {
     void (async () => {
       setTipoEquipo(equipo?.tipo_equipo ?? "");
       setSistemaAdq(equipo?.sistema_adquisicion ?? "");
@@ -170,12 +169,19 @@ export function EquipoFormDialog({
       setFiltAnadida(equipo?.filtracion_anadida_mmal?.toString() ?? "");
 
       // Cargar tubo/colimador/gantry existentes del equipo (si los hay) para
-      // poder actualizarlos en vez de crear duplicados al guardar.
+      // poder actualizarlos en vez de crear duplicados al guardar. Se ignoran
+      // las filas soft-deleted y, si hubiera duplicados preexistentes, se toma
+      // siempre el de menor `id` para que la selección sea determinística (#10).
+      const primeroVivo = <T extends { id?: string; deleted_at?: string | null }>(
+        rows: T[]
+      ): T | undefined =>
+        rows.filter((r) => !r.deleted_at).sort((a, b) => (a.id ?? "").localeCompare(b.id ?? ""))[0];
+
       const [tubo, colimador, gantryReg] = equipo?.id
         ? await Promise.all([
-            db.tubos.where("equipo_id").equals(equipo.id).first(),
-            db.colimadores.where("equipo_id").equals(equipo.id).first(),
-            db.gantry.where("equipo_id").equals(equipo.id).first(),
+            db.tubos.where("equipo_id").equals(equipo.id).toArray().then(primeroVivo),
+            db.colimadores.where("equipo_id").equals(equipo.id).toArray().then(primeroVivo),
+            db.gantry.where("equipo_id").equals(equipo.id).toArray().then(primeroVivo),
           ])
         : [undefined, undefined, undefined];
 
@@ -201,7 +207,7 @@ export function EquipoFormDialog({
       setGantrySerie(gantryReg?.numero_serie ?? "");
       setGantryDetector(gantryReg?.tipo_detector ?? "");
     })();
-  }, [open, equipo]);
+  });
 
   async function handleSave() {
     setSaving(true);
@@ -229,89 +235,119 @@ export function EquipoFormDialog({
         last_modified: now,
       };
 
-      let equipoId: string;
+      const tuboData: Omit<Tubo, "id"> = {
+        equipo_id: "",
+        marca: tuboMarca || undefined,
+        modelo: tuboModelo || undefined,
+        numero_serie: tuboSerie || undefined,
+        tipo: tuboTipo || undefined,
+        mas_max: tuboMasMax ? parseFloat(tuboMasMax) : undefined,
+        kv_max: tuboKvMax ? parseFloat(tuboKvMax) : undefined,
+        ma_max: tuboMaMax ? parseFloat(tuboMaMax) : undefined,
+        foco_fino_mm: tuboFocoFino ? parseFloat(tuboFocoFino) : undefined,
+        foco_grueso_mm: tuboFocoGrueso ? parseFloat(tuboFocoGrueso) : undefined,
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
+      };
+      const colData: Omit<Colimador, "id"> = {
+        equipo_id: "",
+        marca: colMarca || undefined,
+        modelo: colModelo || undefined,
+        numero_serie: colSerie || undefined,
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
+      };
+      const gantryData: Omit<Gantry, "id"> = {
+        equipo_id: "",
+        marca: gantryMarca || undefined,
+        modelo: gantryModelo || undefined,
+        numero_serie: gantrySerie || undefined,
+        tipo_detector: gantryDetector || undefined,
+        creado_en: now,
+        sync_status: "pending",
+        last_modified: now,
+      };
 
-      if (isEdit && equipo?.id) {
-        await db.equipos.update(equipo.id, equipoData);
-        equipoId = equipo.id;
-      } else {
-        equipoId = (await db.equipos.add({ ...equipoData, id: randomUUID() })) as string;
-      }
+      const tuboTieneDatos = !!(tuboMarca || tuboModelo || tuboSerie);
+      const colTieneDatos = !!(colMarca || colModelo || colSerie);
+      const gantryTieneDatos = !!(gantryMarca || gantryModelo || gantrySerie);
 
-      // Guardar tubo si hay datos (actualiza el existente en vez de duplicar)
-      let savedTuboId: string | undefined;
-      if (tuboMarca || tuboModelo || tuboSerie) {
-        const tuboData: Omit<Tubo, "id"> = {
-          equipo_id: equipoId,
-          marca: tuboMarca || undefined,
-          modelo: tuboModelo || undefined,
-          numero_serie: tuboSerie || undefined,
-          tipo: tuboTipo || undefined,
-          mas_max: tuboMasMax ? parseFloat(tuboMasMax) : undefined,
-          kv_max: tuboKvMax ? parseFloat(tuboKvMax) : undefined,
-          ma_max: tuboMaMax ? parseFloat(tuboMaMax) : undefined,
-          foco_fino_mm: tuboFocoFino ? parseFloat(tuboFocoFino) : undefined,
-          foco_grueso_mm: tuboFocoGrueso ? parseFloat(tuboFocoGrueso) : undefined,
-          creado_en: now,
-          sync_status: "pending",
-          last_modified: now,
-        };
-        if (tuboId) {
-          await db.tubos.update(tuboId, tuboData);
-          savedTuboId = tuboId;
+      // #10: todos los writes (equipo + hijos) van en una sola transacción,
+      // así un fallo a mitad no deja al equipo guardado sin sus hijos (o al
+      // revés). Los ids a pushear se acumulan y se envían tras el commit.
+      const toPush: Array<[Parameters<typeof pushSingle>[0], string]> = [];
+
+      await db.transaction("rw", [db.equipos, db.tubos, db.colimadores, db.gantry], async () => {
+        let equipoId: string;
+        if (isEdit && equipo?.id) {
+          await db.equipos.update(equipo.id, equipoData);
+          equipoId = equipo.id;
         } else {
-          savedTuboId = (await db.tubos.add({ ...tuboData, id: randomUUID() })) as string;
+          equipoId = (await db.equipos.add({ ...equipoData, id: randomUUID() })) as string;
         }
-      }
+        toPush.push(["equipos", equipoId]);
 
-      // Guardar colimador si hay datos (actualiza el existente en vez de duplicar)
-      let savedColId: string | undefined;
-      if (colMarca || colModelo || colSerie) {
-        const colData: Omit<Colimador, "id"> = {
-          equipo_id: equipoId,
-          marca: colMarca || undefined,
-          modelo: colModelo || undefined,
-          numero_serie: colSerie || undefined,
-          creado_en: now,
-          sync_status: "pending",
-          last_modified: now,
+        // Hijo: si hay datos, crear/actualizar; si el usuario limpió todos los
+        // campos y existía una fila, soft-delete (no dejar la fila huérfana).
+        type HijoTable = {
+          update: (id: string, changes: Record<string, unknown>) => PromiseLike<unknown>;
+          add: (obj: Record<string, unknown>) => PromiseLike<unknown>;
         };
-        if (colId) {
-          await db.colimadores.update(colId, colData);
-          savedColId = colId;
-        } else {
-          savedColId = (await db.colimadores.add({ ...colData, id: randomUUID() })) as string;
-        }
-      }
+        const guardarHijo = async <T extends { equipo_id: string }>(
+          nombre: Parameters<typeof pushSingle>[0],
+          tabla: HijoTable,
+          data: T,
+          existingId: string | undefined,
+          tieneDatos: boolean
+        ) => {
+          if (tieneDatos) {
+            const payload = { ...data, equipo_id: equipoId };
+            if (existingId) {
+              await tabla.update(existingId, payload);
+              toPush.push([nombre, existingId]);
+            } else {
+              const nuevoId = (await tabla.add({ ...payload, id: randomUUID() })) as string;
+              toPush.push([nombre, nuevoId]);
+            }
+          } else if (existingId) {
+            await tabla.update(existingId, {
+              deleted_at: now,
+              sync_status: "pending",
+              last_modified: now,
+            });
+            toPush.push([nombre, existingId]);
+          }
+        };
 
-      // Guardar gantry si hay datos (actualiza el existente en vez de duplicar)
-      let savedGantryId: string | undefined;
-      if (gantryMarca || gantryModelo || gantrySerie) {
-        const gantryData: Omit<Gantry, "id"> = {
-          equipo_id: equipoId,
-          marca: gantryMarca || undefined,
-          modelo: gantryModelo || undefined,
-          numero_serie: gantrySerie || undefined,
-          tipo_detector: gantryDetector || undefined,
-          creado_en: now,
-          sync_status: "pending",
-          last_modified: now,
-        };
-        if (gantryId) {
-          await db.gantry.update(gantryId, gantryData);
-          savedGantryId = gantryId;
-        } else {
-          savedGantryId = (await db.gantry.add({ ...gantryData, id: randomUUID() })) as string;
-        }
-      }
+        await guardarHijo(
+          "tubos",
+          db.tubos as unknown as HijoTable,
+          tuboData,
+          tuboId,
+          tuboTieneDatos
+        );
+        await guardarHijo(
+          "colimadores",
+          db.colimadores as unknown as HijoTable,
+          colData,
+          colId,
+          colTieneDatos
+        );
+        await guardarHijo(
+          "gantry",
+          db.gantry as unknown as HijoTable,
+          gantryData,
+          gantryId,
+          gantryTieneDatos
+        );
+      });
 
       onOpenChange(false);
       onSaved?.();
 
-      pushSingle("equipos", equipoId);
-      if (savedTuboId) pushSingle("tubos", savedTuboId);
-      if (savedColId) pushSingle("colimadores", savedColId);
-      if (savedGantryId) pushSingle("gantry", savedGantryId);
+      for (const [tabla, id] of toPush) pushSingle(tabla, id);
     } catch (err) {
       console.error("[EquipoForm] Error:", err);
     } finally {

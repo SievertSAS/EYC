@@ -61,6 +61,13 @@ export default defineConfig({
         // generarPreInforme recorre casi toda la tubería de render.
         "src/lib/pdf/generar-pre-informe.ts": { lines: 65, functions: 40, branches: 58 },
         "src/lib/pdf/secciones-convencional.ts": { lines: 43, functions: 28, branches: 20 },
+        // Tier 6 — Módulo 17 (form-dialogs) + piezas compartidas del Módulo 18.
+        // #10 (writes multi-tabla del equipo ahora transaccionales + soft-delete
+        // de hijos huérfanos) y #11 (useReseedOnOpen: repoblar el form solo en
+        // la transición open→true) quedan fijados con test.
+        "src/hooks/use-reseed-on-open.ts": { lines: 100, functions: 100, branches: 90 },
+        "src/components/state-timeline.tsx": { lines: 88, functions: 100, branches: 75 },
+        "src/components/visita-modulos/setup-field.tsx": { lines: 90, functions: 80, branches: 70 },
       },
     },
   },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import type { Solicitud } from "@/lib/db/types";
@@ -119,8 +120,7 @@ export function SolicitudFormDialog({
   // overlay, botón). En modo edición repuebla desde editSolicitud; en modo
   // creación limpia los pasos, para que reabrir "Nueva Solicitud" no
   // arrastre el cliente/sede/ubicación seleccionados en una apertura previa.
-  useEffect(() => {
-    if (!open) return;
+  useReseedOnOpen(open, () => {
     if (!editSolicitud) {
       resetForm();
       return;
@@ -137,7 +137,7 @@ export function SolicitudFormDialog({
       );
       setContactoId(editSolicitud.contacto_programar_id ?? "");
     })();
-  }, [open, editSolicitud]);
+  });
 
   function resetForm() {
     setClienteId("");

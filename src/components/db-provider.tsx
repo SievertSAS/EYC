@@ -47,9 +47,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
           const tx = idb.transaction("clientes", "readonly");
           const store = tx.objectStore("clientes");
           if (!store.indexNames.contains("sync_status")) {
-            console.warn(
-              "[DbProvider] DB desactualizada — cierra todas las pestañas y recarga"
-            );
+            console.warn("[DbProvider] DB desactualizada — cierra todas las pestañas y recarga");
             setNeedsReload(true);
           }
         }
@@ -69,8 +67,18 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 text-center">
         <div className="bg-amber-100 p-4 rounded-2xl">
-          <svg className="w-10 h-10 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-10 h-10 text-amber-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         </div>
         <h2 className="text-xl font-black text-slate-900">Base de datos desactualizada</h2>
@@ -88,5 +96,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <DbContext.Provider value={{ isReady, error, needsReload }}>{children}</DbContext.Provider>;
+  return (
+    <DbContext.Provider value={{ isReady, error, needsReload }}>{children}</DbContext.Provider>
+  );
 }

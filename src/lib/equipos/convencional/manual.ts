@@ -200,11 +200,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     grupo: "B",
     objetivo:
       "Medir cuánta radiación llega al detector de imagen usando los programas clínicos reales del equipo. Se compara con los valores de referencia (base) de la visita anterior.",
-    instrumentacion: [
-      "Sensor RaySafe X2 RF",
-      "Rejilla del equipo",
-      "Cinta métrica",
-    ],
+    instrumentacion: ["Sensor RaySafe X2 RF", "Rejilla del equipo", "Cinta métrica"],
     pasos: [
       "Haz 3 disparos CON rejilla usando programas clínicos reales (Extremidad, Tórax AP, Columna AP).",
       "Haz 3 disparos SIN rejilla con los mismos programas.",
@@ -267,10 +263,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     grupo: "C",
     objetivo:
       "Verificar que el CAE da valores similares a los de la visita anterior (valores base). Si cambió mucho, el CAE puede estar descalibrado.",
-    instrumentacion: [
-      "Placas de cobre (1 mm) como atenuador",
-      "Equipo con CAE activado",
-    ],
+    instrumentacion: ["Placas de cobre (1 mm) como atenuador", "Equipo con CAE activado"],
     pasos: [
       "Activa el CAE del equipo en modo automático.",
       "Coloca el colimador en modo manual.",
@@ -310,9 +303,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
       { descripcion: "Variación entre sensores (EI)", limite: "≤ 30%" },
       { descripcion: "Variación entre sensores (D.I.)", limite: "≤ 30%" },
     ],
-    tips: [
-      "Si un sensor da resultados muy diferentes, puede estar dañado o desalineado.",
-    ],
+    tips: ["Si un sensor da resultados muy diferentes, puede estar dañado o desalineado."],
     alertas: [],
   },
   {
@@ -333,9 +324,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
       { descripcion: "CV del EI", limite: "≤ 10%" },
       { descripcion: "CV del D.I.", limite: "≤ 10%" },
     ],
-    tips: [
-      "Si el CV es alto, el CAE no está regulando consistentemente la exposición.",
-    ],
+    tips: ["Si el CV es alto, el CAE no está regulando consistentemente la exposición."],
     alertas: [],
   },
   {
@@ -344,10 +333,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     grupo: "C",
     objetivo:
       "Verificar que el CAE ajusta correctamente la exposición cuando cambia el voltaje (kVp) o el espesor del paciente (simulado con placas de cobre de diferente grosor).",
-    instrumentacion: [
-      "Placas de cobre: 1 mm, 2 mm, 3 mm",
-      "Equipo con CAE activado",
-    ],
+    instrumentacion: ["Placas de cobre: 1 mm, 2 mm, 3 mm", "Equipo con CAE activado"],
     pasos: [
       "Compensación por kVp: dispara a 60, 70 y 81 kVp con Cu 1mm y sensor Centro. Compara con valores base.",
       "Compensación por espesores: dispara a 81 kVp con Cu 1mm, 2mm y 3mm. Compara con valores base.",
@@ -404,9 +390,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
       "Registra el DDI/EI de cada exposición.",
       "Calcula el CV (coeficiente de variación).",
     ],
-    criterios: [
-      { descripcion: "CV del DDI/EI", limite: "≤ 10%" },
-    ],
+    criterios: [{ descripcion: "CV del DDI/EI", limite: "≤ 10%" }],
     tips: [],
     alertas: [],
   },
@@ -443,9 +427,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
       "Analiza la imagen resultante buscando variaciones de densidad.",
       "Mide la uniformidad en diferentes regiones de la imagen.",
     ],
-    criterios: [
-      { descripcion: "Uniformidad de la sensibilidad", limite: "Según fabricante" },
-    ],
+    criterios: [{ descripcion: "Uniformidad de la sensibilidad", limite: "Según fabricante" }],
     tips: ["Solo aplica a sistemas CR."],
     alertas: [],
   },
@@ -475,9 +457,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
       },
       { descripcion: "Perpendicularidad del rayo central", limite: "≤ 1.5°" },
     ],
-    tips: [
-      "Toma fotografía del montaje experimental para documentar.",
-    ],
+    tips: ["Toma fotografía del montaje experimental para documentar."],
     alertas: [],
   },
   {
@@ -486,10 +466,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     grupo: "E",
     objetivo:
       "Verificar que el detector de imagen produce una respuesta uniforme y no tiene artefactos que afecten la calidad diagnóstica.",
-    instrumentacion: [
-      "Detector de imagen (DR o CR)",
-      "Placa de cobre como filtro",
-    ],
+    instrumentacion: ["Detector de imagen (DR o CR)", "Placa de cobre como filtro"],
     pasos: [
       "Coloca el lado más largo del detector alineado con el tubo.",
       "Coloca un filtro de cobre a la salida del tubo.",
@@ -503,9 +480,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     tips: [
       "Haz esta prueba ANTES que las demás o deja reposar el detector después para evitar imagen residual.",
     ],
-    alertas: [
-      "Coloca el filtro de cobre a la salida del tubo para obtener un haz uniforme.",
-    ],
+    alertas: ["Coloca el filtro de cobre a la salida del tubo para obtener un haz uniforme."],
   },
   {
     codigo: "2.12",
@@ -513,10 +488,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     grupo: "E",
     objetivo:
       "Determinar la capacidad del sistema para distinguir objetos pequeños y cercanos entre sí. Se mide en pares de líneas por milímetro (pl/mm).",
-    instrumentacion: [
-      "Patrón de resolución (tipo barra de plomo)",
-      "Detector de imagen",
-    ],
+    instrumentacion: ["Patrón de resolución (tipo barra de plomo)", "Detector de imagen"],
     pasos: [
       "Coloca el patrón de resolución sobre el detector.",
       "Realiza una exposición con técnica estándar.",
@@ -529,9 +501,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
         limite: "≥ valor de referencia del sistema (según fabricante)",
       },
     ],
-    tips: [
-      "Usa zoom en la imagen para evaluar los patrones más finos.",
-    ],
+    tips: ["Usa zoom en la imagen para evaluar los patrones más finos."],
     alertas: [],
   },
   {
@@ -567,10 +537,7 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
     grupo: "E",
     objetivo:
       "Evaluar la capacidad del sistema para reproducir fielmente el contraste de objetos de diferente tamaño. Es una medida más precisa que la resolución visual.",
-    instrumentacion: [
-      "Patrón MTF o borde recto (edge phantom)",
-      "Software de análisis DICOM",
-    ],
+    instrumentacion: ["Patrón MTF o borde recto (edge phantom)", "Software de análisis DICOM"],
     pasos: [
       "Coloca el patrón MTF o borde recto sobre el detector con una ligera inclinación (2–5°).",
       "Realiza una exposición.",

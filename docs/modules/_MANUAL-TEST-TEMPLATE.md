@@ -11,17 +11,17 @@
 
 ## Pasos y resultado esperado
 
-| # | Paso (acción UI) | Esperado UI | Esperado Dexie (`SievertEyC`) | Esperado servidor (Supabase) |
-|---|---|---|---|---|
-| 1 | | | fila `<tabla>#<id>`: `<estado>` / `sync_status=<>` | fila coincide con local / n/a offline |
-| 2 | | | | |
+| #   | Paso (acción UI) | Esperado UI | Esperado Dexie (`SievertEyC`)                      | Esperado servidor (Supabase)          |
+| --- | ---------------- | ----------- | -------------------------------------------------- | ------------------------------------- |
+| 1   |                  |             | fila `<tabla>#<id>`: `<estado>` / `sync_status=<>` | fila coincide con local / n/a offline |
+| 2   |                  |             |                                                    |                                       |
 
 ## Resultado real
 
-| # | ¿Coincide? | Observación |
-|---|---|---|
-| 1 | ✅ / ❌ | |
-| 2 | | |
+| #   | ¿Coincide? | Observación |
+| --- | ---------- | ----------- |
+| 1   | ✅ / ❌    |             |
+| 2   |            |             |
 
 ## Veredicto
 

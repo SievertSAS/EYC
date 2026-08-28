@@ -15,9 +15,9 @@ Un párrafo: de qué es este módulo la **única fuente de verdad**.
 
 ## 2. API pública
 
-| Función / Export | Firma | Efectos | Convención de error | ¿Idempotente? |
-|---|---|---|---|---|
-| | | | throw / return `{ok:false}` / … | |
+| Función / Export | Firma | Efectos | Convención de error             | ¿Idempotente? |
+| ---------------- | ----- | ------- | ------------------------------- | ------------- |
+|                  |       |         | throw / return `{ok:false}` / … |               |
 
 ## 3. Modelo de datos
 
@@ -70,9 +70,9 @@ Ver `docs/modules/<nombre>.scenarios.md` (o inline si son pocos).
 
 ## Apéndice B — Log de decisiones (triage de hallazgos)
 
-| # Hallazgo | Descripción | Decisión | Razón | Sign-off |
-|---|---|---|---|---|
-| | | fix-ahora / backlog / aceptar | | |
+| # Hallazgo | Descripción | Decisión                      | Razón | Sign-off |
+| ---------- | ----------- | ----------------------------- | ----- | -------- |
+|            |             | fix-ahora / backlog / aceptar |       |          |
 
 ## Apéndice C — Estado de salida (Fase 6)
 

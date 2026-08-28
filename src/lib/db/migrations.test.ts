@@ -47,6 +47,25 @@ describe("esquema — instalación nueva", () => {
       expect(idx, `${name} indexes`).toContain("sync_status");
     }
   });
+
+  it("db-S08: v15 agregó sync_retry con clave compuesta [table_name+record_id]", () => {
+    const pk = db.table("sync_retry").schema.primKey;
+    expect(pk.keyPath).toEqual(["table_name", "record_id"]);
+    expect(pk.auto).toBe(false);
+  });
+
+  it("db-S08: v14 dejó equipo_movimientos con índice sync_status (aditivo, sin perder datos)", async () => {
+    await db.equipo_movimientos.add({
+      id: "m1",
+      equipo_id: "e1",
+      ubicacion_nueva_id: "u2",
+      fecha_movimiento: new Date().toISOString(),
+      sync_status: "pending",
+      last_modified: new Date().toISOString(),
+    });
+    const pendientes = await db.equipo_movimientos.where("sync_status").equals("pending").toArray();
+    expect(pendientes).toHaveLength(1);
+  });
 });
 
 describe("esquema — migración v13 (cambio de PK) con datos", () => {

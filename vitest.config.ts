@@ -35,15 +35,22 @@ export default defineConfig({
       // el caso de que alguien borre una suite entera. Los globs por archivo
       // son los que ajustan fino sobre lo que YA está testeado en serio.
       thresholds: {
-        lines: 12,
-        statements: 12,
+        lines: 13,
+        statements: 13,
         functions: 9,
         branches: 12,
         "src/lib/equipos/engine.ts": { lines: 83, functions: 85, branches: 77 },
         "src/lib/supabase/sync-retry.ts": { lines: 94, functions: 100, branches: 86 },
         "src/lib/supabase/sync-lock.ts": { lines: 65, functions: 66, branches: 60 },
         "src/lib/supabase/sync-engine.ts": { lines: 70, functions: 86, branches: 60 },
-        "src/proxy.ts": { lines: 72, functions: 40, branches: 54 },
+        "src/proxy.ts": { lines: 85, functions: 30, branches: 90 },
+        "src/lib/auth/session.ts": { lines: 90, functions: 100, branches: 88 },
+        // Tier 1 — Módulo 1 (db). types.ts (motor de permisos) no lo mide v8
+        // pero está cubierto de forma exhaustiva por permisos.test.ts +
+        // permisos-matriz.test.ts (144 celdas).
+        "src/lib/db/recovery.ts": { lines: 95, functions: 100, branches: 80 },
+        "src/lib/db/seed.ts": { lines: 65, functions: 55, branches: 58 },
+        "src/lib/db/index.ts": { lines: 63 },
       },
     },
   },

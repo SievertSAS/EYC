@@ -10,6 +10,14 @@ export type SyncStatus = "pending" | "synced" | "conflict" | "error" | "failed";
 export interface SyncFields {
   sync_status: SyncStatus;
   last_modified: string; // ISO timestamp
+  /**
+   * Borrado suave. Se setea con `deleteAndSync` y se propaga por sync.
+   * INVARIANTE: toda lectura que arma una lista debe filtrar
+   * `!deleted_at`. Hoy solo lo cumplen los consumidores `conv_*`
+   * (grupo-a..e, PDF, evaluacion); las listas de tablas maestras NO
+   * — ver docs/modules/01-db.md, hallazgo #14.
+   */
+  deleted_at?: string | null;
 }
 
 // ─── Retry con backoff exponencial ───
@@ -430,6 +438,12 @@ export function permisoDefault(rol: RolUsuario, modulo: ModuloApp): AccionesPerm
  * Nota: no aplica la regla "sin ver no hay acciones" — eso lo hace
  * `resolverPermiso`; aquí se exponen los valores crudos para que la
  * UI de configuración pueda editarlos sin perder overrides.
+ *
+ * ⚠️ ASIMETRÍA: `ver` se lee como `permiso?.activo ?? false` — NO cae
+ * al default de la matriz. `crear/editar/eliminar` SÍ caen al default
+ * si son null/undefined. Consecuencia: `resolverPermiso(undefined, …)`
+ * siempre da `false` (sin fila `rol_permisos`, el módulo es invisible).
+ * En producción funciona porque `seedRolPermisos()` crea las 36 filas.
  */
 export function accionesEfectivas(
   permiso: RolPermiso | undefined,

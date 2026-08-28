@@ -7,6 +7,13 @@ const clientSchema = z.object({
 
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  /**
+   * Secreto de firma de JWT del proyecto Supabase (Settings → API → JWT Secret).
+   * Opcional: si falta, `proxy.ts` no puede verificar la firma del token en el
+   * fallback offline y cae a una barrera blanda (ver docs/modules/03-auth.md).
+   * Recomendado configurarlo.
+   */
+  SUPABASE_JWT_SECRET: z.string().min(1).optional(),
 });
 
 function validateEnv<T>(schema: z.ZodType<T>, source: Record<string, unknown>, label: string): T {

@@ -17,6 +17,18 @@ import Image from "next/image";
 //  En modo desarrollo (sin Supabase), muestra bypass
 // ============================================================
 
+/**
+ * Sanitiza el parámetro `redirect` para evitar open-redirect: solo se
+ * permite una ruta interna (empieza con "/" pero no con "//" ni "/\", que
+ * el navegador interpretaría como URL absoluta hacia otro host).
+ */
+export function safeRedirect(raw: string | null | undefined): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
+    return "/dashboard";
+  }
+  return raw;
+}
+
 export default function LoginPage() {
   return (
     <Suspense>
@@ -28,7 +40,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/dashboard";
+  const redirect = safeRedirect(searchParams.get("redirect"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

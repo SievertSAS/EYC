@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
+import { logger } from "@/lib/logger";
 import type { VisitaEjecucion, PruebaResultado, GrupoResultado, Solicitud } from "@/lib/db/types";
-import { hasPackage } from "@/lib/equipos";
+import { hasPackage, assertCanCreateVisitFor, NoPackageError } from "@/lib/equipos";
 
 // ============================================================
 //  Servicio de creación de visitas
@@ -34,6 +35,13 @@ export async function crearVisitaDesdeSolicitud(
     const equipo = await db.equipos.get(equipoId);
     if (!equipo) return { success: false, error: "Equipo no encontrado" };
 
+    // #7: solo se pueden crear visitas de tipos con paquete definido (hoy
+    // solo CONVENCIONAL). Una visita de otro tipo nunca podría pasar el gate
+    // de completitud — ver docs/modules/06-grupos-registry.md.
+    if (equipo.tipo_equipo) {
+      assertCanCreateVisitFor(equipo.tipo_equipo);
+    }
+
     const now = new Date().toISOString();
 
     // Crear la visita
@@ -65,7 +73,8 @@ export async function crearVisitaDesdeSolicitud(
         db.prueba_definiciones,
       ],
       async () => {
-        visitaId = (await db.visitas.add({ ...visita, id: randomUUID() })) as string;
+        // #6: usar el id que ya tiene `visita` (no regenerar otro).
+        visitaId = (await db.visitas.add(visita)) as string;
 
         if (equipo.tipo_equipo) {
           const usarPaquete = hasPackage(equipo.tipo_equipo);
@@ -152,6 +161,17 @@ export async function crearVisitaDesdeSolicitud(
       }
     );
 
+    // #6: una visita con paquete pero SIN pruebas generadas nace rota — casi
+    // siempre porque el catálogo agrupado (grupo_pruebas) no se sembró
+    // (seedFromPackage está comentado, ver issue #36). No se falla la
+    // creación, pero se registra para no perder el rastro.
+    if (equipo.tipo_equipo && hasPackage(equipo.tipo_equipo) && pruebasCreadas === 0) {
+      logger.warn(
+        "visita:crear",
+        `Visita ${visitaId!} creada SIN pruebas (catálogo grupo_pruebas vacío para ${equipo.tipo_equipo}?)`
+      );
+    }
+
     return {
       success: true,
       visitaId: visitaId!,
@@ -159,7 +179,11 @@ export async function crearVisitaDesdeSolicitud(
       gruposCreados,
     };
   } catch (err) {
-    console.error("[VisitaService] Error:", err);
+    if (err instanceof NoPackageError) {
+      logger.warn("visita:crear", err.message);
+      return { success: false, error: err.message };
+    }
+    logger.error("visita:crear", "Error creando la visita", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Error desconocido",

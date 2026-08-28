@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
+import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,6 +67,12 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const informeId = id;
   const { isReady } = useDb();
+  const { hasPermission } = useRole();
+  // Tier 7: la lista de informes exige `hasPermission("informes")`; el detalle
+  // no lo hacía. Publicar la versión oficial (QR + hash) es acción de edición
+  // → solo roles con `informes:editar` (por defecto, coordinador).
+  const puedeVerInformes = hasPermission("informes");
+  const puedePublicar = hasPermission("informes", "editar");
   const [publicando, setPublicando] = useState(false);
   const [publicarError, setPublicarError] = useState<string | null>(null);
 
@@ -111,6 +118,16 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
         <p className="text-slate-500 font-bold">Cargando informe...</p>
+      </div>
+    );
+  }
+
+  if (!puedeVerInformes) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <ShieldCheck className="w-10 h-10 text-red-500" />
+        <p className="text-slate-500 font-bold">Acceso restringido</p>
+        <p className="text-slate-400 text-sm">No tienes permisos para ver informes.</p>
       </div>
     );
   }
@@ -257,7 +274,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
 
           {/* Acciones */}
           <div className="flex flex-wrap gap-3 pt-2">
-            {!versionActual?.pdf_hash && (
+            {!versionActual?.pdf_hash && puedePublicar && (
               <Button
                 onClick={handlePublicar}
                 disabled={publicando || !visita}

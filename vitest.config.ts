@@ -77,6 +77,14 @@ export default defineConfig({
         "src/components/manual-drawer.tsx": { lines: 92, functions: 75, branches: 88 },
         "src/components/visit-action-bar.tsx": { lines: 85, functions: 85, branches: 72 },
         "src/components/visita-modulos/**": { lines: 33, functions: 15, branches: 16 },
+        // Tier 7 — rutas y superficies públicas (pasada de seguridad).
+        // route.ts es el único authz server-enforced; login/verificar son las
+        // superficies públicas. Los gates de dashboard se auditaron (ver
+        // docs/modules/11-rutas-y-superficies-publicas.md) pero no se
+        // smoke-testearon (fricción use(params)+next/link en happy-dom).
+        "src/app/api/usuarios/route.ts": { lines: 88, functions: 70, branches: 85 },
+        "src/app/login/page.tsx": { lines: 73, functions: 75, branches: 68 },
+        "src/app/verificar/**": { lines: 90, functions: 88, branches: 55 },
       },
     },
   },

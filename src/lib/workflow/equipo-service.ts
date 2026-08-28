@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
+import { logger } from "@/lib/logger";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import type { EquipoMovimiento } from "@/lib/db/types";
 
@@ -77,7 +78,7 @@ export async function trasladarEquipo(
 
     return { success: true, movimientoId };
   } catch (err) {
-    console.error("[EquipoService] Error al trasladar:", err);
+    logger.error("equipo:traslado", "Error al trasladar equipo", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Error desconocido",

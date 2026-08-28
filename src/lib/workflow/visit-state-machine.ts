@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import type { EstadoVisita, Solicitud } from "@/lib/db/types";
 import { getVisitCompleteness } from "./module-completeness";
 
@@ -78,7 +79,10 @@ const TRANSITIONS: Record<EstadoVisita, ActionDefinition[]> = {
       description: "Aprobar el informe y generar documento final",
       target: "aprobada",
       roles: ["tecnico", "coordinador", "programador"],
-      hasGate: false,
+      // #8: aprobar publica el PDF oficial (QR + hash) — no debe poder
+      // aprobarse una visita incompleta. Mismo gate de completitud que
+      // enviar_revision (los datos pueden haber cambiado desde entonces).
+      hasGate: true,
       variant: "success",
       icon: "BadgeCheck",
     },
@@ -200,8 +204,10 @@ export function canTransition(
  * Ejecuta la gate de validación para una acción.
  * Retorna si puede proceder y los errores de bloqueo.
  */
+const GATED_ACTIONS: VisitAction[] = ["enviar_revision", "aprobar"];
+
 export async function checkGate(visitaId: string, action: VisitAction): Promise<GateResult> {
-  if (action === "enviar_revision") {
+  if (GATED_ACTIONS.includes(action)) {
     const completeness = await getVisitCompleteness(visitaId);
     if (completeness.blocking.length > 0) {
       return {
@@ -250,10 +256,11 @@ export async function executeTransition(
   }
 
   // Actualizar estado de la visita
+  const nowIso = new Date().toISOString();
   const updateData: Record<string, unknown> = {
     estado_visita: actionDef.target,
     sync_status: "pending",
-    last_modified: new Date().toISOString(),
+    last_modified: nowIso,
   };
 
   // Si es devolución (interna o por cliente), guardar observaciones
@@ -262,20 +269,38 @@ export async function executeTransition(
     extra?.observaciones_revision
   ) {
     updateData.observaciones_revision = extra.observaciones_revision;
-    updateData.devuelto_en = new Date().toISOString();
+    updateData.devuelto_en = nowIso;
   }
 
-  await db.visitas.update(visitaId, updateData);
+  const newPipelineEstado = SOLICITUD_SYNC[actionDef.target];
 
-  // Si el cliente solicitó ajustes, el informe ya emitido queda en corrección
+  // #9 interino: las tres escrituras de estado (visita + solicitud + informe
+  // a "correccion_cliente") van en UNA transacción, para que no queden
+  // divergentes si algo falla a mitad. La creación del informe y la
+  // publicación del PDF quedan afuera (son async/red) — ver más abajo.
   let informeAfectadoId: string | undefined;
-  if (action === "solicitar_ajustes_cliente") {
-    const informe = await db.informes.where("visita_id").equals(visitaId).first();
-    if (informe?.id) {
-      await db.informes.update(informe.id, { estado: "correccion_cliente" });
-      informeAfectadoId = informe.id;
+  await db.transaction("rw", [db.visitas, db.solicitudes, db.informes], async () => {
+    await db.visitas.update(visitaId, updateData);
+
+    if (action === "solicitar_ajustes_cliente") {
+      // Una visita tiene un solo informe (el versionado va en informe_versiones);
+      // se ordena por número de versión por si acaso hubiera datos duplicados.
+      const informes = await db.informes.where("visita_id").equals(visitaId).toArray();
+      const informe = informes.sort((a, b) => (b.version_actual ?? 0) - (a.version_actual ?? 0))[0];
+      if (informe?.id) {
+        await db.informes.update(informe.id, { estado: "correccion_cliente" });
+        informeAfectadoId = informe.id;
+      }
     }
-  }
+
+    if (newPipelineEstado && visita.solicitud_id) {
+      await db.solicitudes.update(visita.solicitud_id, {
+        pipeline_estado: newPipelineEstado as Solicitud["pipeline_estado"],
+        sync_status: "pending",
+        last_modified: nowIso,
+      });
+    }
+  });
 
   // Al aprobar: crear/versionar el informe y publicar el PDF oficial (QR+hash).
   // Centralizado aquí (no en el handler de un botón específico) para que ocurra
@@ -292,20 +317,16 @@ export async function executeTransition(
       const { publicarVersionOficial } = await import("./publicar-informe");
       publicarVersionOficial(informe.id, visitaId).then((r) => {
         if (!r.success) {
-          console.error("[VisitStateMachine] No se pudo publicar la versión oficial:", r.error);
+          // #9: la transición ya ocurrió pero el PDF oficial NO se publicó.
+          // Queda pendiente de reintento (botón "Publicar versión oficial"
+          // en informes/[id]). Se registra como error, no como console.
+          logger.error(
+            "workflow:aprobar",
+            `Visita ${visitaId} aprobada pero la versión oficial del informe ${informe.id} NO se publicó: ${r.error}`
+          );
         }
       });
     }
-  }
-
-  // Sincronizar estado del pipeline de la solicitud
-  const newPipelineEstado = SOLICITUD_SYNC[actionDef.target];
-  if (newPipelineEstado && visita.solicitud_id) {
-    await db.solicitudes.update(visita.solicitud_id, {
-      pipeline_estado: newPipelineEstado as Solicitud["pipeline_estado"],
-      sync_status: "pending",
-      last_modified: new Date().toISOString(),
-    });
   }
 
   // Push inmediato (import dinámico para no cargar el cliente Supabase en tests)
@@ -330,4 +351,59 @@ function getBlockingMessage(moduleId: string): string {
     pruebas: "Complete todas las pruebas de control de calidad",
   };
   return messages[moduleId] ?? `Módulo "${moduleId}" incompleto`;
+}
+
+// ─── Reconciliación (#9 interino) ───
+
+export interface VisitConsistencyIssue {
+  visitaId: string;
+  problema: string;
+}
+
+/**
+ * Detecta divergencias entre el estado de la visita, el `pipeline_estado`
+ * de su solicitud, y el estado del informe. `executeTransition` hace las
+ * escrituras de estado en una transacción, pero la creación/publicación del
+ * informe queda afuera (async/red) y puede fallar dejando estados
+ * inconsistentes. Esta función los encuentra para que la consola de sync /
+ * revisión pueda listarlos.
+ */
+export async function checkVisitConsistency(visitaId: string): Promise<VisitConsistencyIssue[]> {
+  const issues: VisitConsistencyIssue[] = [];
+  const visita = await db.visitas.get(visitaId);
+  if (!visita) return [{ visitaId, problema: "Visita no encontrada" }];
+
+  const esperadoPipeline = SOLICITUD_SYNC[visita.estado_visita];
+  if (esperadoPipeline && visita.solicitud_id) {
+    const solicitud = await db.solicitudes.get(visita.solicitud_id);
+    if (solicitud && solicitud.pipeline_estado !== esperadoPipeline) {
+      issues.push({
+        visitaId,
+        problema: `visita "${visita.estado_visita}" pero solicitud "${solicitud.pipeline_estado}" (se esperaba "${esperadoPipeline}")`,
+      });
+    }
+  }
+
+  if (visita.estado_visita === "aprobada" || visita.estado_visita === "enviada") {
+    const informe = (await db.informes.where("visita_id").equals(visitaId).toArray()).sort(
+      (a, b) => (b.version_actual ?? 0) - (a.version_actual ?? 0)
+    )[0];
+    if (!informe) {
+      issues.push({ visitaId, problema: `visita "${visita.estado_visita}" pero sin informe` });
+    } else {
+      const version = await db.informe_versiones
+        .where("informe_id")
+        .equals(informe.id!)
+        .and((v) => v.numero_version === informe.version_actual)
+        .first();
+      if (!version?.pdf_url) {
+        issues.push({
+          visitaId,
+          problema: `informe ${informe.numero_informe} v${informe.version_actual} sin PDF oficial publicado`,
+        });
+      }
+    }
+  }
+
+  return issues;
 }

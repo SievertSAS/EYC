@@ -52,6 +52,7 @@ export default defineConfig({
         // Tier 1 — Módulo 1 (db). types.ts (motor de permisos) no lo mide v8
         // pero está cubierto de forma exhaustiva por permisos.test.ts +
         // permisos-matriz.test.ts (144 celdas).
+        "src/lib/workflow/**": { lines: 68, functions: 68, branches: 52 },
         "src/lib/db/recovery.ts": { lines: 95, functions: 100, branches: 80 },
         "src/lib/db/seed.ts": { lines: 65, functions: 55, branches: 58 },
         "src/lib/db/index.ts": { lines: 63 },

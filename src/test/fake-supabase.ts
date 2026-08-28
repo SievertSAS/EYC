@@ -9,11 +9,27 @@
  * - Truncamiento programable por tabla (`maxRows`), replicando el límite
  *   `max_rows` de PostgREST (`supabase/config.toml`) que trunca resultados
  *   silenciosamente sin devolver error.
- * - Fallos programables por llamada (`failOnCall`), para simular una página
- *   intermedia que falla durante la paginación.
+ * - Fallos programables por llamada:
+ *     · `failOnCall`  → la llamada DEVUELVE `{ data: null, error }` (5xx/429
+ *                        y muchos códigos PG llegan así en supabase-js).
+ *     · `throwOnCall` → la llamada LANZA (fetch caído / Supabase inalcanzable).
+ *   La distinción importa: `proxy.ts` se ramifica por throw-vs-`{error}`.
+ * - Timestamps de servidor opcionales (`stampServerTimestamps`): al upsert,
+ *   pisa `last_modified` con la hora "del servidor". Sirve para probar que
+ *   una vez que el watermark se calcule server-side, el reloj desfasado del
+ *   dispositivo deja de romper el pull (hallazgo #5).
+ * - Versión por fila (`_version`): se incrementa en cada upsert. Permite
+ *   detectar updates perdidos (hallazgo #4).
+ * - Mutación puntual de una fila "del servidor" (`patchServerRow`) para
+ *   simular que otro dispositivo la dejó más nueva (hallazgo #3).
  */
 
 export type FakeRow = Record<string, unknown>;
+
+export interface FakeSupabaseClientOptions {
+  /** Al upsert, pisa `last_modified` con la hora del servidor (Date.now). */
+  stampServerTimestamps?: boolean;
+}
 
 export interface FakeSupabaseError {
   message: string;
@@ -32,6 +48,8 @@ interface FailureSpec {
   method: FakeMethod;
   callIndex: number;
   error: FakeSupabaseError;
+  /** true => la llamada lanza; false/undefined => devuelve { error }. */
+  throws?: boolean;
 }
 
 interface FakeFilter {
@@ -102,21 +120,34 @@ class FakeQueryBuilder implements PromiseLike<FakeQueryResult> {
   private async executeUpsert(): Promise<FakeQueryResult> {
     const callIndex = this.client._nextCallIndex(this.table, "upsert");
     const failure = this.client._takeFailure(this.table, "upsert", callIndex);
-    if (failure) return { data: null, error: failure };
+    if (failure?.throws) throw Object.assign(new Error(failure.error.message), failure.error);
+    if (failure) return { data: null, error: failure.error };
 
     const cfg = this.client._tableConfig(this.table);
+    const written: FakeRow[] = [];
     for (const row of this.upsertRows ?? []) {
       const idx = cfg.rows.findIndex((r) => r.id === row.id);
-      if (idx >= 0) cfg.rows[idx] = { ...cfg.rows[idx], ...row };
-      else cfg.rows.push({ ...row });
+      const prevVersion = idx >= 0 ? ((cfg.rows[idx]._version as number) ?? 0) : 0;
+      const merged: FakeRow = {
+        ...(idx >= 0 ? cfg.rows[idx] : {}),
+        ...row,
+        _version: prevVersion + 1,
+      };
+      if (this.client._stampServerTimestamps) {
+        merged.last_modified = new Date().toISOString();
+      }
+      if (idx >= 0) cfg.rows[idx] = merged;
+      else cfg.rows.push(merged);
+      written.push(merged);
     }
-    return { data: this.upsertRows ?? [], error: null };
+    return { data: written, error: null };
   }
 
   private async executeSelect(): Promise<FakeQueryResult> {
     const callIndex = this.client._nextCallIndex(this.table, "select");
     const failure = this.client._takeFailure(this.table, "select", callIndex);
-    if (failure) return { data: null, error: failure };
+    if (failure?.throws) throw Object.assign(new Error(failure.error.message), failure.error);
+    if (failure) return { data: null, error: failure.error };
 
     const cfg = this.client._tableConfig(this.table);
     let rows = cfg.rows.filter((row) =>
@@ -159,13 +190,20 @@ export class FakeSupabaseClient {
   private callCounts = new Map<string, number>();
   private currentUser: { id: string } | null = { id: "fake-user-id" };
 
+  /** @internal usado por FakeQueryBuilder */
+  readonly _stampServerTimestamps: boolean;
+
+  constructor(opts: FakeSupabaseClientOptions = {}) {
+    this._stampServerTimestamps = opts.stampServerTimestamps ?? false;
+  }
+
   auth = {
     getUser: async () => ({ data: { user: this.currentUser } }),
   };
 
   /** Carga filas simuladas para una tabla remota, con truncamiento opcional. */
   seedTable(table: string, rows: FakeRow[], opts?: { maxRows?: number }): void {
-    this.tables.set(table, { rows: [...rows], maxRows: opts?.maxRows });
+    this.tables.set(table, { rows: rows.map((r) => ({ ...r })), maxRows: opts?.maxRows });
   }
 
   /** Controla si `auth.getUser()` devuelve un usuario autenticado. */
@@ -174,12 +212,47 @@ export class FakeSupabaseClient {
   }
 
   /**
-   * Programa un fallo para la N-ésima llamada (`callIndex`, 1-based) a
-   * `method` sobre `table`. Útil para simular que una página intermedia de
-   * paginación falla.
+   * Programa un fallo DEVUELTO (`{ data: null, error }`) para la N-ésima
+   * llamada (`callIndex`, 1-based) a `method` sobre `table`. Así llegan en
+   * supabase-js los 5xx/429 y muchos códigos PG (PGRST204, 23505, ...).
    */
   failOnCall(table: string, method: FakeMethod, callIndex: number, error: FakeSupabaseError): void {
     this.failures.push({ table, method, callIndex, error });
+  }
+
+  /**
+   * Como `failOnCall` pero la llamada LANZA en vez de devolver `{ error }`
+   * — simula fetch caído / Supabase inalcanzable (red total).
+   */
+  throwOnCall(
+    table: string,
+    method: FakeMethod,
+    callIndex: number,
+    error: FakeSupabaseError
+  ): void {
+    this.failures.push({ table, method, callIndex, error, throws: true });
+  }
+
+  /**
+   * Muta en el lugar una fila "del servidor" ya sembrada (por id). Simula
+   * que otro dispositivo la actualizó — típicamente para dejar su
+   * `last_modified` por delante de la copia local (hallazgo #3).
+   */
+  patchServerRow(table: string, id: string, patch: FakeRow): void {
+    const cfg = this._tableConfig(table);
+    const idx = cfg.rows.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error(`patchServerRow: no existe ${table}#${id}`);
+    cfg.rows[idx] = { ...cfg.rows[idx], ...patch };
+  }
+
+  /** Lee una fila "del servidor" para asserts. */
+  getServerRow(table: string, id: string): FakeRow | undefined {
+    return this._tableConfig(table).rows.find((r) => r.id === id);
+  }
+
+  /** Todas las filas "del servidor" de una tabla (copia). */
+  getServerRows(table: string): FakeRow[] {
+    return this._tableConfig(table).rows.map((r) => ({ ...r }));
   }
 
   from(table: string): FakeQueryBuilder {
@@ -205,15 +278,20 @@ export class FakeSupabaseClient {
     return next;
   }
 
-  _takeFailure(table: string, method: FakeMethod, callIndex: number): FakeSupabaseError | null {
+  _takeFailure(
+    table: string,
+    method: FakeMethod,
+    callIndex: number
+  ): { error: FakeSupabaseError; throws?: boolean } | null {
     const idx = this.failures.findIndex(
       (f) => f.table === table && f.method === method && f.callIndex === callIndex
     );
     if (idx === -1) return null;
-    return this.failures[idx].error;
+    const spec = this.failures[idx];
+    return { error: spec.error, throws: spec.throws };
   }
 }
 
-export function createFakeSupabaseClient(): FakeSupabaseClient {
-  return new FakeSupabaseClient();
+export function createFakeSupabaseClient(opts?: FakeSupabaseClientOptions): FakeSupabaseClient {
+  return new FakeSupabaseClient(opts);
 }

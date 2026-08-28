@@ -130,6 +130,25 @@ describe("evaluateFormula - expression validation", () => {
     }
   });
 
+  it("blocks acceso a constructor/globalThis vía strings partidos por concatenación", () => {
+    // Ninguna palabra bloqueada aparece completa en el texto fuente:
+    // "cons"+"tructor" y "ret"+"urn glob"+"alThis" evaden el blocklist por
+    // palabra completa (\bconstructor\b, \bglobalThis\b) porque ese texto
+    // nunca aparece contiguo — solo se arma en runtime al concatenar. El
+    // acceso por corchetes con el resultado tampoco matcheaba el regex viejo
+    // de SUSPICIOUS_BRACKET_ACCESS, que solo bloqueaba `["str"+`, no `[(expr)`.
+    const bypass = '(()=>{})[("cons"+"tructor")](("ret"+"urn (glob"+"alThis.__pwned__=1,1)"))()';
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).__pwned__;
+
+    const result = evaluateFormula(makeFormula(bypass), {}, []);
+
+    expect(result).toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((globalThis as any).__pwned__).toBeUndefined();
+  });
+
   it("allows safe arithmetic expressions", () => {
     const result = evaluateFormula(makeFormula("row.a + row.b * 2"), { a: 10, b: 5 }, []);
     expect(result).toBe(20);

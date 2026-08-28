@@ -154,11 +154,23 @@ const UNICODE_ESCAPE = /\\u[\da-fA-F]{4}|\\u\{[\da-fA-F]+\}/;
 /** Blocks template literals (backticks) that enable arbitrary string construction */
 const TEMPLATE_LITERAL = /`/;
 
-/** Blocks computed property access on string expressions: obj["con"+"structor"] */
-const SUSPICIOUS_BRACKET_ACCESS = /\[\s*["'][^"']*["']\s*\+/;
+/**
+ * Bloquea CUALQUIER comilla dentro de corchetes: obj["constructor"],
+ * obj["con"+"structor"], obj[("cons"+"tructor")], etc.
+ *
+ * El allowlist documentado solo permite corchetes para indexar arrays
+ * (`rows[0]`, `rows[i]`) — nunca para acceso a propiedades por string. Un
+ * regex anterior solo bloqueaba el patrón literal `["str"+`, evadible
+ * partiendo el string en más pedazos o envolviéndolo en un `(...)` antes
+ * del `+` (ej. `[("cons"+"tructor")]`), lo que permitía llegar a
+ * `Function`/`globalThis` sin que ninguna palabra bloqueada apareciera
+ * completa en el texto fuente.
+ */
+const SUSPICIOUS_BRACKET_ACCESS = /\[[^\]]*["'][^\]]*\]/;
 
 /** Blocks direct __proto__ and constructor access via bracket notation */
-const BRACKET_PROTO = /\[\s*['"]__(proto|defineGetter|defineSetter|lookupGetter|lookupSetter)__['"]\s*\]/;
+const BRACKET_PROTO =
+  /\[\s*['"]__(proto|defineGetter|defineSetter|lookupGetter|lookupSetter)__['"]\s*\]/;
 
 /** Max expression length to prevent ReDoS or abuse */
 const MAX_EXPRESSION_LENGTH = 2000;
@@ -204,7 +216,7 @@ export function evaluateFormula(
   formula: FormulaDefinicion,
   row: Record<string, unknown>,
   allRows: Record<string, unknown>[],
-  context: FormulaContext = {},
+  context: FormulaContext = {}
 ): number | null {
   try {
     validateExpression(formula.expresion);
@@ -218,7 +230,7 @@ export function evaluateFormula(
       "equipo",
       "valores_ref",
       "helpers",
-      `"use strict"; return (${formula.expresion});`,
+      `"use strict"; return (${formula.expresion});`
     );
 
     // Freeze context objects to prevent prototype pollution from within formulas

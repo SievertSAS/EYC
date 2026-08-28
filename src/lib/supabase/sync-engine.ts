@@ -154,7 +154,7 @@ function prepareForRemote(
 }
 
 // Tablas de campo sincronizadas bidireccionalmente (tienen sync_status)
-const SYNC_TABLES = [
+export const SYNC_TABLES = [
   // ─── Maestras editables ───
   { local: "clientes", remote: "clientes" },
   { local: "contactos", remote: "contactos" },
@@ -195,7 +195,7 @@ const SYNC_TABLES = [
 ] as const;
 
 // Tablas maestras que se descargan del servidor (read-only para sync)
-const MASTER_TABLES = [
+export const MASTER_TABLES = [
   "departamentos",
   "municipios",
   "sala_dimensiones",

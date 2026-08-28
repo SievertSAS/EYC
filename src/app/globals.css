@@ -72,14 +72,14 @@
 
   /* Secundario — purpura suave */
   --secondary: oklch(0.95 0.03 285);
-  --secondary-foreground: oklch(0.40 0.15 285);
+  --secondary-foreground: oklch(0.4 0.15 285);
 
   --muted: oklch(0.96 0.005 250);
   --muted-foreground: oklch(0.55 0.01 250);
 
   /* Acento — purpura claro */
   --accent: oklch(0.93 0.04 285);
-  --accent-foreground: oklch(0.40 0.15 285);
+  --accent-foreground: oklch(0.4 0.15 285);
 
   --destructive: oklch(0.577 0.245 27.325);
 
@@ -102,7 +102,7 @@
   --sidebar-primary: oklch(0.553 0.215 285);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.95 0.03 285);
-  --sidebar-accent-foreground: oklch(0.40 0.15 285);
+  --sidebar-accent-foreground: oklch(0.4 0.15 285);
   --sidebar-border: oklch(0.94 0.005 250);
   --sidebar-ring: oklch(0.553 0.215 285);
 }

@@ -37,8 +37,12 @@ function wsToRows(ws: import("xlsx").WorkSheet): RaysafeRow[] {
   // col G = No. RaySafe. En ese caso los datos empiezan en offset 6.
   const hasNominals =
     raw.length > 1 &&
-    (String(raw[0]?.[0] ?? "").toLowerCase().includes("grupo") ||
-      String(raw[1]?.[0] ?? "").toLowerCase().includes("grupo"));
+    (String(raw[0]?.[0] ?? "")
+      .toLowerCase()
+      .includes("grupo") ||
+      String(raw[1]?.[0] ?? "")
+        .toLowerCase()
+        .includes("grupo"));
   const off = hasNominals ? 6 : 0; // offset hacia col G en plantilla Sievert
 
   const rows: RaysafeRow[] = [];
@@ -47,10 +51,10 @@ function wsToRows(ws: import("xlsx").WorkSheet): RaysafeRow[] {
     if (isNaN(no) || no <= 0) continue;
     rows.push({
       numero: no,
-      kv: toNum(row[off + 4]),           // col K (kVp)
-      dosis_mgy: toNum(row[off + 6]),     // col M (mGy)
-      tiempo_s: toNum(row[off + 8]),      // col O (s)
-      chr_mmal: toNum(row[off + 10]),     // col Q (mm Al HVL)
+      kv: toNum(row[off + 4]), // col K (kVp)
+      dosis_mgy: toNum(row[off + 6]), // col M (mGy)
+      tiempo_s: toNum(row[off + 8]), // col O (s)
+      chr_mmal: toNum(row[off + 10]), // col Q (mm Al HVL)
       rendimiento_mgy_min: toNum(row[off + 12]), // col S (mGy/min)
     });
   }
@@ -81,7 +85,7 @@ export function parseRaysafeTsv(text: string): RaysafeRow[] {
 // Si sí, lee las 4 hojas y retorna RaysafePlantilla.
 // Si no (archivo RaySafe nativo exportado como xlsx), lee solo hoja 0.
 export async function parseRaysafeXlsx(
-  file: File,
+  file: File
 ): Promise<{ tipo: "plantilla"; data: RaysafePlantilla } | { tipo: "simple"; data: RaysafeRow[] }> {
   const XLSX = await import("xlsx");
   const buf = await file.arrayBuffer();

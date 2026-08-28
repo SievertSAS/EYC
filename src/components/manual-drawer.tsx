@@ -55,7 +55,7 @@ export function ManualDrawer({ open, onClose, pruebas, pruebaCodigo }: ManualDra
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     },
-    [onClose],
+    [onClose]
   );
   useEffect(() => {
     if (!open) return;

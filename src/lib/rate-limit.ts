@@ -40,7 +40,7 @@ function evictStale() {
 export function rateLimit(
   key: string,
   limit: number,
-  windowMs: number,
+  windowMs: number
 ): { allowed: boolean; remaining: number } {
   const now = Date.now();
   const entry = hits.get(key);

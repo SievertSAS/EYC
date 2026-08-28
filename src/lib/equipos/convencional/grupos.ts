@@ -93,8 +93,7 @@ const GRUPO_B: GrupoPruebaDefinition = {
       codigo: "2.7",
       numero_tecdoc: "2.7",
       nombre: "Valor del rendimiento del tubo de rayos X, repetibilidad y linealidad",
-      descripcion:
-        "Cuánta radiación produce el tubo por cada mAs — debe ser consistente y lineal",
+      descripcion: "Cuánta radiación produce el tubo por cada mAs — debe ser consistente y lineal",
       orden_en_grupo: 4,
       orden_global: 6,
       formulas: [],
@@ -168,7 +167,8 @@ const GRUPO_C: GrupoPruebaDefinition = {
       codigo: "2.19",
       numero_tecdoc: "2.19",
       nombre: "Repetibilidad del CAE",
-      descripcion: "Verifica que disparando varias veces con la misma configuración, el CAE da resultados consistentes",
+      descripcion:
+        "Verifica que disparando varias veces con la misma configuración, el CAE da resultados consistentes",
       orden_en_grupo: 3,
       orden_global: 11,
       formulas: [],

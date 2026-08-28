@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
@@ -66,12 +66,16 @@ function EditableField({
   type?: "text" | "number" | "date";
 }) {
   const [local, setLocal] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
   const [saved, setSaved] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => {
+  // Sincronizar `local` cuando el valor externo cambia (guardado remoto,
+  // sync entre dispositivos): ajuste de estado en render, no en efecto.
+  if (value !== prevValue) {
+    setPrevValue(value);
     setLocal(value);
-  }, [value]);
+  }
 
   const handleChange = useCallback(
     (v: string) => {
@@ -161,12 +165,16 @@ function EditableTextArea({
   placeholder?: string;
 }) {
   const [local, setLocal] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
   const [saved, setSaved] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => {
+  // Sincronizar `local` cuando el valor externo cambia (guardado remoto,
+  // sync entre dispositivos): ajuste de estado en render, no en efecto.
+  if (value !== prevValue) {
+    setPrevValue(value);
     setLocal(value);
-  }, [value]);
+  }
 
   const handleChange = useCallback(
     (v: string) => {

@@ -29,6 +29,7 @@ import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
 import { SetupField } from "@/components/visita-modulos/setup-field";
 import { useRowSavedFlash } from "@/hooks/use-row-saved";
+import { useBlobPreviewUrl } from "@/hooks/use-blob-preview-url";
 
 // ─── Constants ───
 
@@ -186,16 +187,7 @@ function ImageSlot({
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (evidencia?.blob_local) {
-      const url = URL.createObjectURL(evidencia.blob_local);
-      setPreview(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    setPreview(null);
-  }, [evidencia?.blob_local]);
+  const preview = useBlobPreviewUrl(evidencia?.blob_local);
 
   return (
     <div className="space-y-2">

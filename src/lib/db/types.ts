@@ -3,8 +3,19 @@
 //  Mapeados desde el DBML actualizado
 // ============================================================
 
-/** Estado de sincronización para registros offline */
-export type SyncStatus = "pending" | "synced" | "conflict" | "error" | "failed";
+/**
+ * Estado de sincronización para registros offline.
+ * - "pending": editado local, aún no subido.
+ * - "synced": al día con el servidor.
+ * - "failed": el push agotó los reintentos o tuvo un error permanente
+ *   (terminal — solo se recupera con retryRecord / retryErrorRecords).
+ * - "error": legacy. Nada lo setea hoy; se conserva en el union porque
+ *   `getErrorRecords` lo tolera. Se quita junto con la consola de sync (Tier 7).
+ *
+ * ("conflict" se eliminó en Tier 2 — nunca se escribió; el conflicto ahora
+ * deja la fila en "pending" para que el próximo push la reintente.)
+ */
+export type SyncStatus = "pending" | "synced" | "error" | "failed";
 
 /** Campos comunes de sincronización */
 export interface SyncFields {
@@ -753,6 +764,10 @@ export interface ChangeLog {
 export interface SyncMeta {
   table_name: string;
   last_pulled_at: string;
+  /** Último error de pull de esta tabla, si el ciclo automático viene
+   * fallando. Se limpia cuando un pull vuelve a tener éxito. (#19) */
+  last_pull_error?: string | null;
+  last_pull_error_at?: string | null;
 }
 
 // ─── Informes con versionamiento ───

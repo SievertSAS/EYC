@@ -5,6 +5,9 @@ import { pullAllPending, pushAllPending } from "@/lib/supabase/sync-engine";
 import { useOnlineStatus } from "./use-online-status";
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+// Espera de conexión estable antes del primer ciclo tras reconectar —
+// evita disparar sync en cada parpadeo de red (#21).
+const RECONNECT_DEBOUNCE_MS = 3000;
 
 /**
  * Push de lo propio, después pull incremental de lo ajeno — en ese orden
@@ -30,29 +33,44 @@ async function syncCycle() {
  */
 export function useAutoSync() {
   const isOnline = useOnlineStatus();
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Evita solapar dos syncCycle si un tick del interval cae mientras el
+  // anterior sigue corriendo (el lock lo cubre igual, pero así ni siquiera
+  // se levanta un cliente Supabase de más).
+  const runningRef = useRef(false);
 
   useEffect(() => {
+    const clearAll = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      intervalRef.current = null;
+      debounceRef.current = null;
+    };
+
     if (!isOnline) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      clearAll();
       return;
     }
 
-    // Ciclo inmediato al recuperar conexión
-    syncCycle();
-
-    timerRef.current = setInterval(() => {
-      syncCycle();
-    }, SYNC_INTERVAL_MS);
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+    const runCycle = async () => {
+      if (runningRef.current) return;
+      runningRef.current = true;
+      try {
+        await syncCycle();
+      } finally {
+        runningRef.current = false;
       }
     };
+
+    // Al (re)conectar: esperar RECONNECT_DEBOUNCE_MS de conexión estable
+    // antes del primer ciclo. Si isOnline vuelve a cambiar antes, el
+    // cleanup limpia este timeout y no se dispara nada.
+    debounceRef.current = setTimeout(() => {
+      runCycle();
+      intervalRef.current = setInterval(runCycle, SYNC_INTERVAL_MS);
+    }, RECONNECT_DEBOUNCE_MS);
+
+    return clearAll;
   }, [isOnline]);
 }

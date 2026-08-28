@@ -662,16 +662,32 @@ describe("sync-engine — getAuthenticatedUser", () => {
     expect(getUser).toHaveBeenCalledTimes(1);
   });
 
-  it("devuelve null si sigue sin sesión después del reintento (no reintenta indefinidamente)", async () => {
+  it("devuelve null tras agotar los reintentos (default 2 → 3 lecturas, no infinito)", async () => {
     vi.useFakeTimers();
     const getUser = vi.fn().mockResolvedValue({ data: { user: null } });
 
     const promise = getAuthenticatedUser({ auth: { getUser } });
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(2000);
     const user = await promise;
 
     expect(user).toBeNull();
-    expect(getUser).toHaveBeenCalledTimes(2);
+    expect(getUser).toHaveBeenCalledTimes(3); // inicial + 2 reintentos (#17)
+  });
+
+  it("recupera la sesión que aparece recién en el 3er intento (default retries=2)", async () => {
+    vi.useFakeTimers();
+    const getUser = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { user: null } })
+      .mockResolvedValueOnce({ data: { user: null } })
+      .mockResolvedValueOnce({ data: { user: { id: "user-1" } } });
+
+    const promise = getAuthenticatedUser({ auth: { getUser } });
+    await vi.advanceTimersByTimeAsync(2000);
+    const user = await promise;
+
+    expect(user).toEqual({ id: "user-1" });
+    expect(getUser).toHaveBeenCalledTimes(3);
   });
 });
 

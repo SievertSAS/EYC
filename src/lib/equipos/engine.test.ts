@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   stats,
   formulaHelpers,
@@ -9,6 +9,7 @@ import {
   evaluateCriterios,
   suggestConcepto,
 } from "./engine";
+import { logger } from "@/lib/logger";
 import type { FormulaDefinicion, CriterioAceptacion } from "@/lib/db/types";
 
 // ─── stats helpers ───
@@ -420,3 +421,99 @@ function makeFormula(expr: string): FormulaDefinicion {
     dependencias: [],
   };
 }
+
+// ─── Hallazgo #12 (Tier 3) ───
+
+describe("engine.ts — hallazgo #12", () => {
+  const mk = (expr: string): FormulaDefinicion => ({
+    campo_resultado: "test",
+    label: "Test",
+    expresion: expr,
+    dependencias: [],
+  });
+
+  describe("12a — acceso por clave string simple ahora es válido", () => {
+    it("row['campo'] y row[\"campo\"] evalúan (no se bloquean)", () => {
+      expect(evaluateFormula(mk("row['kvp_medido'] * 2"), { kvp_medido: 5 }, [])).toBe(10);
+      expect(evaluateFormula(mk('row["dosis"] + 1'), { dosis: 9 }, [])).toBe(10);
+      expect(evaluateFormula(mk("row[ 'a' ] - row['b']"), { a: 7, b: 3 }, [])).toBe(4);
+    });
+
+    it("sigue bloqueando concatenación / paréntesis dentro de corchetes", () => {
+      const g = globalThis as unknown as { __pwn12__?: unknown };
+      delete g.__pwn12__;
+      expect(evaluateFormula(mk('row["a"+"b"]'), { ab: 1 }, [])).toBeNull();
+      expect(
+        evaluateFormula(
+          mk('(()=>{})[("cons"+"tructor")](("ret"+"urn (glob"+"alThis.__pwn12__=1,1)"))()'),
+          {},
+          []
+        )
+      ).toBeNull();
+      expect(g.__pwn12__).toBeUndefined();
+    });
+
+    it("row['constructor'] sigue bloqueado (por el keyword-blocklist)", () => {
+      expect(evaluateFormula(mk("row['constructor']"), {}, [])).toBeNull();
+      expect(evaluateFormula(mk("row['prototype']"), {}, [])).toBeNull();
+    });
+  });
+
+  describe("12b — los fallos se loguean (ya no son null silencioso)", () => {
+    it("un fallo de validación loguea logger.error en engine:formula", () => {
+      const spy = vi.spyOn(logger, "error").mockImplementation(() => {});
+      expect(evaluateFormula(mk("eval('x')"), {}, [])).toBeNull();
+      expect(spy).toHaveBeenCalledWith(
+        "engine:formula",
+        expect.stringContaining("bloqueada"),
+        expect.anything()
+      );
+      spy.mockRestore();
+    });
+
+    it("un error de runtime loguea logger.warn", () => {
+      const spy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      // referencia a algo que no existe en el scope del sandbox
+      expect(evaluateFormula(mk("noExiste.campo"), {}, [])).toBeNull();
+      expect(spy).toHaveBeenCalledWith(
+        "engine:formula",
+        expect.stringContaining("falló"),
+        expect.anything()
+      );
+      spy.mockRestore();
+    });
+
+    it("resultado no-finito NO loguea (es dato insuficiente, esperable)", () => {
+      const errSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      expect(evaluateFormula(mk("row.a / row.b"), { a: 1, b: 0 }, [])).toBeNull(); // 1/0 = Infinity
+      expect(errSpy).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalled();
+      errSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe("12c — PIN: row/allRows no están congelados (fuga de mutación entre fórmulas)", () => {
+    it("una fórmula puede mutar row y la siguiente ve el cambio", () => {
+      const rows = [{ v: 10 } as Record<string, unknown>];
+      // Fórmula 1: efecto secundario que sube v (usando el operador coma).
+      const f1: FormulaDefinicion = {
+        campo_resultado: "f1",
+        label: "",
+        expresion: "(row.v = row.v + 100, row.v)",
+        dependencias: [],
+      };
+      const f2: FormulaDefinicion = {
+        campo_resultado: "f2",
+        label: "",
+        expresion: "row.v",
+        dependencias: [],
+      };
+      const res = evaluateAllFormulas([f1, f2], rows);
+      // Comportamiento ACTUAL (a arreglar en el redesign #12c): f2 ve 110.
+      expect(res.get("f1")).toEqual([110]);
+      expect(res.get("f2")).toEqual([110]);
+    });
+  });
+});

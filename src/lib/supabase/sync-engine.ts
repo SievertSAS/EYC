@@ -253,7 +253,7 @@ export async function fullSync(): Promise<SyncResult> {
 export async function getAuthenticatedUser(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  retries = 1,
+  retries = 2,
   delayMs = 500
 ): Promise<{ id: string } | null> {
   for (let attempt = 0; ; attempt++) {
@@ -335,6 +335,7 @@ async function runFullSync(): Promise<SyncResult> {
         detail,
         action: "pull",
       });
+      await recordPullError(table.local, err);
     }
   }
 
@@ -654,6 +655,7 @@ async function runPullAllPending(): Promise<{ pulled: number; errors: number }> 
     } catch (err) {
       totalErrors++;
       logger.error("sync:pull-incremental", `Error descargando ${tableLabel(table.local)}`, err);
+      await recordPullError(table.local, err);
     }
   }
 
@@ -706,6 +708,28 @@ async function pullMasterTable(
 const SYNC_PAGE_SIZE = 500;
 
 /**
+ * Contador en memoria de colisiones detectadas durante el pull: una fila
+ * remota MÁS NUEVA que una edición local sin subir (el remoto se descarta
+ * y el local se sube encima al próximo push = pérdida potencial del dato
+ * del servidor). Interino hasta el rediseño del modelo de conflicto
+ * (#3/#4/#5). La consola de sync lo lee vía `getPullConflictStats()`.
+ */
+let pullConflictCount = 0;
+const pullConflictSample: { table: string; id: string; at: string }[] = [];
+
+export function getPullConflictStats(): {
+  count: number;
+  sample: { table: string; id: string; at: string }[];
+} {
+  return { count: pullConflictCount, sample: [...pullConflictSample] };
+}
+
+export function resetPullConflictStats(): void {
+  pullConflictCount = 0;
+  pullConflictSample.length = 0;
+}
+
+/**
  * Aplica un registro remoto individual al Dexie local, resolviendo el
  * conflicto si hay cambios locales pendientes (cualquier sync_status
  * distinto de "synced" se trata como cambio local sin confirmar).
@@ -737,10 +761,33 @@ async function applyRemoteSyncRecord(
   // y retryErrorRecords nunca consultan "conflict") — quedaba huérfana,
   // invisible en la UI (countSyncStatuses tampoco la cuenta), y la edición
   // del técnico se perdía en silencio.
-  logger.warn(
-    "sync:pull",
-    `Conflicto en ${localTable}#${remoteRecord.id} — manteniendo versión local pendiente de push`
-  );
+  //
+  // #3 interino: si el remoto es ESTRICTAMENTE más nuevo que el local, esto
+  // es una colisión real (el próximo push pisa datos más nuevos del
+  // servidor). Se registra como error y se cuenta para la consola. El
+  // rediseño (merge por columna / cola de conflictos) es follow-on.
+  const remoteTs = String(remoteRecord.last_modified ?? "");
+  const localTs = String((localRecord as { last_modified?: string }).last_modified ?? "");
+  if (remoteTs && localTs && remoteTs > localTs) {
+    pullConflictCount++;
+    if (pullConflictSample.length < 20) {
+      pullConflictSample.push({
+        table: localTable,
+        id: String(remoteRecord.id),
+        at: new Date().toISOString(),
+      });
+    }
+    logger.error(
+      "sync:conflict",
+      `Colisión en ${localTable}#${remoteRecord.id}: el servidor tiene una versión más nueva ` +
+        `(${remoteTs}) que la edición local sin subir (${localTs}). El próximo push la pisa.`
+    );
+  } else {
+    logger.warn(
+      "sync:pull",
+      `Conflicto en ${localTable}#${remoteRecord.id} — manteniendo versión local pendiente de push`
+    );
+  }
   return 0;
 }
 
@@ -832,9 +879,55 @@ async function getLastSyncTimestamp(table: string): Promise<string | null> {
 
 async function setLastSyncTimestamp(table: string, timestamp: string): Promise<void> {
   try {
-    await db.sync_meta.put({ table_name: table, last_pulled_at: timestamp });
+    // Pull exitoso → avanza el watermark y limpia el último error registrado.
+    await db.sync_meta.put({
+      table_name: table,
+      last_pulled_at: timestamp,
+      last_pull_error: null,
+      last_pull_error_at: null,
+    });
   } catch (err) {
     logger.error("sync:timestamp", `Error guardando timestamp de ${table}`, err);
+  }
+}
+
+/**
+ * Registra que el pull de una tabla falló, para que la consola de sync
+ * pueda mostrar "esta tabla viene fallando" en vez de que el error quede
+ * solo en los logs (#19). No toca el watermark — se reintenta al próximo
+ * ciclo.
+ */
+async function recordPullError(table: string, err: unknown): Promise<void> {
+  try {
+    const { message } = describeError(err);
+    const existing = await db.sync_meta.get(table);
+    await db.sync_meta.put({
+      table_name: table,
+      last_pulled_at: existing?.last_pulled_at ?? "",
+      last_pull_error: message,
+      last_pull_error_at: new Date().toISOString(),
+    });
+  } catch (metaErr) {
+    logger.error("sync:pull-error", `No se pudo registrar el error de pull de ${table}`, metaErr);
+  }
+}
+
+/** Tablas cuyo pull automático viene fallando (para la consola de sync). */
+export async function getFailingPullTables(): Promise<
+  { table: string; tableLabel: string; error: string; since: string }[]
+> {
+  try {
+    const rows = await db.sync_meta.toArray();
+    return rows
+      .filter((r) => r.last_pull_error)
+      .map((r) => ({
+        table: r.table_name,
+        tableLabel: tableLabel(r.table_name),
+        error: r.last_pull_error as string,
+        since: r.last_pull_error_at ?? "",
+      }));
+  } catch {
+    return [];
   }
 }
 
@@ -947,9 +1040,16 @@ export async function retryErrorRecords(): Promise<number> {
       const dexieTable = getDexieTable(table.local);
       if (!dexieTable) continue;
 
-      const errored = await dexieTable.where("sync_status").equals("error").toArray();
-      for (const rec of errored) {
-        await dexieTable.update(rec.id as string, { sync_status: "pending" as SyncStatus });
+      // "error" es un estado legacy que hoy nada setea; "failed" es el
+      // estado terminal real (agotó MAX_ATTEMPTS o error permanente). Ambos
+      // vuelven a "pending" Y se les borra la fila de sync_retry para que
+      // el backoff arranque limpio — si no, el próximo push los volvería a
+      // marcar "failed" de inmediato.
+      const stuck = await dexieTable.where("sync_status").anyOf(["error", "failed"]).toArray();
+      for (const rec of stuck) {
+        const id = rec.id as string;
+        await db.sync_retry.delete([table.local, id]);
+        await dexieTable.update(id, { sync_status: "pending" as SyncStatus });
         count++;
       }
     } catch (err) {

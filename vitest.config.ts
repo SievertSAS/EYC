@@ -43,7 +43,8 @@ export default defineConfig({
         "src/lib/supabase/sync-retry.ts": { lines: 94, functions: 100, branches: 86 },
         "src/lib/supabase/sync-lock.ts": { lines: 65, functions: 66, branches: 60 },
         "src/lib/supabase/sync-engine.ts": { lines: 70, functions: 86, branches: 60 },
-        "src/proxy.ts": { lines: 72, functions: 40, branches: 54 },
+        "src/proxy.ts": { lines: 85, functions: 30, branches: 90 },
+        "src/lib/auth/session.ts": { lines: 90, functions: 100, branches: 88 },
         // Tier 1 — Módulo 1 (db). types.ts (motor de permisos) no lo mide v8
         // pero está cubierto de forma exhaustiva por permisos.test.ts +
         // permisos-matriz.test.ts (144 celdas).

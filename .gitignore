@@ -41,3 +41,7 @@ recovery-codes-vercel.txt
 *.tsbuildinfo
 next-env.d.ts
 
+# local tooling (machine-specific, not for committing)
+/.atl/
+/.codegraph/
+

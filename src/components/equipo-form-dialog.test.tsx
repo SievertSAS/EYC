@@ -145,6 +145,77 @@ describe("EquipoFormDialog", () => {
     expect(gantries[0].id).toBe(gantry.id);
   });
 
+  it("#10: soft-borra el tubo cuando el usuario limpia todos sus campos", async () => {
+    const equipo = await seedEquipo({ marca: "Siemens" });
+    const tubo: Tubo = {
+      id: randomUUID(),
+      equipo_id: equipo.id!,
+      marca: "Varian",
+      modelo: "A-100",
+      numero_serie: "SN-1",
+    };
+    await db.tubos.add(tubo);
+
+    const onSaved = vi.fn();
+    render(
+      <EquipoFormDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        ubicacionId="ubicacion-1"
+        equipo={equipo}
+        onSaved={onSaved}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Tubo de Rayos X"));
+    const marcaInput = await waitFor(() => screen.getByDisplayValue("Varian"));
+    fireEvent.change(marcaInput, { target: { value: "" } });
+    fireEvent.change(screen.getByDisplayValue("A-100"), { target: { value: "" } });
+    fireEvent.change(screen.getByDisplayValue("SN-1"), { target: { value: "" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /^guardar$/i }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+
+    const row = await db.tubos.get(tubo.id);
+    expect(row).toBeTruthy();
+    expect(row!.deleted_at).toBeTruthy();
+    expect(row!.sync_status).toBe("pending");
+  });
+
+  it("#10: si falla un write hijo, el update del equipo también se revierte", async () => {
+    const equipo = await seedEquipo({ marca: "Siemens", modelo: "OLD" });
+    const addSpy = vi.spyOn(db.gantry, "add").mockRejectedValueOnce(new Error("boom"));
+
+    render(
+      <EquipoFormDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        ubicacionId="ubicacion-1"
+        equipo={equipo}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const modeloInput = await waitFor(() => screen.getByDisplayValue("OLD"));
+    fireEvent.change(modeloInput, { target: { value: "NEW" } });
+
+    fireEvent.click(screen.getByText("Gantry (CT)"));
+    const gantrySection = screen.getByText("Gantry (CT)").closest("div")!;
+    fireEvent.change(within(gantrySection).getAllByRole("textbox")[0], {
+      target: { value: "GantryX" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^guardar$/i }));
+
+    await waitFor(() => expect(addSpy).toHaveBeenCalled());
+    await waitFor(async () => {
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.modelo).toBe("OLD");
+    });
+    expect(await db.gantry.where("equipo_id").equals(equipo.id!).count()).toBe(0);
+    addSpy.mockRestore();
+  });
+
   it("crea el tubo cuando el equipo todavía no tiene uno", async () => {
     const equipo = await seedEquipo({ marca: "Siemens" });
     const onSaved = vi.fn();

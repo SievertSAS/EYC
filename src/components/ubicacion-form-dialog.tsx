@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import type { UbicacionRx } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
@@ -78,13 +79,7 @@ export function UbicacionFormDialog({
   // El padre controla `open` seteando el prop directamente (no vía
   // onOpenChange), así que hay que repoblar el form acá — handleOpenChange
   // solo dispara para cierres iniciados por Radix (Esc, overlay, botón).
-  useEffect(() => {
-    if (!open) return;
-    void (async () => {
-      resetForm();
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, ubicacion]);
+  useReseedOnOpen(open, resetForm);
 
   async function handleSave() {
     if (!nombre.trim()) return;

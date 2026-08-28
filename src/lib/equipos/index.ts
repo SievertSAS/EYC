@@ -11,6 +11,9 @@ export {
   getModules,
   getDefaultModules,
   getRequiredModules,
+  canCreateVisitFor,
+  assertCanCreateVisitFor,
+  NoPackageError,
 } from "./registry";
 
 // Tipos

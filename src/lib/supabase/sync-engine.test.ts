@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { resetTestDb } from "@/test/db-reset";
 import {
   createFakeSupabaseClient,
@@ -123,14 +124,59 @@ describe("sync-engine — pullSyncTable (paginación keyset)", () => {
     await expect(db.clientes.get("id-1051")).resolves.toBeUndefined();
 
     // El conflicto se resuelve igual en ambas páginas: se conserva la
-    // versión local y se marca sync_status="conflict".
+    // versión local Y su sync_status ("pending") queda intacto, para que
+    // el próximo push la reintente — no se marca "conflict" (ver bug
+    // documentado en applyRemoteSyncRecord).
     const conflictPage1 = await db.clientes.get("id-0500");
-    expect(conflictPage1?.sync_status).toBe("conflict");
+    expect(conflictPage1?.sync_status).toBe("pending");
     expect(conflictPage1?.nombre_cliente).toBe("Local pendiente pag1");
 
     const conflictPage2 = await db.clientes.get("id-1050");
-    expect(conflictPage2?.sync_status).toBe("conflict");
+    expect(conflictPage2?.sync_status).toBe("pending");
     expect(conflictPage2?.nombre_cliente).toBe("Local pendiente pag2");
+  });
+
+  it("un registro en conflicto (edición local pendiente) se vuelve a pushear en el siguiente ciclo, no queda huérfano", async () => {
+    const watermark = "2026-01-01T12:00:00.000Z";
+    await db.sync_meta.put({ table_name: "clientes", last_pulled_at: watermark });
+
+    fakeClient.seedTable("clientes", [
+      {
+        id: "id-conflicto",
+        nombre_cliente: "Nombre remoto",
+        nit: "NIT-REMOTO",
+        last_modified: "2026-01-05T00:00:00.000Z",
+      },
+    ]);
+
+    await db.clientes.put({
+      id: "id-conflicto",
+      nombre_cliente: "Edición local sin sincronizar",
+      nit: "NIT-LOCAL",
+      sync_status: "pending",
+      last_modified: "2026-01-04T00:00:00.000Z",
+    });
+
+    await pullSyncTable(fakeClient, "clientes", "clientes");
+
+    // El pull detecta el conflicto y preserva la edición local...
+    const trasConflicto = await db.clientes.get("id-conflicto");
+    expect(trasConflicto?.nombre_cliente).toBe("Edición local sin sincronizar");
+    expect(trasConflicto?.sync_status).toBe("pending");
+
+    // ...y como sigue "pending" (no "conflict"), el siguiente ciclo de push
+    // SÍ la levanta y la envía a Supabase — no queda huérfana para siempre.
+    const { pushed } = await pushAllPending();
+    expect(pushed).toBeGreaterThan(0);
+
+    const trasPush = await db.clientes.get("id-conflicto");
+    expect(trasPush?.sync_status).toBe("synced");
+
+    const remote = await fakeClient.from("clientes").select("*");
+    const remoteRecord = (remote.data as { id: string; nombre_cliente: string }[]).find(
+      (r) => r.id === "id-conflicto"
+    );
+    expect(remoteRecord?.nombre_cliente).toBe("Edición local sin sincronizar");
   });
 });
 
@@ -359,6 +405,34 @@ describe("sync-engine — getPendingRecords", () => {
     const pending = await getPendingRecords();
 
     expect(pending).toEqual([]);
+  });
+
+  it("loguea (no traga en silencio) un error inesperado al leer sync_status de una tabla", async () => {
+    // CLAUDE.md prohíbe catches vacíos en el sync engine — antes, cualquier
+    // error acá (incluida una falla real de Dexie, no solo "tabla sin
+    // índice sync_status") se descartaba sin loguear.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const boom = new Error("Dexie boom");
+    const whereSpy = vi.spyOn(db.clientes, "where").mockImplementation(() => {
+      throw boom;
+    });
+
+    await db.contactos.put({
+      id: "id-1",
+      cliente_id: "cliente-1",
+      nombre: "Contacto pendiente",
+      para_programar: false,
+      sync_status: "pending",
+    });
+
+    const pending = await getPendingRecords();
+
+    // La tabla que explotó no rompe el loop — las demás tablas se procesan.
+    expect(pending.some((r) => r.table === "contactos" && r.id === "id-1")).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith("sync:queue", expect.stringContaining("clientes"), boom);
+
+    whereSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });
 

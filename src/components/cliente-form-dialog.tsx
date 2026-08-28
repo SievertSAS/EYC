@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { db } from "@/lib/db";
 import type { Cliente } from "@/lib/db/types";
@@ -63,6 +63,16 @@ export function ClienteFormDialog({
   function update(field: keyof Cliente, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
+
+  // El padre controla `open` seteando el prop directamente (no vía
+  // onOpenChange), así que hay que repoblar el form acá — handleOpenChange
+  // solo dispara para cierres iniciados por Radix (Esc, overlay, botón).
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      setForm(cliente ? { ...cliente } : { ...EMPTY });
+    })();
+  }, [open, cliente]);
 
   async function handleSave() {
     if (!form.nombre_cliente?.trim()) return;

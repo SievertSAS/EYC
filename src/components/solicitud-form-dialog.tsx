@@ -89,19 +89,13 @@ export function SolicitudFormDialog({
   const clientes = useLiveQuery(() => (isReady ? db.clientes.toArray() : []), [isReady], []);
 
   const sedes = useLiveQuery(
-    () =>
-      isReady && clienteId
-        ? db.sedes.where("cliente_id").equals(clienteId).toArray()
-        : [],
+    () => (isReady && clienteId ? db.sedes.where("cliente_id").equals(clienteId).toArray() : []),
     [isReady, clienteId],
     []
   );
 
   const ubicaciones = useLiveQuery(
-    () =>
-      isReady && sedeId
-        ? db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray()
-        : [],
+    () => (isReady && sedeId ? db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray() : []),
     [isReady, sedeId],
     []
   );
@@ -119,9 +113,18 @@ export function SolicitudFormDialog({
     []
   );
 
-  // Populate form from editSolicitud when dialog opens in edit mode
+  // El padre controla `open` seteando el prop directamente (no vía
+  // onOpenChange), así que hay que repoblar/resetear el form acá —
+  // handleOpenChange solo dispara para cierres iniciados por Radix (Esc,
+  // overlay, botón). En modo edición repuebla desde editSolicitud; en modo
+  // creación limpia los pasos, para que reabrir "Nueva Solicitud" no
+  // arrastre el cliente/sede/ubicación seleccionados en una apertura previa.
   useEffect(() => {
-    if (!open || !editSolicitud) return;
+    if (!open) return;
+    if (!editSolicitud) {
+      resetForm();
+      return;
+    }
     void (async () => {
       const ubicacion = editSolicitud.ubicacion_id
         ? await db.ubicaciones_rx.get(editSolicitud.ubicacion_id)
@@ -242,7 +245,10 @@ export function SolicitudFormDialog({
               <Select value={clienteId} onValueChange={(v) => selectCliente(v ?? "")}>
                 <SelectTrigger className={selectTriggerClass}>
                   <SelectValue placeholder="Seleccionar cliente...">
-                    {(v) => clientes.find((c) => String(c.id) === v)?.nombre_cliente || "Seleccionar cliente..."}
+                    {(v) =>
+                      clientes.find((c) => String(c.id) === v)?.nombre_cliente ||
+                      "Seleccionar cliente..."
+                    }
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -273,7 +279,9 @@ export function SolicitudFormDialog({
                 <Select value={sedeId} onValueChange={(v) => selectSede(v ?? "")}>
                   <SelectTrigger className={selectTriggerClass}>
                     <SelectValue placeholder="Seleccionar sede...">
-                      {(v) => sedes.find((s) => String(s.id) === v)?.nombre_sede || "Seleccionar sede..."}
+                      {(v) =>
+                        sedes.find((s) => String(s.id) === v)?.nombre_sede || "Seleccionar sede..."
+                      }
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>

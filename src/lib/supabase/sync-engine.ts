@@ -730,12 +730,17 @@ async function applyRemoteSyncRecord(
     return 1;
   }
 
-  // Conflicto: hay cambios locales pendientes — mantener versión local
+  // Conflicto: hay cambios locales pendientes — mantener versión local Y
+  // su sync_status tal cual está (normalmente "pending"), para que el
+  // próximo ciclo de push la reintente. Marcarla como "conflict" la sacaba
+  // para siempre de las colas de `pending`/`error` (pushTable, getErrorRecords
+  // y retryErrorRecords nunca consultan "conflict") — quedaba huérfana,
+  // invisible en la UI (countSyncStatuses tampoco la cuenta), y la edición
+  // del técnico se perdía en silencio.
   logger.warn(
     "sync:pull",
-    `Conflicto en ${localTable}#${remoteRecord.id} — manteniendo versión local`
+    `Conflicto en ${localTable}#${remoteRecord.id} — manteniendo versión local pendiente de push`
   );
-  await dexieTable.update(localRecord.id as string, { sync_status: "conflict" as SyncStatus });
   return 0;
 }
 
@@ -889,8 +894,14 @@ export async function getErrorRecords(): Promise<ErrorRecord[]> {
       for (const rec of errored) {
         results.push(await buildRecordPreview(table.local, rec));
       }
-    } catch {
-      // tabla sin sync_status — ignorar
+    } catch (err) {
+      // Caso esperado: tablas maestras (departamentos, municipios, etc.) no
+      // tienen índice `sync_status` y Dexie lanza al hacer `.where(...)`
+      // sobre él — se ignora. Pero cualquier otro error de Dexie (cuota
+      // excedida, DB corrupta) también cae acá, así que se loguea siempre
+      // en vez de tragarlo en silencio (ver CLAUDE.md: nunca catch vacíos
+      // en el sync engine).
+      logger.warn("sync:queue", `No se pudo leer sync_status de ${table.local}`, err);
     }
   }
 
@@ -915,8 +926,14 @@ export async function getPendingRecords(): Promise<SyncRecordPreview[]> {
       for (const rec of pending) {
         results.push(await buildRecordPreview(table.local, rec));
       }
-    } catch {
-      // tabla sin sync_status — ignorar
+    } catch (err) {
+      // Caso esperado: tablas maestras (departamentos, municipios, etc.) no
+      // tienen índice `sync_status` y Dexie lanza al hacer `.where(...)`
+      // sobre él — se ignora. Pero cualquier otro error de Dexie (cuota
+      // excedida, DB corrupta) también cae acá, así que se loguea siempre
+      // en vez de tragarlo en silencio (ver CLAUDE.md: nunca catch vacíos
+      // en el sync engine).
+      logger.warn("sync:queue", `No se pudo leer sync_status de ${table.local}`, err);
     }
   }
 
@@ -935,8 +952,14 @@ export async function retryErrorRecords(): Promise<number> {
         await dexieTable.update(rec.id as string, { sync_status: "pending" as SyncStatus });
         count++;
       }
-    } catch {
-      // tabla sin sync_status — ignorar
+    } catch (err) {
+      // Caso esperado: tablas maestras (departamentos, municipios, etc.) no
+      // tienen índice `sync_status` y Dexie lanza al hacer `.where(...)`
+      // sobre él — se ignora. Pero cualquier otro error de Dexie (cuota
+      // excedida, DB corrupta) también cae acá, así que se loguea siempre
+      // en vez de tragarlo en silencio (ver CLAUDE.md: nunca catch vacíos
+      // en el sync engine).
+      logger.warn("sync:queue", `No se pudo leer sync_status de ${table.local}`, err);
     }
   }
   return count;

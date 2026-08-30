@@ -175,7 +175,7 @@ function mergeLocalBinaries(
 }
 
 // Tablas cuyo `blob_local` es una imagen que va al bucket `evidencias` (#67).
-const IMAGE_BLOB_TABLES = new Set(["conv_evidencias", "evidencias"]);
+const IMAGE_BLOB_TABLES = new Set(["conv_evidencias", "evidencias", "equipo_identificaciones"]);
 
 /**
  * Antes de pushear una fila de imagen: si tiene `blob_local` y todavía no
@@ -237,6 +237,7 @@ export const SYNC_TABLES = [
   { local: "tubos", remote: "tubos" },
   { local: "colimadores", remote: "colimadores" },
   { local: "gantry", remote: "gantry" },
+  { local: "equipo_identificaciones", remote: "equipo_identificaciones" },
   { local: "solicitudes", remote: "solicitudes" },
   // ─── Datos de campo ───
   { local: "visitas", remote: "visitas" },

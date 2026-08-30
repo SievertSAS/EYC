@@ -190,11 +190,8 @@ export interface Equipo extends Partial<SyncFields> {
   sistema_adquisicion?: string;
   distancia_foco_paciente?: number;
   bucky?: "Si" | "No" | "No_aplica";
-  // Identificación del equipo (placa general del aparato)
-  marca?: string;
-  modelo?: string;
-  numero_serie?: string;
-  // Generador
+  // Identificación y características del equipo. La plantilla oficial las
+  // rotula "del generador" (gen_*): en esta app hay UN solo aparato físico.
   gen_marca?: string;
   gen_modelo?: string;
   gen_numero_serie?: string;

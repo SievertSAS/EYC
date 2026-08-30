@@ -28,7 +28,7 @@ async function seedEquipo(overrides: Partial<Equipo> = {}): Promise<Equipo> {
     id: randomUUID(),
     ubicacion_id: "ubicacion-1",
     planilla_espacial: false,
-    marca: "Siemens",
+    gen_marca: "Siemens",
     ...overrides,
   };
   await db.equipos.add(equipo);
@@ -45,7 +45,7 @@ describe("EquipoFormDialog", () => {
   });
 
   it("repuebla la marca del equipo al reabrir la misma instancia con datos actualizados", async () => {
-    const equipoV1 = await seedEquipo({ marca: "Siemens" });
+    const equipoV1 = await seedEquipo({ gen_marca: "Siemens" });
 
     const { rerender } = render(
       <EquipoFormDialog
@@ -66,7 +66,7 @@ describe("EquipoFormDialog", () => {
     );
     await waitFor(() => expect(screen.getByDisplayValue("Siemens")).toBeTruthy());
 
-    const equipoV2: Equipo = { ...equipoV1, marca: "GE Healthcare" };
+    const equipoV2: Equipo = { ...equipoV1, gen_marca: "GE Healthcare" };
     rerender(
       <EquipoFormDialog
         open={false}
@@ -89,7 +89,7 @@ describe("EquipoFormDialog", () => {
   });
 
   it("actualiza el tubo/colimador/gantry existentes al reeditar el equipo, sin duplicarlos", async () => {
-    const equipo = await seedEquipo({ marca: "Siemens" });
+    const equipo = await seedEquipo({ gen_marca: "Siemens" });
     const tubo: Tubo = {
       id: randomUUID(),
       equipo_id: equipo.id!,
@@ -146,7 +146,7 @@ describe("EquipoFormDialog", () => {
   });
 
   it("#10: soft-borra el tubo cuando el usuario limpia todos sus campos", async () => {
-    const equipo = await seedEquipo({ marca: "Siemens" });
+    const equipo = await seedEquipo({ gen_marca: "Siemens" });
     const tubo: Tubo = {
       id: randomUUID(),
       equipo_id: equipo.id!,
@@ -183,7 +183,7 @@ describe("EquipoFormDialog", () => {
   });
 
   it("#10: si falla un write hijo, el update del equipo también se revierte", async () => {
-    const equipo = await seedEquipo({ marca: "Siemens", modelo: "OLD" });
+    const equipo = await seedEquipo({ gen_marca: "Siemens", gen_modelo: "OLD" });
     const addSpy = vi.spyOn(db.gantry, "add").mockRejectedValueOnce(new Error("boom"));
 
     render(
@@ -210,14 +210,14 @@ describe("EquipoFormDialog", () => {
     await waitFor(() => expect(addSpy).toHaveBeenCalled());
     await waitFor(async () => {
       const fresh = await db.equipos.get(equipo.id!);
-      expect(fresh!.modelo).toBe("OLD");
+      expect(fresh!.gen_modelo).toBe("OLD");
     });
     expect(await db.gantry.where("equipo_id").equals(equipo.id!).count()).toBe(0);
     addSpy.mockRestore();
   });
 
   it("crea el tubo cuando el equipo todavía no tiene uno", async () => {
-    const equipo = await seedEquipo({ marca: "Siemens" });
+    const equipo = await seedEquipo({ gen_marca: "Siemens" });
     const onSaved = vi.fn();
 
     render(

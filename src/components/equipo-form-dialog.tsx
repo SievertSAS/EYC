@@ -106,11 +106,8 @@ export function EquipoFormDialog({
     equipo?.distancia_foco_paciente?.toString() ?? ""
   );
   const [bucky, setBucky] = useState(equipo?.bucky ?? "");
-  const [marca, setMarca] = useState(equipo?.marca ?? "");
-  const [modelo, setModelo] = useState(equipo?.modelo ?? "");
-  const [numeroSerie, setNumeroSerie] = useState(equipo?.numero_serie ?? "");
 
-  // Generador
+  // Características del equipo (la plantilla oficial las rotula "del generador")
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
   const [genModelo, setGenModelo] = useState(equipo?.gen_modelo ?? "");
   const [genSerie, setGenSerie] = useState(equipo?.gen_numero_serie ?? "");
@@ -158,9 +155,6 @@ export function EquipoFormDialog({
       setSistemaAdq(equipo?.sistema_adquisicion ?? "");
       setDistanciaFoco(equipo?.distancia_foco_paciente?.toString() ?? "");
       setBucky(equipo?.bucky ?? "");
-      setMarca(equipo?.marca ?? "");
-      setModelo(equipo?.modelo ?? "");
-      setNumeroSerie(equipo?.numero_serie ?? "");
       setGenMarca(equipo?.gen_marca ?? "");
       setGenModelo(equipo?.gen_modelo ?? "");
       setGenSerie(equipo?.gen_numero_serie ?? "");
@@ -221,9 +215,6 @@ export function EquipoFormDialog({
         sistema_adquisicion: sistemaAdq || undefined,
         distancia_foco_paciente: parseDecimal(distanciaFoco),
         bucky: (bucky as Equipo["bucky"]) || undefined,
-        marca: marca || undefined,
-        modelo: modelo || undefined,
-        numero_serie: numeroSerie || undefined,
         gen_marca: genMarca || undefined,
         gen_modelo: genModelo || undefined,
         gen_numero_serie: genSerie || undefined,
@@ -431,43 +422,6 @@ export function EquipoFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Marca
-                </Label>
-                <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="Marca"
-                  value={marca}
-                  onChange={(e) => setMarca(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Modelo
-                </Label>
-                <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="Modelo"
-                  value={modelo}
-                  onChange={(e) => setModelo(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                No. Serie
-              </Label>
-              <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
-                placeholder="Número de serie"
-                value={numeroSerie}
-                onChange={(e) => setNumeroSerie(e.target.value)}
-              />
-            </div>
-
             <div className="space-y-2">
               <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
                 Distancia Foco-Paciente (cm)
@@ -482,8 +436,8 @@ export function EquipoFormDialog({
             </div>
           </CollapsibleSection>
 
-          {/* Generador */}
-          <CollapsibleSection title="Generador">
+          {/* Características del Equipo (la plantilla oficial las rotula "del generador") */}
+          <CollapsibleSection title="Características del Equipo" defaultOpen={true}>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">

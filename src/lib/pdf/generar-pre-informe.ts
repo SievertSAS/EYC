@@ -108,7 +108,7 @@ interface DatosInforme {
   ubicacion?: UbicacionRx;
   sede?: Sede;
   cliente?: Cliente;
-  tubo?: Tubo;
+  tubos: Tubo[];
   sala?: SalaDimensiones;
   tecnico?: Usuario;
   contactos: Contacto[];
@@ -147,9 +147,11 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
   const sede = ubicacion
     ? await db.sedes.get((await db.ubicaciones_rx.get(ubicacion.id!))?.sede_id ?? "")
     : undefined;
-  const tubo = visita.equipo_id
-    ? await db.tubos.where("equipo_id").equals(visita.equipo_id).first()
-    : undefined;
+  const tubos = visita.equipo_id
+    ? (await db.tubos.where("equipo_id").equals(visita.equipo_id).toArray()).filter(
+        (t) => !t.deleted_at
+      )
+    : [];
   const sala = visita.ubicacion_id
     ? await db.sala_dimensiones.where("ubicacion_id").equals(visita.ubicacion_id).first()
     : undefined;
@@ -192,7 +194,7 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
     ubicacion,
     sede,
     cliente,
-    tubo,
+    tubos,
     sala,
     tecnico,
     contactos,
@@ -663,20 +665,22 @@ export async function generarPreInforme(
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
   // Especificaciones del Tubo
-  if (datos.tubo) {
+  datos.tubos.forEach((tuboItem, i) => {
     checkPage(40);
-    addSubsectionTitle("", "Especificaciones del Tubo");
+    const titulo =
+      datos.tubos.length > 1 ? `Especificaciones del Tubo ${i + 1}` : "Especificaciones del Tubo";
+    addSubsectionTitle("", titulo);
 
     const datosTubo = [
-      ["Marca", datos.tubo.marca ?? "—"],
-      ["Modelo", datos.tubo.modelo ?? "—"],
-      ["No. Serie", datos.tubo.numero_serie ?? "—"],
-      ["Tipo", datos.tubo.tipo ?? "—"],
-      ["mAs máximo", String(datos.tubo.mas_max ?? "—")],
-      ["kV máx", String(datos.tubo.kv_max ?? "—")],
-      ["mA máx", String(datos.tubo.ma_max ?? "—")],
-      ["Foco fino (mm)", String(datos.tubo.foco_fino_mm ?? "—")],
-      ["Foco grueso (mm)", String(datos.tubo.foco_grueso_mm ?? "—")],
+      ["Marca", tuboItem.marca ?? "—"],
+      ["Modelo", tuboItem.modelo ?? "—"],
+      ["No. Serie", tuboItem.numero_serie ?? "—"],
+      ["Tipo", tuboItem.tipo ?? "—"],
+      ["mAs máximo", String(tuboItem.mas_max ?? "—")],
+      ["kV máx", String(tuboItem.kv_max ?? "—")],
+      ["mA máx", String(tuboItem.ma_max ?? "—")],
+      ["Foco fino (mm)", String(tuboItem.foco_fino_mm ?? "—")],
+      ["Foco grueso (mm)", String(tuboItem.foco_grueso_mm ?? "—")],
     ];
 
     autoTable(doc, {
@@ -692,7 +696,7 @@ export async function generarPreInforme(
     });
 
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-  }
+  });
 
   // Características del Colimador y Sistema de Adquisición
   checkPage(30);

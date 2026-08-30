@@ -32,6 +32,8 @@ import {
   Activity,
   Users,
   Eye,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { irAModulo } from "@/lib/modulo-nav";
 
@@ -325,9 +327,10 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
       : undefined;
 
     const tubos = visita.equipo_id
-      ? await db.tubos.where("equipo_id").equals(visita.equipo_id).toArray()
+      ? (await db.tubos.where("equipo_id").equals(visita.equipo_id).toArray())
+          .filter((t) => !t.deleted_at)
+          .sort((a, b) => (a.creado_en ?? "").localeCompare(b.creado_en ?? ""))
       : [];
-    const tubo = tubos[0];
 
     const contactos = cliente?.id
       ? await db.contactos.where("cliente_id").equals(cliente.id).toArray()
@@ -340,7 +343,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
       sede,
       cliente,
       solicitud,
-      tubo,
+      tubos,
       nroTubos: tubos.length,
       contactos,
     };
@@ -413,12 +416,39 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     pushSingle("equipos", id);
   }
 
-  async function saveTubo(field: string, value: string, numeric = false) {
-    const id = data?.tubo?.id;
-    if (!id) return;
+  async function saveTubo(tuboId: string, field: string, value: string, numeric = false) {
+    if (!tuboId) return;
     const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
-    await db.tubos.update(id, { [field]: parsed, sync_status: "pending", last_modified: now() });
-    pushSingle("tubos", id);
+    await db.tubos.update(tuboId, {
+      [field]: parsed,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("tubos", tuboId);
+  }
+
+  async function addTubo() {
+    const equipoId = data?.equipo?.id;
+    if (!equipoId) return;
+    const nuevo = {
+      id: randomUUID(),
+      equipo_id: equipoId,
+      creado_en: now(),
+      sync_status: "pending" as const,
+      last_modified: now(),
+    };
+    await db.tubos.add(nuevo);
+    pushSingle("tubos", nuevo.id);
+  }
+
+  async function deleteTubo(tuboId: string) {
+    if (!tuboId) return;
+    await db.tubos.update(tuboId, {
+      deleted_at: now(),
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("tubos", tuboId);
   }
 
   async function saveVisita(field: string, value: string, numeric = false) {
@@ -493,7 +523,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     );
   }
 
-  const { visita, equipo, ubicacion, sede, cliente, solicitud, tubo, nroTubos, contactos } = data;
+  const { visita, equipo, ubicacion, sede, cliente, solicitud, tubos, nroTubos, contactos } = data;
 
   const medico = getContacto("medico_responsable");
   const tecnologo = getContacto("tecnologo");
@@ -546,16 +576,16 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   ]);
 
   const progTubo = computeProgress([
-    tubo?.marca,
-    tubo?.modelo,
-    tubo?.numero_serie,
-    tubo?.tipo,
-    tubo?.mas_max,
-    tubo?.kv_max,
-    tubo?.ma_max,
-    tubo?.tiempo_s,
-    tubo?.foco_fino_mm,
-    tubo?.foco_grueso_mm,
+    tubos[0]?.marca,
+    tubos[0]?.modelo,
+    tubos[0]?.numero_serie,
+    tubos[0]?.tipo,
+    tubos[0]?.mas_max,
+    tubos[0]?.kv_max,
+    tubos[0]?.ma_max,
+    tubos[0]?.tiempo_s,
+    tubos[0]?.foco_fino_mm,
+    tubos[0]?.foco_grueso_mm,
   ]);
 
   const progColimador = computeProgress([
@@ -925,79 +955,107 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
         </div>
       </SectionCard>
 
-      {/* 4. Especificaciones del Tubo */}
+      {/* 4. Especificaciones del Tubo (N tubos) */}
       <SectionCard
         icon={Zap}
         title="Especificaciones del Tubo"
         subtitle={`${nroTubos} tubo${nroTubos !== 1 ? "s" : ""} registrado${nroTubos !== 1 ? "s" : ""}`}
         progress={progTubo}
       >
-        {tubo ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <EditableField
-              label="Marca"
-              value={toStr(tubo.marca)}
-              onSave={(v) => saveTubo("marca", v)}
-            />
-            <EditableField
-              label="Modelo"
-              value={toStr(tubo.modelo)}
-              onSave={(v) => saveTubo("modelo", v)}
-            />
-            <EditableField
-              label="No. de Serie"
-              value={toStr(tubo.numero_serie)}
-              icon={Hash}
-              onSave={(v) => saveTubo("numero_serie", v)}
-            />
-            <EditableField
-              label="Tipo"
-              value={toStr(tubo.tipo)}
-              onSave={(v) => saveTubo("tipo", v)}
-            />
-            <ReadonlyField label="No. de Tubos" value={nroTubos} />
-            <EditableField
-              label="mAs Máximo"
-              value={toStr(tubo.mas_max)}
-              type="number"
-              onSave={(v) => saveTubo("mas_max", v, true)}
-            />
-            <EditableField
-              label="kV Máximo"
-              value={toStr(tubo.kv_max)}
-              type="number"
-              onSave={(v) => saveTubo("kv_max", v, true)}
-            />
-            <EditableField
-              label="mA Máximo"
-              value={toStr(tubo.ma_max)}
-              type="number"
-              onSave={(v) => saveTubo("ma_max", v, true)}
-            />
-            <EditableField
-              label="t (s)"
-              value={toStr(tubo.tiempo_s)}
-              type="number"
-              onSave={(v) => saveTubo("tiempo_s", v, true)}
-            />
-            <EditableField
-              label="Foco Fino (mm)"
-              value={toStr(tubo.foco_fino_mm)}
-              type="number"
-              onSave={(v) => saveTubo("foco_fino_mm", v, true)}
-            />
-            <EditableField
-              label="Foco Grueso (mm)"
-              value={toStr(tubo.foco_grueso_mm)}
-              type="number"
-              onSave={(v) => saveTubo("foco_grueso_mm", v, true)}
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400 font-medium py-4 text-center">
-            No hay tubo registrado para este equipo
-          </p>
-        )}
+        <div className="space-y-4">
+          {tubos.length === 0 && (
+            <p className="text-sm text-slate-400 font-medium py-2 text-center">
+              No hay tubos registrados para este equipo
+            </p>
+          )}
+
+          {tubos.map((t, i) => (
+            <div key={t.id} className="rounded-xl border border-slate-100 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Tubo {i + 1}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => deleteTubo(t.id!)}
+                  className="text-slate-300 hover:text-red-500 transition-colors"
+                  aria-label={`Eliminar tubo ${i + 1}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <EditableField
+                  label="Marca"
+                  value={toStr(t.marca)}
+                  onSave={(v) => saveTubo(t.id!, "marca", v)}
+                />
+                <EditableField
+                  label="Modelo"
+                  value={toStr(t.modelo)}
+                  onSave={(v) => saveTubo(t.id!, "modelo", v)}
+                />
+                <EditableField
+                  label="No. de Serie"
+                  value={toStr(t.numero_serie)}
+                  icon={Hash}
+                  onSave={(v) => saveTubo(t.id!, "numero_serie", v)}
+                />
+                <EditableField
+                  label="Tipo"
+                  value={toStr(t.tipo)}
+                  onSave={(v) => saveTubo(t.id!, "tipo", v)}
+                />
+                <EditableField
+                  label="mAs Máximo"
+                  value={toStr(t.mas_max)}
+                  type="number"
+                  onSave={(v) => saveTubo(t.id!, "mas_max", v, true)}
+                />
+                <EditableField
+                  label="kV Máximo"
+                  value={toStr(t.kv_max)}
+                  type="number"
+                  onSave={(v) => saveTubo(t.id!, "kv_max", v, true)}
+                />
+                <EditableField
+                  label="mA Máximo"
+                  value={toStr(t.ma_max)}
+                  type="number"
+                  onSave={(v) => saveTubo(t.id!, "ma_max", v, true)}
+                />
+                <EditableField
+                  label="t (s)"
+                  value={toStr(t.tiempo_s)}
+                  type="number"
+                  onSave={(v) => saveTubo(t.id!, "tiempo_s", v, true)}
+                />
+                <EditableField
+                  label="Foco Fino (mm)"
+                  value={toStr(t.foco_fino_mm)}
+                  type="number"
+                  onSave={(v) => saveTubo(t.id!, "foco_fino_mm", v, true)}
+                />
+                <EditableField
+                  label="Foco Grueso (mm)"
+                  value={toStr(t.foco_grueso_mm)}
+                  type="number"
+                  onSave={(v) => saveTubo(t.id!, "foco_grueso_mm", v, true)}
+                />
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addTubo}
+            disabled={!equipo}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar tubo
+          </button>
+        </div>
       </SectionCard>
 
       {/* 5. Colimador y Sistema de Adquisición */}

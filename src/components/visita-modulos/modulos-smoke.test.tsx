@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
+import { db } from "@/lib/db";
 import { resetTestDb } from "@/test/db-reset";
 import { seedGraph } from "@/test/seed";
 
@@ -107,5 +108,37 @@ describe("InfoModulo — Características del Equipo (#61)", () => {
 
     expect(screen.getByText("Características del Equipo")).toBeInTheDocument();
     expect(screen.getByText(/Energía Fotones \/ Electrones/i)).toBeInTheDocument();
+  });
+});
+
+describe("InfoModulo — tubos desde Información General (#61 D2b)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+  });
+  afterEach(() => cleanup());
+
+  it("agrega un tubo al equipo desde el botón 'Agregar tubo'", async () => {
+    const { visita, equipo } = await seedGraph({ conTubo: false });
+    render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    expect(await db.tubos.where("equipo_id").equals(equipo.id!).count()).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: /agregar tubo/i }));
+    await waitFor(async () =>
+      expect(await db.tubos.where("equipo_id").equals(equipo.id!).count()).toBe(1)
+    );
+  });
+
+  it("soft-borra un tubo desde su botón de eliminar", async () => {
+    const { visita, equipo } = await seedGraph({ conTubo: true });
+    render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    fireEvent.click(await screen.findByRole("button", { name: /eliminar tubo 1/i }));
+    await waitFor(async () => {
+      const t = await db.tubos.where("equipo_id").equals(equipo.id!).first();
+      expect(t?.deleted_at).toBeTruthy();
+    });
   });
 });

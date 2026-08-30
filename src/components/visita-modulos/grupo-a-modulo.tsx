@@ -489,23 +489,34 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+    const now = new Date().toISOString();
     const existing = data?.evidencias?.find(
       (e) => e.prueba_codigo === pruebaCodigo && e.slot === slot
     );
     if (existing?.id) {
-      await db.conv_evidencias.update(existing.id, { blob_local: blob });
+      // Reemplazo: re-marcar pending y limpiar url_storage para que el push
+      // vuelva a subir el binario nuevo al bucket (#67).
+      await db.conv_evidencias.update(existing.id, {
+        blob_local: blob,
+        url_storage: null,
+        sync_status: "pending",
+        last_modified: now,
+      });
+      pushSingle("conv_evidencias", existing.id);
     } else {
+      const nuevoId = randomUUID();
       await db.conv_evidencias.add({
-        id: randomUUID(),
+        id: nuevoId,
         visita_id: visitaId,
         prueba_codigo: pruebaCodigo,
         slot,
         blob_local: blob,
-        fecha_captura: new Date().toISOString(),
-        creado_en: new Date().toISOString(),
+        fecha_captura: now,
+        creado_en: now,
         sync_status: "pending" as const,
-        last_modified: new Date().toISOString(),
+        last_modified: now,
       });
+      pushSingle("conv_evidencias", nuevoId);
     }
   }
 

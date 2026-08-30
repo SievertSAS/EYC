@@ -443,9 +443,9 @@ export interface ConvEvidencia extends Partial<SyncFields> {
   slot: string;
   descripcion?: string;
   /** Blob almacenado en IndexedDB — solo local, no se sincroniza */
-  blob_local?: Blob;
-  /** URL en storage remoto (post-sync) */
-  url_storage?: string;
+  blob_local?: Blob | null;
+  /** Path en el bucket (post-sync). `null` fuerza re-subida al reemplazar la imagen. */
+  url_storage?: string | null;
   fecha_captura?: string;
   creado_en?: string;
   /** Soft-delete: borrado viaja como cambio (UPSERT) para que el pull lo propague */

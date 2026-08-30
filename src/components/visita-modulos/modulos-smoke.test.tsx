@@ -29,6 +29,7 @@ vi.mock("@/lib/supabase/sync-engine", () => ({
   deleteAndSync: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { pushSingle } from "@/lib/supabase/sync-engine";
 import { GrupoAModulo } from "./grupo-a-modulo";
 import { GrupoBModulo } from "./grupo-b-modulo";
 import { GrupoCModulo } from "./grupo-c-modulo";
@@ -72,6 +73,35 @@ describe("visita-modulos — smoke", () => {
       render(<Modulo visitaId={visita!.id!} />);
       expect(await screen.findByText(/Volver al workspace/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe("GrupoAModulo — capturar una foto dispara el push (#67)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+    vi.mocked(pushSingle).mockClear();
+  });
+  afterEach(() => cleanup());
+
+  it("crea la evidencia pending con blob y llama pushSingle('conv_evidencias')", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const { container } = render(<GrupoAModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    // Primer slot de imagen del módulo = plano / croquis radiométrico (prueba 2.1).
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeTruthy();
+    const file = new File([new Uint8Array([1, 2, 3])], "plano.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(async () => {
+      const filas = await db.conv_evidencias.where("visita_id").equals(visita!.id!).toArray();
+      expect(filas.length).toBe(1);
+      expect(filas[0].sync_status).toBe("pending");
+      expect(filas[0].blob_local).not.toBeNull();
+    });
+    expect(vi.mocked(pushSingle)).toHaveBeenCalledWith("conv_evidencias", expect.any(String));
   });
 });
 

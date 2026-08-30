@@ -3,11 +3,18 @@
 import { useState } from "react";
 import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
-import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
+import {
+  TIPOS_EQUIPO,
+  SISTEMAS_ADQUISICION,
+  type Equipo,
+  type Tubo,
+  type Colimador,
+  type Gantry,
+  type TipoEquipo,
+} from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
-import { TIPOS_EQUIPO, SISTEMAS_ADQUISICION, type TipoEquipo } from "@/lib/db/types";
 import {
   Dialog,
   DialogContent,

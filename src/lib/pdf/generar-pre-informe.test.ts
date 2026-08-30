@@ -11,6 +11,7 @@ function okPngFetch() {
 vi.stubGlobal("fetch", okPngFetch());
 
 import { db } from "@/lib/db";
+import { randomUUID } from "@/lib/uuid";
 import { resetTestDb } from "@/test/db-reset";
 import { seedGraph } from "@/test/seed";
 import {
@@ -98,6 +99,35 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("EQ-MARCA-61");
     expect(text).toContain("EQ-SERIE-61");
     expect(text).toContain("ENERGIA-MARCADOR-61");
+  });
+
+  it("#61 (D2b): el informe renderiza todos los tubos del equipo, numerados si hay más de uno", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    await db.tubos.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id!, marca: "TUBO-UNO-MARCA" },
+      { id: randomUUID(), equipo_id: equipo.id!, marca: "TUBO-DOS-MARCA" },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Especificaciones del Tubo 1");
+    expect(text).toContain("Especificaciones del Tubo 2");
+    expect(text).toContain("TUBO-UNO-MARCA");
+    expect(text).toContain("TUBO-DOS-MARCA");
+  });
+
+  it("#61 (D2b): un tubo soft-borrado no sale en el informe", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    await db.tubos.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id!, marca: "TUBO-VIVO" },
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        marca: "TUBO-BORRADO",
+        deleted_at: new Date().toISOString(),
+      },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("TUBO-VIVO");
+    expect(text).not.toContain("TUBO-BORRADO");
   });
 
   it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {

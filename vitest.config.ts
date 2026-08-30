@@ -42,7 +42,11 @@ export default defineConfig({
         "src/lib/equipos/engine.ts": { lines: 85, functions: 85, branches: 77 },
         "src/lib/equipos/registry.ts": { lines: 90, functions: 85 },
         "src/lib/equipos/convencional/evaluacion.ts": { lines: 70, functions: 78, branches: 58 },
-        "src/lib/equipos/convencional/raysafe-parser.ts": { lines: 95, functions: 95, branches: 88 },
+        "src/lib/equipos/convencional/raysafe-parser.ts": {
+          lines: 95,
+          functions: 95,
+          branches: 88,
+        },
         "src/lib/equipos/convencional/grupos.ts": { lines: 95 },
         "src/lib/supabase/sync-retry.ts": { lines: 94, functions: 100, branches: 86 },
         "src/lib/supabase/sync-lock.ts": { lines: 65, functions: 66, branches: 60 },
@@ -73,7 +77,9 @@ export default defineConfig({
         // módulo): red suficiente para re-escalar `set-state-in-effect` a
         // "error" en esa ruta. La cobertura profunda de cada tabla queda para
         // Tier 3/4 cuando se recree el flujo completo. Floors = piso actual.
-        "src/hooks/use-blob-preview-url.ts": { lines: 78, functions: 70, branches: 45 },
+        // #67 — subida y resolución de imágenes. compressImage (canvas) y la
+        // rama de signed URL no corren en happy-dom → floor conservador.
+        "src/lib/supabase/storage.ts": { lines: 42, functions: 75, branches: 45 },
         "src/components/manual-drawer.tsx": { lines: 92, functions: 75, branches: 88 },
         "src/components/visit-action-bar.tsx": { lines: 85, functions: 85, branches: 72 },
         "src/components/visita-modulos/**": { lines: 33, functions: 15, branches: 16 },

@@ -32,7 +32,7 @@ import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
 import { SetupField } from "@/components/visita-modulos/setup-field";
 import { useRowSavedFlash } from "@/hooks/use-row-saved";
-import { useBlobPreviewUrl } from "@/hooks/use-blob-preview-url";
+import { useImagenSrc } from "@/hooks/use-imagen-src";
 import type { ConvInspeccionItem } from "@/lib/equipos/convencional/db/types";
 
 // ─── Constants ───
@@ -195,12 +195,12 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: string; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob | null; url_storage?: string | null };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const preview = useBlobPreviewUrl(evidencia?.blob_local);
+  const preview = useImagenSrc(evidencia ?? {});
 
   return (
     <div className="space-y-2">
@@ -248,12 +248,12 @@ function ElementoFotoCell({
   onCapture,
   onRemove,
 }: {
-  evidencia?: { id?: string; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob | null; url_storage?: string | null };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const preview = useBlobPreviewUrl(evidencia?.blob_local);
+  const preview = useImagenSrc(evidencia ?? {});
 
   return (
     <>

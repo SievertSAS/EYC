@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Trash2, ImageIcon, Loader2 } from "lucide-react";
 import type { SlotImagen, ImagenEmbebida } from "@/lib/db/types";
+import { useImagenSrc } from "@/hooks/use-imagen-src";
 
 interface ImageCaptureSlotProps {
   slot: SlotImagen;
@@ -111,15 +112,7 @@ function ImagePreview({
   onDelete: () => void;
   disabled: boolean;
 }) {
-  const [src, setSrc] = useState<string | null>(null);
-
-  // Generar URL del blob
-  if (!src && imagen.blob_local) {
-    const url = URL.createObjectURL(imagen.blob_local);
-    setSrc(url);
-  } else if (!src && imagen.url_storage) {
-    setSrc(imagen.url_storage);
-  }
+  const src = useImagenSrc(imagen);
 
   return (
     <div className="relative group rounded-xl overflow-hidden border border-slate-200 w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">

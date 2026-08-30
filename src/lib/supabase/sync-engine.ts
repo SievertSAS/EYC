@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { createClient } from "./client";
+import { evidenciaPath, subirEvidencia } from "./storage";
+import type { RegistroConImagen } from "./storage";
 import type { SyncStatus } from "@/lib/db/types";
 import { logger } from "@/lib/logger";
 import type { EntityTable } from "dexie";
@@ -170,6 +172,36 @@ function mergeLocalBinaries(
   }
 
   return merged;
+}
+
+// Tablas cuyo `blob_local` es una imagen que va al bucket `evidencias` (#67).
+const IMAGE_BLOB_TABLES = new Set(["conv_evidencias", "evidencias"]);
+
+/**
+ * Antes de pushear una fila de imagen: si tiene `blob_local` y todavía no
+ * tiene `url_storage`, sube el binario al bucket, guarda el path en la fila
+ * local, y devuelve la fila con `url_storage` seteado para que el push lo
+ * incluya. Si la subida falla, lanza — el motor lo trata como cualquier
+ * fallo de push (reintento con backoff), sin perder el blob.
+ */
+async function ensureBlobUploaded(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  localTable: string,
+  dexieTable: EntityTable<SyncableRecord, "id">,
+  record: SyncableRecord
+): Promise<SyncableRecord> {
+  if (!IMAGE_BLOB_TABLES.has(localTable)) return record;
+  const rec = record as RegistroConImagen & SyncableRecord;
+  // `blob_local` es semánticamente la imagen; se chequea `!= null` en vez de
+  // `instanceof Blob` porque IndexedDB puede devolverlo como objeto plano
+  // en algunos entornos (tests con fake-indexeddb).
+  if (rec.blob_local == null || rec.url_storage) return record;
+
+  const path = evidenciaPath(localTable, rec);
+  await subirEvidencia(supabase, path, rec.blob_local);
+  await dexieTable.update(rec.id as string, { url_storage: path } as Partial<SyncableRecord>);
+  return { ...record, url_storage: path };
 }
 
 /** Prepara un registro Dexie para enviar a Supabase (quita campos locales) */
@@ -415,9 +447,10 @@ async function pushTable(
     const retry = await db.sync_retry.get([localTable, localId]);
     if (retry && !isDue(retry)) continue;
 
-    const data = prepareForRemote(record as Record<string, unknown>, localTable);
-
     try {
+      const conUrl = await ensureBlobUploaded(supabase, localTable, dexieTable, record);
+      const data = prepareForRemote(conUrl as Record<string, unknown>, localTable);
+
       const { error } = await supabase.from(remoteTable).upsert(data, { onConflict: "id" });
 
       if (error) throw error;
@@ -481,7 +514,8 @@ export async function pushSingle(localTable: string, localId: string): Promise<b
     const retry = await db.sync_retry.get([localTable, localId]);
     if (retry && !isDue(retry)) return false;
 
-    const data = prepareForRemote(record as Record<string, unknown>, localTable);
+    const conUrl = await ensureBlobUploaded(supabase, localTable, dexieTable, record);
+    const data = prepareForRemote(conUrl as Record<string, unknown>, localTable);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from(remote) as any).upsert(data, { onConflict: "id" });
@@ -584,7 +618,8 @@ async function retryRecordUnlocked(localTable: string, localId: string): Promise
 
   try {
     const supabase = createClient();
-    const data = prepareForRemote(record as Record<string, unknown>, localTable);
+    const conUrl = await ensureBlobUploaded(supabase, localTable, dexieTable, record);
+    const data = prepareForRemote(conUrl as Record<string, unknown>, localTable);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from(remote) as any).upsert(data, { onConflict: "id" });

@@ -201,6 +201,53 @@ export class FakeSupabaseClient {
     getUser: async () => ({ data: { user: this.currentUser } }),
   };
 
+  /** Archivos "subidos" a Storage: bucket → path → { size, contentType }. */
+  readonly _storage = new Map<string, Map<string, { size: number; contentType?: string }>>();
+  private storageFailPaths = new Set<string>();
+
+  /** Hace que el próximo `upload()` a `path` lance (simula red caída). */
+  failStorageUpload(path: string): void {
+    this.storageFailPaths.add(path);
+  }
+
+  storage = {
+    from: (bucket: string) => {
+      const bucketMap = () => {
+        if (!this._storage.has(bucket)) this._storage.set(bucket, new Map());
+        return this._storage.get(bucket)!;
+      };
+      return {
+        upload: async (
+          path: string,
+          body: Blob | ArrayBuffer,
+          opts?: { upsert?: boolean; contentType?: string }
+        ) => {
+          if (this.storageFailPaths.has(path)) {
+            this.storageFailPaths.delete(path);
+            throw new Error(`storage upload failed: ${path}`);
+          }
+          const size = body instanceof Blob ? body.size : body.byteLength;
+          bucketMap().set(path, { size, contentType: opts?.contentType });
+          return { data: { path }, error: null };
+        },
+        createSignedUrl: async (path: string, _expiresIn: number) => {
+          if (!bucketMap().has(path)) {
+            return { data: null, error: { message: "Object not found" } };
+          }
+          return {
+            data: { signedUrl: `https://fake.storage/${bucket}/${path}?token=signed` },
+            error: null,
+          };
+        },
+      };
+    },
+  };
+
+  /** ¿Existe el archivo en Storage? (para asserts) */
+  storageHas(bucket: string, path: string): boolean {
+    return this._storage.get(bucket)?.has(path) ?? false;
+  }
+
   /** Carga filas simuladas para una tabla remota, con truncamiento opcional. */
   seedTable(table: string, rows: FakeRow[], opts?: { maxRows?: number }): void {
     this.tables.set(table, { rows: rows.map((r) => ({ ...r })), maxRows: opts?.maxRows });

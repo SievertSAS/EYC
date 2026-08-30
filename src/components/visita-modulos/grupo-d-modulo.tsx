@@ -29,7 +29,7 @@ import { irAModulo } from "@/lib/modulo-nav";
 import { ManualDrawer } from "@/components/manual-drawer";
 import { getManualGrupo } from "@/lib/equipos/convencional/manual";
 import { useRowSavedFlash } from "@/hooks/use-row-saved";
-import { useBlobPreviewUrl } from "@/hooks/use-blob-preview-url";
+import { useImagenSrc } from "@/hooks/use-imagen-src";
 
 // ─── Helpers ───
 
@@ -138,12 +138,12 @@ function ImageSlot({
   onRemove,
 }: {
   label: string;
-  evidencia?: { id?: string; blob_local?: Blob };
+  evidencia?: { id?: string; blob_local?: Blob | null; url_storage?: string | null };
   onCapture: (file: File) => void;
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const preview = useBlobPreviewUrl(evidencia?.blob_local);
+  const preview = useImagenSrc(evidencia ?? {});
 
   return (
     <div className="space-y-2">

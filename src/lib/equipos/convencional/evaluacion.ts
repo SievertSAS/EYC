@@ -498,7 +498,14 @@ export function evaluarConceptoPrueba(codigo: string, d: DatosEvalConv): Concept
 }
 
 /** Carga todas las tablas conv_* necesarias para evaluar (sin fotos). */
+/** Excluye filas soft-deleted. Aplica a TODA lectura conv_* (#51). */
+const vivo = (r: { deleted_at?: string | null }): boolean => !r.deleted_at;
+
 export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv> {
+  // #51: el filtro de `deleted_at` estaba solo en 5 de las 15 lecturas — una
+  // medición borrada de RaySafe/CAE/DDI o un ítem de inspección borrado
+  // seguía alimentando la evaluación de conformidad y el PDF. Ahora se filtra
+  // en TODAS (tanto `.toArray()` como `.first()`).
   const [
     mediciones,
     inspeccion,
@@ -516,41 +523,21 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     caeSetup,
     caeMediciones,
   ] = await Promise.all([
-    db.conv_mediciones
-      .where("visita_id")
-      .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray(),
-    db.conv_elementos_proteccion
-      .where("visita_id")
-      .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_colimacion.where("visita_id").equals(visitaId).first(),
-    db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
-    db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).toArray(),
-    db.conv_ddi_mediciones.where("visita_id").equals(visitaId).toArray(),
-    db.conv_uniformidad_detector
-      .where("visita_id")
-      .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_resolucion.where("visita_id").equals(visitaId).first(),
-    db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
-    db.conv_cassette_inspeccion
-      .where("visita_id")
-      .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_uniformidad_cr
-      .where("visita_id")
-      .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_mtf.where("visita_id").equals(visitaId).first(),
-    db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
-    db.conv_cae_mediciones.where("visita_id").equals(visitaId).toArray(),
+    db.conv_mediciones.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_inspeccion_items.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_elementos_proteccion.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_colimacion.where("visita_id").equals(visitaId).filter(vivo).first(),
+    db.conv_raysafe_setup.where("visita_id").equals(visitaId).filter(vivo).first(),
+    db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_ddi_mediciones.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_uniformidad_detector.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_resolucion.where("visita_id").equals(visitaId).filter(vivo).first(),
+    db.conv_bajo_contraste.where("visita_id").equals(visitaId).filter(vivo).first(),
+    db.conv_cassette_inspeccion.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_uniformidad_cr.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.conv_mtf.where("visita_id").equals(visitaId).filter(vivo).first(),
+    db.conv_cae_setup.where("visita_id").equals(visitaId).filter(vivo).first(),
+    db.conv_cae_mediciones.where("visita_id").equals(visitaId).filter(vivo).toArray(),
   ]);
 
   return {

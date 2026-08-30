@@ -50,8 +50,8 @@ describe("recopilarDatosConv — carga de tablas", () => {
   });
 });
 
-describe("recopilarDatosConv — filtrado de deleted_at (INCONSISTENTE — finding)", () => {
-  it("conv_mediciones SÍ filtra deleted_at", async () => {
+describe("recopilarDatosConv — filtra deleted_at en TODAS las lecturas conv_* (#51)", () => {
+  it("conv_mediciones filtra deleted_at", async () => {
     await db.conv_mediciones.bulkAdd([
       row({ id: "m1", visita_id: V, punto_numero: 1, ...ok }),
       row({ id: "m2", visita_id: V, punto_numero: 2, ...del }),
@@ -60,23 +60,49 @@ describe("recopilarDatosConv — filtrado de deleted_at (INCONSISTENTE — findi
     expect(d.mediciones.map((m) => m.id)).toEqual(["m1"]);
   });
 
-  it("PIN: conv_raysafe_mediciones NO filtra deleted_at (fila borrada aparece en el PDF)", async () => {
+  it("conv_raysafe_mediciones filtra deleted_at (la fila borrada NO llega al PDF)", async () => {
     await db.conv_raysafe_mediciones.bulkAdd([
       row({ id: "r1", visita_id: V, toma_numero: 1, ...ok }),
       row({ id: "r2", visita_id: V, toma_numero: 2, ...del }),
     ]);
     const d = await recopilarDatosConv(V);
-    // Comportamiento ACTUAL (bug latente): devuelve las 2. → issue #51.
-    expect(d.raysafeMediciones.map((r) => r.id)).toEqual(["r1", "r2"]);
+    expect(d.raysafeMediciones.map((r) => r.id)).toEqual(["r1"]);
   });
 
-  it("PIN: conv_cae_mediciones y conv_ddi_mediciones tampoco filtran deleted_at", async () => {
-    await db.conv_cae_mediciones.add(row({ id: "c1", visita_id: V, toma_numero: 1, ...del }));
-    await db.conv_ddi_mediciones.add(
-      row({ id: "dd1", visita_id: V, grupo: 1, toma_numero: 1, ...del })
-    );
+  it("conv_cae_mediciones y conv_ddi_mediciones filtran deleted_at", async () => {
+    await db.conv_cae_mediciones.bulkAdd([
+      row({ id: "c0", visita_id: V, toma_numero: 0, ...ok }),
+      row({ id: "c1", visita_id: V, toma_numero: 1, ...del }),
+    ]);
+    await db.conv_ddi_mediciones.bulkAdd([
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 0, ...ok }),
+      row({ id: "dd1", visita_id: V, grupo: 1, toma_numero: 1, ...del }),
+    ]);
     const d = await recopilarDatosConv(V);
-    expect(d.caeMediciones).toHaveLength(1);
-    expect(d.ddiMediciones).toHaveLength(1);
+    expect(d.caeMediciones.map((m) => m.id)).toEqual(["c0"]);
+    expect(d.ddiMediciones.map((m) => m.id)).toEqual(["dd0"]);
+  });
+
+  it("conv_inspeccion_items filtra deleted_at", async () => {
+    await db.conv_inspeccion_items.bulkAdd([
+      row({
+        id: "i1",
+        visita_id: V,
+        seccion: "equipo",
+        item_numero: 1,
+        concepto: "Conforme",
+        ...ok,
+      }),
+      row({
+        id: "i2",
+        visita_id: V,
+        seccion: "equipo",
+        item_numero: 2,
+        concepto: "Conforme",
+        ...del,
+      }),
+    ]);
+    const d = await recopilarDatosConv(V);
+    expect(d.inspeccion.map((i) => i.id)).toEqual(["i1"]);
   });
 });

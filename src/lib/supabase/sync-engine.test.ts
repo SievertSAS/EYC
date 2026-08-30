@@ -624,6 +624,74 @@ describe("sync-engine — pullSyncTable borra localmente cuando el remoto trae d
 });
 
 // ============================================================
+//  #67 — el pull NO debe borrar el blob local de una evidencia
+// ============================================================
+
+describe("sync-engine — pullSyncTable preserva blob_local en el pull", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("una fila local con blob_local sobrevive al put del pull (el remoto trae url_storage, no el blob)", async () => {
+    const blob = new Blob([new Uint8Array([1, 2, 3, 4])], { type: "image/jpeg" });
+    await db.conv_evidencias.put({
+      id: "ev-1",
+      visita_id: "visita-1",
+      prueba_codigo: "2.2",
+      slot: "consola",
+      blob_local: blob,
+      sync_status: "synced",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+
+    // El remoto trae la metadata + url_storage, nunca el blob.
+    fakeClient.seedTable("conv_evidencias", [
+      {
+        id: "ev-1",
+        visita_id: "visita-1",
+        prueba_codigo: "2.2",
+        slot: "consola",
+        url_storage: "conv_evidencias/visita-1/ev-1.jpg",
+        last_modified: "2026-02-01T00:00:00.000Z",
+        sync_status: "synced",
+      },
+    ]);
+
+    await pullSyncTable(fakeClient, "conv_evidencias", "conv_evidencias");
+
+    const local = await db.conv_evidencias.get("ev-1");
+    // Sin el merge, el `put` del pull dejaría `blob_local` en undefined.
+    // (fake-indexeddb degrada el Blob a objeto plano al persistir, así que
+    // solo se puede afirmar que el binario sigue presente, no su tipo.)
+    expect(local?.blob_local).not.toBeUndefined();
+    expect(local?.blob_local).not.toBeNull();
+    // y además incorpora el url_storage que trajo el remoto
+    expect(local?.url_storage).toBe("conv_evidencias/visita-1/ev-1.jpg");
+  });
+
+  it("si la fila local no tiene blob, el pull aplica el remoto tal cual", async () => {
+    fakeClient.seedTable("conv_evidencias", [
+      {
+        id: "ev-2",
+        visita_id: "visita-1",
+        prueba_codigo: "2.2",
+        slot: "equipo_rayos_x",
+        url_storage: "conv_evidencias/visita-1/ev-2.jpg",
+        last_modified: "2026-02-01T00:00:00.000Z",
+        sync_status: "synced",
+      },
+    ]);
+
+    await pullSyncTable(fakeClient, "conv_evidencias", "conv_evidencias");
+
+    const local = await db.conv_evidencias.get("ev-2");
+    expect(local?.blob_local).toBeUndefined();
+    expect(local?.url_storage).toBe("conv_evidencias/visita-1/ev-2.jpg");
+  });
+});
+
+// ============================================================
 //  getAuthenticatedUser — reintento de sesión (bug del primer login)
 //
 //  `fullSync()` se dispara en el login como fire-and-forget, justo

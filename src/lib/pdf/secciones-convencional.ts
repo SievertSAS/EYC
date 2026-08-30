@@ -175,6 +175,9 @@ function dedupePorClave<T>(
   return [...porClave.values()];
 }
 
+/** Excluye filas soft-deleted de las lecturas conv_* (#51). */
+const vivoConv = (r: { deleted_at?: string | null }): boolean => !r.deleted_at;
+
 export async function recopilarDatosConv(visitaId: string): Promise<DatosConvencional> {
   const [
     secciones,
@@ -198,48 +201,51 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     caeMediciones,
   ] = await Promise.all([
     db.conv_informe_secciones.where("visita_id").equals(visitaId).sortBy("orden"),
-    db.conv_levantamiento_setup.where("visita_id").equals(visitaId).first(),
-    db.conv_mediciones
+    // #51: el filtro de `deleted_at` estaba solo en 5 de las 17 lecturas — una
+    // medición borrada de RaySafe/CAE/DDI o un ítem de inspección borrado
+    // seguía saliendo en el PDF oficial. Ahora se filtra en TODAS.
+    db.conv_levantamiento_setup.where("visita_id").equals(visitaId).filter(vivoConv).first(),
+    db.conv_mediciones.where("visita_id").equals(visitaId).filter(vivoConv).sortBy("punto_numero"),
+    db.conv_inspeccion_items.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
+    db.conv_elementos_proteccion.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
+    db.conv_resultados_prueba.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
+    db.conv_evidencias.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
+    db.conv_colimacion.where("visita_id").equals(visitaId).filter(vivoConv).first(),
+    db.conv_raysafe_setup.where("visita_id").equals(visitaId).filter(vivoConv).first(),
+    db.conv_raysafe_mediciones
       .where("visita_id")
       .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .sortBy("punto_numero"),
-    db.conv_inspeccion_items.where("visita_id").equals(visitaId).toArray(),
-    db.conv_elementos_proteccion
+      .filter(vivoConv)
+      .sortBy("toma_numero"),
+    db.conv_ddi_mediciones
       .where("visita_id")
       .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_resultados_prueba.where("visita_id").equals(visitaId).toArray(),
-    db.conv_evidencias
-      .where("visita_id")
-      .equals(visitaId)
-      .filter((r) => !r.deleted_at)
-      .toArray(),
-    db.conv_colimacion.where("visita_id").equals(visitaId).first(),
-    db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
-    db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
-    db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+      .filter(vivoConv)
+      .sortBy("toma_numero"),
     db.conv_uniformidad_detector
       .where("visita_id")
       .equals(visitaId)
-      .filter((r) => !r.deleted_at)
+      .filter(vivoConv)
       .sortBy("item_numero"),
-    db.conv_resolucion.where("visita_id").equals(visitaId).first(),
-    db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
+    db.conv_resolucion.where("visita_id").equals(visitaId).filter(vivoConv).first(),
+    db.conv_bajo_contraste.where("visita_id").equals(visitaId).filter(vivoConv).first(),
     db.conv_cassette_inspeccion
       .where("visita_id")
       .equals(visitaId)
-      .filter((r) => !r.deleted_at)
+      .filter(vivoConv)
       .sortBy("item_numero"),
     db.conv_uniformidad_cr
       .where("visita_id")
       .equals(visitaId)
-      .filter((r) => !r.deleted_at)
+      .filter(vivoConv)
       .sortBy("item_numero"),
-    db.conv_mtf.where("visita_id").equals(visitaId).first(),
-    db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
-    db.conv_cae_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+    db.conv_mtf.where("visita_id").equals(visitaId).filter(vivoConv).first(),
+    db.conv_cae_setup.where("visita_id").equals(visitaId).filter(vivoConv).first(),
+    db.conv_cae_mediciones
+      .where("visita_id")
+      .equals(visitaId)
+      .filter(vivoConv)
+      .sortBy("toma_numero"),
   ]);
 
   // Deduplica ítems de inspección con el mismo (sección, número) — ver

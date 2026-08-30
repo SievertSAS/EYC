@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ClienteFormDialog } from "@/components/cliente-form-dialog";
-import { ContactoFormDialog } from "@/components/contacto-form-dialog";
+import { ContactoFormDialog, CARGO_LABELS } from "@/components/contacto-form-dialog";
 import { SedeFormDialog } from "@/components/sede-form-dialog";
 import { UbicacionFormDialog } from "@/components/ubicacion-form-dialog";
 import { EquipoFormDialog } from "@/components/equipo-form-dialog";
@@ -33,14 +33,6 @@ import type { Sede, UbicacionRx, Equipo, Contacto } from "@/lib/db/types";
 // ============================================================
 //  Detalle de cliente con tabs: Info, Contactos, Sedes
 // ============================================================
-
-const CARGO_LABELS: Record<string, string> = {
-  medico_responsable: "Médico Responsable",
-  tecnologo: "Tecnólogo",
-  opr: "OPR",
-  representante: "Representante",
-  otro: "Otro",
-};
 
 const TIPO_EQUIPO_LABELS: Record<string, string> = {
   CONVENCIONAL: "Convencional",

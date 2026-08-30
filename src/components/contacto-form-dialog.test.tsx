@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/sync-engine", () => ({
   pushSingle: vi.fn(),
 }));
 
-import { ContactoFormDialog, CARGO_OPTIONS } from "./contacto-form-dialog";
+import { ContactoFormDialog, CARGO_OPTIONS, CARGO_LABELS } from "./contacto-form-dialog";
 
 async function seedContacto(overrides: Partial<Contacto> = {}): Promise<Contacto> {
   const contacto: Contacto = {
@@ -136,6 +136,13 @@ describe("ContactoFormDialog", () => {
         "otro",
       ])
     );
+  });
+
+  it("CARGO_LABELS mapea cada valor a su etiqueta (incl. responsable_visita)", () => {
+    expect(CARGO_LABELS.responsable_visita).toBe("Responsable de la Visita");
+    for (const opt of CARGO_OPTIONS) {
+      expect(CARGO_LABELS[opt.value]).toBe(opt.label);
+    }
   });
 
   it("al editar un contacto responsable_visita muestra su etiqueta, no 'Seleccionar cargo'", async () => {

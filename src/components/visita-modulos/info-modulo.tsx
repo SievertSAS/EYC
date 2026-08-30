@@ -6,6 +6,9 @@ import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { SISTEMAS_ADQUISICION } from "@/lib/db/types";
+import type { EquipoIdentificacion } from "@/lib/db/types";
+import { useImagenSrc } from "@/hooks/use-imagen-src";
+import { ImagenConTitulo } from "@/components/imagen-con-titulo";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -239,6 +242,34 @@ function ReadonlyField({
   );
 }
 
+/** Una fila de identificación del equipo (#61): resuelve su imagen y delega en <ImagenConTitulo>. */
+function IdentificacionRow({
+  iden,
+  onNombre,
+  onCapture,
+  onRemoveImagen,
+  onDelete,
+}: {
+  iden: EquipoIdentificacion;
+  onNombre: (value: string) => void;
+  onCapture: (file: File) => void;
+  onRemoveImagen: () => void;
+  onDelete: () => void;
+}) {
+  const src = useImagenSrc(iden);
+  return (
+    <ImagenConTitulo
+      nombre={iden.nombre ?? ""}
+      src={src}
+      placeholder="Ej: Placa del fabricante / N.º de inventario"
+      onNombreChange={onNombre}
+      onCapture={onCapture}
+      onRemoveImagen={onRemoveImagen}
+      onDelete={onDelete}
+    />
+  );
+}
+
 // ─── Progress bar ───
 
 function ProgressBar({ percent, label }: { percent: number; label: string }) {
@@ -332,6 +363,16 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           .sort((a, b) => (a.creado_en ?? "").localeCompare(b.creado_en ?? ""))
       : [];
 
+    const identificaciones = visita.equipo_id
+      ? (await db.equipo_identificaciones.where("equipo_id").equals(visita.equipo_id).toArray())
+          .filter((r) => !r.deleted_at)
+          .sort(
+            (a, b) =>
+              (a.orden ?? 0) - (b.orden ?? 0) ||
+              (a.creado_en ?? "").localeCompare(b.creado_en ?? "")
+          )
+      : [];
+
     const contactos = cliente?.id
       ? await db.contactos.where("cliente_id").equals(cliente.id).toArray()
       : [];
@@ -345,6 +386,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
       solicitud,
       tubos,
       nroTubos: tubos.length,
+      identificaciones,
       contactos,
     };
   }, [isReady, visitaId]);
@@ -451,6 +493,43 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     pushSingle("tubos", tuboId);
   }
 
+  // ─── Identificaciones del equipo (#61: nombre + foto) ───
+
+  async function addIdentificacion() {
+    const equipoId = data?.equipo?.id;
+    if (!equipoId) return;
+    const nueva = {
+      id: randomUUID(),
+      equipo_id: equipoId,
+      orden: (data?.identificaciones?.length ?? 0) + 1,
+      creado_en: now(),
+      sync_status: "pending" as const,
+      last_modified: now(),
+    };
+    await db.equipo_identificaciones.add(nueva);
+    pushSingle("equipo_identificaciones", nueva.id);
+  }
+
+  async function saveIdentificacion(idenId: string, patch: Partial<EquipoIdentificacion>) {
+    if (!idenId) return;
+    await db.equipo_identificaciones.update(idenId, {
+      ...patch,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("equipo_identificaciones", idenId);
+  }
+
+  async function deleteIdentificacion(idenId: string) {
+    if (!idenId) return;
+    await db.equipo_identificaciones.update(idenId, {
+      deleted_at: now(),
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("equipo_identificaciones", idenId);
+  }
+
   async function saveVisita(field: string, value: string, numeric = false) {
     if (!visitaId) return;
     const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
@@ -524,6 +603,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   const { visita, equipo, ubicacion, sede, cliente, solicitud, tubos, nroTubos, contactos } = data;
+  const identificaciones = data.identificaciones;
 
   const medico = getContacto("medico_responsable");
   const tecnologo = getContacto("tecnologo");
@@ -952,6 +1032,45 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             icon={Zap}
             onSave={(v) => saveEquipo("gen_energia_fotones_mev", v)}
           />
+        </div>
+      </SectionCard>
+
+      {/* 3b. Identificaciones del Equipo (placas, inventario, calibración…) */}
+      <SectionCard
+        icon={FileText}
+        title="Identificaciones del Equipo"
+        subtitle="Placas / inventario / calibración — foto rotulada"
+        progress={identificaciones.length > 0 ? 100 : 0}
+      >
+        <div className="space-y-3">
+          {identificaciones.length === 0 && (
+            <p className="text-sm text-slate-400 font-medium py-2 text-center">
+              Sin identificaciones cargadas
+            </p>
+          )}
+          {identificaciones.map((iden) => (
+            <IdentificacionRow
+              key={iden.id}
+              iden={iden}
+              onNombre={(v) => saveIdentificacion(iden.id!, { nombre: v || undefined })}
+              onCapture={(file) =>
+                saveIdentificacion(iden.id!, { blob_local: file, url_storage: null })
+              }
+              onRemoveImagen={() =>
+                saveIdentificacion(iden.id!, { blob_local: null, url_storage: null })
+              }
+              onDelete={() => deleteIdentificacion(iden.id!)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={addIdentificacion}
+            disabled={!equipo}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar identificación
+          </button>
         </div>
       </SectionCard>
 

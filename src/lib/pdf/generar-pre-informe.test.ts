@@ -130,6 +130,26 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).not.toContain("TUBO-BORRADO");
   });
 
+  it("#61 (D2c): las identificaciones del equipo salen en el informe; una borrada no", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipo_identificaciones.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id!, nombre: "IDEN-PLACA-FABRICANTE", orden: 1 },
+      { id: randomUUID(), equipo_id: equipo.id!, nombre: "IDEN-INVENTARIO", orden: 2 },
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        nombre: "IDEN-BORRADA",
+        orden: 3,
+        deleted_at: new Date().toISOString(),
+      },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Identificaciones del Equipo");
+    expect(text).toContain("IDEN-PLACA-FABRICANTE");
+    expect(text).toContain("IDEN-INVENTARIO");
+    expect(text).not.toContain("IDEN-BORRADA");
+  });
+
   it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {
     const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.ubicaciones_rx.update(ubicacion.id!, {

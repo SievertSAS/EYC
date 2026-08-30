@@ -1200,6 +1200,47 @@ export type Database = {
           },
         ];
       };
+      equipo_identificaciones: {
+        Row: {
+          creado_en: string;
+          equipo_id: string;
+          id: string;
+          last_modified: string;
+          nombre: string | null;
+          orden: number | null;
+          sync_status: string;
+          url_storage: string | null;
+        };
+        Insert: {
+          creado_en?: string;
+          equipo_id: string;
+          id?: string;
+          last_modified?: string;
+          nombre?: string | null;
+          orden?: number | null;
+          sync_status?: string;
+          url_storage?: string | null;
+        };
+        Update: {
+          creado_en?: string;
+          equipo_id?: string;
+          id?: string;
+          last_modified?: string;
+          nombre?: string | null;
+          orden?: number | null;
+          sync_status?: string;
+          url_storage?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "equipo_identificaciones_equipo_id_fkey";
+            columns: ["equipo_id"];
+            isOneToOne: false;
+            referencedRelation: "equipos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       equipo_movimientos: {
         Row: {
           creado_en: string;

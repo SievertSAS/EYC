@@ -141,4 +141,16 @@ describe("InfoModulo — tubos desde Información General (#61 D2b)", () => {
       expect(t?.deleted_at).toBeTruthy();
     });
   });
+
+  it("#61 (D2c): agrega una identificación del equipo desde su botón", async () => {
+    const { visita, equipo } = await seedGraph();
+    render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    expect(await db.equipo_identificaciones.where("equipo_id").equals(equipo.id!).count()).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: /agregar identificación/i }));
+    await waitFor(async () =>
+      expect(await db.equipo_identificaciones.where("equipo_id").equals(equipo.id!).count()).toBe(1)
+    );
+  });
 });

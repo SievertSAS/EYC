@@ -19,6 +19,7 @@ export const EVIDENCIAS_BUCKET = "evidencias";
 export interface RegistroConImagen {
   id?: string;
   visita_id?: string;
+  equipo_id?: string;
   prueba_codigo?: string;
   slot?: string;
   tipo?: string;
@@ -29,8 +30,9 @@ export interface RegistroConImagen {
 /**
  * Ruta de una evidencia dentro del bucket. Una carpeta por visita para
  * que sea navegable en el panel de Storage; el índice real es la fila.
- *   conv_evidencias → {visita_id}/{prueba_codigo}/{slot}.jpg
- *   evidencias      → {visita_id}/{tipo|id}.jpg
+ *   conv_evidencias         → {visita_id}/{prueba_codigo}/{slot}.jpg
+ *   equipo_identificaciones → equipos/{equipo_id}/{id}.jpg
+ *   evidencias              → {visita_id}/{tipo|id}.jpg
  */
 export function evidenciaPath(localTable: string, rec: RegistroConImagen): string {
   const visita = rec.visita_id ?? "sin-visita";
@@ -39,6 +41,10 @@ export function evidenciaPath(localTable: string, rec: RegistroConImagen): strin
     const prueba = (rec.prueba_codigo ?? "gen").replace(/[^\w.-]/g, "_");
     const slot = (rec.slot ?? id).replace(/[^\w.-]/g, "_");
     return `${visita}/${prueba}/${slot}.jpg`;
+  }
+  if (localTable === "equipo_identificaciones") {
+    const equipo = (rec.equipo_id ?? "sin-equipo").replace(/[^\w.-]/g, "_");
+    return `equipos/${equipo}/${id}.jpg`;
   }
   const nombre = (rec.tipo ?? rec.slot ?? id).replace(/[^\w.-]/g, "_");
   return `${visita}/${nombre}.jpg`;

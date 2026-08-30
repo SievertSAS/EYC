@@ -250,6 +250,22 @@ export interface Gantry extends Partial<SyncFields> {
   creado_en?: string;
 }
 
+/**
+ * "Otras identificaciones" del equipo (#61): una foto rotulada — placa del
+ * fabricante, número de inventario de la institución, etiqueta de calibración,
+ * etc. `blob_local` es la imagen local; se sube al bucket y su path queda en
+ * `url_storage` (mismo pipeline que las evidencias, #67).
+ */
+export interface EquipoIdentificacion extends Partial<SyncFields> {
+  id?: string;
+  equipo_id: string;
+  nombre?: string;
+  orden?: number;
+  blob_local?: Blob | null;
+  url_storage?: string | null;
+  creado_en?: string;
+}
+
 export interface SalaDimensiones {
   id?: string;
   ubicacion_id: string;

@@ -5,6 +5,7 @@ import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import { TIPOS_EQUIPO, type TipoEquipo } from "@/lib/db/types";
 import {
@@ -218,7 +219,7 @@ export function EquipoFormDialog({
         tipo_equipo: (tipoEquipo as TipoEquipo) || undefined,
         planilla_espacial: equipo?.planilla_espacial ?? false,
         sistema_adquisicion: sistemaAdq || undefined,
-        distancia_foco_paciente: distanciaFoco ? parseFloat(distanciaFoco) : undefined,
+        distancia_foco_paciente: parseDecimal(distanciaFoco),
         bucky: (bucky as Equipo["bucky"]) || undefined,
         marca: marca || undefined,
         modelo: modelo || undefined,
@@ -228,8 +229,8 @@ export function EquipoFormDialog({
         gen_numero_serie: genSerie || undefined,
         gen_fecha_fabricacion: genFechaFab || undefined,
         gen_fase: (genFase as Equipo["gen_fase"]) || undefined,
-        filtracion_inherente_mmal: filtInherente ? parseFloat(filtInherente) : undefined,
-        filtracion_anadida_mmal: filtAnadida ? parseFloat(filtAnadida) : undefined,
+        filtracion_inherente_mmal: parseDecimal(filtInherente),
+        filtracion_anadida_mmal: parseDecimal(filtAnadida),
         creado_en: now,
         sync_status: "pending",
         last_modified: now,
@@ -241,11 +242,11 @@ export function EquipoFormDialog({
         modelo: tuboModelo || undefined,
         numero_serie: tuboSerie || undefined,
         tipo: tuboTipo || undefined,
-        mas_max: tuboMasMax ? parseFloat(tuboMasMax) : undefined,
-        kv_max: tuboKvMax ? parseFloat(tuboKvMax) : undefined,
-        ma_max: tuboMaMax ? parseFloat(tuboMaMax) : undefined,
-        foco_fino_mm: tuboFocoFino ? parseFloat(tuboFocoFino) : undefined,
-        foco_grueso_mm: tuboFocoGrueso ? parseFloat(tuboFocoGrueso) : undefined,
+        mas_max: parseDecimal(tuboMasMax),
+        kv_max: parseDecimal(tuboKvMax),
+        ma_max: parseDecimal(tuboMaMax),
+        foco_fino_mm: parseDecimal(tuboFocoFino),
+        foco_grueso_mm: parseDecimal(tuboFocoGrueso),
         creado_en: now,
         sync_status: "pending",
         last_modified: now,

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -65,7 +66,14 @@ function EditableField({
   onSave: (v: string) => void;
   type?: "text" | "number" | "date";
 }) {
-  const [local, setLocal] = useState(value);
+  // #68: los campos numéricos se muestran con coma decimal (es-CO) y aceptan
+  // coma o punto. El input real es `text` + `inputMode=decimal` (evita la
+  // "ruleta de locale" de `type=number`). `onSave` recibe el string crudo;
+  // el caller lo pasa por `parseDecimal`.
+  const esNumero = type === "number";
+  const paraMostrar = (v: string) => (esNumero ? decimalInputValue(parseDecimal(v)) : v);
+
+  const [local, setLocal] = useState(() => paraMostrar(value));
   const [prevValue, setPrevValue] = useState(value);
   const [saved, setSaved] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -74,7 +82,7 @@ function EditableField({
   // sync entre dispositivos): ajuste de estado en render, no en efecto.
   if (value !== prevValue) {
     setPrevValue(value);
-    setLocal(value);
+    setLocal(paraMostrar(value));
   }
 
   const handleChange = useCallback(
@@ -99,7 +107,8 @@ function EditableField({
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
       </p>
       <Input
-        type={type}
+        type={esNumero ? "text" : type}
+        inputMode={esNumero ? "decimal" : undefined}
         className="rounded-xl border-slate-200 focus:border-primary font-medium h-9 text-sm"
         value={local}
         onChange={(e) => handleChange(e.target.value)}
@@ -369,7 +378,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   async function saveUbicacion(field: string, value: string, numeric = false) {
     const id = data?.ubicacion?.id;
     if (!id) return;
-    const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
+    const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
     await db.ubicaciones_rx.update(id, {
       [field]: parsed,
       sync_status: "pending",
@@ -382,7 +391,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   async function saveUbicacionDim(field: "ancho_m" | "largo_m" | "alto_m", value: string) {
     const id = data?.ubicacion?.id;
     if (!id) return;
-    const parsed = value === "" ? undefined : parseFloat(value);
+    const parsed = value === "" ? undefined : parseDecimal(value);
     const ancho = field === "ancho_m" ? parsed : data?.ubicacion?.ancho_m;
     const largo = field === "largo_m" ? parsed : data?.ubicacion?.largo_m;
     const area = ancho && largo ? Math.round(ancho * largo * 100) / 100 : undefined;
@@ -398,7 +407,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   async function saveEquipo(field: string, value: string, numeric = false) {
     const id = data?.equipo?.id;
     if (!id) return;
-    const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
+    const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
     await db.equipos.update(id, { [field]: parsed, sync_status: "pending", last_modified: now() });
     pushSingle("equipos", id);
   }
@@ -406,14 +415,14 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   async function saveTubo(field: string, value: string, numeric = false) {
     const id = data?.tubo?.id;
     if (!id) return;
-    const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
+    const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
     await db.tubos.update(id, { [field]: parsed, sync_status: "pending", last_modified: now() });
     pushSingle("tubos", id);
   }
 
   async function saveVisita(field: string, value: string, numeric = false) {
     if (!visitaId) return;
-    const parsed = numeric ? (value === "" ? undefined : parseFloat(value)) : value || undefined;
+    const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
     await db.visitas.update(visitaId, {
       [field]: parsed,
       last_modified: new Date().toISOString(),

@@ -1,5 +1,6 @@
 import type { jsPDF } from "jspdf";
 import { db } from "@/lib/db";
+import { formatDecimal } from "@/lib/decimal";
 import type {
   VisitaEjecucion,
   Equipo,
@@ -1236,12 +1237,12 @@ export async function generarPreInforme(
           esNoConforme = !conforme;
           if (conforme) {
             conceptoLabel = "FAVORABLE";
-            conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${cv.toFixed(1)} %, dentro del criterio de aceptación establecido.`;
+            conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${formatDecimal(cv, 1)} %, dentro del criterio de aceptación establecido.`;
             accionesTexto =
               "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
           } else {
             conceptoLabel = "NO FAVORABLE";
-            conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${cv.toFixed(1)} %, superando el criterio de aceptación del 10 %.`;
+            conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${formatDecimal(cv, 1)} %, superando el criterio de aceptación del 10 %.`;
             accionesTexto =
               "Se recomienda verificar el estado y la limpieza de las pantallas IP, y repetir la prueba para confirmar el cumplimiento del criterio de uniformidad.";
           }
@@ -1431,10 +1432,10 @@ export async function generarPreInforme(
           body: datos.mediciones.map((m) => [
             String(m.punto_numero),
             m.ubicacion_descripcion || "—",
-            m.tasa_dosis_msv_h != null ? m.tasa_dosis_msv_h.toFixed(5) : "—",
+            formatDecimal(m.tasa_dosis_msv_h, 5),
             m.factor_ocupacion ?? "—",
             m.tipo_area ? m.tipo_area.charAt(0).toUpperCase() + m.tipo_area.slice(1) : "—",
-            m.dosis_anual_msv != null ? m.dosis_anual_msv.toFixed(4) : "—",
+            formatDecimal(m.dosis_anual_msv, 4),
             m.concepto?.replace(/_/g, " ") ?? "—",
           ]),
           theme: "grid",

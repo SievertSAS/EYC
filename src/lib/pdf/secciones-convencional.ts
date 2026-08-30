@@ -1,6 +1,7 @@
 import type { jsPDF } from "jspdf";
 import type autoTableType from "jspdf-autotable";
 import { db } from "@/lib/db";
+import { formatDecimal } from "@/lib/decimal";
 import type { VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
 import type {
   ConvLevantamientoSetup,
@@ -435,7 +436,7 @@ function num(v: number | undefined | null): number {
 }
 
 function fmt(v: number | undefined | null, decimals = 1): string {
-  return v == null ? "—" : v.toFixed(decimals);
+  return formatDecimal(v, decimals);
 }
 
 function capitalizar(s: string | undefined): string {
@@ -510,7 +511,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
         {
           content:
             setup?.fondo_natural_usv_h != null
-              ? (setup.fondo_natural_usv_h / 1000).toFixed(5)
+              ? formatDecimal(setup.fondo_natural_usv_h / 1000, 5)
               : "—",
           colSpan: 3,
           styles: { fontStyle: "normal", fillColor: [255, 255, 255] },
@@ -544,7 +545,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       body: conv.mediciones.map((m) => [
         String(m.punto_numero),
         m.ubicacion_descripcion || "—",
-        m.tasa_dosis_msv_h != null ? m.tasa_dosis_msv_h.toFixed(5) : "—",
+        m.tasa_dosis_msv_h != null ? formatDecimal(m.tasa_dosis_msv_h, 5) : "—",
       ]),
       columnStyles: { 0: { cellWidth: 14 } },
     });
@@ -606,7 +607,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
         m.ubicacion_descripcion || "—",
         fmt(m.factor_ocupacion_t, 3).replace(/\.?0+$/, "") || "—",
         fmt(m.factor_uso_u, 1),
-        m.dosis_anual_msv != null ? m.dosis_anual_msv.toFixed(6) : "—",
+        m.dosis_anual_msv != null ? formatDecimal(m.dosis_anual_msv, 6) : "—",
         capitalizar(m.tipo_area),
         conceptoLabel(m.concepto),
       ]),
@@ -1092,9 +1093,9 @@ function render22(
   if (ubicacion?.ancho_m || ubicacion?.largo_m || ubicacion?.alto_m) {
     const area =
       ubicacion.area_m2 != null
-        ? `${ubicacion.area_m2.toFixed(2)} m²`
+        ? `${formatDecimal(ubicacion.area_m2, 2)} m²`
         : ubicacion.ancho_m && ubicacion.largo_m
-          ? `${(ubicacion.ancho_m * ubicacion.largo_m).toFixed(2)} m²`
+          ? `${formatDecimal(ubicacion.ancho_m * ubicacion.largo_m, 2)} m²`
           : "—";
     ctx.checkPage(20);
     addCaption(ctx, "Dimensiones de la sala");
@@ -1248,8 +1249,8 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
       label,
       fmt(nom, 0),
       fmt(med, 0),
-      diff.toFixed(1),
-      varPct.toFixed(1) + " %",
+      formatDecimal(diff, 1),
+      formatDecimal(varPct, 1) + " %",
       "< 2 %",
       concepto,
     ];
@@ -1285,7 +1286,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
         "",
         "",
         "",
-        totalVar.toFixed(1) + " %",
+        formatDecimal(totalVar, 1) + " %",
         "< 4 %",
         conceptoTotal,
       ],
@@ -1342,7 +1343,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
   // .5 Análisis — texto auto-generado según la fórmula del Excel
   ctx.addSubsectionTitle("2.3.5.", "Análisis");
 
-  const totalVarStr = totalVar.toFixed(0);
+  const totalVarStr = formatDecimal(totalVar, 0);
   let analisisTexto: string;
   if (conceptoTotal === "Conforme" && perpConcepto === "Conforme") {
     analisisTexto = `Los resultados obtenidos evidencian que la coincidencia entre el campo luminoso y el campo de radiación cumple con los criterios de aceptación establecidos, ya que las desviaciones individuales fueron inferiores al 2 % y la desviación total fue de ${totalVarStr} %. Adicionalmente, la perpendicularidad del rayo central presentó una desviación angular menor o igual a 3°, por lo que la prueba se considera conforme.`;
@@ -1419,11 +1420,11 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
       const std = stdDev(medidos);
       const cv = prom > 0 ? (std / prom) * 100 : 0;
       return [
-        nom.toFixed(5).replace(/\.?0+$/, ""),
-        prom.toFixed(3),
-        desv.toFixed(2) + " %",
-        std.toFixed(5),
-        cv.toFixed(2) + " %",
+        formatDecimal(nom),
+        formatDecimal(prom, 3),
+        formatDecimal(desv, 2) + " %",
+        formatDecimal(std, 5),
+        formatDecimal(cv, 2) + " %",
         desv <= 10 && cv <= 10 ? "Conforme" : "No conforme",
       ];
     });
@@ -1465,7 +1466,7 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
   if (todosConformes) {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${maxDv.toFixed(2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${maxCv.toFixed(2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
+      `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
     );
   } else {
     ctx.addParagraph(
@@ -1503,11 +1504,11 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
       const std = stdDev(medidos);
       const cv = prom > 0 ? (std / prom) * 100 : 0;
       return [
-        nom.toFixed(0),
-        prom.toFixed(1),
-        desv.toFixed(2) + " %",
-        std.toFixed(2),
-        cv.toFixed(2) + " %",
+        formatDecimal(nom, 0),
+        formatDecimal(prom, 1),
+        formatDecimal(desv, 2) + " %",
+        formatDecimal(std, 2),
+        formatDecimal(cv, 2) + " %",
         desv <= 10 && cv <= 5 ? "Conforme" : "No conforme",
       ];
     });
@@ -1549,7 +1550,7 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
   const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
   if (todosConformes) {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que la tensión del tubo medida presenta desviaciones máximas de hasta ${maxDv.toFixed(2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${maxCv.toFixed(2)} %, lo que indica una adecuada estabilidad en la respuesta del generador de rayos X para los valores de tensión evaluados.`
+      `Los resultados obtenidos evidencian que la tensión del tubo medida presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad en la respuesta del generador de rayos X para los valores de tensión evaluados.`
     );
   } else {
     ctx.addParagraph(
@@ -1584,7 +1585,7 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
       const chrProm = mean(ms.map((m) => m.chr_medido_mmal!));
       const chrMin = CHR_MIN[kv] ?? "—";
       const concepto = typeof chrMin === "number" && chrProm >= chrMin ? "Conforme" : "No conforme";
-      return [kv.toFixed(0), chrProm.toFixed(1), String(chrMin), concepto];
+      return [formatDecimal(kv, 0), formatDecimal(chrProm, 1), String(chrMin), concepto];
     });
 
   ctx.checkPage(36);
@@ -1661,10 +1662,10 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
     head: [["Tensión (kVp)", "Carga (mAs)", "EI", "D.I."]],
     body: [
       [
-        kv != null ? kv.toFixed(1) : "—",
-        mas != null ? mas.toFixed(1) : "—",
+        kv != null ? formatDecimal(kv, 1) : "—",
+        mas != null ? formatDecimal(mas, 1) : "—",
         eiBase != null ? String(eiBase) : "—",
-        diBase != null ? diBase.toFixed(2) : "NA",
+        diBase != null ? formatDecimal(diBase, 2) : "NA",
       ],
     ],
   });
@@ -1728,10 +1729,10 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       if (linPct != null && linPct > linMaxPct) linMaxPct = linPct;
       prevRend = rend;
       return [
-        mas.toFixed(1),
-        kermaProm.toFixed(3),
-        rend.toFixed(1),
-        linPct != null ? linPct.toFixed(2) + " %" : "-%",
+        formatDecimal(mas, 1),
+        formatDecimal(kermaProm, 3),
+        formatDecimal(rend, 1),
+        linPct != null ? formatDecimal(linPct, 2) + " %" : "-%",
       ];
     });
 
@@ -1787,7 +1788,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   if (repShots.length > 0) {
     const rowsIndiv: string[][] = repShots.map((m, i) => [
       String(i + 1),
-      m.dosis_medida_mgy!.toFixed(4),
+      formatDecimal(m.dosis_medida_mgy!, 4),
     ]);
 
     ctx.checkPage(40);
@@ -1798,9 +1799,9 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       head: [["Medición", "Kerma en aire medido (mGy)"]],
       body: [
         ...rowsIndiv,
-        ["Promedio", promRep.toFixed(4)],
-        ["Desviación estándar (mGy)", stdRep.toFixed(4)],
-        ["CV(%)", cvRep.toFixed(2) + " %"],
+        ["Promedio", formatDecimal(promRep, 4)],
+        ["Desviación estándar (mGy)", formatDecimal(stdRep, 4)],
+        ["CV(%)", formatDecimal(cvRep, 2) + " %"],
       ],
       columnStyles: {
         0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
@@ -1824,10 +1825,10 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
   const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;
 
-  const cvStr = cvRep.toFixed(2).replace(".", ",");
-  const linStr = linMaxPct.toFixed(2).replace(".", ",");
-  const rMinStr = rendMin.toFixed(1).replace(".", ",");
-  const rMaxStr = rendMax.toFixed(1).replace(".", ",");
+  const cvStr = formatDecimal(cvRep, 2);
+  const linStr = formatDecimal(linMaxPct, 2);
+  const rMinStr = formatDecimal(rendMin, 1);
+  const rMaxStr = formatDecimal(rendMax, 1);
 
   if (conformeRep && conformeLin) {
     ctx.addParagraph(
@@ -1877,11 +1878,11 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
     const dapNom = m.dap_nominal;
     const fc = dapNom != null && dapNom > 0 ? dapEst / dapNom : null;
     return {
-      kv: kvNom != null ? kvNom.toFixed(1) : "—",
-      mas: masNom != null ? masNom.toFixed(1) : "—",
-      dapNom: dapNom != null ? dapNom.toFixed(0) : "—",
-      dapEst: dapEst > 0 ? dapEst.toFixed(2) : "—",
-      fc: fc != null ? fc.toFixed(1) : "—",
+      kv: kvNom != null ? formatDecimal(kvNom, 1) : "—",
+      mas: masNom != null ? formatDecimal(masNom, 1) : "—",
+      dapNom: dapNom != null ? formatDecimal(dapNom, 0) : "—",
+      dapEst: dapEst > 0 ? formatDecimal(dapEst, 2) : "—",
+      fc: fc != null ? formatDecimal(fc, 1) : "—",
     };
   });
 
@@ -1973,14 +1974,14 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
         "EI",
         ei != null ? String(ei) : "—",
         eiBase != null ? String(eiBase) : "—",
-        eiDev != null ? `${eiDev.toFixed(1)}%` : "—",
+        eiDev != null ? `${formatDecimal(eiDev, 1)}%` : "—",
         eiConf,
       ],
       [
         "D.I.",
-        di != null ? di.toFixed(2) : "NA",
-        diBase != null ? diBase.toFixed(2) : "NA",
-        diDev != null ? `${diDev.toFixed(1)}%` : "NA",
+        di != null ? formatDecimal(di, 2) : "NA",
+        diBase != null ? formatDecimal(diBase, 2) : "NA",
+        diDev != null ? `${formatDecimal(diDev, 1)}%` : "NA",
         diConf,
       ],
     ],
@@ -2034,16 +2035,16 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "EI",
-        eiAvg != null ? eiAvg.toFixed(1) : "—",
-        eiStd != null ? eiStd.toFixed(2) : "—",
-        eiCv != null ? eiCv.toFixed(1) : "—",
+        eiAvg != null ? formatDecimal(eiAvg, 1) : "—",
+        eiStd != null ? formatDecimal(eiStd, 2) : "—",
+        eiCv != null ? formatDecimal(eiCv, 1) : "—",
         eiConf,
       ],
       [
         "D.I.",
-        diAvg != null ? diAvg.toFixed(2) : "—",
-        diStd != null ? diStd.toFixed(2) : "—",
-        diCv != null ? diCv.toFixed(1) : "—",
+        diAvg != null ? formatDecimal(diAvg, 2) : "—",
+        diStd != null ? formatDecimal(diStd, 2) : "—",
+        diCv != null ? formatDecimal(diCv, 1) : "—",
         diConf,
       ],
     ],
@@ -2200,7 +2201,7 @@ function render212(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Cantidad de pares de líneas visibles (pl/mm)",
-        plmm != null ? `${plmm.toFixed(1)} pl/mm` : "—",
+        plmm != null ? `${formatDecimal(plmm, 1)} pl/mm` : "—",
       ],
     ],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
@@ -2267,11 +2268,11 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
         const uniformidad =
           i === 0 || center == null || vmp == null
             ? "—"
-            : `${(Math.abs((vmp - center) / center) * 100).toFixed(2)} %`;
+            : `${formatDecimal(Math.abs((vmp - center) / center) * 100, 2)} %`;
         return [
           label,
-          vmp != null ? vmp.toFixed(2) : "—",
-          desv != null ? desv.toFixed(2) : "—",
+          vmp != null ? formatDecimal(vmp, 2) : "—",
+          desv != null ? formatDecimal(desv, 2) : "—",
           uniformidad,
         ];
       });
@@ -2320,7 +2321,7 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
       parrafo =
         `En la evaluación de uniformidad y artefactos del detector no se evidencian píxeles defectuosos en el detector ` +
         `ni artefactos en la imagen. El valor máximo de desviación de uniformidad obtenido fue de ` +
-        `${maxGlobal != null ? maxGlobal.toFixed(2) : "—"} %, el cual se encuentra dentro de la tolerancia establecida de ${tolerancia} %. ` +
+        `${maxGlobal != null ? formatDecimal(maxGlobal, 2) : "—"} %, el cual se encuentra dentro de la tolerancia establecida de ${tolerancia} %. ` +
         `En consecuencia, la prueba cumple con el criterio de aceptación.`;
     } else {
       const partes: string[] = [];
@@ -2329,7 +2330,7 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
       if (det.artefactos) partes.push("se observaron artefactos en la imagen");
       if (!unifConforme && maxGlobal != null)
         partes.push(
-          `el valor máximo de desviación de uniformidad obtenido fue de ${maxGlobal.toFixed(2)} %, superior a la tolerancia establecida de ${tolerancia} %`
+          `el valor máximo de desviación de uniformidad obtenido fue de ${formatDecimal(maxGlobal, 2)} %, superior a la tolerancia establecida de ${tolerancia} %`
         );
       parrafo =
         `En la evaluación de uniformidad y artefactos del detector, ` +
@@ -2477,13 +2478,13 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Horizontal",
-        m.mtf50_horizontal != null ? m.mtf50_horizontal.toFixed(3) : "—",
-        m.mtf20_horizontal != null ? m.mtf20_horizontal.toFixed(3) : "—",
+        m.mtf50_horizontal != null ? formatDecimal(m.mtf50_horizontal, 3) : "—",
+        m.mtf20_horizontal != null ? formatDecimal(m.mtf20_horizontal, 3) : "—",
       ],
       [
         "Vertical",
-        m.mtf50_vertical != null ? m.mtf50_vertical.toFixed(3) : "—",
-        m.mtf20_vertical != null ? m.mtf20_vertical.toFixed(3) : "—",
+        m.mtf50_vertical != null ? formatDecimal(m.mtf50_vertical, 3) : "—",
+        m.mtf20_vertical != null ? formatDecimal(m.mtf20_vertical, 3) : "—",
       ],
     ],
     didDrawPage: undefined,
@@ -2518,11 +2519,11 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
 
   if (conforme === true) {
     addParagraph(
-      `Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, consistente con el desempeño esperado para detectores digitales de radiografía. La variación máxima respecto a los valores de referencia fue de ${maxDesv!.toFixed(1)} %, dentro del criterio de aceptación del 10 %. Los valores obtenidos no evidencian degradaciones significativas del sistema.`
+      `Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, consistente con el desempeño esperado para detectores digitales de radiografía. La variación máxima respecto a los valores de referencia fue de ${formatDecimal(maxDesv!, 1)} %, dentro del criterio de aceptación del 10 %. Los valores obtenidos no evidencian degradaciones significativas del sistema.`
     );
   } else if (conforme === false) {
     addParagraph(
-      `Las curvas de MTF obtenidas presentan variaciones respecto a los valores de referencia que superan el criterio de aceptación del 10 % (variación máxima: ${maxDesv!.toFixed(1)} %). Esto podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales, requiriendo verificación adicional del detector.`
+      `Las curvas de MTF obtenidas presentan variaciones respecto a los valores de referencia que superan el criterio de aceptación del 10 % (variación máxima: ${formatDecimal(maxDesv!, 1)} %). Esto podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales, requiriendo verificación adicional del detector.`
     );
   } else {
     addParagraph(
@@ -2555,10 +2556,10 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
     body: filas.map((u, i) => [
       i + 1,
       u.serie_cassette ?? "—",
-      u.carga_mas != null ? u.carga_mas.toFixed(1) : "—",
-      u.ei != null ? u.ei.toFixed(1) : "—",
-      u.di != null ? u.di.toFixed(2) : "—",
-      u.tei != null ? u.tei.toFixed(1) : "—",
+      u.carga_mas != null ? formatDecimal(u.carga_mas, 1) : "—",
+      u.ei != null ? formatDecimal(u.ei, 1) : "—",
+      u.di != null ? formatDecimal(u.di, 2) : "—",
+      u.tei != null ? formatDecimal(u.tei, 1) : "—",
     ]),
     startY: ctx.y,
   });
@@ -2580,9 +2581,9 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
     return 6;
   }
 
-  const cvStr = cv != null ? `${cv.toFixed(1)} %` : "—";
-  const promedioStr = promedioEi.toFixed(1);
-  const desvStr = desvEi != null ? desvEi.toFixed(1) : "—";
+  const cvStr = cv != null ? `${formatDecimal(cv, 1)} %` : "—";
+  const promedioStr = formatDecimal(promedioEi, 1);
+  const desvStr = desvEi != null ? formatDecimal(desvEi, 1) : "—";
 
   if (cv != null && cv <= 10) {
     addParagraph(
@@ -2669,7 +2670,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   function fmtPct(v: number | null) {
-    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+    return v == null ? "—" : `${formatDecimal(v * 100, 1)} %`;
   }
 
   // Condiciones generales
@@ -2767,7 +2768,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
   const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
 
   function fmtPct(v: number | null) {
-    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+    return v == null ? "—" : `${formatDecimal(v * 100, 1)} %`;
   }
 
   function rangeVar(arr: number[]): number | null {
@@ -2857,7 +2858,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   function fmtPct(v: number | null) {
-    return v == null ? "—" : `${(v * 100).toFixed(2)} %`;
+    return v == null ? "—" : `${formatDecimal(v * 100, 2)} %`;
   }
 
   // Tomas 3, 9, 10, 11, 12 (5 repeticiones 70kVp, Cu 1mm, Centro)
@@ -2947,7 +2948,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   function fmtPct(v: number | null) {
-    return v == null ? "—" : `${(v * 100).toFixed(1)} %`;
+    return v == null ? "—" : `${formatDecimal(v * 100, 1)} %`;
   }
 
   const byToma = new Map(conv.caeMediciones.map((m) => [m.toma_numero, m]));
@@ -3103,9 +3104,9 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
       m.programa_clinico ?? "—",
       fmt(m.kv_nominal, 0),
       fmt(m.mas_nominal),
-      m.dosis_medida_mgy != null ? m.dosis_medida_mgy.toFixed(5) : "—",
+      m.dosis_medida_mgy != null ? formatDecimal(m.dosis_medida_mgy, 5) : "—",
       "1",
-      dosisR != null ? dosisR.toFixed(5) : "—",
+      dosisR != null ? formatDecimal(dosisR, 5) : "—",
     ];
   });
 
@@ -3145,9 +3146,9 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
         dosisR != null && m.dosis_base_mgy != null ? Math.abs(dosisR - m.dosis_base_mgy) : null;
       return [
         m.programa_clinico ?? "—",
-        dosisR != null ? dosisR.toFixed(5) : "—",
-        m.dosis_base_mgy != null ? m.dosis_base_mgy.toFixed(5) : "—",
-        diff != null ? diff.toFixed(5) : "—",
+        dosisR != null ? formatDecimal(dosisR, 5) : "—",
+        m.dosis_base_mgy != null ? formatDecimal(m.dosis_base_mgy, 5) : "—",
+        diff != null ? formatDecimal(diff, 5) : "—",
         diff == null ? "—" : diff < 0.01 ? "Conforme" : "No conforme",
       ];
     });

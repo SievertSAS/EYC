@@ -80,6 +80,8 @@ export default defineConfig({
         // #67 — subida y resolución de imágenes. compressImage (canvas) y la
         // rama de signed URL no corren en happy-dom → floor conservador.
         "src/lib/supabase/storage.ts": { lines: 42, functions: 75, branches: 45 },
+        // #68 — estándar decimal es-CO. parseDecimal / formatDecimal.
+        "src/lib/decimal.ts": { lines: 95, functions: 100, branches: 90 },
         "src/components/manual-drawer.tsx": { lines: 92, functions: 75, branches: 88 },
         "src/components/visit-action-bar.tsx": { lines: 85, functions: 85, branches: 72 },
         "src/components/visita-modulos/**": { lines: 33, functions: 15, branches: 16 },

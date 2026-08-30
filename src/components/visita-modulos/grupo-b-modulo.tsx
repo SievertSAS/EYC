@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -667,7 +668,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
             <SetupField
               label="Distancia foco-sensor (cm)"
               defaultValue={setup?.distancia_foco_sensor_cm ?? 100}
-              onSave={(v) => updateSetup({ distancia_foco_sensor_cm: v ? parseFloat(v) : 100 })}
+              onSave={(v) => updateSetup({ distancia_foco_sensor_cm: v ? parseDecimal(v) : 100 })}
             />
           </div>
 
@@ -762,7 +763,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                         defaultValue={m[campo] ?? ""}
                         onBlur={(e) => {
                           if (!m.id) return;
-                          const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                          const val = e.target.value ? parseDecimal(e.target.value) : undefined;
                           if (esEspejo && isFirstInGroup)
                             updateNominalGrupo(m.grupo_numero, { [campo]: val });
                           else updateMedicion(m.id, { [campo]: val });
@@ -816,7 +817,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           onBlur={(e) => {
                             if (!m.id) return;
                             updateMedicion(m.id, {
-                              dap_medido: e.target.value ? parseFloat(e.target.value) : undefined,
+                              dap_medido: e.target.value ? parseDecimal(e.target.value) : undefined,
                             });
                             flash(m.id);
                           }}
@@ -903,7 +904,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                                 m.id,
                                 m.programa_clinico,
                                 field,
-                                e.target.value ? parseFloat(e.target.value) : undefined
+                                e.target.value ? parseDecimal(e.target.value) : undefined
                               );
                               flash(m.id);
                             }}
@@ -923,7 +924,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                             onBlur={(e) => {
                               if (!m.id) return;
                               updateMedicion(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                                [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
                               });
                               flash(m.id);
                             }}
@@ -962,7 +963,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               defaultValue={setup?.distancia_foco_sensor_d1_cm ?? ""}
               placeholder="100"
               onSave={(v) =>
-                updateSetup({ distancia_foco_sensor_d1_cm: v ? parseFloat(v) : undefined })
+                updateSetup({ distancia_foco_sensor_d1_cm: v ? parseDecimal(v) : undefined })
               }
             />
             <SetupField
@@ -970,7 +971,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               defaultValue={setup?.distancia_foco_detector_d2_cm ?? ""}
               placeholder="110"
               onSave={(v) =>
-                updateSetup({ distancia_foco_detector_d2_cm: v ? parseFloat(v) : undefined })
+                updateSetup({ distancia_foco_detector_d2_cm: v ? parseDecimal(v) : undefined })
               }
             />
           </div>
@@ -1042,7 +1043,9 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                               onBlur={(e) => {
                                 if (!m.id) return;
                                 updateMedicion(m.id, {
-                                  [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                                  [field]: e.target.value
+                                    ? parseDecimal(e.target.value)
+                                    : undefined,
                                 });
                                 flash(m.id);
                               }}
@@ -1061,7 +1064,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                             if (!m.id) return;
                             updateMedicion(m.id, {
                               dosis_base_mgy: e.target.value
-                                ? parseFloat(e.target.value)
+                                ? parseDecimal(e.target.value)
                                 : undefined,
                             });
                             flash(m.id);
@@ -1176,7 +1179,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                             onBlur={(e) => {
                               if (!m.id) return;
                               updateMedicion(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                                [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
                               });
                               flash(m.id);
                             }}

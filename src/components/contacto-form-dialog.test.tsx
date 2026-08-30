@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/sync-engine", () => ({
   pushSingle: vi.fn(),
 }));
 
-import { ContactoFormDialog } from "./contacto-form-dialog";
+import { ContactoFormDialog, CARGO_OPTIONS } from "./contacto-form-dialog";
 
 async function seedContacto(overrides: Partial<Contacto> = {}): Promise<Contacto> {
   const contacto: Contacto = {
@@ -120,5 +120,35 @@ describe("ContactoFormDialog", () => {
 
     const boton = screen.getByRole("button", { name: /^agregar$/i }) as HTMLButtonElement;
     expect(boton.disabled).toBe(true);
+  });
+
+  it("CARGO_OPTIONS cubre todos los cargos que la app escribe (incl. responsable_visita)", () => {
+    const valores = CARGO_OPTIONS.map((o) => o.value);
+    // El union Contacto["cargo"] completo — si crece, este test recuerda
+    // agregarlo acá y al CHECK de contactos (migración 022).
+    expect(new Set(valores)).toEqual(
+      new Set([
+        "medico_responsable",
+        "tecnologo",
+        "opr",
+        "representante",
+        "responsable_visita",
+        "otro",
+      ])
+    );
+  });
+
+  it("al editar un contacto responsable_visita muestra su etiqueta, no 'Seleccionar cargo'", async () => {
+    const contacto = await seedContacto({ nombre: "Resp Visita", cargo: "responsable_visita" });
+    render(
+      <ContactoFormDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        clienteId="cliente-1"
+        contacto={contacto}
+      />
+    );
+    expect(await screen.findByText("Responsable de la Visita")).toBeInTheDocument();
+    expect(screen.queryByText("Seleccionar cargo...")).not.toBeInTheDocument();
   });
 });

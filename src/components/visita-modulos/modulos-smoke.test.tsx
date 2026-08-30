@@ -142,3 +142,21 @@ describe("InfoModulo — tubos desde Información General (#61 D2b)", () => {
     });
   });
 });
+
+describe("PreInformeModulo — panel de datos faltantes (#65)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+  });
+  afterEach(() => cleanup());
+
+  it("indica los datos de Info sin completar y su sección al expandir", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    render(<PreInformeModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    const toggle = await screen.findByText(/sin completar en Información General/i);
+    fireEvent.click(toggle);
+    expect(await screen.findByText("Datos de la Instalación")).toBeInTheDocument();
+  });
+});

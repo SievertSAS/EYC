@@ -6,6 +6,7 @@ import {
   getModuleStatuses,
   getVisitCompleteness,
   getVisitCompletenessBulk,
+  getCamposFaltantesInfo,
 } from "./module-completeness";
 
 // module-completeness decide si una visita puede avanzar ("enviar a revisión").
@@ -127,5 +128,53 @@ describe("module-completeness — #15 getVisitCompletenessBulk", () => {
 
   it("lista vacía → Map vacío", async () => {
     expect((await getVisitCompletenessBulk([])).size).toBe(0);
+  });
+});
+
+describe("module-completeness — #65 getCamposFaltantesInfo", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  it("lista los campos de Info vacíos con su etiqueta y sección de origen", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const v = await db.visitas.get(visita!.id!);
+    const faltantes = await getCamposFaltantesInfo(v!);
+    const campos = faltantes.map((f) => f.campo);
+
+    // el seed NO trae estos → deben aparecer
+    expect(campos).toContain("ubicacion.licencia");
+    expect(campos).toContain("equipo.sistema_adquisicion");
+    // el seed SÍ trae estos → NO deben aparecer
+    expect(campos).not.toContain("cliente.nombre_cliente");
+    expect(campos).not.toContain("equipo.gen_marca");
+
+    const lic = faltantes.find((f) => f.campo === "ubicacion.licencia")!;
+    expect(lic.seccion).toBe("Datos de la Instalación");
+    expect(lic.modulo).toBe("info");
+    expect(lic.label.length).toBeGreaterThan(0);
+  });
+
+  it("con toda la Información General cargada → lista vacía", async () => {
+    const { visita, cliente, ubicacion, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.clientes.update(cliente.id!, {
+      telefono: "3001234567",
+      naturaleza: "privado",
+      nombre_representante_legal: "Rep Legal",
+    });
+    await db.ubicaciones_rx.update(ubicacion.id!, { licencia: "L-1", codigo_habilitacion: "H-1" });
+    await db.equipos.update(equipo.id!, {
+      gen_fase: "monofasico",
+      sistema_adquisicion: "Digital",
+      distancia_foco_paciente: 100,
+      filtracion_inherente_mmal: 2,
+      filtracion_anadida_mmal: 1,
+    });
+    const tubo = await db.tubos.where("equipo_id").equals(equipo.id!).first();
+    await db.tubos.update(tubo!.id!, { kv_max: 120, ma_max: 500 });
+    await db.visitas.update(visita!.id!, { fecha_visita: "2026-01-15" });
+
+    const v = await db.visitas.get(visita!.id!);
+    expect(await getCamposFaltantesInfo(v!)).toEqual([]);
   });
 });

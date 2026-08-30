@@ -692,6 +692,87 @@ describe("sync-engine — pullSyncTable preserva blob_local en el pull", () => {
 });
 
 // ============================================================
+//  #67 — el push sube el blob a Storage y setea url_storage
+// ============================================================
+
+describe("sync-engine — push sube la imagen a Storage (#67)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("una evidencia con blob_local se sube al bucket y la fila queda con url_storage", async () => {
+    const blob = new Blob([new Uint8Array(50).fill(7)], { type: "image/jpeg" });
+    await db.conv_evidencias.add({
+      id: "ev-up",
+      visita_id: "vis-9",
+      prueba_codigo: "2.1",
+      slot: "plano_radiometrico",
+      blob_local: blob,
+      sync_status: "pending",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+
+    await pushAllPending();
+
+    // El archivo existe en el bucket, en la ruta {visita}/{prueba}/{slot}.jpg
+    expect(fakeClient.storageHas("evidencias", "vis-9/2.1/plano_radiometrico.jpg")).toBe(true);
+
+    // La fila local quedó con el path y sincronizada
+    const local = await db.conv_evidencias.get("ev-up");
+    expect(local?.url_storage).toBe("vis-9/2.1/plano_radiometrico.jpg");
+    expect(local?.sync_status).toBe("synced");
+
+    // Lo que se pusheó a la tabla lleva url_storage y NO el blob
+    const remote = fakeClient.getServerRow("conv_evidencias", "ev-up");
+    expect(remote?.url_storage).toBe("vis-9/2.1/plano_radiometrico.jpg");
+    expect(remote?.blob_local).toBeUndefined();
+  });
+
+  it("si la subida a Storage falla, la fila NO se marca synced (reintenta después)", async () => {
+    const blob = new Blob([new Uint8Array(50).fill(7)], { type: "image/jpeg" });
+    await db.conv_evidencias.add({
+      id: "ev-fail",
+      visita_id: "vis-9",
+      prueba_codigo: "2.1",
+      slot: "consola",
+      blob_local: blob,
+      sync_status: "pending",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+    fakeClient.failStorageUpload("vis-9/2.1/consola.jpg");
+
+    await pushAllPending();
+
+    const local = await db.conv_evidencias.get("ev-fail");
+    expect(local?.url_storage).toBeUndefined();
+    expect(local?.sync_status).not.toBe("synced");
+    // el blob sigue disponible para reintentar
+    expect(local?.blob_local).not.toBeUndefined();
+    expect(fakeClient.getServerRow("conv_evidencias", "ev-fail")).toBeUndefined();
+  });
+
+  it("una evidencia que ya tiene url_storage no se vuelve a subir", async () => {
+    await db.conv_evidencias.add({
+      id: "ev-done",
+      visita_id: "vis-9",
+      prueba_codigo: "2.1",
+      slot: "plano_radiometrico",
+      blob_local: new Blob([new Uint8Array(10)], { type: "image/jpeg" }),
+      url_storage: "vis-9/2.1/plano_radiometrico.jpg",
+      sync_status: "pending",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+
+    await pushAllPending();
+
+    expect(fakeClient.storageHas("evidencias", "vis-9/2.1/plano_radiometrico.jpg")).toBe(false);
+    const local = await db.conv_evidencias.get("ev-done");
+    expect(local?.sync_status).toBe("synced");
+  });
+});
+
+// ============================================================
 //  getAuthenticatedUser — reintento de sesión (bug del primer login)
 //
 //  `fullSync()` se dispara en el login como fire-and-forget, justo

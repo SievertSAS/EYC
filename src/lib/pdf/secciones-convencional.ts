@@ -1071,6 +1071,8 @@ function render22(
       ["B", ubicacion?.zona_b_desc],
       ["C", ubicacion?.zona_c_desc],
       ["D", ubicacion?.zona_d_desc],
+      ["Piso", ubicacion?.piso_desc],
+      ["Techo", ubicacion?.techo_desc],
     ] as const
   )
     .filter(([, desc]) => desc?.trim())

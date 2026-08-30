@@ -87,6 +87,17 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(blob!.type).toBe("application/pdf");
   });
 
+  it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {
+    const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.ubicaciones_rx.update(ubicacion.id!, {
+      piso_desc: "PISO-MARCADOR-63",
+      techo_desc: "TECHO-MARCADOR-63",
+    });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("PISO-MARCADOR-63");
+    expect(text).toContain("TECHO-MARCADOR-63");
+  });
+
   it("#52: si falla la carga del logo, el PDF se genera igual (fallback de texto)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
     resetLogoCache();

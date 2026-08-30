@@ -55,6 +55,8 @@ export function UbicacionFormDialog({
   const [zonaB, setZonaB] = useState(ubicacion?.zona_b_desc ?? "");
   const [zonaC, setZonaC] = useState(ubicacion?.zona_c_desc ?? "");
   const [zonaD, setZonaD] = useState(ubicacion?.zona_d_desc ?? "");
+  const [piso, setPiso] = useState(ubicacion?.piso_desc ?? "");
+  const [techo, setTecho] = useState(ubicacion?.techo_desc ?? "");
   const [saving, setSaving] = useState(false);
 
   // Área = ancho × largo (autocalculada)
@@ -77,6 +79,8 @@ export function UbicacionFormDialog({
     setZonaB(ubicacion?.zona_b_desc ?? "");
     setZonaC(ubicacion?.zona_c_desc ?? "");
     setZonaD(ubicacion?.zona_d_desc ?? "");
+    setPiso(ubicacion?.piso_desc ?? "");
+    setTecho(ubicacion?.techo_desc ?? "");
   }
 
   // El padre controla `open` seteando el prop directamente (no vía
@@ -105,6 +109,8 @@ export function UbicacionFormDialog({
         zona_b_desc: zonaB || undefined,
         zona_c_desc: zonaC || undefined,
         zona_d_desc: zonaD || undefined,
+        piso_desc: piso || undefined,
+        techo_desc: techo || undefined,
         creado_en: now,
         sync_status: "pending",
         last_modified: now,
@@ -300,6 +306,27 @@ export function UbicacionFormDialog({
                   <textarea
                     className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="Limita con… / puertas / barreras"
+                    value={val}
+                    onChange={(e) => setter(e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(
+                [
+                  ["Piso", piso, setPiso, "Material / plomo equiv. / colindancia inferior"],
+                  ["Techo", techo, setTecho, "Material / plomo equiv. / colindancia superior"],
+                ] as const
+              ).map(([label, val, setter, ph]) => (
+                <div key={label} className="space-y-2">
+                  <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                    {label}
+                  </Label>
+                  <textarea
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder={ph}
                     value={val}
                     onChange={(e) => setter(e.target.value)}
                   />

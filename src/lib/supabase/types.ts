@@ -2315,8 +2315,10 @@ export type Database = {
           last_modified: string;
           licencia: string | null;
           nombre_servicio: string;
+          piso_desc: string | null;
           sede_id: string;
           sync_status: string;
+          techo_desc: string | null;
           ubicacion_fisica: string | null;
           zona_a_desc: string | null;
           zona_b_desc: string | null;
@@ -2336,8 +2338,10 @@ export type Database = {
           last_modified?: string;
           licencia?: string | null;
           nombre_servicio: string;
+          piso_desc?: string | null;
           sede_id: string;
           sync_status?: string;
+          techo_desc?: string | null;
           ubicacion_fisica?: string | null;
           zona_a_desc?: string | null;
           zona_b_desc?: string | null;
@@ -2357,8 +2361,10 @@ export type Database = {
           last_modified?: string;
           licencia?: string | null;
           nombre_servicio?: string;
+          piso_desc?: string | null;
           sede_id?: string;
           sync_status?: string;
+          techo_desc?: string | null;
           ubicacion_fisica?: string | null;
           zona_a_desc?: string | null;
           zona_b_desc?: string | null;

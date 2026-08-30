@@ -73,3 +73,22 @@ describe("visita-modulos — smoke", () => {
     });
   });
 });
+
+describe("InfoModulo — Sistema de Adquisición de Imágenes (#62)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+  });
+  afterEach(() => cleanup());
+
+  it("es una lista desplegable con el vocabulario cerrado del informe, no texto libre", async () => {
+    const { visita } = await seedGraph();
+    render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    // Las 6 opciones de SISTEMAS_ADQUISICION quedan como <option> del <select>.
+    expect(screen.getByRole("option", { name: "Digitalizado" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Análogo: Revelado manual" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Monitor análogo" })).toBeInTheDocument();
+  });
+});

@@ -18,6 +18,7 @@ import type {
   ParteEquipo,
 } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos/registry";
+import { logger } from "@/lib/logger";
 import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
 import { evaluarConceptoPrueba, tieneCriterio } from "@/lib/equipos/convencional/evaluacion";
 import {
@@ -45,18 +46,58 @@ import {
 
 let _logoCache: string | null = null;
 
-async function getLogoBase64(): Promise<string> {
-  if (_logoCache) return _logoCache;
-  const res = await fetch("/logo-informe.png");
-  const blob = await res.blob();
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      _logoCache = reader.result as string;
-      resolve(_logoCache);
-    };
-    reader.readAsDataURL(blob);
-  });
+/** Vacía el cache del logo. Solo para tests (forzar la ruta de recarga). */
+export function resetLogoCache(): void {
+  _logoCache = null;
+}
+
+/**
+ * Devuelve el logo del informe como data URL. Si el asset no está disponible
+ * (404, sin red, contexto sin `fetch`), devuelve "" y deja que cada
+ * `addImage` caiga en su fallback de texto: un logo faltante nunca debe
+ * impedir generar el PDF. El resultado (incluido el "") se cachea.
+ */
+export async function getLogoBase64(): Promise<string> {
+  if (_logoCache !== null) return _logoCache;
+  try {
+    const res = await fetch("/logo-informe.png");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    _logoCache = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error ?? new Error("FileReader"));
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    logger.warn("pdf", "No se pudo cargar el logo del informe; se usa el texto de reemplazo", err);
+    _logoCache = "";
+  }
+  return _logoCache;
+}
+
+// ─── Formateo de campos del informe ───
+
+/** "No aplica" para null / undefined / "" ; el valor tal cual si tiene contenido. */
+export function textoCampo(v: string | null | undefined, fallback = "No aplica"): string {
+  const s = (v ?? "").trim();
+  return s === "" ? fallback : s;
+}
+
+/**
+ * Fecha en dd/mm/aaaa. "No aplica" si viene vacía. Las fechas ISO de solo
+ * día (`aaaa-mm-dd`) se reformatean sin pasar por `Date` para no correr el
+ * día por la zona horaria; cualquier otro string reconocible se intenta con
+ * `Date`, y si no parsea se devuelve tal cual.
+ */
+export function textoFecha(v: string | null | undefined): string {
+  const s = (v ?? "").trim();
+  if (s === "") return "No aplica";
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // ─── Tipos internos ───
@@ -565,13 +606,10 @@ export async function generarPreInforme(
   const datosInstalacion = [
     [
       "Número de la licencia para funcionamiento de equipos de RX",
-      datos.ubicacion?.licencia ?? "No Aplica",
+      textoCampo(datos.ubicacion?.licencia),
     ],
-    [
-      "Fecha de expiración de la licencia",
-      datos.ubicacion?.fecha_expiracion_licencia ?? "No Aplica",
-    ],
-    ["Código de habilitación del servicio", datos.ubicacion?.codigo_habilitacion ?? "—"],
+    ["Fecha de expiración de la licencia", textoFecha(datos.ubicacion?.fecha_expiracion_licencia)],
+    ["Código de habilitación del servicio", textoCampo(datos.ubicacion?.codigo_habilitacion)],
     ["Días Laborados por Semana", String(datos.visita.dias_laborados_semana ?? "—")],
     ["No. de Pacientes por Semana", String(datos.visita.pacientes_por_semana ?? "—")],
     ["KV máximo usado", String(datos.visita.kv_maximo_usado ?? "—")],

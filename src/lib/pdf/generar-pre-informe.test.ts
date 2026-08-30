@@ -1,18 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // getLogoBase64 hace fetch("/logo-informe.png") — se mockea con un PNG mínimo.
-vi.stubGlobal(
-  "fetch",
-  vi.fn().mockResolvedValue({
+function okPngFetch() {
+  return vi.fn().mockResolvedValue({
+    ok: true,
     blob: async () =>
       new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" }),
-  })
-);
+  });
+}
+vi.stubGlobal("fetch", okPngFetch());
 
 import { db } from "@/lib/db";
 import { resetTestDb } from "@/test/db-reset";
 import { seedGraph } from "@/test/seed";
-import { generarPreInforme } from "./generar-pre-informe";
+import {
+  generarPreInforme,
+  getLogoBase64,
+  resetLogoCache,
+  textoCampo,
+  textoFecha,
+} from "./generar-pre-informe";
 
 // jsPDF no comprime por defecto → el texto dibujado queda legible en el
 // buffer crudo del PDF (operadores `(str) Tj`). Alcanza para tests de
@@ -26,6 +33,8 @@ async function pdfText(blob: Blob): Promise<string> {
 
 beforeEach(async () => {
   await resetTestDb();
+  resetLogoCache();
+  vi.stubGlobal("fetch", okPngFetch());
 });
 
 describe("generarPreInforme — contrato de datos", () => {
@@ -78,11 +87,64 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(blob!.type).toBe("application/pdf");
   });
 
+  it("#52: si falla la carga del logo, el PDF se genera igual (fallback de texto)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
+    resetLogoCache();
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob!.type).toBe("application/pdf");
+  });
+
+  it("#52: getLogoBase64 resuelve a '' cuando el asset responde 404, sin lanzar", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    resetLogoCache();
+    await expect(getLogoBase64()).resolves.toBe("");
+  });
+
+  it("#60: la fecha de expiración de la licencia sale dd/mm/aaaa en el informe", async () => {
+    const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.ubicaciones_rx.update(ubicacion.id!, {
+      fecha_expiracion_licencia: "2027-03-15",
+    });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("15/03/2027");
+  });
+
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
     const qr =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
     const blob = await generarPreInforme(visita!.id!, { qrDataUrl: qr });
     expect(blob).toBeInstanceOf(Blob);
+  });
+});
+
+describe("#60 — formateo de campos de licencia", () => {
+  it("textoCampo: null / undefined / '' / solo espacios → 'No aplica'", () => {
+    expect(textoCampo(null)).toBe("No aplica");
+    expect(textoCampo(undefined)).toBe("No aplica");
+    expect(textoCampo("")).toBe("No aplica");
+    expect(textoCampo("   ")).toBe("No aplica");
+  });
+
+  it("textoCampo: con contenido devuelve el valor recortado", () => {
+    expect(textoCampo("REPS-123")).toBe("REPS-123");
+    expect(textoCampo("  L-99 ")).toBe("L-99");
+  });
+
+  it("textoFecha: vacío → 'No aplica'", () => {
+    expect(textoFecha(null)).toBe("No aplica");
+    expect(textoFecha(undefined)).toBe("No aplica");
+    expect(textoFecha("")).toBe("No aplica");
+  });
+
+  it("textoFecha: ISO de solo día → dd/mm/aaaa sin correr el día por zona horaria", () => {
+    expect(textoFecha("2027-03-15")).toBe("15/03/2027");
+    expect(textoFecha("2027-03-15T00:00:00Z")).toBe("15/03/2027");
+  });
+
+  it("textoFecha: string no reconocible se devuelve tal cual", () => {
+    expect(textoFecha("no sé")).toBe("no sé");
   });
 });

@@ -75,6 +75,19 @@ export const TIPOS_EQUIPO = [
 ] as const;
 export type TipoEquipo = (typeof TIPOS_EQUIPO)[number];
 
+// ─── Sistema de adquisición de imágenes ───
+// Opciones cerradas del informe FT-LEC-6c. Compartidas entre el diálogo de
+// creación de equipo y el módulo de Información General para que la captura
+// use siempre el mismo vocabulario que espera el PDF.
+export const SISTEMAS_ADQUISICION = [
+  { label: "Digital", value: "Digital" },
+  { label: "Digitalizado", value: "Digitalizado" },
+  { label: "Análogo: Revelado manual", value: "Análogo: Revelado manual" },
+  { label: "Análogo: Revelado automático", value: "Análogo: Revelado automático" },
+  { label: "Monitor análogo", value: "Monitor análogo" },
+  { label: "No Aplica", value: "No Aplica" },
+] as const;
+
 // ─── Núcleo ───
 
 export interface Cliente extends Partial<SyncFields> {

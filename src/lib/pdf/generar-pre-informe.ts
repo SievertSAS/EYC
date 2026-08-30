@@ -491,7 +491,7 @@ export async function generarPreInforme(
   doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN + 5, y);
   y += 5;
   doc.text(
-    `Marca: ${datos.equipo?.marca ?? datos.equipo?.gen_marca ?? "—"}    Modelo: ${datos.equipo?.modelo ?? datos.equipo?.gen_modelo ?? "—"}    Serie: ${datos.equipo?.numero_serie ?? datos.equipo?.gen_numero_serie ?? "—"}`,
+    `Marca: ${datos.equipo?.gen_marca ?? "—"}    Modelo: ${datos.equipo?.gen_modelo ?? "—"}    Serie: ${datos.equipo?.gen_numero_serie ?? "—"}`,
     MARGIN + 5,
     y
   );
@@ -635,33 +635,9 @@ export async function generarPreInforme(
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Identificación del Equipo
-  checkPage(30);
-  addSubsectionTitle("", "Identificación del Equipo");
-
-  const datosEquipo = [
-    ["Marca", datos.equipo?.marca ?? "—"],
-    ["Modelo", datos.equipo?.modelo ?? "—"],
-    ["No. de Serie", datos.equipo?.numero_serie ?? "—"],
-  ];
-
-  autoTable(doc, {
-    startY: y,
-    margin: { left: MARGIN, right: MARGIN },
-    body: datosEquipo,
-    theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-      1: { cellWidth: CONTENT_WIDTH - 60 },
-    },
-  });
-
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-
-  // Características del Generador
-  checkPage(40);
-  addSubsectionTitle("", "Características del Generador");
+  // Características del Equipo (la plantilla oficial las rotula "del generador")
+  checkPage(48);
+  addSubsectionTitle("", "Características del Equipo");
 
   const datosGenerador = [
     ["Marca", datos.equipo?.gen_marca ?? "—"],
@@ -669,6 +645,7 @@ export async function generarPreInforme(
     ["No. de Serie", datos.equipo?.gen_numero_serie ?? "—"],
     ["Fecha de fabricación", datos.equipo?.gen_fecha_fabricacion ?? "—"],
     ["Fase del generador", datos.equipo?.gen_fase?.replace(/_/g, " ") ?? "—"],
+    ["Energía fotones / electrones (MeV)", textoCampo(datos.equipo?.gen_energia_fotones_mev)],
   ];
 
   autoTable(doc, {
@@ -1814,7 +1791,7 @@ function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string) {
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_GRAY);
   doc.text(
-    `Control de Calidad — ${datos.equipo?.marca ?? datos.equipo?.gen_marca ?? ""} ${datos.equipo?.modelo ?? datos.equipo?.gen_modelo ?? ""}`,
+    `Control de Calidad — ${datos.equipo?.gen_marca ?? ""} ${datos.equipo?.gen_modelo ?? ""}`,
     PAGE_WIDTH - MARGIN,
     12,
     { align: "right" }

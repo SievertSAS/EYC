@@ -54,7 +54,7 @@ describe("generarPreInforme — contrato de datos", () => {
     const { visita, cliente, sede, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.clientes.update(cliente.id!, { nombre_cliente: "CLINICA-MARCADOR-CLI" });
     await db.sedes.update(sede.id!, { nombre_sede: "SEDE-MARCADOR" });
-    await db.equipos.update(equipo.id!, { numero_serie: "SERIE-MARCADOR-999" });
+    await db.equipos.update(equipo.id!, { gen_numero_serie: "SERIE-MARCADOR-999" });
 
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
     expect(text).toContain("CLINICA-MARCADOR-CLI");
@@ -85,6 +85,19 @@ describe("generarPreInforme — contrato de datos", () => {
     const blob = await generarPreInforme(visita!.id!);
     expect(blob).toBeInstanceOf(Blob);
     expect(blob!.type).toBe("application/pdf");
+  });
+
+  it("#61: características del equipo y energía de fotones/electrones llegan al informe", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipos.update(equipo.id!, {
+      gen_marca: "EQ-MARCA-61",
+      gen_numero_serie: "EQ-SERIE-61",
+      gen_energia_fotones_mev: "ENERGIA-MARCADOR-61",
+    });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("EQ-MARCA-61");
+    expect(text).toContain("EQ-SERIE-61");
+    expect(text).toContain("ENERGIA-MARCADOR-61");
   });
 
   it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {

@@ -32,8 +32,6 @@ interface VersionRow {
 }
 
 interface EquipoRow {
-  marca: string | null;
-  modelo: string | null;
   gen_marca: string | null;
   gen_modelo: string | null;
   tipo_equipo: string | null;
@@ -92,7 +90,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
       .maybeSingle<VersionRow>(),
     supabase
       .from("equipos")
-      .select("marca, modelo, gen_marca, gen_modelo, tipo_equipo")
+      .select("gen_marca, gen_modelo, tipo_equipo")
       .eq("id", informe.equipo_id)
       .maybeSingle<EquipoRow>(),
   ]);
@@ -135,7 +133,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
                 {informe.numero_informe}
               </h2>
               <p className="text-sm text-slate-500 font-medium">
-                {equipo?.marca ?? equipo?.gen_marca} {equipo?.modelo ?? equipo?.gen_modelo}
+                {equipo?.gen_marca} {equipo?.gen_modelo}
                 {equipo?.tipo_equipo ? ` — ${equipo.tipo_equipo.replace(/_/g, " ")}` : ""}
               </p>
             </div>

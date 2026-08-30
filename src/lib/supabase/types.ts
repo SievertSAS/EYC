@@ -1281,9 +1281,6 @@ export type Database = {
           gen_marca: string | null;
           gen_modelo: string | null;
           gen_numero_serie: string | null;
-          marca: string | null;
-          modelo: string | null;
-          numero_serie: string | null;
           id: string;
           last_modified: string;
           planilla_espacial: boolean;
@@ -1304,9 +1301,6 @@ export type Database = {
           gen_marca?: string | null;
           gen_modelo?: string | null;
           gen_numero_serie?: string | null;
-          marca?: string | null;
-          modelo?: string | null;
-          numero_serie?: string | null;
           id?: string;
           last_modified?: string;
           planilla_espacial?: boolean;
@@ -1327,9 +1321,6 @@ export type Database = {
           gen_marca?: string | null;
           gen_modelo?: string | null;
           gen_numero_serie?: string | null;
-          marca?: string | null;
-          modelo?: string | null;
-          numero_serie?: string | null;
           id?: string;
           last_modified?: string;
           planilla_espacial?: boolean;

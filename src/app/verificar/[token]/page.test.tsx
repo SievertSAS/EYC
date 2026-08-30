@@ -60,10 +60,8 @@ beforeEach(() => {
   };
   state.version = { numero_version: 1, pdf_url: "informes/inf-1-v1.pdf" };
   state.equipo = {
-    marca: "Siemens",
-    modelo: "Multix",
-    gen_marca: null,
-    gen_modelo: null,
+    gen_marca: "Siemens",
+    gen_modelo: "Multix",
     tipo_equipo: "CONVENCIONAL",
   };
   state.signedUrl = "https://test.supabase.co/storage/signed/abc";

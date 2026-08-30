@@ -542,6 +542,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     equipo?.gen_modelo,
     equipo?.gen_fecha_fabricacion,
     equipo?.gen_fase,
+    equipo?.gen_energia_fotones_mev,
   ]);
 
   const progTubo = computeProgress([
@@ -873,10 +874,10 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
         </div>
       </SectionCard>
 
-      {/* 3. Características del Generador */}
+      {/* 3. Características del Equipo (la plantilla las llama "del generador") */}
       <SectionCard
         icon={Radio}
-        title="Características del Generador"
+        title="Características del Equipo"
         subtitle="Datos del equipo de rayos X"
         progress={progGenerador}
       >
@@ -914,6 +915,12 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
               { label: "Alta Frecuencia", value: "alta_frecuencia" },
             ]}
             onSave={(v) => saveEquipo("gen_fase", v)}
+          />
+          <EditableField
+            label="Energía Fotones / Electrones (MeV)"
+            value={toStr(equipo?.gen_energia_fotones_mev)}
+            icon={Zap}
+            onSave={(v) => saveEquipo("gen_energia_fotones_mev", v)}
           />
         </div>
       </SectionCard>

@@ -68,9 +68,9 @@ export function makeEquipo(ubicacion_id: string, overrides: Partial<Equipo> = {}
     ubicacion_id,
     tipo_equipo: "CONVENCIONAL" as TipoEquipo,
     planilla_espacial: false,
-    marca: "Siemens",
-    modelo: "Multix",
-    numero_serie: "SN-0001",
+    gen_marca: "Siemens",
+    gen_modelo: "Multix",
+    gen_numero_serie: "SN-0001",
     ...sync(),
     ...overrides,
   };

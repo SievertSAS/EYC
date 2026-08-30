@@ -132,6 +132,46 @@ const EXTRA_LOCAL_FIELDS: Record<string, string[]> = {
   ],
 };
 
+/**
+ * El pull trae la fila remota SIN los binarios (`blob_local` /
+ * `archivo_raysafe_blob` / `imagenes[].blob_local`) porque el push los
+ * descarta. Un `put` a ciegas del registro remoto borraría el binario
+ * local — con lo que la evidencia fotográfica capturada en este dispositivo
+ * desaparecería tras el primer ciclo de sync (#67). Este helper reinyecta
+ * los binarios que el registro local ya tenía y que el remoto no puede
+ * traer, conservando el resto de campos del remoto (incluido `url_storage`).
+ */
+function mergeLocalBinaries(
+  remoteRecord: Record<string, unknown>,
+  localRecord: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (!localRecord) return remoteRecord;
+  const merged: Record<string, unknown> = { ...remoteRecord };
+
+  for (const key of ["blob_local", "archivo_raysafe_blob"] as const) {
+    if (localRecord[key] != null && remoteRecord[key] == null) {
+      merged[key] = localRecord[key];
+    }
+  }
+
+  // Imágenes anidadas (grupo_resultados / prueba_resultados): el remoto trae
+  // la metadata de cada imagen pero no su blob. Se reinyecta el blob local
+  // matcheando por `slot_key`.
+  if (Array.isArray(merged.imagenes) && Array.isArray(localRecord.imagenes)) {
+    const localBySlot = new Map(
+      (localRecord.imagenes as Record<string, unknown>[]).map((img) => [img.slot_key, img])
+    );
+    merged.imagenes = (merged.imagenes as Record<string, unknown>[]).map((img) => {
+      const local = localBySlot.get(img.slot_key);
+      return local?.blob_local != null && img.blob_local == null
+        ? { ...img, blob_local: local.blob_local }
+        : img;
+    });
+  }
+
+  return merged;
+}
+
 /** Prepara un registro Dexie para enviar a Supabase (quita campos locales) */
 function prepareForRemote(
   record: Record<string, unknown>,
@@ -750,7 +790,11 @@ async function applyRemoteSyncRecord(
       await dexieTable.delete(remoteRecord.id as string);
       return 1;
     }
-    await dexieTable.put({ ...remoteRecord, sync_status: "synced" as SyncStatus });
+    const merged = mergeLocalBinaries(
+      remoteRecord as Record<string, unknown>,
+      localRecord as Record<string, unknown> | undefined
+    );
+    await dexieTable.put({ ...(merged as SyncableRecord), sync_status: "synced" as SyncStatus });
     return 1;
   }
 

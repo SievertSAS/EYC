@@ -5,6 +5,7 @@ import { randomUUID } from "@/lib/uuid";
 import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { SISTEMAS_ADQUISICION } from "@/lib/db/types";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -1017,9 +1018,10 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             ]}
             onSave={(v) => saveEquipo("bucky", v)}
           />
-          <EditableField
+          <SelectField
             label="Sistema de Adquisición de Imágenes"
             value={toStr(equipo?.sistema_adquisicion)}
+            options={SISTEMAS_ADQUISICION.map((o) => ({ label: o.label, value: o.value }))}
             onSave={(v) => saveEquipo("sistema_adquisicion", v)}
           />
           <EditableField

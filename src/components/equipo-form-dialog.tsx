@@ -7,7 +7,7 @@ import type { Equipo, Tubo, Colimador, Gantry } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
-import { TIPOS_EQUIPO, type TipoEquipo } from "@/lib/db/types";
+import { TIPOS_EQUIPO, SISTEMAS_ADQUISICION, type TipoEquipo } from "@/lib/db/types";
 import {
   Dialog,
   DialogContent,
@@ -401,16 +401,11 @@ export function EquipoFormDialog({
                     <SelectValue placeholder="Seleccionar..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Digital">Digital</SelectItem>
-                    <SelectItem value="Digitalizado">Digitalizado</SelectItem>
-                    <SelectItem value="Análogo: Revelado manual">
-                      Análogo: Revelado manual
-                    </SelectItem>
-                    <SelectItem value="Análogo: Revelado automático">
-                      Análogo: Revelado automático
-                    </SelectItem>
-                    <SelectItem value="Monitor análogo">Monitor análogo</SelectItem>
-                    <SelectItem value="No Aplica">No Aplica</SelectItem>
+                    {SISTEMAS_ADQUISICION.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

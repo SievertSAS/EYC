@@ -52,6 +52,11 @@ export const CARGO_OPTIONS = [
   { value: "otro", label: "Otro" },
 ];
 
+/** { valor de cargo → etiqueta legible } — derivado de CARGO_OPTIONS. */
+export const CARGO_LABELS: Record<string, string> = Object.fromEntries(
+  CARGO_OPTIONS.map((o) => [o.value, o.label])
+);
+
 export function ContactoFormDialog({
   open,
   onOpenChange,

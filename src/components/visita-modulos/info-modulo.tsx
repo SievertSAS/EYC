@@ -1135,6 +1135,26 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
               ))}
             </div>
           </div>
+
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Piso y techo
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <EditableTextArea
+                label="Piso"
+                value={toStr(ubicacion.piso_desc)}
+                placeholder="Material / plomo equiv. / colindancia inferior"
+                onSave={(v) => saveUbicacion("piso_desc", v)}
+              />
+              <EditableTextArea
+                label="Techo"
+                value={toStr(ubicacion.techo_desc)}
+                placeholder="Material / plomo equiv. / colindancia superior"
+                onSave={(v) => saveUbicacion("techo_desc", v)}
+              />
+            </div>
+          </div>
         </SectionCard>
       )}
     </div>

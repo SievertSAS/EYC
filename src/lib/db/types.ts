@@ -175,6 +175,10 @@ export interface UbicacionRx extends Partial<SyncFields> {
   zona_b_desc?: string;
   zona_c_desc?: string;
   zona_d_desc?: string;
+  /** Barrera estructural del piso (material, plomo equivalente, colindancia inferior) */
+  piso_desc?: string;
+  /** Barrera estructural del techo (material, plomo equivalente, colindancia superior) */
+  techo_desc?: string;
   creado_en?: string;
 }
 

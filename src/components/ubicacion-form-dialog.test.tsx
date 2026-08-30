@@ -117,6 +117,34 @@ describe("UbicacionFormDialog", () => {
     expect(todas[0].nombre_servicio).toBe("radiologia");
   });
 
+  it("#63: captura y persiste piso y techo del blindaje", async () => {
+    const ubicacion = await seedUbicacion({ nombre_servicio: "rayos x" });
+    const onSaved = vi.fn();
+
+    render(
+      <UbicacionFormDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        sedeId="sede-1"
+        ubicacion={ubicacion}
+        onSaved={onSaved}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/colindancia inferior/i), {
+      target: { value: "Losa 20cm + Pb 2mm" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/colindancia superior/i), {
+      target: { value: "Cubierta liviana, sin tránsito" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(ubicacion.id));
+    const row = (await db.ubicaciones_rx.get(ubicacion.id!))!;
+    expect(row.piso_desc).toBe("Losa 20cm + Pb 2mm");
+    expect(row.techo_desc).toBe("Cubierta liviana, sin tránsito");
+  });
+
   it("no permite guardar sin nombre de servicio", async () => {
     render(
       <UbicacionFormDialog

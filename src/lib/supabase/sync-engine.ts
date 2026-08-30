@@ -116,7 +116,7 @@ function describeError(err: unknown): { message: string; detail?: string } {
 
 // Campos que solo existen en Dexie y NUNCA se envían a Supabase.
 // blob_local y archivo_raysafe_blob: datos binarios que van a Storage por separado.
-const LOCAL_ONLY_FIELDS = new Set([
+export const LOCAL_ONLY_FIELDS = new Set([
   "sync_status",
   "last_modified",
   "blob_local",
@@ -124,7 +124,7 @@ const LOCAL_ONLY_FIELDS = new Set([
 ]);
 
 // Campos extra por tabla que existen en Dexie pero no en Supabase
-const EXTRA_LOCAL_FIELDS: Record<string, string[]> = {
+export const EXTRA_LOCAL_FIELDS: Record<string, string[]> = {
   solicitudes: ["suitecrm_id"],
   prueba_resultados: [
     "grupo_resultado_id",
@@ -205,7 +205,7 @@ async function ensureBlobUploaded(
 }
 
 /** Prepara un registro Dexie para enviar a Supabase (quita campos locales) */
-function prepareForRemote(
+export function prepareForRemote(
   record: Record<string, unknown>,
   localTable: string
 ): Record<string, unknown> {

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -551,7 +552,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
               <SetupField
                 label="SID (cm)"
                 defaultValue={colim?.sid_cm ?? 100}
-                onSave={(v) => updateColimacion({ sid_cm: v ? parseFloat(v) : 100 })}
+                onSave={(v) => updateColimacion({ sid_cm: v ? parseDecimal(v) : 100 })}
               />
               {[
                 ["tecnica_kv", "kVp", "75"],
@@ -566,7 +567,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     ((colim as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
                   placeholder={ph}
-                  onSave={(v) => updateColimacion({ [field]: v ? parseFloat(v) : undefined })}
+                  onSave={(v) => updateColimacion({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}
             </div>
@@ -589,7 +590,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     }
                     placeholder="—"
                     onSave={(v) =>
-                      updateColimacion({ [`${d.key}_nominal`]: v ? parseFloat(v) : undefined })
+                      updateColimacion({ [`${d.key}_nominal`]: v ? parseDecimal(v) : undefined })
                     }
                   />
                   <SetupField
@@ -603,7 +604,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     }
                     placeholder="—"
                     onSave={(v) =>
-                      updateColimacion({ [`${d.key}_medido`]: v ? parseFloat(v) : undefined })
+                      updateColimacion({ [`${d.key}_medido`]: v ? parseDecimal(v) : undefined })
                     }
                   />
                 </div>
@@ -763,7 +764,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     onBlur={(e) => {
                       if (!ur.det.id) return;
                       updateUniformidadDet(ur.det.id, {
-                        tolerancia_pct: e.target.value ? parseFloat(e.target.value) : 15,
+                        tolerancia_pct: e.target.value ? parseDecimal(e.target.value) : 15,
                       });
                       flash(ur.det.id);
                     }}
@@ -794,7 +795,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                                 if (!ur.det.id) return;
                                 updateUniformidadDet(ur.det.id, {
                                   [vmpField]: e.target.value
-                                    ? parseFloat(e.target.value)
+                                    ? parseDecimal(e.target.value)
                                     : undefined,
                                 });
                                 flash(ur.det.id);
@@ -810,7 +811,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                                 if (!ur.det.id) return;
                                 updateUniformidadDet(ur.det.id, {
                                   [desvField]: e.target.value
-                                    ? parseFloat(e.target.value)
+                                    ? parseDecimal(e.target.value)
                                     : undefined,
                                 });
                                 flash(ur.det.id);
@@ -942,17 +943,17 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             <SetupField
               label="SID (cm)"
               defaultValue={resol?.sid_cm ?? 100}
-              onSave={(v) => updateResolucion({ sid_cm: v ? parseFloat(v) : 100 })}
+              onSave={(v) => updateResolucion({ sid_cm: v ? parseDecimal(v) : 100 })}
             />
             <SetupField
               label="kVp"
               defaultValue={resol?.tecnica_kv ?? 75}
-              onSave={(v) => updateResolucion({ tecnica_kv: v ? parseFloat(v) : undefined })}
+              onSave={(v) => updateResolucion({ tecnica_kv: v ? parseDecimal(v) : undefined })}
             />
             <SetupField
               label="mAs"
               defaultValue={resol?.tecnica_mas ?? ""}
-              onSave={(v) => updateResolucion({ tecnica_mas: v ? parseFloat(v) : undefined })}
+              onSave={(v) => updateResolucion({ tecnica_mas: v ? parseDecimal(v) : undefined })}
             />
           </div>
 
@@ -965,7 +966,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
               value={resol?.pares_lineas_plmm ?? ""}
               onChange={(e) =>
                 updateResolucion({
-                  pares_lineas_plmm: e.target.value ? parseFloat(e.target.value) : undefined,
+                  pares_lineas_plmm: e.target.value ? parseDecimal(e.target.value) : undefined,
                 })
               }
             >
@@ -1118,7 +1119,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
                   placeholder={ph}
-                  onSave={(v) => updateMtf({ [field]: v ? parseFloat(v) : undefined })}
+                  onSave={(v) => updateMtf({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}
             </div>
@@ -1141,7 +1142,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
                   placeholder="—"
-                  onSave={(v) => updateMtf({ [field]: v ? parseFloat(v) : undefined })}
+                  onSave={(v) => updateMtf({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}
             </div>
@@ -1164,7 +1165,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
                   placeholder="—"
-                  onSave={(v) => updateMtf({ [field]: v ? parseFloat(v) : undefined })}
+                  onSave={(v) => updateMtf({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}
             </div>

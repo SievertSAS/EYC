@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -618,7 +619,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                             onBlur={(e) => {
                               if (!m.id) return;
                               updateDdi(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                                [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
                               });
                               flash(m.id);
                             }}
@@ -659,7 +660,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 onBlur={(e) => {
                   const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
                   if (t1?.id) {
-                    updateDdi(t1.id, { ei_base: parseFloat(e.target.value) || null });
+                    updateDdi(t1.id, { ei_base: parseDecimal(e.target.value) || null });
                     setSavedEiBase(true);
                     setTimeout(() => setSavedEiBase(false), 1500);
                   }
@@ -681,7 +682,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 onBlur={(e) => {
                   const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
                   if (t1?.id) {
-                    updateDdi(t1.id, { di_base: parseFloat(e.target.value) || null });
+                    updateDdi(t1.id, { di_base: parseDecimal(e.target.value) || null });
                     setSavedDiBase(true);
                     setTimeout(() => setSavedDiBase(false), 1500);
                   }
@@ -919,7 +920,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                           onBlur={(e) => {
                             if (!u.id) return;
                             updateUniformidad(u.id, {
-                              [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                              [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
                             });
                             flash(u.id);
                           }}

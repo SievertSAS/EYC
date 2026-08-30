@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -385,8 +386,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   function parseSetupField(v: string): number | undefined {
-    const n = parseFloat(v);
-    return isNaN(n) ? undefined : n;
+    return parseDecimal(v);
   }
 
   // ─── Cálculos auto ───
@@ -621,7 +621,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                             onBlur={(e) => {
                               if (!m.id) return;
                               updateMedicion(m.id, {
-                                [field]: e.target.value ? parseFloat(e.target.value) : undefined,
+                                [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
                               });
                               flash(m.id);
                             }}

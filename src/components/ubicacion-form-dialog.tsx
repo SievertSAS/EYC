@@ -5,6 +5,7 @@ import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import type { UbicacionRx } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import {
   Dialog,
@@ -58,7 +59,9 @@ export function UbicacionFormDialog({
 
   // Área = ancho × largo (autocalculada)
   const areaCalc =
-    ancho && largo ? Math.round(parseFloat(ancho) * parseFloat(largo) * 100) / 100 : undefined;
+    ancho && largo
+      ? Math.round((parseDecimal(ancho) ?? 0) * (parseDecimal(largo) ?? 0) * 100) / 100
+      : undefined;
 
   function resetForm() {
     setNombre(ubicacion?.nombre_servicio ?? "");
@@ -94,9 +97,9 @@ export function UbicacionFormDialog({
         codigo_habilitacion: codigo || undefined,
         horas_x_dia: horas ? parseInt(horas, 10) : undefined,
         ubicacion_fisica: ubicFisica || undefined,
-        ancho_m: ancho ? parseFloat(ancho) : undefined,
-        largo_m: largo ? parseFloat(largo) : undefined,
-        alto_m: alto ? parseFloat(alto) : undefined,
+        ancho_m: parseDecimal(ancho),
+        largo_m: parseDecimal(largo),
+        alto_m: parseDecimal(alto),
         area_m2: areaCalc,
         zona_a_desc: zonaA || undefined,
         zona_b_desc: zonaB || undefined,

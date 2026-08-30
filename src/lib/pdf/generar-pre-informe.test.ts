@@ -52,6 +52,24 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("SERIE-MARCADOR-999");
   });
 
+  it("#68: los decimales del informe usan coma (es-CO), no punto", async () => {
+    const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.ubicaciones_rx.update(ubicacion.id!, {
+      ancho_m: 2.5,
+      largo_m: 3.2,
+      alto_m: 2.8,
+      area_m2: 8,
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    // La tabla "Dimensiones de la sala" imprime 2,5 m / 3,2 m / 2,8 m con
+    // coma decimal. (No se afirma la ausencia de "2.5" porque el PDF crudo
+    // lleva números con punto en sus estructuras internas.)
+    expect(text).toContain("2,5");
+    expect(text).toContain("3,2");
+    expect(text).toContain("2,8");
+  });
+
   it("equipo sin paquete (no-CONVENCIONAL) también genera el PDF (ruta legacy)", async () => {
     const { visita, equipo } = await seedGraph();
     await db.equipos.update(equipo.id!, { tipo_equipo: "CT" });

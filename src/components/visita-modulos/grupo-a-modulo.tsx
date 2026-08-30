@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { randomUUID } from "@/lib/uuid";
+import { parseDecimal } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -79,8 +80,7 @@ type Concepto = "Conforme" | "No_conforme" | "No_aplica";
 
 function num(v: string | number | undefined | null): number {
   if (v == null || v === "") return 0;
-  const n = typeof v === "number" ? v : parseFloat(v);
-  return isNaN(n) ? 0 : n;
+  return (typeof v === "number" ? v : parseDecimal(v)) ?? 0;
 }
 
 // ─── UI Components ───
@@ -675,7 +675,9 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 step="0.001"
                 defaultValue={setup?.fondo_natural_usv_h ?? ""}
                 placeholder="Ej: 0.08"
-                onSave={(v) => updateSetup({ fondo_natural_usv_h: v ? parseFloat(v) : undefined })}
+                onSave={(v) =>
+                  updateSetup({ fondo_natural_usv_h: v ? parseDecimal(v) : undefined })
+                }
               />
               <SetupField
                 label="Distancia tubo — operario (m)"
@@ -683,7 +685,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 defaultValue={setup?.distancia_tubo_operario_m ?? ""}
                 placeholder="Ej: 2.5"
                 onSave={(v) =>
-                  updateSetup({ distancia_tubo_operario_m: v ? parseFloat(v) : undefined })
+                  updateSetup({ distancia_tubo_operario_m: v ? parseDecimal(v) : undefined })
                 }
               />
             </div>
@@ -709,7 +711,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                   step="0.01"
                   defaultValue={setup?.[field] ?? ""}
                   placeholder={ph}
-                  onSave={(v) => updateSetup({ [field]: v ? parseFloat(v) : undefined })}
+                  onSave={(v) => updateSetup({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}
             </div>
@@ -776,7 +778,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 <SetupField
                   label="Semanas laborales"
                   defaultValue={setup?.semanas_laborales ?? 50}
-                  onSave={(v) => updateSetup({ semanas_laborales: v ? parseFloat(v) : 50 })}
+                  onSave={(v) => updateSetup({ semanas_laborales: v ? parseDecimal(v) : 50 })}
                 />
                 {semanasLaborales < 50 && (
                   <p className="text-[10px] font-bold text-amber-600">
@@ -863,7 +865,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                           placeholder="0.00"
                           onBlur={(e) => {
                             if (!m.id) return;
-                            const usv = e.target.value ? parseFloat(e.target.value) : undefined;
+                            const usv = e.target.value ? parseDecimal(e.target.value) : undefined;
                             updateMedicion(m.id, { tasa_dosis_usv_h: usv });
                             flash(m.id);
                           }}
@@ -879,7 +881,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                           onChange={(e) => {
                             if (!m.id) return;
                             updateMedicion(m.id, {
-                              factor_ocupacion_t: parseFloat(e.target.value),
+                              factor_ocupacion_t: parseDecimal(e.target.value),
                             });
                             flash(m.id);
                           }}
@@ -897,7 +899,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                           defaultValue={m.factor_uso_u ?? 1}
                           onChange={(e) => {
                             if (!m.id) return;
-                            updateMedicion(m.id, { factor_uso_u: parseFloat(e.target.value) });
+                            updateMedicion(m.id, { factor_uso_u: parseDecimal(e.target.value) });
                             flash(m.id);
                           }}
                         >

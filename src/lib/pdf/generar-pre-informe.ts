@@ -78,6 +78,16 @@ export async function getLogoBase64(): Promise<string> {
 
 // ─── Formateo de campos del informe ───
 
+/** Blob → data URL (para incrustar imágenes locales en el PDF). */
+function blobADataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("FileReader"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 /** "No aplica" para null / undefined / "" ; el valor tal cual si tiene contenido. */
 export function textoCampo(v: string | null | undefined, fallback = "No aplica"): string {
   const s = (v ?? "").trim();
@@ -109,6 +119,7 @@ interface DatosInforme {
   sede?: Sede;
   cliente?: Cliente;
   tubos: Tubo[];
+  identificaciones: { nombre: string; dataUrl?: string }[];
   sala?: SalaDimensiones;
   tecnico?: Usuario;
   contactos: Contacto[];
@@ -152,6 +163,20 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
         (t) => !t.deleted_at
       )
     : [];
+
+  const idenRows = visita.equipo_id
+    ? (
+        await db.equipo_identificaciones.where("equipo_id").equals(visita.equipo_id).toArray()
+      ).filter((r) => !r.deleted_at)
+    : [];
+  const identificaciones = await Promise.all(
+    idenRows
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      .map(async (r) => ({
+        nombre: r.nombre?.trim() || "Identificación",
+        dataUrl: r.blob_local ? await blobADataUrl(r.blob_local).catch(() => undefined) : undefined,
+      }))
+  );
   const sala = visita.ubicacion_id
     ? await db.sala_dimensiones.where("ubicacion_id").equals(visita.ubicacion_id).first()
     : undefined;
@@ -195,6 +220,7 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
     sede,
     cliente,
     tubos,
+    identificaciones,
     sala,
     tecnico,
     contactos,
@@ -697,6 +723,29 @@ export async function generarPreInforme(
 
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
   });
+
+  // Identificaciones del equipo (placas / inventario / calibración) — #61
+  if (datos.identificaciones.length > 0) {
+    checkPage(20);
+    addSubsectionTitle("", "Identificaciones del Equipo");
+    datos.identificaciones.forEach((iden) => {
+      checkPage(iden.dataUrl ? 60 : 10);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...COLOR_GRAY);
+      doc.text(iden.nombre, MARGIN, y);
+      y += 4;
+      if (iden.dataUrl) {
+        try {
+          doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
+          y += 44;
+        } catch {
+          y += 2;
+        }
+      }
+    });
+    y += 2;
+  }
 
   // Características del Colimador y Sistema de Adquisición
   checkPage(30);

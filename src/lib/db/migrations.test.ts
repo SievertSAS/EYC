@@ -19,8 +19,8 @@ describe("esquema — instalación nueva", () => {
     await resetTestDb();
   });
 
-  it("abre en la versión 15", () => {
-    expect(db.verno).toBe(15);
+  it("abre en la versión 16", () => {
+    expect(db.verno).toBe(16);
   });
 
   it("las tablas de dominio tienen PK string 'id' (migración v13 a UUID)", () => {

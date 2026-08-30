@@ -34,6 +34,15 @@ describe("storage — evidenciaPath", () => {
   it("sin visita_id usa 'sin-visita'", () => {
     expect(evidenciaPath("conv_evidencias", { id: "x", slot: "s" })).toBe("sin-visita/gen/s.jpg");
   });
+
+  it("equipo_identificaciones → equipos/{equipo_id}/{id}.jpg", () => {
+    expect(evidenciaPath("equipo_identificaciones", { id: "iden-1", equipo_id: "eq-9" })).toBe(
+      "equipos/eq-9/iden-1.jpg"
+    );
+    expect(evidenciaPath("equipo_identificaciones", { id: "iden-2" })).toBe(
+      "equipos/sin-equipo/iden-2.jpg"
+    );
+  });
 });
 
 describe("storage — compressImage", () => {

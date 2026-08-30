@@ -11,6 +11,7 @@ import type {
   Tubo,
   Colimador,
   Gantry,
+  EquipoIdentificacion,
   SalaDimensiones,
   ParteEquipo,
   ValoresReferencia,
@@ -66,6 +67,7 @@ class EyCDatabase extends Dexie {
   tubos!: EntityTable<Tubo, "id">;
   colimadores!: EntityTable<Colimador, "id">;
   gantry!: EntityTable<Gantry, "id">;
+  equipo_identificaciones!: EntityTable<EquipoIdentificacion, "id">;
   sala_dimensiones!: EntityTable<SalaDimensiones, "id">;
   partes_equipo!: EntityTable<ParteEquipo, "id">;
   valores_referencia!: EntityTable<ValoresReferencia, "id">;
@@ -322,6 +324,15 @@ class EyCDatabase extends Dexie {
     // ─────────────────────────────────────────────────────────────
     this.version(15).stores({
       sync_retry: "&[table_name+record_id], table_name, next_attempt_at",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v16 — "otras identificaciones" del equipo (#61). Tabla nueva,
+    //  aditiva. Foto rotulada por equipo; sincroniza bidireccional y
+    //  su blob va al bucket `evidencias` como las demás imágenes.
+    // ─────────────────────────────────────────────────────────────
+    this.version(16).stores({
+      equipo_identificaciones: "id, equipo_id, sync_status",
     });
   }
 }

@@ -30,6 +30,7 @@ import {
   Target,
 } from "lucide-react";
 import { irAModulo } from "@/lib/modulo-nav";
+import { getCamposFaltantesInfo, type CampoFaltante } from "@/lib/workflow/module-completeness";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 import {
@@ -310,6 +311,92 @@ function ConceptoBadgeSmall({ concepto }: { concepto?: ConceptoType }) {
   );
 }
 
+/** #65 — panel "Datos faltantes": qué falta y de qué sección de Info viene. */
+function DatosFaltantesPanel({
+  faltantes,
+  visitaId,
+  open,
+  onToggle,
+}: {
+  faltantes: CampoFaltante[];
+  visitaId: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  if (faltantes.length === 0) {
+    return (
+      <div className="flex items-center gap-2 py-3 px-4 bg-emerald-50 rounded-2xl border border-emerald-200">
+        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+        <span className="text-sm font-bold text-emerald-700">
+          Información General completa — todos los datos del informe están cargados.
+        </span>
+      </div>
+    );
+  }
+
+  const porSeccion = new Map<string, CampoFaltante[]>();
+  for (const f of faltantes) {
+    const arr = porSeccion.get(f.seccion) ?? [];
+    arr.push(f);
+    porSeccion.set(f.seccion, arr);
+  }
+
+  return (
+    <div className="bg-amber-50 rounded-2xl border border-amber-200 overflow-hidden">
+      <div className="flex items-center gap-2 p-4">
+        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-2 text-left"
+          aria-expanded={open}
+        >
+          <span className="text-sm font-bold text-amber-800">
+            {faltantes.length} dato{faltantes.length !== 1 ? "s" : ""} sin completar en Información
+            General
+          </span>
+          {open ? (
+            <ChevronUp className="w-4 h-4 text-amber-600" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-amber-600" />
+          )}
+        </button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-xl text-[10px] font-bold h-8 border-amber-300 text-amber-800 hover:bg-amber-100"
+          onClick={() => irAModulo(visitaId, "info")}
+        >
+          Ir a completar
+        </Button>
+      </div>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          {[...porSeccion.entries()].map(([seccion, campos]) => (
+            <div key={seccion}>
+              <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                {seccion}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {campos.map((c) => (
+                  <li
+                    key={c.campo}
+                    className="text-xs font-medium text-amber-900/80 flex items-center gap-1.5"
+                  >
+                    <span className="w-1 h-1 rounded-full bg-amber-400 flex-shrink-0" />
+                    {c.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ───
 
 export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
@@ -319,6 +406,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedCodigo, setExpandedCodigo] = useState<string | null>(null);
+  const [faltantesOpen, setFaltantesOpen] = useState(false);
 
   // ─── Live data ───
   const data = useLiveQuery(async () => {
@@ -334,7 +422,10 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
     // Todas las tablas conv_* — el concepto de cada prueba se deriva de aquí
     const datos = await cargarTablasConv(visitaId);
 
-    return { visita, secciones, datos };
+    // #65 — campos de Información General sin llenar, con su origen
+    const camposFaltantes = await getCamposFaltantesInfo(visita);
+
+    return { visita, secciones, datos, camposFaltantes };
   }, [isReady, visitaId]);
 
   const datos = data?.datos;
@@ -497,6 +588,14 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
           </span>
         </div>
       )}
+
+      {/* #65 — datos faltantes de Información General, con su origen */}
+      <DatosFaltantesPanel
+        faltantes={data.camposFaltantes}
+        visitaId={id}
+        open={faltantesOpen}
+        onToggle={() => setFaltantesOpen((v) => !v)}
+      />
 
       {/* Stats bar */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">

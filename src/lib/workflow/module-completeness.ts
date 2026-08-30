@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getPackage, getDefaultModules } from "@/lib/equipos/registry";
 import type { ModuloVisita } from "@/lib/equipos/types";
 import { getEstadoPruebasPorGrupo } from "@/lib/equipos/convencional/evaluacion";
+import type { Cliente, UbicacionRx, Equipo, Tubo } from "@/lib/db/types";
 
 // ============================================================
 //  Motor de completitud de módulos de visita
@@ -65,6 +66,174 @@ async function getModulosForVisita(visitaId: string): Promise<ModuloVisita[]> {
 }
 
 // ─── Info (precarga) — núcleo, compartido por todos los equipos ───
+//
+//  `INFO_CAMPOS` es la fuente única: el % de completitud y el panel
+//  "Datos faltantes" del pre-informe (#65) leen de la MISMA lista, así que
+//  no pueden divergir. Cada entrada dice de qué sección del módulo de
+//  Información General proviene el dato, para que el técnico sepa a dónde ir.
+
+interface InfoCtx {
+  fecha_visita?: string | null;
+  cliente?: Cliente;
+  ubicacion?: UbicacionRx;
+  equipo?: Equipo;
+  tubo?: Tubo;
+}
+
+export interface CampoFaltante {
+  campo: string;
+  label: string;
+  /** Id del módulo donde se completa (hoy siempre "info"). */
+  modulo: string;
+  /** Nombre de la sección dentro de ese módulo. */
+  seccion: string;
+}
+
+const INFO_CAMPOS: {
+  campo: string;
+  label: string;
+  seccion: string;
+  get: (c: InfoCtx) => unknown;
+}[] = [
+  {
+    campo: "fecha_visita",
+    label: "Fecha de la visita",
+    seccion: "Información General",
+    get: (c) => c.fecha_visita,
+  },
+  {
+    campo: "cliente.nombre_cliente",
+    label: "Nombre del cliente",
+    seccion: "Información General",
+    get: (c) => c.cliente?.nombre_cliente,
+  },
+  {
+    campo: "cliente.nit",
+    label: "NIT del cliente",
+    seccion: "Información General",
+    get: (c) => c.cliente?.nit,
+  },
+  {
+    campo: "cliente.telefono",
+    label: "Teléfono del cliente",
+    seccion: "Información General",
+    get: (c) => c.cliente?.telefono,
+  },
+  {
+    campo: "cliente.naturaleza",
+    label: "Naturaleza jurídica",
+    seccion: "Información General",
+    get: (c) => c.cliente?.naturaleza,
+  },
+  {
+    campo: "cliente.nombre_representante_legal",
+    label: "Representante legal",
+    seccion: "Información General",
+    get: (c) => c.cliente?.nombre_representante_legal,
+  },
+  {
+    campo: "ubicacion.nombre_servicio",
+    label: "Nombre del servicio",
+    seccion: "Información General",
+    get: (c) => c.ubicacion?.nombre_servicio,
+  },
+  {
+    campo: "ubicacion.licencia",
+    label: "Licencia de RX",
+    seccion: "Datos de la Instalación",
+    get: (c) => c.ubicacion?.licencia,
+  },
+  {
+    campo: "ubicacion.codigo_habilitacion",
+    label: "Código de habilitación",
+    seccion: "Datos de la Instalación",
+    get: (c) => c.ubicacion?.codigo_habilitacion,
+  },
+  {
+    campo: "equipo.gen_marca",
+    label: "Marca del equipo",
+    seccion: "Características del Equipo",
+    get: (c) => c.equipo?.gen_marca,
+  },
+  {
+    campo: "equipo.gen_numero_serie",
+    label: "N.º de serie del equipo",
+    seccion: "Características del Equipo",
+    get: (c) => c.equipo?.gen_numero_serie,
+  },
+  {
+    campo: "equipo.gen_modelo",
+    label: "Modelo del equipo",
+    seccion: "Características del Equipo",
+    get: (c) => c.equipo?.gen_modelo,
+  },
+  {
+    campo: "equipo.gen_fase",
+    label: "Fase del generador",
+    seccion: "Características del Equipo",
+    get: (c) => c.equipo?.gen_fase,
+  },
+  {
+    campo: "equipo.sistema_adquisicion",
+    label: "Sistema de adquisición",
+    seccion: "Colimador y Sistema de Adquisición",
+    get: (c) => c.equipo?.sistema_adquisicion,
+  },
+  {
+    campo: "equipo.distancia_foco_paciente",
+    label: "Distancia foco-paciente",
+    seccion: "Colimador y Sistema de Adquisición",
+    get: (c) => c.equipo?.distancia_foco_paciente,
+  },
+  {
+    campo: "equipo.filtracion_inherente_mmal",
+    label: "Filtración inherente (mm Al)",
+    seccion: "Colimador y Sistema de Adquisición",
+    get: (c) => c.equipo?.filtracion_inherente_mmal,
+  },
+  {
+    campo: "equipo.filtracion_anadida_mmal",
+    label: "Filtración añadida (mm Al)",
+    seccion: "Colimador y Sistema de Adquisición",
+    get: (c) => c.equipo?.filtracion_anadida_mmal,
+  },
+  {
+    campo: "tubo.marca",
+    label: "Marca del tubo",
+    seccion: "Especificaciones del Tubo",
+    get: (c) => c.tubo?.marca,
+  },
+  {
+    campo: "tubo.kv_max",
+    label: "kV máximo del tubo",
+    seccion: "Especificaciones del Tubo",
+    get: (c) => c.tubo?.kv_max,
+  },
+  {
+    campo: "tubo.ma_max",
+    label: "mA máximo del tubo",
+    seccion: "Especificaciones del Tubo",
+    get: (c) => c.tubo?.ma_max,
+  },
+];
+
+async function loadInfoCtx(visita: {
+  equipo_id?: string | null;
+  ubicacion_id?: string | null;
+  solicitud_id: string;
+  fecha_visita?: string | null;
+}): Promise<InfoCtx> {
+  const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
+  const ubicacion = visita.ubicacion_id
+    ? await db.ubicaciones_rx.get(visita.ubicacion_id)
+    : undefined;
+  const solicitud = await db.solicitudes.get(visita.solicitud_id);
+  const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
+  const tubo = equipo?.id
+    ? (await db.tubos.where("equipo_id").equals(equipo.id).toArray()).find((t) => !t.deleted_at)
+    : undefined;
+  return { fecha_visita: visita.fecha_visita, cliente, ubicacion, equipo, tubo };
+}
 
 async function getInfoPercentage(visita: {
   equipo_id?: string | null;
@@ -72,36 +241,28 @@ async function getInfoPercentage(visita: {
   solicitud_id: string;
   fecha_visita?: string | null;
 }): Promise<number> {
-  const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
-  const ubicacion = visita.ubicacion_id
-    ? await db.ubicaciones_rx.get(visita.ubicacion_id)
-    : undefined;
-  const solicitud = await db.solicitudes.get(visita.solicitud_id);
-  const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
-  const tubo = equipo?.id ? await db.tubos.where("equipo_id").equals(equipo.id).first() : undefined;
+  const ctx = await loadInfoCtx(visita);
+  return pct(INFO_CAMPOS.map((k) => k.get(ctx)));
+}
 
-  return pct([
-    visita.fecha_visita,
-    cliente?.nombre_cliente,
-    cliente?.nit,
-    cliente?.telefono,
-    cliente?.naturaleza,
-    cliente?.nombre_representante_legal,
-    ubicacion?.nombre_servicio,
-    ubicacion?.licencia,
-    ubicacion?.codigo_habilitacion,
-    equipo?.gen_marca,
-    equipo?.gen_numero_serie,
-    equipo?.gen_modelo,
-    equipo?.gen_fase,
-    equipo?.sistema_adquisicion,
-    equipo?.distancia_foco_paciente,
-    equipo?.filtracion_inherente_mmal,
-    equipo?.filtracion_anadida_mmal,
-    tubo?.marca,
-    tubo?.kv_max,
-    tubo?.ma_max,
-  ]);
+/**
+ * Campos de Información General que están vacíos, con la sección de origen
+ * de cada uno (#65). El pre-informe muestra esta lista para que el técnico
+ * sepa exactamente a dónde ir a completar.
+ */
+export async function getCamposFaltantesInfo(visita: {
+  equipo_id?: string | null;
+  ubicacion_id?: string | null;
+  solicitud_id: string;
+  fecha_visita?: string | null;
+}): Promise<CampoFaltante[]> {
+  const ctx = await loadInfoCtx(visita);
+  return INFO_CAMPOS.filter((k) => !notEmpty(k.get(ctx))).map((k) => ({
+    campo: k.campo,
+    label: k.label,
+    modulo: "info",
+    seccion: k.seccion,
+  }));
 }
 
 // ─── Convencional — completitud por grupo basada en pruebas resueltas ───

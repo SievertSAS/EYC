@@ -2597,6 +2597,9 @@ export type Database = {
           porcentaje_rechazo: number | null;
           presion_hpa: number | null;
           radiografias_por_semana: number | null;
+          reprogramacion_motivo: string | null;
+          reprogramada_en: string | null;
+          reprogramada_por_id: string | null;
           solicitud_id: string;
           sync_status: string;
           tecnico_id: string | null;
@@ -2622,6 +2625,9 @@ export type Database = {
           porcentaje_rechazo?: number | null;
           presion_hpa?: number | null;
           radiografias_por_semana?: number | null;
+          reprogramacion_motivo?: string | null;
+          reprogramada_en?: string | null;
+          reprogramada_por_id?: string | null;
           solicitud_id: string;
           sync_status?: string;
           tecnico_id?: string | null;
@@ -2647,6 +2653,9 @@ export type Database = {
           porcentaje_rechazo?: number | null;
           presion_hpa?: number | null;
           radiografias_por_semana?: number | null;
+          reprogramacion_motivo?: string | null;
+          reprogramada_en?: string | null;
+          reprogramada_por_id?: string | null;
           solicitud_id?: string;
           sync_status?: string;
           tecnico_id?: string | null;

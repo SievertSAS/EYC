@@ -30,10 +30,12 @@ import {
   CheckCircle2,
   ExternalLink,
   Pencil,
+  CalendarClock,
 } from "lucide-react";
 import Link from "next/link";
 import { crearVisitaDesdeSolicitud } from "@/lib/workflow/visita-service";
 import { SolicitudFormDialog } from "@/components/solicitud-form-dialog";
+import { ReprogramarVisitaDialog } from "@/components/reprogramar-visita-dialog";
 
 // ============================================================
 //  Detalle de solicitud + botón "Programar Visita"
@@ -79,10 +81,13 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const solicitudId = id;
   const { isReady } = useDb();
-  const { hasPermission } = useRole();
+  const { hasPermission, role } = useRole();
   const canEditSolicitud = hasPermission("solicitudes", "editar");
   const canCrearVisitas = hasPermission("visitas", "crear");
+  // #64: reprogramar es una acción de agenda — programador / coordinador.
+  const canReprogramar = role?.cargo === "programador" || role?.cargo === "coordinador";
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [reprogramarId, setReprogramarId] = useState<string | null>(null);
   const [creatingVisita, setCreatingVisita] = useState(false);
   const [tecnicoSel, setTecnicoSel] = useState("");
   const [fechaVisitaSel, setFechaVisitaSel] = useState("");
@@ -386,30 +391,43 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   eq.tipo_equipo ||
                   `Equipo #${eq.id}`
                 : null;
+              const puedeReprogramar = canReprogramar && visita.estado_visita === "asignada";
               return (
-                <a key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
-                  <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
-                    <CardContent className="p-4 sm:p-5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
-                            <ClipboardCheck className="w-4 h-4 text-primary" />
+                <div key={visita.id} className="mb-2">
+                  <a href={`/dashboard/visitas/${visita.id}`}>
+                    <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
+                      <CardContent className="p-4 sm:p-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
+                              <ClipboardCheck className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-slate-900 truncate">
+                                Visita #{visita.id}
+                                {eqNombre ? ` — ${eqNombre}` : ""}
+                              </p>
+                              <p className="text-[11px] text-slate-400 font-medium">
+                                Estado: {visita.estado_visita.replace("_", " ")}
+                                {visita.fecha_visita ? ` · ${visita.fecha_visita}` : ""}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-black text-slate-900 truncate">
-                              Visita #{visita.id}
-                              {eqNombre ? ` — ${eqNombre}` : ""}
-                            </p>
-                            <p className="text-[11px] text-slate-400 font-medium">
-                              Estado: {visita.estado_visita.replace("_", " ")}
-                            </p>
-                          </div>
+                          <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />
                         </div>
-                        <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </a>
+                      </CardContent>
+                    </Card>
+                  </a>
+                  {puedeReprogramar && (
+                    <button
+                      type="button"
+                      onClick={() => setReprogramarId(visita.id!)}
+                      className="mt-1 ml-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-primary transition-colors"
+                    >
+                      <CalendarClock className="w-3.5 h-3.5" /> Reprogramar
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -576,6 +594,26 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
         onOpenChange={setEditDialogOpen}
         editSolicitud={solicitud}
       />
+
+      {/* Dialog reprogramar visita (#64) */}
+      {reprogramarId &&
+        role &&
+        (() => {
+          const v = visitas.find((x) => x.id === reprogramarId);
+          if (!v) return null;
+          return (
+            <ReprogramarVisitaDialog
+              open
+              onOpenChange={(o) => !o && setReprogramarId(null)}
+              visitaId={reprogramarId}
+              tecnicos={tecnicos}
+              usuarioId={role.usuarioId}
+              fechaActual={v.fecha_visita}
+              tecnicoActualId={v.tecnico_id}
+              onReprogramada={() => setReprogramarId(null)}
+            />
+          );
+        })()}
     </div>
   );
 }

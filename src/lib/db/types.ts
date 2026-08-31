@@ -585,6 +585,10 @@ export interface VisitaEjecucion extends SyncFields {
   /** Timestamp de la última devolución */
   devuelto_en?: string;
   fecha_visita?: string;
+  /** Reprogramación (#64): última vez que se cambió fecha/técnico de una visita `asignada`. */
+  reprogramada_en?: string;
+  reprogramada_por_id?: string;
+  reprogramacion_motivo?: string;
   creado_en?: string;
 }
 

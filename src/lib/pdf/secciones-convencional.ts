@@ -30,6 +30,7 @@ import {
 } from "@/lib/equipos/convencional/inspeccion-items";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import { detalle213 } from "@/lib/equipos/convencional/evaluacion";
+import { descargarEvidencia } from "@/lib/supabase/storage";
 
 // ============================================================
 //  Secciones del pre-informe para el equipo CONVENCIONAL
@@ -146,10 +147,17 @@ async function blobADataUrl(blob: Blob): Promise<string> {
 async function cargarImagen(
   evidencia: ConvEvidencia | undefined
 ): Promise<DatosConvencional["planoRadiometrico"]> {
-  if (!evidencia?.blob_local) return undefined;
+  if (!evidencia) return undefined;
+  // El blob local solo existe en el dispositivo que capturó la foto; en
+  // cualquier otro hay que bajarla del bucket con el `url_storage` del sync.
+  const blob =
+    evidencia.blob_local instanceof Blob
+      ? evidencia.blob_local
+      : await descargarEvidencia(evidencia.url_storage);
+  if (!blob) return undefined;
   try {
-    const bitmap = await createImageBitmap(evidencia.blob_local);
-    const dataUrl = await blobADataUrl(evidencia.blob_local);
+    const bitmap = await createImageBitmap(blob);
+    const dataUrl = await blobADataUrl(blob);
     return { dataUrl, width: bitmap.width, height: bitmap.height };
   } catch {
     return undefined;

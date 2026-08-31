@@ -146,3 +146,32 @@ export async function resolverImagenSrc(img: {
     return null;
   }
 }
+
+/**
+ * Bytes de una imagen del bucket privado, para incrustarla en el PDF. Se usa
+ * cuando el dispositivo que genera el informe no capturó la foto y por lo tanto
+ * no tiene `blob_local` — solo el `url_storage` (path) que llegó por el sync.
+ * Devuelve null si no hay path o si la descarga falla (el informe sigue sin la
+ * imagen, no se rompe).
+ */
+export async function descargarEvidencia(path: string | null | undefined): Promise<Blob | null> {
+  if (!path) return null;
+  // Compatibilidad: `url_storage` que ya es una URL completa (datos viejos).
+  if (/^https?:\/\//.test(path)) {
+    try {
+      const r = await fetch(path);
+      return r.ok ? await r.blob() : null;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const { createClient } = await import("./client");
+    const supabase = createClient();
+    const { data, error } = await supabase.storage.from(EVIDENCIAS_BUCKET).download(path);
+    if (error || !data) return null;
+    return data as Blob;
+  } catch {
+    return null;
+  }
+}

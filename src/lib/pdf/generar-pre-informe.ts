@@ -19,6 +19,7 @@ import type {
 } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
+import { descargarEvidencia } from "@/lib/supabase/storage";
 import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
 import { evaluarConceptoPrueba, tieneCriterio } from "@/lib/equipos/convencional/evaluacion";
 import {
@@ -86,6 +87,21 @@ function blobADataUrl(blob: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error("FileReader"));
     reader.readAsDataURL(blob);
   });
+}
+
+/**
+ * data URL de una imagen para el PDF: usa el blob local si está; si no, baja los
+ * bytes del bucket con `url_storage`. Devuelve undefined si no hay ninguno o si
+ * la conversión/descarga falla (el informe sigue sin esa imagen).
+ */
+async function imagenDataUrl(
+  blobLocal: Blob | null | undefined,
+  urlStorage: string | null | undefined
+): Promise<string | undefined> {
+  if (blobLocal) return blobADataUrl(blobLocal).catch(() => undefined);
+  if (!urlStorage) return undefined;
+  const bajado = await descargarEvidencia(urlStorage);
+  return bajado ? blobADataUrl(bajado).catch(() => undefined) : undefined;
 }
 
 /** "No aplica" para null / undefined / "" ; el valor tal cual si tiene contenido. */
@@ -177,7 +193,10 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
         subtabla: r.subtabla ?? "otra",
         ref_id: r.ref_id,
         nombre: r.nombre?.trim() || "Identificación",
-        dataUrl: r.blob_local ? await blobADataUrl(r.blob_local).catch(() => undefined) : undefined,
+        // El blob local solo existe en el dispositivo que capturó la foto; en
+        // cualquier otro hay que bajarla del bucket con el `url_storage` que
+        // llegó por el sync.
+        dataUrl: await imagenDataUrl(r.blob_local, r.url_storage),
       }))
   );
   const sala = visita.ubicacion_id

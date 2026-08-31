@@ -1,5 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
-import { evidenciaPath, compressImage, resolverImagenSrc, subirEvidencia } from "./storage";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  evidenciaPath,
+  compressImage,
+  resolverImagenSrc,
+  subirEvidencia,
+  descargarEvidencia,
+} from "./storage";
+
+const download = vi.fn();
+vi.mock("./client", () => ({
+  createClient: () => ({ storage: { from: () => ({ download }) } }),
+}));
 
 describe("storage — evidenciaPath", () => {
   it("conv_evidencias → {visita}/{prueba}/{slot}.jpg", () => {
@@ -96,5 +107,36 @@ describe("storage — resolverImagenSrc", () => {
 
   it("si url_storage ya es una URL completa, la devuelve tal cual", async () => {
     expect(await resolverImagenSrc({ url_storage: "https://cdn/x.jpg" })).toBe("https://cdn/x.jpg");
+  });
+});
+
+describe("storage — descargarEvidencia", () => {
+  afterEach(() => {
+    download.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("sin path → null", async () => {
+    expect(await descargarEvidencia(null)).toBeNull();
+    expect(await descargarEvidencia(undefined)).toBeNull();
+    expect(await descargarEvidencia("")).toBeNull();
+  });
+
+  it("path del bucket → baja el blob por el cliente de Supabase", async () => {
+    const blob = new Blob([new Uint8Array(8)], { type: "image/jpeg" });
+    download.mockResolvedValue({ data: blob, error: null });
+    expect(await descargarEvidencia("equipos/eq-1/iden-1.jpg")).toBe(blob);
+    expect(download).toHaveBeenCalledWith("equipos/eq-1/iden-1.jpg");
+  });
+
+  it("si Supabase devuelve error → null (el informe sigue sin la imagen)", async () => {
+    download.mockResolvedValue({ data: null, error: { message: "no existe" } });
+    expect(await descargarEvidencia("equipos/eq-1/x.jpg")).toBeNull();
+  });
+
+  it("url completa (datos viejos) → fetch directo", async () => {
+    const blob = new Blob([new Uint8Array(4)], { type: "image/png" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, blob: async () => blob }));
+    expect(await descargarEvidencia("https://cdn/x.png")).toBe(blob);
   });
 });

@@ -1,35 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { createUsuarioSchema } from "@/lib/validation/schemas";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
-import { clientEnv, getServerEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
-
-// M2: lazy init — el cliente admin solo se crea al recibir un request, no al cargar el módulo
-function getAdminClient() {
-  return createClient(clientEnv.NEXT_PUBLIC_SUPABASE_URL, getServerEnv().SUPABASE_SERVICE_ROLE_KEY);
-}
-
-async function getAuthenticatedUser(request: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
-    clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-      },
-    }
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
-}
+import { requireCoordinador } from "./helpers";
 
 export async function POST(request: NextRequest) {
   const key = await getRateLimitKey("create-user");
@@ -41,22 +14,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const supabaseAdmin = getAdminClient();
-
-  const { data: caller } = await supabaseAdmin
-    .from("usuarios")
-    .select("cargo")
-    .eq("auth_uid", user.id)
-    .single();
-
-  if (!caller || caller.cargo !== "coordinador") {
-    return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
-  }
+  const gate = await requireCoordinador(request);
+  if (!gate.ok) return gate.response;
+  const { supabaseAdmin } = gate;
 
   const body = await request.json();
   const parsed = createUsuarioSchema.safeParse(body);

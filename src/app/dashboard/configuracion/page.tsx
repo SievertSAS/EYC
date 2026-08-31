@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,6 +95,28 @@ export default function ConfiguracionPage() {
 //  Tab: Usuarios
 // ============================================================
 
+/**
+ * Edita un usuario server-side (#58). `usuarios` es MASTER_TABLE: un
+ * `db.usuarios.update` local no llega a Supabase. Aplica el cambio vía
+ * `PATCH /api/usuarios/[id]` y refleja la respuesta en Dexie.
+ */
+async function patchUsuario(
+  id: string,
+  cambios: Record<string, unknown>
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(`/api/usuarios/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cambios),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "Error al actualizar el usuario" };
+  }
+  if (data.usuario) await db.usuarios.put(data.usuario);
+  return { ok: true };
+}
+
 function UsuariosTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -119,6 +142,7 @@ function UsuariosTab() {
             Nuevo Usuario
           </DialogTrigger>
           <UsuarioFormDialog
+            open={dialogOpen}
             onClose={() => {
               setDialogOpen(false);
               setEditingId(null);
@@ -175,9 +199,7 @@ function UsuariosTab() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={async () => {
-                      await db.usuarios.update(u.id!, {
-                        activo: !u.activo,
-                      });
+                      await patchUsuario(u.id!, { activo: !u.activo });
                     }}
                     className={
                       u.activo
@@ -201,9 +223,15 @@ function UsuariosTab() {
 //  Dialog: Crear / Editar usuario
 // ============================================================
 
-function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: string | null }) {
-  const existingUser = useLiveQuery(() => (editId ? db.usuarios.get(editId) : undefined), [editId]);
-
+function UsuarioFormDialog({
+  open,
+  onClose,
+  editId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editId: string | null;
+}) {
   const [nombre, setNombre] = useState("");
   const [cedula, setCedula] = useState("");
   const [email, setEmail] = useState("");
@@ -212,20 +240,30 @@ function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: s
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [initialized, setInitialized] = useState(false);
 
-  if (editId && existingUser && !initialized) {
-    setNombre(existingUser.nombre);
-    setCedula(existingUser.cedula);
-    setEmail(existingUser.email ?? "");
-    setTelefono(existingUser.telefono ?? "");
-    setCargo(existingUser.cargo as RolUsuario);
-    setInitialized(true);
-  }
-
-  if (!editId && !initialized) {
-    setInitialized(true);
-  }
+  // Repoblar el form SOLO en la transición cerrado→abierto (#11 / #58). El
+  // hack anterior (setState en render con un flag `initialized` de un disparo)
+  // se consumía en el primer montaje y dejaba el form en blanco al editar.
+  useReseedOnOpen(open, () => {
+    void (async () => {
+      setError("");
+      if (editId) {
+        const u = await db.usuarios.get(editId);
+        setNombre(u?.nombre ?? "");
+        setCedula(u?.cedula ?? "");
+        setEmail(u?.email ?? "");
+        setTelefono(u?.telefono ?? "");
+        setCargo((u?.cargo as RolUsuario) ?? "tecnico");
+      } else {
+        setNombre("");
+        setCedula("");
+        setEmail("");
+        setTelefono("");
+        setCargo("tecnico");
+        setPassword("");
+      }
+    })();
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -234,12 +272,16 @@ function UsuarioFormDialog({ onClose, editId }: { onClose: () => void; editId: s
 
     try {
       if (editId) {
-        await db.usuarios.update(editId, {
+        const r = await patchUsuario(editId, {
           nombre,
           cedula,
           cargo,
-          telefono: telefono || undefined,
+          telefono: telefono || "",
         });
+        if (!r.ok) {
+          setError(r.error);
+          return;
+        }
         onClose();
       } else {
         const res = await fetch("/api/usuarios", {

@@ -690,7 +690,23 @@ export async function generarPreInforme(
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Especificaciones del Tubo
+  // Especificaciones del Tubo — cantidad de tubos del equipo, en texto
+  {
+    const n = datos.tubos.length;
+    checkPage(8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...COLOR_BLACK);
+    doc.text(
+      n === 0
+        ? "El equipo no tiene tubos registrados."
+        : `El equipo cuenta con ${n} tubo${n > 1 ? "s" : ""}.`,
+      MARGIN,
+      y
+    );
+    y += 6;
+  }
+
   datos.tubos.forEach((tuboItem, i) => {
     checkPage(40);
     const titulo =

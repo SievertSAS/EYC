@@ -114,6 +114,28 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("TUBO-DOS-MARCA");
   });
 
+  it("#61: el informe indica la cantidad de tubos del equipo en texto", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    await db.tubos.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id! },
+      { id: randomUUID(), equipo_id: equipo.id! },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("El equipo cuenta con 2 tubos.");
+  });
+
+  it("#61: un solo tubo → singular; sin tubos → 'no tiene tubos registrados'", async () => {
+    const g1 = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: true });
+    expect(await pdfText((await generarPreInforme(g1.visita!.id!))!)).toContain(
+      "El equipo cuenta con 1 tubo."
+    );
+
+    const g0 = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    expect(await pdfText((await generarPreInforme(g0.visita!.id!))!)).toContain(
+      "El equipo no tiene tubos registrados."
+    );
+  });
+
   it("#61 (D2b): un tubo soft-borrado no sale en el informe", async () => {
     const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
     await db.tubos.bulkAdd([

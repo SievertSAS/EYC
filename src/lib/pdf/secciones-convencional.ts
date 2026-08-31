@@ -605,7 +605,11 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       body: conv.mediciones.map((m) => [
         String(m.punto_numero),
         m.ubicacion_descripcion || "—",
-        fmt(m.factor_ocupacion_t, 3).replace(/\.?0+$/, "") || "—",
+        // T con hasta 3 decimales y sin ceros de relleno. `formatDecimal` sin
+        // `decimals` ya lo hace (maximumFractionDigits 3, minimum 0); el
+        // `.replace(/\.?0+$/)` anterior asumía punto decimal y dejaba "1," con
+        // valores enteros ahora que se formatea con coma (es-CO).
+        formatDecimal(m.factor_ocupacion_t) || "—",
         fmt(m.factor_uso_u, 1),
         m.dosis_anual_msv != null ? formatDecimal(m.dosis_anual_msv, 6) : "—",
         capitalizar(m.tipo_area),

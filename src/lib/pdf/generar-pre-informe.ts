@@ -119,7 +119,7 @@ interface DatosInforme {
   sede?: Sede;
   cliente?: Cliente;
   tubos: Tubo[];
-  identificaciones: { nombre: string; dataUrl?: string }[];
+  identificaciones: { subtabla: string; ref_id?: string; nombre: string; dataUrl?: string }[];
   sala?: SalaDimensiones;
   tecnico?: Usuario;
   contactos: Contacto[];
@@ -136,6 +136,7 @@ const COLOR_HEADER_BG: [number, number, number] = [241, 245, 249];
 const COLOR_GRAY: [number, number, number] = [100, 116, 139];
 const COLOR_BLACK: [number, number, number] = [30, 30, 30];
 const COLOR_ALT_ROW: [number, number, number] = [248, 250, 252];
+const COLOR_BORDER: [number, number, number] = [203, 213, 225];
 const MARGIN = 20;
 const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
@@ -173,6 +174,8 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
     idenRows
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       .map(async (r) => ({
+        subtabla: r.subtabla ?? "otra",
+        ref_id: r.ref_id,
         nombre: r.nombre?.trim() || "Identificación",
         dataUrl: r.blob_local ? await blobADataUrl(r.blob_local).catch(() => undefined) : undefined,
       }))
@@ -420,6 +423,160 @@ export async function generarPreInforme(
     y += 5;
   }
 
+  /**
+   * Tarjeta con rótulo en cabecera + imagen enmarcada. Formato común para las
+   * fotos de referencia por sección y para "otras identificaciones" (#61).
+   * Devuelve `false` si `dataUrl` no es utilizable (el llamador decide el fallback).
+   */
+  function drawImagenCard(caption: string, dataUrl: string): boolean {
+    const imgW = 58;
+    const imgH = 44;
+    const pad = 5;
+    const headerH = 8;
+    const cardW = imgW + pad * 2;
+    const cardH = headerH + pad + imgH + pad;
+
+    checkPage(cardH + 6);
+
+    // Cuerpo de la tarjeta
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...COLOR_BORDER);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN, y, cardW, cardH, 2, 2, "FD");
+
+    // Cabecera
+    doc.setFillColor(...COLOR_HEADER_BG);
+    doc.rect(MARGIN + 0.4, y + 0.4, cardW - 0.8, headerH - 0.4, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...COLOR_PRIMARY);
+    doc.text(caption.toUpperCase(), MARGIN + pad, y + headerH - 3);
+    doc.setDrawColor(...COLOR_BORDER);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, y + headerH, MARGIN + cardW, y + headerH);
+
+    // Imagen enmarcada
+    try {
+      const imgX = MARGIN + pad;
+      const imgY = y + headerH + pad;
+      doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
+      doc.setDrawColor(...COLOR_BORDER);
+      doc.setLineWidth(0.2);
+      doc.rect(imgX, imgY, imgW, imgH, "S");
+      y += cardH + 6;
+      return true;
+    } catch {
+      y += headerH + 4;
+      return false;
+    }
+  }
+
+  const lastAutoTableFinalY = () =>
+    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+  /**
+   * Subsección de características del equipo (generador / tubo / colimador).
+   * Si hay foto de referencia (#61) la tabla se muestra como tarjeta: foto a la
+   * izquierda, tabla clave/valor a la derecha. Sin foto → tabla a todo el ancho,
+   * igual que el resto del informe.
+   */
+  function renderTablaEquipo(
+    titulo: string,
+    filas: string[][],
+    ref?: { subtabla: string; refId?: string }
+  ) {
+    checkPage(14);
+    addSubsectionTitle("", titulo);
+
+    const dataUrl = ref
+      ? datos.identificaciones.find(
+          (i) => i.subtabla === ref.subtabla && (i.ref_id ?? undefined) === ref.refId
+        )?.dataUrl
+      : undefined;
+
+    if (!dataUrl) {
+      autoTable(doc, {
+        startY: y,
+        margin: { left: MARGIN, right: MARGIN },
+        body: filas,
+        theme: "grid",
+        bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
+          1: { cellWidth: CONTENT_WIDTH - 60 },
+        },
+      });
+      y = lastAutoTableFinalY() + 6;
+      return;
+    }
+
+    // Tarjeta: foto (grande, para que la placa se lea) a la izquierda, tabla
+    // clave/valor a la derecha.
+    const pad = 5;
+    const gap = 8;
+    const imgBoxW = 70;
+    const imgBoxH = 90;
+    const tableLeft = MARGIN + pad + imgBoxW + gap;
+    const tableWidth = CONTENT_WIDTH - pad * 2 - imgBoxW - gap;
+    const labelW = 42;
+
+    // Tamaño real de la foto respetando su relación de aspecto dentro del box.
+    let imgW = imgBoxW;
+    let imgH = imgBoxW * 0.75;
+    try {
+      const props = doc.getImageProperties(dataUrl);
+      if (props?.width && props?.height) {
+        const ratio = props.height / props.width;
+        imgH = imgW * ratio;
+        if (imgH > imgBoxH) {
+          imgH = imgBoxH;
+          imgW = imgH / ratio;
+        }
+      }
+    } catch {
+      // sin metadata: se usa el fallback 4:3
+    }
+
+    checkPage(Math.max(filas.length * 9, imgH) + pad * 2 + 6);
+    const startY = y;
+
+    autoTable(doc, {
+      startY: startY + pad,
+      margin: { left: tableLeft, right: MARGIN + pad },
+      tableWidth,
+      body: filas,
+      theme: "grid",
+      bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: labelW, fillColor: COLOR_HEADER_BG },
+        1: { cellWidth: tableWidth - labelW },
+      },
+    });
+
+    const tableH = lastAutoTableFinalY() - (startY + pad);
+    const bodyH = Math.max(tableH, imgH);
+    const cardH = bodyH + pad * 2;
+
+    // Marco de la tarjeta (solo trazo, minimalista)
+    doc.setDrawColor(...COLOR_BORDER);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN, startY, CONTENT_WIDTH, cardH, 2, 2, "S");
+
+    // Foto centrada dentro de su box (vertical respecto al alto de la tarjeta)
+    const imgX = MARGIN + pad + (imgBoxW - imgW) / 2;
+    const imgY = startY + pad + (bodyH - imgH) / 2;
+    try {
+      doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
+      doc.setDrawColor(...COLOR_BORDER);
+      doc.setLineWidth(0.2);
+      doc.rect(imgX, imgY, imgW, imgH, "S");
+    } catch {
+      // sin imagen utilizable: la tarjeta queda solo con la tabla
+    }
+
+    y = startY + cardH + 6;
+  }
+
   // Contactos helper
   const medicoResp = datos.contactos.find((c) => c.cargo === "medico_responsable");
   const tecnologo = datos.contactos.find((c) => c.cargo === "tecnologo");
@@ -627,9 +784,9 @@ export async function generarPreInforme(
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Datos de la Instalación e Identificación del Equipo
+  // Datos de la Instalación
   checkPage(50);
-  addSubsectionTitle("", "Datos de la Instalación e Identificación del Equipo");
+  addSubsectionTitle("", "Datos de la Instalación");
 
   const datosInstalacion = [
     [
@@ -663,10 +820,7 @@ export async function generarPreInforme(
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Características del Equipo (la plantilla oficial las rotula "del generador")
-  checkPage(48);
-  addSubsectionTitle("", "Características del Equipo");
-
+  // Características del Generador
   const datosGenerador = [
     ["Marca", datos.equipo?.gen_marca ?? "—"],
     ["Modelo", datos.equipo?.gen_modelo ?? "—"],
@@ -676,26 +830,28 @@ export async function generarPreInforme(
     ["Energía fotones / electrones (MeV)", textoCampo(datos.equipo?.gen_energia_fotones_mev)],
   ];
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: MARGIN, right: MARGIN },
-    body: datosGenerador,
-    theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-      1: { cellWidth: CONTENT_WIDTH - 60 },
-    },
-  });
+  renderTablaEquipo("Características del Generador", datosGenerador, { subtabla: "generador" });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  // Especificaciones del Tubo — cantidad de tubos del equipo, en texto
+  {
+    const n = datos.tubos.length;
+    checkPage(8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...COLOR_BLACK);
+    doc.text(
+      n === 0
+        ? "El equipo no tiene tubos registrados."
+        : `El equipo cuenta con ${n} tubo${n > 1 ? "s" : ""}.`,
+      MARGIN,
+      y
+    );
+    y += 6;
+  }
 
-  // Especificaciones del Tubo
   datos.tubos.forEach((tuboItem, i) => {
-    checkPage(40);
     const titulo =
       datos.tubos.length > 1 ? `Especificaciones del Tubo ${i + 1}` : "Especificaciones del Tubo";
-    addSubsectionTitle("", titulo);
 
     const datosTubo = [
       ["Marca", tuboItem.marca ?? "—"],
@@ -709,48 +865,10 @@ export async function generarPreInforme(
       ["Foco grueso (mm)", String(tuboItem.foco_grueso_mm ?? "—")],
     ];
 
-    autoTable(doc, {
-      startY: y,
-      margin: { left: MARGIN, right: MARGIN },
-      body: datosTubo,
-      theme: "grid",
-      bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-        1: { cellWidth: CONTENT_WIDTH - 60 },
-      },
-    });
-
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+    renderTablaEquipo(titulo, datosTubo, { subtabla: "tubo", refId: tuboItem.id });
   });
 
-  // Identificaciones del equipo (placas / inventario / calibración) — #61
-  if (datos.identificaciones.length > 0) {
-    checkPage(20);
-    addSubsectionTitle("", "Identificaciones del Equipo");
-    datos.identificaciones.forEach((iden) => {
-      checkPage(iden.dataUrl ? 60 : 10);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(...COLOR_GRAY);
-      doc.text(iden.nombre, MARGIN, y);
-      y += 4;
-      if (iden.dataUrl) {
-        try {
-          doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
-          y += 44;
-        } catch {
-          y += 2;
-        }
-      }
-    });
-    y += 2;
-  }
-
   // Características del Colimador y Sistema de Adquisición
-  checkPage(30);
-  addSubsectionTitle("", "Características del Colimador y del Sistema de Adquisición de Imágenes");
-
   const datosColimador = [
     ["Distancia Foco / Paciente (cm)", String(datos.equipo?.distancia_foco_paciente ?? "—")],
     ["Bucky", datos.equipo?.bucky?.replace(/_/g, " ") ?? "—"],
@@ -762,19 +880,11 @@ export async function generarPreInforme(
     ["Filtración Añadida (mm Al)", String(datos.equipo?.filtracion_anadida_mmal ?? "No reporta")],
   ];
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: MARGIN, right: MARGIN },
-    body: datosColimador,
-    theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-      1: { cellWidth: CONTENT_WIDTH - 60 },
-    },
-  });
-
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  renderTablaEquipo(
+    "Características del Colimador y del Sistema de Adquisición de Imágenes",
+    datosColimador,
+    { subtabla: "colimador" }
+  );
 
   // Condiciones ambientales
   checkPage(15);
@@ -785,6 +895,28 @@ export async function generarPreInforme(
   y += 5;
   doc.text(`Presión (hPa): ${datos.visita.presion_hpa ?? "—"}`, MARGIN, y);
   y += 8;
+
+  // Otras identificaciones del equipo de rayos X — lista título + imagen (#61)
+  {
+    const otras = datos.identificaciones.filter((i) => (i.subtabla ?? "otra") === "otra");
+    if (otras.length > 0) {
+      checkPage(20);
+      addSubsectionTitle("", "Otras identificaciones del equipo de rayos X");
+      otras.forEach((iden) => {
+        if (iden.dataUrl) {
+          drawImagenCard(iden.nombre, iden.dataUrl);
+        } else {
+          checkPage(10);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...COLOR_GRAY);
+          doc.text(iden.nombre, MARGIN, y);
+          y += 6;
+        }
+      });
+      y += 2;
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA — INTRODUCCIÓN

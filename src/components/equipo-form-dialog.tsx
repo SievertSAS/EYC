@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import {
@@ -11,10 +11,13 @@ import {
   type Colimador,
   type Gantry,
   type TipoEquipo,
+  type SubtablaIdentificacion,
 } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
+import { useImagenSrc } from "@/hooks/use-imagen-src";
+import { ImagenConTitulo } from "@/components/imagen-con-titulo";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, Plus } from "lucide-react";
 
 // ============================================================
 //  Dialog para crear / editar un equipo (multi-sección)
@@ -97,6 +100,65 @@ function CollapsibleSection({
   );
 }
 
+// ─── Identificaciones del equipo (fotos de referencia + "otras") ───
+
+type IdenStage = {
+  id: string;
+  subtabla: SubtablaIdentificacion;
+  /** Para subtabla="tubo": id del tubo al que pertenece la foto. */
+  ref_id?: string;
+  nombre: string;
+  /** Imagen nueva sin subir. */
+  file?: File;
+  /** Estado ya persistido (al editar). */
+  blob_local?: Blob | null;
+  url_storage?: string | null;
+  isNew: boolean;
+};
+
+/** Slot de imagen del diálogo: resuelve el preview de un `File` nuevo o de una fila existente. */
+function StageImagenRow({
+  iden,
+  conTitulo,
+  onNombre,
+  onCapture,
+  onRemove,
+}: {
+  iden: IdenStage | undefined;
+  conTitulo: boolean;
+  onNombre?: (v: string) => void;
+  onCapture: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const file = iden?.file;
+  const [objUrl, setObjUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      setObjUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(file);
+    setObjUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  const fromRow = useImagenSrc(
+    file ? {} : { blob_local: iden?.blob_local, url_storage: iden?.url_storage }
+  );
+  const src = objUrl ?? fromRow;
+
+  return (
+    <ImagenConTitulo
+      nombre={iden?.nombre ?? ""}
+      src={src}
+      placeholder="Ej: Placa del fabricante / N.º de inventario"
+      onNombreChange={conTitulo ? onNombre : undefined}
+      onCapture={onCapture}
+      onRemoveImagen={src ? onRemove : undefined}
+      onDelete={conTitulo ? onRemove : undefined}
+    />
+  );
+}
+
 export function EquipoFormDialog({
   open,
   onOpenChange,
@@ -114,7 +176,7 @@ export function EquipoFormDialog({
   );
   const [bucky, setBucky] = useState(equipo?.bucky ?? "");
 
-  // Características del equipo (la plantilla oficial las rotula "del generador")
+  // Generador (en la práctica son los datos del equipo — un solo aparato físico)
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
   const [genModelo, setGenModelo] = useState(equipo?.gen_modelo ?? "");
   const [genSerie, setGenSerie] = useState(equipo?.gen_numero_serie ?? "");
@@ -153,6 +215,42 @@ export function EquipoFormDialog({
   const [gantryDetector, setGantryDetector] = useState("");
 
   const [saving, setSaving] = useState(false);
+
+  // Identificaciones del equipo: fotos de referencia (generador/tubo/colimador)
+  // + lista "otras". Se acumulan en el form y se persisten en handleSave.
+  const [identificaciones, setIdentificaciones] = useState<IdenStage[]>([]);
+  const [idenBorradas, setIdenBorradas] = useState<string[]>([]);
+
+  const getRefIden = (sub: SubtablaIdentificacion) =>
+    identificaciones.find((i) => i.subtabla === sub);
+  const otrasIden = identificaciones.filter((i) => i.subtabla === "otra");
+
+  function setRefImagen(sub: SubtablaIdentificacion, file: File) {
+    setIdentificaciones((prev) => {
+      const ex = prev.find((i) => i.subtabla === sub);
+      if (ex) return prev.map((i) => (i.subtabla === sub ? { ...i, file } : i));
+      return [...prev, { id: randomUUID(), subtabla: sub, nombre: "", file, isNew: true }];
+    });
+  }
+  function quitarIden(id: string) {
+    setIdentificaciones((prev) => {
+      const ex = prev.find((i) => i.id === id);
+      if (ex && !ex.isNew) setIdenBorradas((b) => [...b, id]);
+      return prev.filter((i) => i.id !== id);
+    });
+  }
+  function addOtraIden() {
+    setIdentificaciones((prev) => [
+      ...prev,
+      { id: randomUUID(), subtabla: "otra", nombre: "", isNew: true },
+    ]);
+  }
+  function setOtraNombre(id: string, nombre: string) {
+    setIdentificaciones((prev) => prev.map((i) => (i.id === id ? { ...i, nombre } : i)));
+  }
+  function setOtraFile(id: string, file: File) {
+    setIdentificaciones((prev) => prev.map((i) => (i.id === id ? { ...i, file } : i)));
+  }
 
   // Repoblar el form al reabrir (el padre controla `open` directo). Solo en
   // la transición de apertura — ver useReseedOnOpen (#11).
@@ -208,6 +306,29 @@ export function EquipoFormDialog({
       setGantryModelo(gantryReg?.modelo ?? "");
       setGantrySerie(gantryReg?.numero_serie ?? "");
       setGantryDetector(gantryReg?.tipo_detector ?? "");
+
+      const idenRows = equipo?.id
+        ? (await db.equipo_identificaciones.where("equipo_id").equals(equipo.id).toArray()).filter(
+            (r) => !r.deleted_at
+          )
+        : [];
+      setIdentificaciones(
+        idenRows
+          // El diálogo gestiona un solo tubo; solo se trae la foto de ESE tubo.
+          // Las fotos de otros tubos (creados desde Info) se dejan intactas.
+          .filter((r) => (r.subtabla ?? "otra") !== "tubo" || r.ref_id === tubo?.id)
+          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+          .map((r) => ({
+            id: r.id!,
+            subtabla: (r.subtabla ?? "otra") as SubtablaIdentificacion,
+            ref_id: r.ref_id,
+            nombre: r.nombre ?? "",
+            blob_local: r.blob_local ?? null,
+            url_storage: r.url_storage ?? null,
+            isNew: false,
+          }))
+      );
+      setIdenBorradas([]);
     })();
   });
 
@@ -278,70 +399,129 @@ export function EquipoFormDialog({
       // revés). Los ids a pushear se acumulan y se envían tras el commit.
       const toPush: Array<[Parameters<typeof pushSingle>[0], string]> = [];
 
-      await db.transaction("rw", [db.equipos, db.tubos, db.colimadores, db.gantry], async () => {
-        let equipoId: string;
-        if (isEdit && equipo?.id) {
-          await db.equipos.update(equipo.id, equipoData);
-          equipoId = equipo.id;
-        } else {
-          equipoId = (await db.equipos.add({ ...equipoData, id: randomUUID() })) as string;
-        }
-        toPush.push(["equipos", equipoId]);
+      await db.transaction(
+        "rw",
+        [db.equipos, db.tubos, db.colimadores, db.gantry, db.equipo_identificaciones],
+        async () => {
+          let equipoId: string;
+          if (isEdit && equipo?.id) {
+            await db.equipos.update(equipo.id, equipoData);
+            equipoId = equipo.id;
+          } else {
+            equipoId = (await db.equipos.add({ ...equipoData, id: randomUUID() })) as string;
+          }
+          toPush.push(["equipos", equipoId]);
 
-        // Hijo: si hay datos, crear/actualizar; si el usuario limpió todos los
-        // campos y existía una fila, soft-delete (no dejar la fila huérfana).
-        type HijoTable = {
-          update: (id: string, changes: Record<string, unknown>) => PromiseLike<unknown>;
-          add: (obj: Record<string, unknown>) => PromiseLike<unknown>;
-        };
-        const guardarHijo = async <T extends { equipo_id: string }>(
-          nombre: Parameters<typeof pushSingle>[0],
-          tabla: HijoTable,
-          data: T,
-          existingId: string | undefined,
-          tieneDatos: boolean
-        ) => {
-          if (tieneDatos) {
-            const payload = { ...data, equipo_id: equipoId };
-            if (existingId) {
-              await tabla.update(existingId, payload);
-              toPush.push([nombre, existingId]);
-            } else {
+          // Hijo: si hay datos, crear/actualizar; si el usuario limpió todos los
+          // campos y existía una fila, soft-delete (no dejar la fila huérfana).
+          type HijoTable = {
+            update: (id: string, changes: Record<string, unknown>) => PromiseLike<unknown>;
+            add: (obj: Record<string, unknown>) => PromiseLike<unknown>;
+          };
+          const guardarHijo = async <T extends { equipo_id: string }>(
+            nombre: Parameters<typeof pushSingle>[0],
+            tabla: HijoTable,
+            data: T,
+            existingId: string | undefined,
+            tieneDatos: boolean
+          ): Promise<string | undefined> => {
+            if (tieneDatos) {
+              const payload = { ...data, equipo_id: equipoId };
+              if (existingId) {
+                await tabla.update(existingId, payload);
+                toPush.push([nombre, existingId]);
+                return existingId;
+              }
               const nuevoId = (await tabla.add({ ...payload, id: randomUUID() })) as string;
               toPush.push([nombre, nuevoId]);
+              return nuevoId;
             }
-          } else if (existingId) {
-            await tabla.update(existingId, {
+            if (existingId) {
+              await tabla.update(existingId, {
+                deleted_at: now,
+                sync_status: "pending",
+                last_modified: now,
+              });
+              toPush.push([nombre, existingId]);
+            }
+            return undefined;
+          };
+
+          const tuboIdFinal = await guardarHijo(
+            "tubos",
+            db.tubos as unknown as HijoTable,
+            tuboData,
+            tuboId,
+            tuboTieneDatos
+          );
+          await guardarHijo(
+            "colimadores",
+            db.colimadores as unknown as HijoTable,
+            colData,
+            colId,
+            colTieneDatos
+          );
+          await guardarHijo(
+            "gantry",
+            db.gantry as unknown as HijoTable,
+            gantryData,
+            gantryId,
+            gantryTieneDatos
+          );
+
+          // Identificaciones del equipo (fotos de referencia + "otras")
+          for (const iden of identificaciones) {
+            const esOtra = iden.subtabla === "otra";
+            // "otras" sin título ni imagen → no vale la pena guardarlas
+            if (
+              esOtra &&
+              !iden.nombre.trim() &&
+              !iden.file &&
+              !iden.blob_local &&
+              !iden.url_storage
+            ) {
+              continue;
+            }
+            // La foto del tubo se ancla al tubo que se acaba de guardar; sin
+            // tubo no hay a qué asociarla (y no saldría en el informe).
+            const refId = iden.subtabla === "tubo" ? (tuboIdFinal ?? iden.ref_id) : undefined;
+            if (iden.subtabla === "tubo" && !refId) continue;
+            if (iden.isNew) {
+              await db.equipo_identificaciones.add({
+                id: iden.id,
+                equipo_id: equipoId,
+                subtabla: iden.subtabla,
+                ref_id: refId,
+                nombre: esOtra ? iden.nombre.trim() || undefined : undefined,
+                blob_local: iden.file ?? undefined,
+                url_storage: null,
+                orden: esOtra ? otrasIden.findIndex((o) => o.id === iden.id) + 1 : undefined,
+                creado_en: now,
+                sync_status: "pending",
+                last_modified: now,
+              });
+            } else {
+              await db.equipo_identificaciones.update(iden.id, {
+                subtabla: iden.subtabla,
+                ref_id: refId,
+                nombre: esOtra ? iden.nombre.trim() || undefined : undefined,
+                ...(iden.file ? { blob_local: iden.file, url_storage: null } : {}),
+                sync_status: "pending",
+                last_modified: now,
+              });
+            }
+            toPush.push(["equipo_identificaciones", iden.id]);
+          }
+          for (const id of idenBorradas) {
+            await db.equipo_identificaciones.update(id, {
               deleted_at: now,
               sync_status: "pending",
               last_modified: now,
             });
-            toPush.push([nombre, existingId]);
+            toPush.push(["equipo_identificaciones", id]);
           }
-        };
-
-        await guardarHijo(
-          "tubos",
-          db.tubos as unknown as HijoTable,
-          tuboData,
-          tuboId,
-          tuboTieneDatos
-        );
-        await guardarHijo(
-          "colimadores",
-          db.colimadores as unknown as HijoTable,
-          colData,
-          colId,
-          colTieneDatos
-        );
-        await guardarHijo(
-          "gantry",
-          db.gantry as unknown as HijoTable,
-          gantryData,
-          gantryId,
-          gantryTieneDatos
-        );
-      });
+        }
+      );
 
       onOpenChange(false);
       onSaved?.();
@@ -443,8 +623,8 @@ export function EquipoFormDialog({
             </div>
           </CollapsibleSection>
 
-          {/* Características del Equipo (la plantilla oficial las rotula "del generador") */}
-          <CollapsibleSection title="Características del Equipo" defaultOpen={true}>
+          {/* Generador */}
+          <CollapsibleSection title="Generador" defaultOpen={true}>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
@@ -515,6 +695,21 @@ export function EquipoFormDialog({
                   <SelectItem value="alta_frecuencia">Alta Frecuencia</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                Foto de la placa / referencia del generador
+              </Label>
+              <StageImagenRow
+                iden={getRefIden("generador")}
+                conTitulo={false}
+                onCapture={(f) => setRefImagen("generador", f)}
+                onRemove={() => {
+                  const r = getRefIden("generador");
+                  if (r) quitarIden(r.id);
+                }}
+              />
             </div>
           </CollapsibleSection>
 
@@ -658,6 +853,21 @@ export function EquipoFormDialog({
                 />
               </div>
             </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                Foto de la placa / referencia del tubo
+              </Label>
+              <StageImagenRow
+                iden={getRefIden("tubo")}
+                conTitulo={false}
+                onCapture={(f) => setRefImagen("tubo", f)}
+                onRemove={() => {
+                  const r = getRefIden("tubo");
+                  if (r) quitarIden(r.id);
+                }}
+              />
+            </div>
           </CollapsibleSection>
 
           {/* Colimador */}
@@ -693,6 +903,21 @@ export function EquipoFormDialog({
                   onChange={(e) => setColSerie(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                Foto de la placa / referencia del colimador
+              </Label>
+              <StageImagenRow
+                iden={getRefIden("colimador")}
+                conTitulo={false}
+                onCapture={(f) => setRefImagen("colimador", f)}
+                onRemove={() => {
+                  const r = getRefIden("colimador");
+                  if (r) quitarIden(r.id);
+                }}
+              />
             </div>
           </CollapsibleSection>
 
@@ -742,6 +967,35 @@ export function EquipoFormDialog({
                   onChange={(e) => setGantryDetector(e.target.value)}
                 />
               </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Otras identificaciones del equipo de rayos X — lista título + imagen */}
+          <CollapsibleSection title="Otras identificaciones del equipo de rayos X">
+            <div className="space-y-3">
+              {otrasIden.length === 0 && (
+                <p className="text-sm text-slate-400 font-medium py-1 text-center">
+                  Sin identificaciones cargadas
+                </p>
+              )}
+              {otrasIden.map((iden) => (
+                <StageImagenRow
+                  key={iden.id}
+                  iden={iden}
+                  conTitulo
+                  onNombre={(v) => setOtraNombre(iden.id, v)}
+                  onCapture={(f) => setOtraFile(iden.id, f)}
+                  onRemove={() => quitarIden(iden.id)}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={addOtraIden}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar identificación
+              </button>
             </div>
           </CollapsibleSection>
         </div>

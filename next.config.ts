@@ -27,7 +27,9 @@ const nextConfig: NextConfig = {
               // Next.js requiere unsafe-inline para hidratación y RSC
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
+              // Las evidencias del bucket privado se muestran con signed URLs
+              // servidas desde el host de Supabase Storage.
+              `img-src 'self' data: blob: https://${supabaseHost}`,
               `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
               "font-src 'self'",
               "worker-src 'self' blob:",

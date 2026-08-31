@@ -650,6 +650,73 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
+      {/* Botones de acción */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          onClick={handleGenerar}
+          disabled={generating || stats.total === 0}
+          className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-12 px-6 flex-1"
+        >
+          {generating ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              Generando PDF...
+            </>
+          ) : (
+            <>
+              <FileText className="w-4 h-4 mr-2" />
+              Generar Pre-Informe
+            </>
+          )}
+        </Button>
+
+        {pdfUrl && (
+          <Button
+            onClick={handleDescargar}
+            variant="outline"
+            className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-12 px-6"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Descargar PDF
+          </Button>
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-start gap-2 bg-red-50 rounded-xl p-4 border border-red-200">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700 font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Preview del PDF */}
+      {pdfUrl && (
+        <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+          <CardContent className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 p-2.5 rounded-xl">
+                <Eye className="text-emerald-600 w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-sm">Vista previa</h3>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Pre-informe generado exitosamente
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl overflow-hidden border border-slate-200">
+              <iframe
+                src={pdfUrl}
+                className="w-full h-[600px] sm:h-[700px]"
+                title="Pre-informe PDF"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Secciones fijas — Portada, Información, Introducción */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
@@ -746,73 +813,6 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
           </div>
         ))}
       </div>
-
-      {/* Botones de acción */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button
-          onClick={handleGenerar}
-          disabled={generating || stats.total === 0}
-          className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-12 px-6 flex-1"
-        >
-          {generating ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Generando PDF...
-            </>
-          ) : (
-            <>
-              <FileText className="w-4 h-4 mr-2" />
-              Generar Pre-Informe
-            </>
-          )}
-        </Button>
-
-        {pdfUrl && (
-          <Button
-            onClick={handleDescargar}
-            variant="outline"
-            className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-12 px-6"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Descargar PDF
-          </Button>
-        )}
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="flex items-start gap-2 bg-red-50 rounded-xl p-4 border border-red-200">
-          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700 font-medium">{error}</p>
-        </div>
-      )}
-
-      {/* Preview del PDF */}
-      {pdfUrl && (
-        <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-          <CardContent className="p-4 sm:p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-emerald-100 p-2.5 rounded-xl">
-                <Eye className="text-emerald-600 w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-900 text-sm">Vista previa</h3>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  Pre-informe generado exitosamente
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-xl overflow-hidden border border-slate-200">
-              <iframe
-                src={pdfUrl}
-                className="w-full h-[600px] sm:h-[700px]"
-                title="Pre-informe PDF"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

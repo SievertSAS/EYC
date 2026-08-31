@@ -32,6 +32,18 @@ async function pdfText(blob: Blob): Promise<string> {
   return s;
 }
 
+// PNG 1x1 válido → doc.getImageProperties devuelve dimensiones reales y
+// doc.addImage no lanza (ejercita el camino de tarjeta con foto).
+function tinyPngBlob(): Blob {
+  const bytes = Uint8Array.from(
+    atob(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    ),
+    (c) => c.charCodeAt(0)
+  );
+  return new Blob([bytes], { type: "image/png" });
+}
+
 beforeEach(async () => {
   await resetTestDb();
   resetLogoCache();
@@ -114,6 +126,28 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("TUBO-DOS-MARCA");
   });
 
+  it("#61: el informe indica la cantidad de tubos del equipo en texto", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    await db.tubos.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id! },
+      { id: randomUUID(), equipo_id: equipo.id! },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("El equipo cuenta con 2 tubos.");
+  });
+
+  it("#61: un solo tubo → singular; sin tubos → 'no tiene tubos registrados'", async () => {
+    const g1 = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: true });
+    expect(await pdfText((await generarPreInforme(g1.visita!.id!))!)).toContain(
+      "El equipo cuenta con 1 tubo."
+    );
+
+    const g0 = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    expect(await pdfText((await generarPreInforme(g0.visita!.id!))!)).toContain(
+      "El equipo no tiene tubos registrados."
+    );
+  });
+
   it("#61 (D2b): un tubo soft-borrado no sale en el informe", async () => {
     const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
     await db.tubos.bulkAdd([
@@ -130,24 +164,99 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).not.toContain("TUBO-BORRADO");
   });
 
-  it("#61 (D2c): las identificaciones del equipo salen en el informe; una borrada no", async () => {
+  it("#61: 'Otras identificaciones' salen en el informe; una borrada no", async () => {
     const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.equipo_identificaciones.bulkAdd([
-      { id: randomUUID(), equipo_id: equipo.id!, nombre: "IDEN-PLACA-FABRICANTE", orden: 1 },
-      { id: randomUUID(), equipo_id: equipo.id!, nombre: "IDEN-INVENTARIO", orden: 2 },
       {
         id: randomUUID(),
         equipo_id: equipo.id!,
+        subtabla: "otra",
+        nombre: "IDEN-PLACA",
+        orden: 1,
+      },
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        subtabla: "otra",
+        nombre: "IDEN-INVENTARIO",
+        orden: 2,
+      },
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        subtabla: "otra",
         nombre: "IDEN-BORRADA",
         orden: 3,
         deleted_at: new Date().toISOString(),
       },
     ]);
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
-    expect(text).toContain("Identificaciones del Equipo");
-    expect(text).toContain("IDEN-PLACA-FABRICANTE");
+    expect(text).toContain("Otras identificaciones del equipo de rayos X");
+    expect(text).toContain("IDEN-PLACA");
     expect(text).toContain("IDEN-INVENTARIO");
     expect(text).not.toContain("IDEN-BORRADA");
+  });
+
+  it("#61: las identificaciones de subtabla generador/tubo/colimador NO van a la lista 'Otras'", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipo_identificaciones.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id!, subtabla: "generador", nombre: "REF-GENERADOR" },
+      { id: randomUUID(), equipo_id: equipo.id!, subtabla: "otra", nombre: "IDEN-SUELTA" },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("IDEN-SUELTA");
+    expect(text).not.toContain("REF-GENERADOR");
+  });
+
+  // Nota: el render de la imagen en sí (tarjeta foto/tabla, drawImagenCard) no se
+  // puede ejercitar bajo happy-dom + fake-indexeddb — el Blob no sobrevive el
+  // round-trip por IndexedDB (vuelve como objeto plano y FileReader lo rechaza),
+  // así que `dataUrl` queda undefined y se toma la rama sin foto. Estos tests
+  // cubren la carga de identificaciones, el ref_id por tubo y que la presencia de
+  // filas con blob no rompe la generación (rama `.catch` de blobADataUrl).
+  it("#61: una identificación de generador con blob no rompe el informe", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipos.update(equipo.id!, { gen_marca: "MARCA-CARD-61" });
+    await db.equipo_identificaciones.add({
+      id: randomUUID(),
+      equipo_id: equipo.id!,
+      subtabla: "generador",
+      blob_local: tinyPngBlob(),
+    });
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).not.toBeNull();
+    const text = await pdfText(blob!);
+    expect(text).toContain("Características del Generador");
+    expect(text).toContain("MARCA-CARD-61");
+  });
+
+  it("#61: identificaciones de tubo (ref_id) y colimador se cargan sin romper el informe", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
+    const tuboA = randomUUID();
+    const tuboB = randomUUID();
+    await db.tubos.bulkAdd([
+      { id: tuboA, equipo_id: equipo.id!, marca: "TUBO-A-CARD" },
+      { id: tuboB, equipo_id: equipo.id!, marca: "TUBO-B-CARD" },
+    ]);
+    await db.equipo_identificaciones.bulkAdd([
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        subtabla: "tubo",
+        ref_id: tuboB,
+        blob_local: tinyPngBlob(),
+      },
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        subtabla: "colimador",
+        blob_local: tinyPngBlob(),
+      },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Especificaciones del Tubo 2");
+    expect(text).toContain("TUBO-B-CARD");
+    expect(text).toContain("Características del Colimador");
   });
 
   it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {

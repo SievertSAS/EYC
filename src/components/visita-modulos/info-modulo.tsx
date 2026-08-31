@@ -251,10 +251,11 @@ function IdentificacionRow({
   onDelete,
 }: {
   iden: EquipoIdentificacion;
-  onNombre: (value: string) => void;
+  /** Si se omite, la fila es solo imagen (foto de referencia de una sección). */
+  onNombre?: (value: string) => void;
   onCapture: (file: File) => void;
-  onRemoveImagen: () => void;
-  onDelete: () => void;
+  onRemoveImagen?: () => void;
+  onDelete?: () => void;
 }) {
   const src = useImagenSrc(iden);
   return (
@@ -267,6 +268,31 @@ function IdentificacionRow({
       onRemoveImagen={onRemoveImagen}
       onDelete={onDelete}
     />
+  );
+}
+
+/** Foto de referencia (placa) de una sección del equipo: generador / tubo / colimador. */
+function RefImagenSlot({
+  label,
+  iden,
+  onCapture,
+  onRemove,
+}: {
+  label: string;
+  iden: EquipoIdentificacion | undefined;
+  onCapture: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const src = useImagenSrc(iden ?? {});
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <ImagenConTitulo
+        src={src}
+        onCapture={onCapture}
+        onRemoveImagen={src ? onRemove : undefined}
+      />
+    </div>
   );
 }
 
@@ -493,15 +519,20 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     pushSingle("tubos", tuboId);
   }
 
-  // ─── Identificaciones del equipo (#61: nombre + foto) ───
+  // ─── Identificaciones del equipo (#61) ───
+  //  Tabla equipo_identificaciones con `subtabla`:
+  //   - generador / tubo / colimador → foto de referencia de esa sección (1 sola)
+  //   - otra → entrada libre de la lista "Otras identificaciones"
 
   async function addIdentificacion() {
     const equipoId = data?.equipo?.id;
     if (!equipoId) return;
+    const otras = (data?.identificaciones ?? []).filter((i) => (i.subtabla ?? "otra") === "otra");
     const nueva = {
       id: randomUUID(),
       equipo_id: equipoId,
-      orden: (data?.identificaciones?.length ?? 0) + 1,
+      subtabla: "otra" as const,
+      orden: otras.length + 1,
       creado_en: now(),
       sync_status: "pending" as const,
       last_modified: now(),
@@ -528,6 +559,44 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
       last_modified: now(),
     });
     pushSingle("equipo_identificaciones", idenId);
+  }
+
+  /** Foto de referencia de una subtabla (generador/tubo/colimador): crea o reemplaza. */
+  const findRef = (subtabla: EquipoIdentificacion["subtabla"], refId?: string) =>
+    (data?.identificaciones ?? []).find(
+      (i) => i.subtabla === subtabla && (i.ref_id ?? undefined) === refId
+    );
+
+  async function captureRefImagen(
+    subtabla: EquipoIdentificacion["subtabla"],
+    file: File,
+    refId?: string
+  ) {
+    const equipoId = data?.equipo?.id;
+    if (!equipoId) return;
+    const existente = findRef(subtabla, refId);
+    if (existente?.id) {
+      await saveIdentificacion(existente.id, { blob_local: file, url_storage: null });
+      return;
+    }
+    const nueva = {
+      id: randomUUID(),
+      equipo_id: equipoId,
+      subtabla,
+      ref_id: refId,
+      blob_local: file,
+      url_storage: null,
+      creado_en: now(),
+      sync_status: "pending" as const,
+      last_modified: now(),
+    };
+    await db.equipo_identificaciones.add(nueva);
+    pushSingle("equipo_identificaciones", nueva.id);
+  }
+
+  async function removeRefImagen(subtabla: EquipoIdentificacion["subtabla"], refId?: string) {
+    const existente = findRef(subtabla, refId);
+    if (existente?.id) await deleteIdentificacion(existente.id);
   }
 
   async function saveVisita(field: string, value: string, numeric = false) {
@@ -604,6 +673,9 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
   const { visita, equipo, ubicacion, sede, cliente, solicitud, tubos, nroTubos, contactos } = data;
   const identificaciones = data.identificaciones;
+  const refImagen = (sub: EquipoIdentificacion["subtabla"], refId?: string) =>
+    identificaciones.find((i) => i.subtabla === sub && (i.ref_id ?? undefined) === refId);
+  const otrasIdentificaciones = identificaciones.filter((i) => (i.subtabla ?? "otra") === "otra");
 
   const medico = getContacto("medico_responsable");
   const tecnologo = getContacto("tecnologo");
@@ -984,10 +1056,10 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
         </div>
       </SectionCard>
 
-      {/* 3. Características del Equipo (la plantilla las llama "del generador") */}
+      {/* 3. Características del Generador */}
       <SectionCard
         icon={Radio}
-        title="Características del Equipo"
+        title="Características del Generador"
         subtitle="Datos del equipo de rayos X"
         progress={progGenerador}
       >
@@ -1033,44 +1105,13 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             onSave={(v) => saveEquipo("gen_energia_fotones_mev", v)}
           />
         </div>
-      </SectionCard>
-
-      {/* 3b. Identificaciones del Equipo (placas, inventario, calibración…) */}
-      <SectionCard
-        icon={FileText}
-        title="Identificaciones del Equipo"
-        subtitle="Placas / inventario / calibración — foto rotulada"
-        progress={identificaciones.length > 0 ? 100 : 0}
-      >
-        <div className="space-y-3">
-          {identificaciones.length === 0 && (
-            <p className="text-sm text-slate-400 font-medium py-2 text-center">
-              Sin identificaciones cargadas
-            </p>
-          )}
-          {identificaciones.map((iden) => (
-            <IdentificacionRow
-              key={iden.id}
-              iden={iden}
-              onNombre={(v) => saveIdentificacion(iden.id!, { nombre: v || undefined })}
-              onCapture={(file) =>
-                saveIdentificacion(iden.id!, { blob_local: file, url_storage: null })
-              }
-              onRemoveImagen={() =>
-                saveIdentificacion(iden.id!, { blob_local: null, url_storage: null })
-              }
-              onDelete={() => deleteIdentificacion(iden.id!)}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={addIdentificacion}
-            disabled={!equipo}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
-          >
-            <Plus className="w-4 h-4" />
-            Agregar identificación
-          </button>
+        <div className="pt-3 border-t border-slate-100">
+          <RefImagenSlot
+            label="Foto de la placa / referencia del generador"
+            iden={refImagen("generador")}
+            onCapture={(file) => captureRefImagen("generador", file)}
+            onRemove={() => removeRefImagen("generador")}
+          />
         </div>
       </SectionCard>
 
@@ -1162,6 +1203,15 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
                   onSave={(v) => saveTubo(t.id!, "foco_grueso_mm", v, true)}
                 />
               </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <RefImagenSlot
+                  label={`Foto de la placa / referencia del tubo ${i + 1}`}
+                  iden={refImagen("tubo", t.id)}
+                  onCapture={(file) => captureRefImagen("tubo", file, t.id)}
+                  onRemove={() => removeRefImagen("tubo", t.id)}
+                />
+              </div>
             </div>
           ))}
 
@@ -1221,6 +1271,14 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             onSave={(v) => saveEquipo("filtracion_anadida_mmal", v, true)}
           />
         </div>
+        <div className="pt-3 border-t border-slate-100">
+          <RefImagenSlot
+            label="Foto de la placa / referencia del colimador"
+            iden={refImagen("colimador")}
+            onCapture={(file) => captureRefImagen("colimador", file)}
+            onRemove={() => removeRefImagen("colimador")}
+          />
+        </div>
       </SectionCard>
 
       {/* 6. Condiciones Ambientales */}
@@ -1265,6 +1323,45 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
               onSave={(v) => saveVisita("observaciones", v)}
             />
           </div>
+        </div>
+      </SectionCard>
+
+      {/* 6b. Otras identificaciones del equipo de rayos X (lista título + imagen) */}
+      <SectionCard
+        icon={FileText}
+        title="Otras identificaciones del equipo de rayos X"
+        subtitle="Placas, inventario, calibración… — título + foto, las que hagan falta"
+        progress={otrasIdentificaciones.length > 0 ? 100 : 0}
+      >
+        <div className="space-y-3">
+          {otrasIdentificaciones.length === 0 && (
+            <p className="text-sm text-slate-400 font-medium py-2 text-center">
+              Sin identificaciones cargadas
+            </p>
+          )}
+          {otrasIdentificaciones.map((iden) => (
+            <IdentificacionRow
+              key={iden.id}
+              iden={iden}
+              onNombre={(v) => saveIdentificacion(iden.id!, { nombre: v || undefined })}
+              onCapture={(file) =>
+                saveIdentificacion(iden.id!, { blob_local: file, url_storage: null })
+              }
+              onRemoveImagen={() =>
+                saveIdentificacion(iden.id!, { blob_local: null, url_storage: null })
+              }
+              onDelete={() => deleteIdentificacion(iden.id!)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={addIdentificacion}
+            disabled={!equipo}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar identificación
+          </button>
         </div>
       </SectionCard>
 

@@ -157,6 +157,43 @@ describe("GrupoAModulo — elemento de protección con Combobox + 'Otro' (#69)",
   });
 });
 
+describe("InfoModulo — no se puede dejar en blanco una columna NOT NULL (23502)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+  });
+  afterEach(() => cleanup());
+
+  it("borrar 'Nombre del Servicio' no persiste undefined y el campo revierte", async () => {
+    const { visita, ubicacion } = await seedGraph();
+    render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    const input = screen.getByDisplayValue("Radiología Convencional") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+
+    // Pasado el debounce (800 ms) el guard revierte y NO guarda.
+    await new Promise((r) => setTimeout(r, 950));
+
+    const row = await db.ubicaciones_rx.get(ubicacion.id!);
+    expect(row?.nombre_servicio).toBe("Radiología Convencional");
+    expect(input.value).toBe("Radiología Convencional");
+  });
+
+  it("un valor nuevo no vacío sí se guarda", async () => {
+    const { visita, ubicacion } = await seedGraph();
+    render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    const input = screen.getByDisplayValue("Radiología Convencional");
+    fireEvent.change(input, { target: { value: "Mamografía" } });
+    await new Promise((r) => setTimeout(r, 950));
+
+    const row = await db.ubicaciones_rx.get(ubicacion.id!);
+    expect(row?.nombre_servicio).toBe("Mamografía");
+  });
+});
+
 describe("InfoModulo — Sistema de Adquisición de Imágenes (#62)", () => {
   beforeEach(async () => {
     await resetTestDb();

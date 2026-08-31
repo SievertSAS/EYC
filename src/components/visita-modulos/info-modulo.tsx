@@ -65,12 +65,19 @@ function EditableField({
   icon: Icon,
   onSave,
   type = "text",
+  required = false,
 }: {
   label: string;
   value: string;
   icon?: React.ComponentType<{ className?: string }>;
   onSave: (v: string) => void;
   type?: "text" | "number" | "date";
+  /**
+   * Columna NOT NULL: si se deja en blanco NO se guarda y el campo revierte al
+   * valor actual. Dejar `undefined` una columna obligatoria rompe el push a
+   * Supabase con `23502 not_null_violation` y la fila queda atascada en error.
+   */
+  required?: boolean;
 }) {
   // #68: los campos numéricos se muestran con coma decimal (es-CO) y aceptan
   // coma o punto. El input real es `text` + `inputMode=decimal` (evita la
@@ -97,12 +104,17 @@ function EditableField({
       setSaved(false);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
+        if (required && !v.trim()) {
+          // Campo obligatorio: no se puede dejar en blanco. Revertir al valor real.
+          setLocal(paraMostrar(value));
+          return;
+        }
         onSave(v);
         setSaved(true);
         setTimeout(() => setSaved(false), 1500);
       }, 800);
     },
-    [onSave]
+    [onSave, required, value]
   );
 
   return (
@@ -425,9 +437,21 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
   const now = () => new Date().toISOString();
 
+  // Columnas NOT NULL editables desde Info: dejarlas en blanco (→ `undefined`)
+  // rompe el push con `23502 not_null_violation` y la fila queda atascada.
+  // Guard de última línea además del `required` de <EditableField>.
+  function requeridoVacio(tabla: string, field: string, value: string): boolean {
+    const req: Record<string, string[]> = {
+      clientes: ["nombre_cliente", "nit"],
+      sedes: ["nombre_sede"],
+      ubicaciones_rx: ["nombre_servicio"],
+    };
+    return (req[tabla]?.includes(field) ?? false) && !value.trim();
+  }
+
   async function saveCliente(field: string, value: string) {
     const id = data?.cliente?.id;
-    if (!id) return;
+    if (!id || requeridoVacio("clientes", field, value)) return;
     await db.clientes.update(id, {
       [field]: value || undefined,
       sync_status: "pending",
@@ -438,7 +462,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
   async function saveSede(field: string, value: string) {
     const id = data?.sede?.id;
-    if (!id) return;
+    if (!id || requeridoVacio("sedes", field, value)) return;
     await db.sedes.update(id, {
       [field]: value || undefined,
       sync_status: "pending",
@@ -449,7 +473,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
   async function saveUbicacion(field: string, value: string, numeric = false) {
     const id = data?.ubicacion?.id;
-    if (!id) return;
+    if (!id || requeridoVacio("ubicaciones_rx", field, value)) return;
     const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
     await db.ubicaciones_rx.update(id, {
       [field]: parsed,
@@ -824,6 +848,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             label="Nombre de la Institución"
             value={toStr(cliente?.nombre_cliente)}
             icon={Building2}
+            required
             onSave={(v) => saveCliente("nombre_cliente", v)}
           />
           <div className="flex gap-2">
@@ -832,6 +857,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
                 label="NIT"
                 value={toStr(cliente?.nit)}
                 icon={Hash}
+                required
                 onSave={(v) => saveCliente("nit", v)}
               />
             </div>
@@ -847,6 +873,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             label="Sede"
             value={toStr(sede?.nombre_sede)}
             icon={MapPin}
+            required
             onSave={(v) => saveSede("nombre_sede", v)}
           />
           <EditableField
@@ -880,6 +907,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           <EditableField
             label="Nombre del Servicio"
             value={toStr(ubicacion?.nombre_servicio)}
+            required
             onSave={(v) => saveUbicacion("nombre_servicio", v)}
           />
           <EditableField

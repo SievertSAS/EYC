@@ -1105,6 +1105,9 @@ export type Database = {
           valor_total: number | null;
         };
         Insert: {
+          cancelada_en?: string | null;
+          cancelada_motivo?: string | null;
+          cancelada_por_id?: string | null;
           cliente_id: string;
           creado_en?: string;
           estado?: string | null;
@@ -1117,6 +1120,9 @@ export type Database = {
           valor_total?: number | null;
         };
         Update: {
+          cancelada_en?: string | null;
+          cancelada_motivo?: string | null;
+          cancelada_por_id?: string | null;
           cliente_id?: string;
           creado_en?: string;
           estado?: string | null;
@@ -2186,6 +2192,9 @@ export type Database = {
       };
       solicitudes: {
         Row: {
+          cancelada_en: string | null;
+          cancelada_motivo: string | null;
+          cancelada_por_id: string | null;
           cliente_id: string;
           contacto_programar_id: string | null;
           cotizacion_id: string | null;

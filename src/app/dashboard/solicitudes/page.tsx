@@ -40,7 +40,8 @@ type PipelineTab =
   | "programacion"
   | "ejecucion"
   | "notificado"
-  | "enviado";
+  | "enviado"
+  | "cancelada";
 
 const PIPELINE_TABS: { id: PipelineTab; label: string; short: string }[] = [
   { id: "todas", label: "Todas", short: "Todas" },
@@ -49,6 +50,7 @@ const PIPELINE_TABS: { id: PipelineTab; label: string; short: string }[] = [
   { id: "ejecucion", label: "Ejecución", short: "Ejec." },
   { id: "notificado", label: "Notificado", short: "Notif." },
   { id: "enviado", label: "Enviado", short: "Env." },
+  { id: "cancelada", label: "Canceladas", short: "Cancel." },
 ];
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -57,6 +59,7 @@ const ESTADO_LABEL: Record<string, string> = {
   ejecucion: "Ejecución",
   notificado: "Notificado",
   enviado: "Enviado",
+  cancelada: "Cancelada",
 };
 
 const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
@@ -84,6 +87,11 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
     bg: "bg-emerald-100",
     text: "text-emerald-600",
     border: "border-emerald-200",
+  },
+  cancelada: {
+    bg: "bg-red-100",
+    text: "text-red-600",
+    border: "border-red-200",
   },
 };
 
@@ -129,17 +137,20 @@ export default function SolicitudesPage() {
     );
   }
 
-  // Filter + counts
+  // Filter + counts. "Todas" excluye las canceladas — viven en su propia pestaña.
   const filtered =
-    activeTab === "todas" ? data : data.filter((d) => d.solicitud.pipeline_estado === activeTab);
+    activeTab === "todas"
+      ? data.filter((d) => d.solicitud.pipeline_estado !== "cancelada")
+      : data.filter((d) => d.solicitud.pipeline_estado === activeTab);
 
   const counts: Record<PipelineTab, number> = {
-    todas: data.length,
+    todas: data.filter((d) => d.solicitud.pipeline_estado !== "cancelada").length,
     solicitudes: data.filter((d) => d.solicitud.pipeline_estado === "solicitudes").length,
     programacion: data.filter((d) => d.solicitud.pipeline_estado === "programacion").length,
     ejecucion: data.filter((d) => d.solicitud.pipeline_estado === "ejecucion").length,
     notificado: data.filter((d) => d.solicitud.pipeline_estado === "notificado").length,
     enviado: data.filter((d) => d.solicitud.pipeline_estado === "enviado").length,
+    cancelada: data.filter((d) => d.solicitud.pipeline_estado === "cancelada").length,
   };
 
   return (

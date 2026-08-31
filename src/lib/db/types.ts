@@ -545,13 +545,23 @@ export interface Solicitud extends Partial<SyncFields> {
   tecnico_asignado_id?: string;
   suitecrm_id?: string;
   tipo_servicio?: string;
-  pipeline_estado?: "solicitudes" | "programacion" | "ejecucion" | "notificado" | "enviado";
+  pipeline_estado?:
+    | "solicitudes"
+    | "programacion"
+    | "ejecucion"
+    | "notificado"
+    | "enviado"
+    | "cancelada";
   forma_pago?: string;
   pago_recibido: boolean;
   fecha_solicitud?: string;
   fecha_estimada_visita?: string;
   fecha_real_visita?: string;
   fecha_entrega?: string;
+  /** Cancelación (#64): motivo, quién y cuándo. Solo si `pipeline_estado === "cancelada"`. */
+  cancelada_motivo?: string;
+  cancelada_por_id?: string;
+  cancelada_en?: string;
   creado_en?: string;
 }
 

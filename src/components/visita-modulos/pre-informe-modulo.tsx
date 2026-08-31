@@ -681,72 +681,6 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
         ))}
       </div>
 
-      {/* Secciones de pruebas */}
-      <div className={`space-y-2 ${readOnly ? "pointer-events-none opacity-60" : ""}`}>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Pruebas de control de calidad
-        </p>
-
-        {secciones.map((seccion) => {
-          const cat = catalogoMap.get(seccion.prueba_codigo);
-          if (!cat) return null;
-
-          return (
-            <SeccionCard
-              key={seccion.id}
-              seccion={seccion}
-              catalogo={cat}
-              conceptoEfectivo={conceptoDe(seccion)}
-              expanded={expandedCodigo === seccion.prueba_codigo}
-              onToggleExpand={() =>
-                setExpandedCodigo(
-                  expandedCodigo === seccion.prueba_codigo ? null : seccion.prueba_codigo
-                )
-              }
-              onToggleIncluida={() =>
-                seccion.id && updateSeccion(seccion.id, { incluida: !seccion.incluida })
-              }
-              onUpdateAcciones={(v) =>
-                seccion.id && updateSeccion(seccion.id, { acciones_correctivas: v || undefined })
-              }
-              onUpdateObservaciones={(v) =>
-                seccion.id && updateSeccion(seccion.id, { observaciones: v || undefined })
-              }
-            />
-          );
-        })}
-      </div>
-
-      {/* Secciones finales fijas */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Secciones finales
-        </p>
-        {[
-          { label: "Resumen de resultados", desc: "Tabla resumen auto-generada" },
-          { label: "Concepto general", desc: "Favorable / No favorable" },
-          { label: "Acciones correctivas", desc: "Consolidado de acciones" },
-          { label: "Observaciones generales", desc: "Notas del fisico" },
-          { label: "Firmas", desc: "Director tecnico y responsable de visita" },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
-          >
-            <div className="bg-slate-200 p-1.5 rounded-lg">
-              <FileText className="w-3.5 h-3.5 text-slate-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-600">{s.label}</p>
-              <p className="text-[10px] text-slate-400">{s.desc}</p>
-            </div>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-              Fija
-            </span>
-          </div>
-        ))}
-      </div>
-
       {/* Botones de acción */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button
@@ -813,6 +747,72 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Secciones de pruebas */}
+      <div className={`space-y-2 ${readOnly ? "pointer-events-none opacity-60" : ""}`}>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+          Pruebas de control de calidad
+        </p>
+
+        {secciones.map((seccion) => {
+          const cat = catalogoMap.get(seccion.prueba_codigo);
+          if (!cat) return null;
+
+          return (
+            <SeccionCard
+              key={seccion.id}
+              seccion={seccion}
+              catalogo={cat}
+              conceptoEfectivo={conceptoDe(seccion)}
+              expanded={expandedCodigo === seccion.prueba_codigo}
+              onToggleExpand={() =>
+                setExpandedCodigo(
+                  expandedCodigo === seccion.prueba_codigo ? null : seccion.prueba_codigo
+                )
+              }
+              onToggleIncluida={() =>
+                seccion.id && updateSeccion(seccion.id, { incluida: !seccion.incluida })
+              }
+              onUpdateAcciones={(v) =>
+                seccion.id && updateSeccion(seccion.id, { acciones_correctivas: v || undefined })
+              }
+              onUpdateObservaciones={(v) =>
+                seccion.id && updateSeccion(seccion.id, { observaciones: v || undefined })
+              }
+            />
+          );
+        })}
+      </div>
+
+      {/* Secciones finales fijas */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+          Secciones finales
+        </p>
+        {[
+          { label: "Resumen de resultados", desc: "Tabla resumen auto-generada" },
+          { label: "Concepto general", desc: "Favorable / No favorable" },
+          { label: "Acciones correctivas", desc: "Consolidado de acciones" },
+          { label: "Observaciones generales", desc: "Notas del fisico" },
+          { label: "Firmas", desc: "Director tecnico y responsable de visita" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+          >
+            <div className="bg-slate-200 p-1.5 rounded-lg">
+              <FileText className="w-3.5 h-3.5 text-slate-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-600">{s.label}</p>
+              <p className="text-[10px] text-slate-400">{s.desc}</p>
+            </div>
+            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+              Fija
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

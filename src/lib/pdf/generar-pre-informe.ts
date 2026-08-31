@@ -627,9 +627,9 @@ export async function generarPreInforme(
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Datos de la Instalación e Identificación del Equipo
+  // Datos de la Instalación
   checkPage(50);
-  addSubsectionTitle("", "Datos de la Instalación e Identificación del Equipo");
+  addSubsectionTitle("", "Datos de la Instalación");
 
   const datosInstalacion = [
     [

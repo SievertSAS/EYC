@@ -190,6 +190,29 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).not.toContain("REF-GENERADOR");
   });
 
+  it("#61: con foto de referencia del generador, el informe se genera y mantiene la tabla", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    // PNG 1x1 válido → getImageProperties devuelve dimensiones reales.
+    const png = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+    await db.equipos.update(equipo.id!, { gen_marca: "MARCA-CARD-61" });
+    await db.equipo_identificaciones.add({
+      id: randomUUID(),
+      equipo_id: equipo.id!,
+      subtabla: "generador",
+      blob_local: new Blob([png], { type: "image/png" }),
+    });
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).not.toBeNull();
+    const text = await pdfText(blob!);
+    expect(text).toContain("Características del Generador");
+    expect(text).toContain("MARCA-CARD-61");
+  });
+
   it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {
     const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.ubicaciones_rx.update(ubicacion.id!, {

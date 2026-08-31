@@ -510,16 +510,34 @@ export async function generarPreInforme(
       return;
     }
 
-    // Tarjeta: foto a la izquierda, tabla a la derecha.
-    const pad = 4;
-    const imgW = 48;
-    const imgH = 38;
-    const gap = 6;
-    const tableLeft = MARGIN + pad + imgW + gap;
-    const tableWidth = CONTENT_WIDTH - pad * 2 - imgW - gap;
-    const labelW = 44;
+    // Tarjeta: foto (grande, para que la placa se lea) a la izquierda, tabla
+    // clave/valor a la derecha.
+    const pad = 5;
+    const gap = 8;
+    const imgBoxW = 70;
+    const imgBoxH = 90;
+    const tableLeft = MARGIN + pad + imgBoxW + gap;
+    const tableWidth = CONTENT_WIDTH - pad * 2 - imgBoxW - gap;
+    const labelW = 42;
 
-    checkPage(Math.max(filas.length * 8 + pad * 2, imgH + pad * 2) + 4);
+    // Tamaño real de la foto respetando su relación de aspecto dentro del box.
+    let imgW = imgBoxW;
+    let imgH = imgBoxW * 0.75;
+    try {
+      const props = doc.getImageProperties(dataUrl);
+      if (props?.width && props?.height) {
+        const ratio = props.height / props.width;
+        imgH = imgW * ratio;
+        if (imgH > imgBoxH) {
+          imgH = imgBoxH;
+          imgW = imgH / ratio;
+        }
+      }
+    } catch {
+      // sin metadata: se usa el fallback 4:3
+    }
+
+    checkPage(Math.max(filas.length * 9, imgH) + pad * 2 + 6);
     const startY = y;
 
     autoTable(doc, {
@@ -544,8 +562,8 @@ export async function generarPreInforme(
     doc.setLineWidth(0.3);
     doc.roundedRect(MARGIN, startY, CONTENT_WIDTH, cardH, 2, 2, "S");
 
-    // Foto centrada verticalmente respecto al alto de la tabla
-    const imgX = MARGIN + pad;
+    // Foto centrada dentro de su box (vertical respecto al alto de la tarjeta)
+    const imgX = MARGIN + pad + (imgBoxW - imgW) / 2;
     const imgY = startY + pad + (bodyH - imgH) / 2;
     try {
       doc.addImage(dataUrl, imgX, imgY, imgW, imgH);

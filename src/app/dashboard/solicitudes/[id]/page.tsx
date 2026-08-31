@@ -117,6 +117,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
     const ubicacion = solicitud.ubicacion_id
       ? await db.ubicaciones_rx.get(solicitud.ubicacion_id)
       : undefined;
+    const sede = ubicacion?.sede_id ? await db.sedes.get(ubicacion.sede_id) : undefined;
     const tecnico = solicitud.tecnico_asignado_id
       ? await db.usuarios.get(solicitud.tecnico_asignado_id)
       : undefined;
@@ -135,7 +136,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       (v) => !v.deleted_at
     );
 
-    return { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas };
+    return { solicitud, cliente, ubicacion, sede, tecnico, contacto, equipos, visitas };
   }, [isReady, solicitudId]);
 
   const tecnicos = useLiveQuery(
@@ -204,7 +205,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas } = data;
+  const { solicitud, cliente, ubicacion, sede, tecnico, contacto, equipos, visitas } = data;
   const estado = solicitud.pipeline_estado ?? "solicitudes";
   const badge = ESTADO_BADGE[estado] ?? ESTADO_BADGE.solicitudes;
 
@@ -418,48 +419,65 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
           <div className="space-y-2">
             {visitas.map((visita) => {
               const eq = equipos.find((e) => e.id === visita.equipo_id);
-              const eqNombre = eq
-                ? [eq.gen_marca, eq.gen_modelo].filter(Boolean).join(" ") ||
-                  eq.tipo_equipo ||
-                  `Equipo #${eq.id}`
-                : null;
+              // Nombre del equipo: marca + modelo; si no hay, el tipo; si tampoco, un genérico.
+              const eqNombre =
+                [eq?.gen_marca, eq?.gen_modelo].filter(Boolean).join(" ") ||
+                eq?.tipo_equipo?.replace(/_/g, " ") ||
+                "Equipo sin identificar";
               const puedeReprogramar = canReprogramar && visita.estado_visita === "asignada";
               return (
-                <div key={visita.id} className="mb-2">
-                  <a href={`/dashboard/visitas/${visita.id}`}>
-                    <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
-                      <CardContent className="p-4 sm:p-5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
-                              <ClipboardCheck className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-black text-slate-900 truncate">
-                                Visita #{visita.id}
-                                {eqNombre ? ` — ${eqNombre}` : ""}
-                              </p>
-                              <p className="text-[11px] text-slate-400 font-medium">
-                                Estado: {visita.estado_visita.replace("_", " ")}
-                                {visita.fecha_visita ? ` · ${visita.fecha_visita}` : ""}
-                              </p>
-                            </div>
+                <Card
+                  key={visita.id}
+                  className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white overflow-hidden mb-2"
+                >
+                  <a href={`/dashboard/visitas/${visita.id}`} className="group block">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
+                            <ClipboardCheck className="w-4 h-4 text-primary" />
                           </div>
-                          <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
+                              Visita — {cliente?.nombre_cliente ?? "Sin cliente"}
+                              {visita.reprogramada_en && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-black uppercase tracking-wider">
+                                  Reprogramada
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium truncate">
+                              {[sede?.nombre_sede, eqNombre].filter(Boolean).join(" · ")}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-medium">
+                              Estado: {visita.estado_visita.replace(/_/g, " ")}
+                              {visita.fecha_visita ? ` · ${visita.fecha_visita}` : ""}
+                              {` · #${visita.id!.slice(0, 8)}`}
+                            </p>
+                            {visita.reprogramada_en && visita.reprogramacion_motivo && (
+                              <p className="text-[10px] text-amber-700 font-medium truncate mt-0.5">
+                                Motivo: {visita.reprogramacion_motivo}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />
+                      </div>
+                    </CardContent>
                   </a>
                   {puedeReprogramar && (
-                    <button
-                      type="button"
-                      onClick={() => setReprogramarId(visita.id!)}
-                      className="mt-1 ml-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-primary transition-colors"
-                    >
-                      <CalendarClock className="w-3.5 h-3.5" /> Reprogramar
-                    </button>
+                    <div className="px-4 sm:px-5 pb-3 -mt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setReprogramarId(visita.id!)}
+                        className="h-8 rounded-lg text-xs font-bold text-slate-500 hover:text-primary hover:bg-primary/5"
+                      >
+                        <CalendarClock className="w-3.5 h-3.5 mr-1.5" /> Reprogramar
+                      </Button>
+                    </div>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>

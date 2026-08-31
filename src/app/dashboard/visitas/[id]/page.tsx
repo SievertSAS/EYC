@@ -47,6 +47,7 @@ import {
   Lock,
   ShieldAlert,
   MessageSquareWarning,
+  CalendarClock,
   ClipboardList,
   Target,
   Zap,
@@ -269,6 +270,22 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
             </span>
           </div>
           <p className="text-sm text-amber-700 font-medium ml-7">{visita.observaciones_revision}</p>
+        </div>
+      )}
+
+      {/* Banner: visita reprogramada (#64) */}
+      {visita.reprogramada_en && (
+        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200 space-y-2">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <span className="text-sm font-black text-blue-800">
+              Visita reprogramada
+              {visita.reprogramada_en ? ` · ${visita.reprogramada_en.slice(0, 10)}` : ""}
+            </span>
+          </div>
+          {visita.reprogramacion_motivo && (
+            <p className="text-sm text-blue-700 font-medium ml-7">{visita.reprogramacion_motivo}</p>
+          )}
         </div>
       )}
 

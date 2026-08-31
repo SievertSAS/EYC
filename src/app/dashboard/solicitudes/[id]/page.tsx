@@ -406,8 +406,13 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                             <ClipboardCheck className="w-4 h-4 text-primary" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-black text-slate-900 truncate">
+                            <p className="text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
                               Visita — {cliente?.nombre_cliente ?? "Sin cliente"}
+                              {visita.reprogramada_en && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-black uppercase tracking-wider">
+                                  Reprogramada
+                                </span>
+                              )}
                             </p>
                             <p className="text-[11px] text-slate-500 font-medium truncate">
                               {[sede?.nombre_sede, eqNombre].filter(Boolean).join(" · ")}
@@ -417,6 +422,11 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                               {visita.fecha_visita ? ` · ${visita.fecha_visita}` : ""}
                               {` · #${visita.id!.slice(0, 8)}`}
                             </p>
+                            {visita.reprogramada_en && visita.reprogramacion_motivo && (
+                              <p className="text-[10px] text-amber-700 font-medium truncate mt-0.5">
+                                Motivo: {visita.reprogramacion_motivo}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />

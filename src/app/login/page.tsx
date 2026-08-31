@@ -37,6 +37,9 @@ export default function LoginPage() {
   );
 }
 
+const MSG_DESHABILITADO =
+  "Tu usuario está deshabilitado. Contactá a un coordinador para reactivarlo.";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,7 +48,9 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() =>
+    searchParams.get("disabled") === "1" ? MSG_DESHABILITADO : ""
+  );
   const [cooldown, setCooldown] = useState(false);
   const failCount = useRef(0);
 
@@ -58,7 +63,7 @@ function LoginForm() {
 
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -75,6 +80,29 @@ function LoginForm() {
             : authError.message
         );
         return;
+      }
+
+      // Gate de usuario deshabilitado: las credenciales son válidas pero el
+      // perfil puede estar `activo=false`. No debe entrar a la app (#58).
+      const uid = authData.user?.id;
+      const { data: perfil, error: perfilError } = await supabase
+        .from("usuarios")
+        .select("activo")
+        .eq("auth_uid", uid ?? "")
+        .single();
+
+      if (perfilError?.code === "PGRST116" || (perfil && perfil.activo === false)) {
+        await supabase.auth.signOut();
+        setError(
+          perfilError
+            ? "No encontramos tu perfil en el sistema. Contactá a un coordinador."
+            : MSG_DESHABILITADO
+        );
+        return;
+      }
+      if (perfilError) {
+        // Error transitorio verificando el perfil — no bloquear un login legítimo.
+        logger.warn("login:gate-activo", "No se pudo verificar `activo`", perfilError);
       }
 
       failCount.current = 0;

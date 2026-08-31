@@ -75,11 +75,21 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       if (!navigator.onLine) return;
       const { data, error } = await supabase
         .from("usuarios")
-        .select("cargo")
+        .select("cargo, activo")
         .eq("auth_uid", uid)
         .single();
       if (error) {
         logger.warn("Role", "No se pudo verificar cargo desde Supabase", error);
+        return;
+      }
+      // Gate de usuario deshabilitado (#58): si el coordinador desactivó la
+      // cuenta mientras la sesión seguía abierta, se cierra y vuelve al login.
+      if (data && data.activo === false) {
+        logger.warn("Role", "Usuario deshabilitado — cerrando sesión");
+        await supabase.auth.signOut();
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+          window.location.assign("/login?disabled=1");
+        }
         return;
       }
       if (data?.cargo) setServerCargo(data.cargo as RolUsuario);

@@ -42,6 +42,13 @@ describe("formatDecimal (es-CO, coma)", () => {
   it("no agrupa miles", () => {
     expect(formatDecimal(1234.5)).toBe("1234,5");
   });
+  it("sin `decimals`: hasta 3 decimales, sin ceros de relleno (columna T del informe)", () => {
+    // Regresión: el factor de ocupación 1 salía como "1," en la tabla 2.1.2.
+    expect(formatDecimal(1)).toBe("1");
+    expect(formatDecimal(0.5)).toBe("0,5");
+    expect(formatDecimal(0.05)).toBe("0,05");
+    expect(formatDecimal(0.2)).toBe("0,2");
+  });
   it("null / undefined / NaN → fallback", () => {
     expect(formatDecimal(null)).toBe("—");
     expect(formatDecimal(undefined)).toBe("—");

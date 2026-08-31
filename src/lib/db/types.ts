@@ -262,9 +262,11 @@ export type SubtablaIdentificacion = "generador" | "tubo" | "colimador" | "otra"
 export interface EquipoIdentificacion extends Partial<SyncFields> {
   id?: string;
   equipo_id: string;
-  /** "generador" / "tubo" / "colimador" = foto de referencia de esa sección (1 sola).
+  /** "generador" / "tubo" / "colimador" = foto de referencia de esa sección.
    *  "otra" = entrada libre de la lista "Otras identificaciones". Default: "otra". */
   subtabla?: SubtablaIdentificacion;
+  /** Para subtabla="tubo": id del tubo al que pertenece la foto (hay N tubos). */
+  ref_id?: string;
   nombre?: string;
   orden?: number;
   blob_local?: Blob | null;

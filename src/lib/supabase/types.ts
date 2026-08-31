@@ -1209,6 +1209,7 @@ export type Database = {
           last_modified: string;
           nombre: string | null;
           orden: number | null;
+          ref_id: string | null;
           subtabla: string;
           sync_status: string;
           url_storage: string | null;
@@ -1221,6 +1222,7 @@ export type Database = {
           last_modified?: string;
           nombre?: string | null;
           orden?: number | null;
+          ref_id?: string | null;
           subtabla?: string;
           sync_status?: string;
           url_storage?: string | null;
@@ -1233,6 +1235,7 @@ export type Database = {
           last_modified?: string;
           nombre?: string | null;
           orden?: number | null;
+          ref_id?: string | null;
           subtabla?: string;
           sync_status?: string;
           url_storage?: string | null;

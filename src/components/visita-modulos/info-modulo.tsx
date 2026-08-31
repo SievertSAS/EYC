@@ -562,10 +562,19 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   }
 
   /** Foto de referencia de una subtabla (generador/tubo/colimador): crea o reemplaza. */
-  async function captureRefImagen(subtabla: EquipoIdentificacion["subtabla"], file: File) {
+  const findRef = (subtabla: EquipoIdentificacion["subtabla"], refId?: string) =>
+    (data?.identificaciones ?? []).find(
+      (i) => i.subtabla === subtabla && (i.ref_id ?? undefined) === refId
+    );
+
+  async function captureRefImagen(
+    subtabla: EquipoIdentificacion["subtabla"],
+    file: File,
+    refId?: string
+  ) {
     const equipoId = data?.equipo?.id;
     if (!equipoId) return;
-    const existente = (data?.identificaciones ?? []).find((i) => i.subtabla === subtabla);
+    const existente = findRef(subtabla, refId);
     if (existente?.id) {
       await saveIdentificacion(existente.id, { blob_local: file, url_storage: null });
       return;
@@ -574,6 +583,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
       id: randomUUID(),
       equipo_id: equipoId,
       subtabla,
+      ref_id: refId,
       blob_local: file,
       url_storage: null,
       creado_en: now(),
@@ -584,8 +594,8 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     pushSingle("equipo_identificaciones", nueva.id);
   }
 
-  async function removeRefImagen(subtabla: EquipoIdentificacion["subtabla"]) {
-    const existente = (data?.identificaciones ?? []).find((i) => i.subtabla === subtabla);
+  async function removeRefImagen(subtabla: EquipoIdentificacion["subtabla"], refId?: string) {
+    const existente = findRef(subtabla, refId);
     if (existente?.id) await deleteIdentificacion(existente.id);
   }
 
@@ -663,8 +673,8 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
   const { visita, equipo, ubicacion, sede, cliente, solicitud, tubos, nroTubos, contactos } = data;
   const identificaciones = data.identificaciones;
-  const refImagen = (sub: EquipoIdentificacion["subtabla"]) =>
-    identificaciones.find((i) => i.subtabla === sub);
+  const refImagen = (sub: EquipoIdentificacion["subtabla"], refId?: string) =>
+    identificaciones.find((i) => i.subtabla === sub && (i.ref_id ?? undefined) === refId);
   const otrasIdentificaciones = identificaciones.filter((i) => (i.subtabla ?? "otra") === "otra");
 
   const medico = getContacto("medico_responsable");
@@ -1193,6 +1203,15 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
                   onSave={(v) => saveTubo(t.id!, "foco_grueso_mm", v, true)}
                 />
               </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <RefImagenSlot
+                  label={`Foto de la placa / referencia del tubo ${i + 1}`}
+                  iden={refImagen("tubo", t.id)}
+                  onCapture={(file) => captureRefImagen("tubo", file, t.id)}
+                  onRemove={() => removeRefImagen("tubo", t.id)}
+                />
+              </div>
             </div>
           ))}
 
@@ -1205,15 +1224,6 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             <Plus className="w-4 h-4" />
             Agregar tubo
           </button>
-
-          <div className="pt-2 border-t border-slate-100">
-            <RefImagenSlot
-              label="Foto de la placa / referencia del tubo"
-              iden={refImagen("tubo")}
-              onCapture={(file) => captureRefImagen("tubo", file)}
-              onRemove={() => removeRefImagen("tubo")}
-            />
-          </div>
         </div>
       </SectionCard>
 

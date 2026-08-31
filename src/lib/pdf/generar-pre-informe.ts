@@ -119,7 +119,7 @@ interface DatosInforme {
   sede?: Sede;
   cliente?: Cliente;
   tubos: Tubo[];
-  identificaciones: { subtabla: string; nombre: string; dataUrl?: string }[];
+  identificaciones: { subtabla: string; ref_id?: string; nombre: string; dataUrl?: string }[];
   sala?: SalaDimensiones;
   tecnico?: Usuario;
   contactos: Contacto[];
@@ -136,6 +136,7 @@ const COLOR_HEADER_BG: [number, number, number] = [241, 245, 249];
 const COLOR_GRAY: [number, number, number] = [100, 116, 139];
 const COLOR_BLACK: [number, number, number] = [30, 30, 30];
 const COLOR_ALT_ROW: [number, number, number] = [248, 250, 252];
+const COLOR_BORDER: [number, number, number] = [203, 213, 225];
 const MARGIN = 20;
 const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
@@ -174,6 +175,7 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       .map(async (r) => ({
         subtabla: r.subtabla ?? "otra",
+        ref_id: r.ref_id,
         nombre: r.nombre?.trim() || "Identificación",
         dataUrl: r.blob_local ? await blobADataUrl(r.blob_local).catch(() => undefined) : undefined,
       }))
@@ -421,22 +423,61 @@ export async function generarPreInforme(
     y += 5;
   }
 
-  /** Foto de referencia (placa) de una subtabla del equipo, si se capturó (#61). */
-  function renderRefImagen(subtabla: string, caption: string) {
-    const iden = datos.identificaciones.find((i) => i.subtabla === subtabla);
-    if (!iden?.dataUrl) return;
-    checkPage(52);
+  /**
+   * Tarjeta con rótulo en cabecera + imagen enmarcada. Formato común para las
+   * fotos de referencia por sección y para "otras identificaciones" (#61).
+   * Devuelve `false` si `dataUrl` no es utilizable (el llamador decide el fallback).
+   */
+  function drawImagenCard(caption: string, dataUrl: string): boolean {
+    const imgW = 58;
+    const imgH = 44;
+    const pad = 5;
+    const headerH = 8;
+    const cardW = imgW + pad * 2;
+    const cardH = headerH + pad + imgH + pad;
+
+    checkPage(cardH + 6);
+
+    // Cuerpo de la tarjeta
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...COLOR_BORDER);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN, y, cardW, cardH, 2, 2, "FD");
+
+    // Cabecera
+    doc.setFillColor(...COLOR_HEADER_BG);
+    doc.rect(MARGIN + 0.4, y + 0.4, cardW - 0.8, headerH - 0.4, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...COLOR_GRAY);
-    doc.text(caption, MARGIN, y);
-    y += 4;
+    doc.setFontSize(6.5);
+    doc.setTextColor(...COLOR_PRIMARY);
+    doc.text(caption.toUpperCase(), MARGIN + pad, y + headerH - 3);
+    doc.setDrawColor(...COLOR_BORDER);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, y + headerH, MARGIN + cardW, y + headerH);
+
+    // Imagen enmarcada
     try {
-      doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
-      y += 44;
+      const imgX = MARGIN + pad;
+      const imgY = y + headerH + pad;
+      doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
+      doc.setDrawColor(...COLOR_BORDER);
+      doc.setLineWidth(0.2);
+      doc.rect(imgX, imgY, imgW, imgH, "S");
+      y += cardH + 6;
+      return true;
     } catch {
-      y += 2;
+      y += headerH + 4;
+      return false;
     }
+  }
+
+  /** Foto de referencia (placa) de una subtabla del equipo, si se capturó (#61). */
+  function renderRefImagen(subtabla: string, caption: string, refId?: string) {
+    const iden = datos.identificaciones.find(
+      (i) => i.subtabla === subtabla && (i.ref_id ?? undefined) === refId
+    );
+    if (!iden?.dataUrl) return;
+    drawImagenCard(caption, iden.dataUrl);
   }
 
   // Contactos helper
@@ -758,8 +799,12 @@ export async function generarPreInforme(
     });
 
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+    const captionRef =
+      datos.tubos.length > 1
+        ? `Placa / referencia del tubo ${i + 1}`
+        : "Placa / referencia del tubo";
+    renderRefImagen("tubo", captionRef, tuboItem.id);
   });
-  renderRefImagen("tubo", "Placa / referencia del tubo");
 
   // Características del Colimador y Sistema de Adquisición
   checkPage(30);
@@ -808,19 +853,15 @@ export async function generarPreInforme(
       checkPage(20);
       addSubsectionTitle("", "Otras identificaciones del equipo de rayos X");
       otras.forEach((iden) => {
-        checkPage(iden.dataUrl ? 60 : 10);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(...COLOR_GRAY);
-        doc.text(iden.nombre, MARGIN, y);
-        y += 4;
         if (iden.dataUrl) {
-          try {
-            doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
-            y += 44;
-          } catch {
-            y += 2;
-          }
+          drawImagenCard(iden.nombre, iden.dataUrl);
+        } else {
+          checkPage(10);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...COLOR_GRAY);
+          doc.text(iden.nombre, MARGIN, y);
+          y += 6;
         }
       });
       y += 2;

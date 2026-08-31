@@ -471,13 +471,92 @@ export async function generarPreInforme(
     }
   }
 
-  /** Foto de referencia (placa) de una subtabla del equipo, si se capturó (#61). */
-  function renderRefImagen(subtabla: string, caption: string, refId?: string) {
-    const iden = datos.identificaciones.find(
-      (i) => i.subtabla === subtabla && (i.ref_id ?? undefined) === refId
-    );
-    if (!iden?.dataUrl) return;
-    drawImagenCard(caption, iden.dataUrl);
+  const lastAutoTableFinalY = () =>
+    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+  /**
+   * Subsección de características del equipo (generador / tubo / colimador).
+   * Si hay foto de referencia (#61) la tabla se muestra como tarjeta: foto a la
+   * izquierda, tabla clave/valor a la derecha. Sin foto → tabla a todo el ancho,
+   * igual que el resto del informe.
+   */
+  function renderTablaEquipo(
+    titulo: string,
+    filas: string[][],
+    ref?: { subtabla: string; refId?: string }
+  ) {
+    checkPage(14);
+    addSubsectionTitle("", titulo);
+
+    const dataUrl = ref
+      ? datos.identificaciones.find(
+          (i) => i.subtabla === ref.subtabla && (i.ref_id ?? undefined) === ref.refId
+        )?.dataUrl
+      : undefined;
+
+    if (!dataUrl) {
+      autoTable(doc, {
+        startY: y,
+        margin: { left: MARGIN, right: MARGIN },
+        body: filas,
+        theme: "grid",
+        bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
+          1: { cellWidth: CONTENT_WIDTH - 60 },
+        },
+      });
+      y = lastAutoTableFinalY() + 6;
+      return;
+    }
+
+    // Tarjeta: foto a la izquierda, tabla a la derecha.
+    const pad = 4;
+    const imgW = 48;
+    const imgH = 38;
+    const gap = 6;
+    const tableLeft = MARGIN + pad + imgW + gap;
+    const tableWidth = CONTENT_WIDTH - pad * 2 - imgW - gap;
+    const labelW = 44;
+
+    checkPage(Math.max(filas.length * 8 + pad * 2, imgH + pad * 2) + 4);
+    const startY = y;
+
+    autoTable(doc, {
+      startY: startY + pad,
+      margin: { left: tableLeft, right: MARGIN + pad },
+      tableWidth,
+      body: filas,
+      theme: "grid",
+      bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: labelW, fillColor: COLOR_HEADER_BG },
+        1: { cellWidth: tableWidth - labelW },
+      },
+    });
+
+    const tableH = lastAutoTableFinalY() - (startY + pad);
+    const bodyH = Math.max(tableH, imgH);
+    const cardH = bodyH + pad * 2;
+
+    // Marco de la tarjeta (solo trazo, minimalista)
+    doc.setDrawColor(...COLOR_BORDER);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN, startY, CONTENT_WIDTH, cardH, 2, 2, "S");
+
+    // Foto centrada verticalmente respecto al alto de la tabla
+    const imgX = MARGIN + pad;
+    const imgY = startY + pad + (bodyH - imgH) / 2;
+    try {
+      doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
+      doc.setDrawColor(...COLOR_BORDER);
+      doc.setLineWidth(0.2);
+      doc.rect(imgX, imgY, imgW, imgH, "S");
+    } catch {
+      // sin imagen utilizable: la tarjeta queda solo con la tabla
+    }
+
+    y = startY + cardH + 6;
   }
 
   // Contactos helper
@@ -724,9 +803,6 @@ export async function generarPreInforme(
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
   // Características del Generador
-  checkPage(48);
-  addSubsectionTitle("", "Características del Generador");
-
   const datosGenerador = [
     ["Marca", datos.equipo?.gen_marca ?? "—"],
     ["Modelo", datos.equipo?.gen_modelo ?? "—"],
@@ -736,20 +812,7 @@ export async function generarPreInforme(
     ["Energía fotones / electrones (MeV)", textoCampo(datos.equipo?.gen_energia_fotones_mev)],
   ];
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: MARGIN, right: MARGIN },
-    body: datosGenerador,
-    theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-      1: { cellWidth: CONTENT_WIDTH - 60 },
-    },
-  });
-
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-  renderRefImagen("generador", "Placa / referencia del generador");
+  renderTablaEquipo("Características del Generador", datosGenerador, { subtabla: "generador" });
 
   // Especificaciones del Tubo — cantidad de tubos del equipo, en texto
   {
@@ -769,10 +832,8 @@ export async function generarPreInforme(
   }
 
   datos.tubos.forEach((tuboItem, i) => {
-    checkPage(40);
     const titulo =
       datos.tubos.length > 1 ? `Especificaciones del Tubo ${i + 1}` : "Especificaciones del Tubo";
-    addSubsectionTitle("", titulo);
 
     const datosTubo = [
       ["Marca", tuboItem.marca ?? "—"],
@@ -786,30 +847,10 @@ export async function generarPreInforme(
       ["Foco grueso (mm)", String(tuboItem.foco_grueso_mm ?? "—")],
     ];
 
-    autoTable(doc, {
-      startY: y,
-      margin: { left: MARGIN, right: MARGIN },
-      body: datosTubo,
-      theme: "grid",
-      bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-        1: { cellWidth: CONTENT_WIDTH - 60 },
-      },
-    });
-
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-    const captionRef =
-      datos.tubos.length > 1
-        ? `Placa / referencia del tubo ${i + 1}`
-        : "Placa / referencia del tubo";
-    renderRefImagen("tubo", captionRef, tuboItem.id);
+    renderTablaEquipo(titulo, datosTubo, { subtabla: "tubo", refId: tuboItem.id });
   });
 
   // Características del Colimador y Sistema de Adquisición
-  checkPage(30);
-  addSubsectionTitle("", "Características del Colimador y del Sistema de Adquisición de Imágenes");
-
   const datosColimador = [
     ["Distancia Foco / Paciente (cm)", String(datos.equipo?.distancia_foco_paciente ?? "—")],
     ["Bucky", datos.equipo?.bucky?.replace(/_/g, " ") ?? "—"],
@@ -821,20 +862,11 @@ export async function generarPreInforme(
     ["Filtración Añadida (mm Al)", String(datos.equipo?.filtracion_anadida_mmal ?? "No reporta")],
   ];
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: MARGIN, right: MARGIN },
-    body: datosColimador,
-    theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
-      1: { cellWidth: CONTENT_WIDTH - 60 },
-    },
-  });
-
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-  renderRefImagen("colimador", "Placa / referencia del colimador");
+  renderTablaEquipo(
+    "Características del Colimador y del Sistema de Adquisición de Imágenes",
+    datosColimador,
+    { subtabla: "colimador" }
+  );
 
   // Condiciones ambientales
   checkPage(15);

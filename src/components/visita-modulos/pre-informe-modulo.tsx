@@ -650,37 +650,6 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      {/* Secciones fijas — Portada, Información, Introducción */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Secciones fijas
-        </p>
-        {[
-          { label: "Portada", desc: "Identificacion del equipo e instalacion" },
-          {
-            label: "Informacion de la practica",
-            desc: "Datos generales, generador, tubo, colimador",
-          },
-          { label: "Introduccion", desc: "Texto TECDOC normativo" },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
-          >
-            <div className="bg-slate-200 p-1.5 rounded-lg">
-              <FileText className="w-3.5 h-3.5 text-slate-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-600">{s.label}</p>
-              <p className="text-[10px] text-slate-400">{s.desc}</p>
-            </div>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-              Fija
-            </span>
-          </div>
-        ))}
-      </div>
-
       {/* Botones de acción */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button
@@ -747,6 +716,37 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Secciones fijas — Portada, Información, Introducción */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+          Secciones fijas
+        </p>
+        {[
+          { label: "Portada", desc: "Identificacion del equipo e instalacion" },
+          {
+            label: "Informacion de la practica",
+            desc: "Datos generales, generador, tubo, colimador",
+          },
+          { label: "Introduccion", desc: "Texto TECDOC normativo" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+          >
+            <div className="bg-slate-200 p-1.5 rounded-lg">
+              <FileText className="w-3.5 h-3.5 text-slate-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-600">{s.label}</p>
+              <p className="text-[10px] text-slate-400">{s.desc}</p>
+            </div>
+            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+              Fija
+            </span>
+          </div>
+        ))}
+      </div>
 
       {/* Secciones de pruebas */}
       <div className={`space-y-2 ${readOnly ? "pointer-events-none opacity-60" : ""}`}>

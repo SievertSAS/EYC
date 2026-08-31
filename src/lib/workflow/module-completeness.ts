@@ -152,25 +152,25 @@ const INFO_CAMPOS: {
   {
     campo: "equipo.gen_marca",
     label: "Marca del equipo",
-    seccion: "Características del Equipo",
+    seccion: "Características del Generador",
     get: (c) => c.equipo?.gen_marca,
   },
   {
     campo: "equipo.gen_numero_serie",
     label: "N.º de serie del equipo",
-    seccion: "Características del Equipo",
+    seccion: "Características del Generador",
     get: (c) => c.equipo?.gen_numero_serie,
   },
   {
     campo: "equipo.gen_modelo",
     label: "Modelo del equipo",
-    seccion: "Características del Equipo",
+    seccion: "Características del Generador",
     get: (c) => c.equipo?.gen_modelo,
   },
   {
     campo: "equipo.gen_fase",
     label: "Fase del generador",
-    seccion: "Características del Equipo",
+    seccion: "Características del Generador",
     get: (c) => c.equipo?.gen_fase,
   },
   {

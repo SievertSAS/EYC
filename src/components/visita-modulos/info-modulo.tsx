@@ -984,10 +984,10 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
         </div>
       </SectionCard>
 
-      {/* 3. Características del Equipo (la plantilla las llama "del generador") */}
+      {/* 3. Características del Generador */}
       <SectionCard
         icon={Radio}
-        title="Características del Equipo"
+        title="Características del Generador"
         subtitle="Datos del equipo de rayos X"
         progress={progGenerador}
       >

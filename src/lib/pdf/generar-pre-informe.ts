@@ -663,9 +663,9 @@ export async function generarPreInforme(
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Características del Equipo (la plantilla oficial las rotula "del generador")
+  // Características del Generador
   checkPage(48);
-  addSubsectionTitle("", "Características del Equipo");
+  addSubsectionTitle("", "Características del Generador");
 
   const datosGenerador = [
     ["Marca", datos.equipo?.gen_marca ?? "—"],

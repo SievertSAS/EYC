@@ -124,19 +124,19 @@ describe("InfoModulo — Sistema de Adquisición de Imágenes (#62)", () => {
   });
 });
 
-describe("InfoModulo — Características del Equipo (#61)", () => {
+describe("InfoModulo — Características del Generador (#61)", () => {
   beforeEach(async () => {
     await resetTestDb();
     useDb.mockReturnValue({ isReady: true });
   });
   afterEach(() => cleanup());
 
-  it("la sección del equipo incluye el campo de energía fotones/electrones (MeV)", async () => {
+  it("la sección del generador incluye el campo de energía fotones/electrones (MeV)", async () => {
     const { visita } = await seedGraph();
     render(<InfoModulo visitaId={visita!.id!} />);
     await screen.findByText(/Volver al workspace/i);
 
-    expect(screen.getByText("Características del Equipo")).toBeInTheDocument();
+    expect(screen.getByText("Características del Generador")).toBeInTheDocument();
     expect(screen.getByText(/Energía Fotones \/ Electrones/i)).toBeInTheDocument();
   });
 });

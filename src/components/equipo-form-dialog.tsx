@@ -114,7 +114,7 @@ export function EquipoFormDialog({
   );
   const [bucky, setBucky] = useState(equipo?.bucky ?? "");
 
-  // Características del equipo (la plantilla oficial las rotula "del generador")
+  // Generador (en la práctica son los datos del equipo — un solo aparato físico)
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
   const [genModelo, setGenModelo] = useState(equipo?.gen_modelo ?? "");
   const [genSerie, setGenSerie] = useState(equipo?.gen_numero_serie ?? "");
@@ -443,8 +443,8 @@ export function EquipoFormDialog({
             </div>
           </CollapsibleSection>
 
-          {/* Características del Equipo (la plantilla oficial las rotula "del generador") */}
-          <CollapsibleSection title="Características del Equipo" defaultOpen={true}>
+          {/* Generador */}
+          <CollapsibleSection title="Generador" defaultOpen={true}>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">

@@ -105,6 +105,58 @@ describe("GrupoAModulo — capturar una foto dispara el push (#67)", () => {
   });
 });
 
+describe("GrupoAModulo — avisos de protección como lista dinámica (#66)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+    vi.mocked(pushSingle).mockClear();
+  });
+  afterEach(() => cleanup());
+
+  it("'Agregar aviso' crea una evidencia 2.2 con slot 'aviso_*' pending y dispara el push", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    render(<GrupoAModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /Agregar aviso/i }));
+
+    await waitFor(async () => {
+      const filas = await db.conv_evidencias.where("visita_id").equals(visita!.id!).toArray();
+      const aviso = filas.find((f) => f.slot?.startsWith("aviso_"));
+      expect(aviso).toBeTruthy();
+      expect(aviso!.prueba_codigo).toBe("2.2");
+      expect(aviso!.sync_status).toBe("pending");
+    });
+    expect(vi.mocked(pushSingle)).toHaveBeenCalledWith("conv_evidencias", expect.any(String));
+  });
+});
+
+describe("GrupoAModulo — elemento de protección con Combobox + 'Otro' (#69)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+  });
+  afterEach(() => cleanup());
+
+  it("un elemento con descripción fuera del catálogo abre el input de texto libre pre-cargado", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const now = new Date().toISOString();
+    await db.conv_elementos_proteccion.add({
+      id: "elem-otro-69",
+      visita_id: visita!.id!,
+      descripcion: "Mandil pediátrico especial",
+      creado_en: now,
+      sync_status: "pending",
+      last_modified: now,
+    });
+    render(<GrupoAModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    const libre = await screen.findByPlaceholderText("Especificar elemento");
+    expect(libre).toHaveValue("Mandil pediátrico especial");
+  });
+});
+
 describe("InfoModulo — Sistema de Adquisición de Imágenes (#62)", () => {
   beforeEach(async () => {
     await resetTestDb();

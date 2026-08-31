@@ -34,6 +34,17 @@ import { getManualGrupo } from "@/lib/equipos/convencional/manual";
 import { SetupField } from "@/components/visita-modulos/setup-field";
 import { useRowSavedFlash } from "@/hooks/use-row-saved";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
+import { ImagenConTitulo } from "@/components/imagen-con-titulo";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import type { ConvInspeccionItem } from "@/lib/equipos/convencional/db/types";
 
 // ─── Constants ───
@@ -62,13 +73,14 @@ const SLOTS_IMAGEN_21 = [
   { slot: "plano_radiometrico", label: "Plano / Croquis radiométrico de la sala" },
 ];
 
-/** Slots de fotografías de la prueba 2.2 (van a la sección 2.2.8 del informe) */
+/**
+ * Slots FIJOS de fotografías de la prueba 2.2 (sección 2.2.8 del informe).
+ * Los avisos de protección son una lista dinámica aparte (#66): una evidencia
+ * por aviso, `slot: "aviso_<uuid>"`, `descripcion` = título.
+ */
 const SLOTS_FOTOS_22 = [
   { slot: "equipo_rayos_x", label: "Equipo de rayos X" },
   { slot: "consola", label: "Consola del equipo" },
-  { slot: "aviso_proteccion_1", label: "Aviso de protección 1" },
-  { slot: "aviso_proteccion_2", label: "Aviso de protección 2" },
-  { slot: "aviso_proteccion_3", label: "Aviso de protección 3" },
 ];
 
 /** Carga de trabajo estándar para radiografía convencional (mA·min/sem) — piso del cálculo, metodología IAEA-TECDOC-1958 */
@@ -200,7 +212,12 @@ function ImageSlot({
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   const preview = useImagenSrc(evidencia ?? {});
+
+  function pick(file?: File | null) {
+    if (file && file.type.startsWith("image/")) onCapture(file);
+  }
 
   return (
     <div className="space-y-2">
@@ -220,21 +237,33 @@ function ImageSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            pick(e.dataTransfer.files?.[0]);
+          }}
+          className={`w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-colors ${
+            dragOver
+              ? "border-primary text-primary bg-primary/5"
+              : "border-slate-300 text-slate-400 hover:border-primary hover:text-primary"
+          }`}
         >
           <Camera className="w-6 h-6" />
-          <span className="text-xs font-bold">Tomar foto o seleccionar</span>
+          <span className="text-xs font-bold">Tomar foto, elegir o arrastrar</span>
         </button>
       )}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onCapture(file);
+          pick(e.target.files?.[0]);
           e.target.value = "";
         }}
       />
@@ -253,7 +282,12 @@ function ElementoFotoCell({
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   const preview = useImagenSrc(evidencia ?? {});
+
+  function pick(file?: File | null) {
+    if (file && file.type.startsWith("image/")) onCapture(file);
+  }
 
   return (
     <>
@@ -277,7 +311,21 @@ function ElementoFotoCell({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-10 h-10 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            pick(e.dataTransfer.files?.[0]);
+          }}
+          className={`w-10 h-10 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${
+            dragOver
+              ? "border-primary text-primary bg-primary/5"
+              : "border-slate-300 text-slate-400 hover:border-primary hover:text-primary"
+          }`}
           aria-label="Tomar foto del elemento"
         >
           <Camera className="w-4 h-4" />
@@ -287,15 +335,108 @@ function ElementoFotoCell({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onCapture(file);
+          pick(e.target.files?.[0]);
           e.target.value = "";
         }}
       />
     </>
+  );
+}
+
+/**
+ * Selector de elemento de protección (#69): Combobox buscable sobre el catálogo
+ * estándar; al elegir "Otro" habilita un input de texto libre. Controlado: el
+ * padre pasa `value` (= `descripcion`) y recibe el texto efectivo.
+ */
+function ElementoProteccionCombo({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const enCatalogo = CATALOGO_ELEMENTOS_PROTECCION.includes(value);
+  const [modoOtro, setModoOtro] = useState(value !== "" && !enCatalogo);
+  const seleccion = modoOtro ? "Otro" : value;
+
+  return (
+    <div className="space-y-1">
+      <Combobox
+        items={CATALOGO_ELEMENTOS_PROTECCION}
+        value={seleccion || null}
+        onValueChange={(v: string | null) => {
+          if (v === "Otro") {
+            setModoOtro(true);
+            onChange("");
+          } else {
+            setModoOtro(false);
+            onChange(v ?? "");
+          }
+        }}
+      >
+        <ComboboxTrigger className="w-full rounded-lg border border-slate-200 h-7 text-xs font-medium px-1.5 bg-white data-[placeholder]:text-slate-400">
+          <ComboboxValue placeholder="Seleccionar elemento" />
+        </ComboboxTrigger>
+        <ComboboxContent>
+          <ComboboxInput placeholder="Buscar..." />
+          <ComboboxEmpty>Sin resultados.</ComboboxEmpty>
+          <ComboboxList>
+            {(item: string) => (
+              <ComboboxItem key={item} value={item}>
+                {item}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+      {modoOtro && (
+        <Input
+          className="rounded-lg h-7 text-xs font-medium border-slate-200 w-full"
+          placeholder="Especificar elemento"
+          defaultValue={enCatalogo ? "" : value}
+          onBlur={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Fila de aviso de protección (#66): título + foto con drag & drop + eliminar.
+ * Wrapper delgado que resuelve la URL de la imagen (hook) y delega en
+ * `<ImagenConTitulo>`.
+ */
+function AvisoRow({
+  evidencia,
+  onTitulo,
+  onCapture,
+  onRemoveImagen,
+  onDelete,
+}: {
+  evidencia: {
+    id?: string;
+    descripcion?: string;
+    blob_local?: Blob | null;
+    url_storage?: string | null;
+  };
+  onTitulo: (v: string) => void;
+  onCapture: (file: File) => void;
+  onRemoveImagen: () => void;
+  onDelete: () => void;
+}) {
+  const src = useImagenSrc(evidencia ?? {});
+  return (
+    <ImagenConTitulo
+      nombre={evidencia.descripcion ?? ""}
+      placeholder="Título del aviso (ej: Puerta de la sala de control)"
+      src={src}
+      onNombreChange={onTitulo}
+      onCapture={onCapture}
+      onRemoveImagen={src ? onRemoveImagen : undefined}
+      onDelete={onDelete}
+    />
   );
 }
 
@@ -487,6 +628,24 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
     if (foto?.id) await deleteAndSync("conv_evidencias", foto.id);
   }
 
+  // Avisos de protección — lista dinámica (#66): una evidencia por aviso,
+  // `slot: "aviso_<uuid>"`, `descripcion` = título.
+  async function addAviso() {
+    const now = new Date().toISOString();
+    const id = randomUUID();
+    await db.conv_evidencias.add({
+      id,
+      visita_id: visitaId,
+      prueba_codigo: "2.2",
+      slot: `aviso_${randomUUID()}`,
+      descripcion: "",
+      creado_en: now,
+      sync_status: "pending" as const,
+      last_modified: now,
+    });
+    pushSingle("conv_evidencias", id);
+  }
+
   async function captureImage(pruebaCodigo: string, slot: string, file: File) {
     const blob = new Blob([await file.arrayBuffer()], { type: file.type });
     const now = new Date().toISOString();
@@ -554,6 +713,10 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   function getEvidencia(prueba: string, slot: string) {
     return data?.evidencias?.find((e) => e.prueba_codigo === prueba && e.slot === slot);
   }
+
+  const avisos = (data?.evidencias ?? [])
+    .filter((e) => e.prueba_codigo === "2.2" && e.slot?.startsWith("aviso_"))
+    .sort((a, b) => (a.creado_en ?? "").localeCompare(b.creado_en ?? ""));
 
   // ─── Loading / Error ───
   if (!isReady || data === undefined) {
@@ -637,8 +800,8 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
           </StepHeader>
           <Tip>
             Usa planos anteriores si están vigentes; lo ideal es solicitar el plano al cliente antes
-            de la visita. Los avisos de protección pueden ser varios: usa los tres espacios
-            disponibles.
+            de la visita. Podés arrastrar una imagen sobre el recuadro o elegir un archivo, además
+            de tomar la foto.
           </Tip>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {SLOTS_IMAGEN_21.map((s) => (
@@ -659,6 +822,44 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 onRemove={() => removeImage("2.2", s.slot)}
               />
             ))}
+          </div>
+
+          {/* Avisos de protección radiológica — lista dinámica (#66) */}
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Avisos de protección radiológica
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addAviso}
+                className="h-7 text-xs text-primary hover:text-primary"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Agregar aviso
+              </Button>
+            </div>
+            {avisos.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                Sin avisos cargados. Agregá uno por cada aviso que haya en la sala (título + foto).
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {avisos.map((e) => (
+                  <AvisoRow
+                    key={e.id}
+                    evidencia={e}
+                    onTitulo={(v) =>
+                      e.id && updateAndSync("conv_evidencias", e.id, { descripcion: v })
+                    }
+                    onCapture={(file) => captureImage("2.2", e.slot, file)}
+                    onRemoveImagen={() => removeImage("2.2", e.slot)}
+                    onDelete={() => e.id && deleteAndSync("conv_evidencias", e.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1141,22 +1342,14 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                       </span>
                     </td>
                     <td className="py-1.5 px-1.5">
-                      <select
-                        className="w-full rounded-lg border border-slate-200 h-7 text-xs font-medium px-1 bg-white"
-                        defaultValue={elem.descripcion}
-                        onChange={(e) => {
+                      <ElementoProteccionCombo
+                        value={elem.descripcion ?? ""}
+                        onChange={(v) => {
                           if (!elem.id) return;
-                          updateElemento(elem.id, { descripcion: e.target.value });
+                          updateElemento(elem.id, { descripcion: v });
                           flash(elem.id);
                         }}
-                      >
-                        <option value="">Seleccionar elemento</option>
-                        {CATALOGO_ELEMENTOS_PROTECCION.map((nombre) => (
-                          <option key={nombre} value={nombre}>
-                            {nombre}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </td>
                     <td className="py-1.5 px-1.5">
                       <Input

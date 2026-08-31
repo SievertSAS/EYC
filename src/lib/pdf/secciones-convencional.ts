@@ -280,19 +280,27 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     (e) => e.prueba_codigo === "2.1" && e.slot === "plano_radiometrico"
   );
 
-  // Fotografías de la 2.2 (sección 2.2.8): orden fijo + una por elemento
+  // Fotografías de la 2.2 (sección 2.2.8): slots fijos + avisos (lista dinámica) + una por elemento
   const SLOTS_FOTOS_22: [string, string][] = [
     ["equipo_rayos_x", "Equipo de rayos X"],
     ["consola", "Consola del equipo"],
-    ["aviso_proteccion_1", "Aviso de protección radiológica"],
-    ["aviso_proteccion_2", "Aviso de protección radiológica"],
-    ["aviso_proteccion_3", "Aviso de protección radiológica"],
   ];
   const fotos22: NonNullable<DatosConvencional["fotos22"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_22) {
     const ev = evidencias.find((e) => e.prueba_codigo === "2.2" && e.slot === slot);
     const img = await cargarImagen(ev);
     if (img) fotos22.push({ label, ...img });
+  }
+  // Avisos de protección — lista dinámica (#66): una evidencia por aviso,
+  // `slot` empieza en "aviso_", `descripcion` = título.
+  const avisos = evidencias
+    .filter((e) => e.prueba_codigo === "2.2" && e.slot?.startsWith("aviso_"))
+    .sort((a, b) => (a.creado_en ?? "").localeCompare(b.creado_en ?? ""));
+  for (const ev of avisos) {
+    const img = await cargarImagen(ev);
+    if (img) {
+      fotos22.push({ label: ev.descripcion?.trim() || "Aviso de protección radiológica", ...img });
+    }
   }
   for (const elem of elementos) {
     const ev = evidencias.find(

@@ -31,6 +31,9 @@ export async function crearVisitaDesdeSolicitud(
   try {
     const solicitud = await db.solicitudes.get(solicitudId);
     if (!solicitud) return { success: false, error: "Solicitud no encontrada" };
+    if (solicitud.pipeline_estado === "cancelada") {
+      return { success: false, error: "La solicitud está cancelada" };
+    }
 
     const equipo = await db.equipos.get(equipoId);
     if (!equipo) return { success: false, error: "Equipo no encontrado" };

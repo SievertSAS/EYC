@@ -31,11 +31,13 @@ import {
   ExternalLink,
   Pencil,
   CalendarClock,
+  Ban,
 } from "lucide-react";
 import Link from "next/link";
 import { crearVisitaDesdeSolicitud } from "@/lib/workflow/visita-service";
 import { SolicitudFormDialog } from "@/components/solicitud-form-dialog";
 import { ReprogramarVisitaDialog } from "@/components/reprogramar-visita-dialog";
+import { CancelarSolicitudDialog } from "@/components/cancelar-solicitud-dialog";
 
 // ============================================================
 //  Detalle de solicitud + botón "Programar Visita"
@@ -47,6 +49,7 @@ const ESTADO_LABEL: Record<string, string> = {
   ejecucion: "Ejecución",
   notificado: "Notificado",
   enviado: "Enviado",
+  cancelada: "Cancelada",
 };
 
 const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }> = {
@@ -75,6 +78,11 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
     text: "text-emerald-600",
     border: "border-emerald-200",
   },
+  cancelada: {
+    bg: "bg-red-100",
+    text: "text-red-600",
+    border: "border-red-200",
+  },
 };
 
 export default function SolicitudDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -88,6 +96,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   const canReprogramar = role?.cargo === "programador" || role?.cargo === "coordinador";
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [reprogramarId, setReprogramarId] = useState<string | null>(null);
+  const [cancelarOpen, setCancelarOpen] = useState(false);
   const [creatingVisita, setCreatingVisita] = useState(false);
   const [tecnicoSel, setTecnicoSel] = useState("");
   const [fechaVisitaSel, setFechaVisitaSel] = useState("");
@@ -120,8 +129,11 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       ? await db.equipos.where("ubicacion_id").equals(solicitud.ubicacion_id).toArray()
       : [];
 
-    // Visitas ya creadas para esta solicitud
-    const visitas = await db.visitas.where("solicitud_id").equals(solicitudId).toArray();
+    // Visitas ya creadas para esta solicitud (las canceladas en cascada quedan
+    // con `deleted_at` — no se muestran).
+    const visitas = (await db.visitas.where("solicitud_id").equals(solicitudId).toArray()).filter(
+      (v) => !v.deleted_at
+    );
 
     return { solicitud, cliente, ubicacion, tecnico, contacto, equipos, visitas };
   }, [isReady, solicitudId]);
@@ -277,7 +289,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
               >
                 {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
               </span>
-              {canEditSolicitud && (
+              {canEditSolicitud && estado !== "cancelada" && (
                 <Button
                   variant="outline"
                   className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-9 px-3 text-xs"
@@ -287,8 +299,28 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   Editar
                 </Button>
               )}
+              {canReprogramar && estado !== "cancelada" && (
+                <Button
+                  variant="outline"
+                  className="rounded-xl font-black border-red-200 text-red-600 hover:bg-red-50 h-9 px-3 text-xs"
+                  onClick={() => setCancelarOpen(true)}
+                >
+                  <Ban className="w-3.5 h-3.5 mr-1.5" />
+                  Cancelar
+                </Button>
+              )}
             </div>
           </div>
+
+          {estado === "cancelada" && (
+            <div className="flex gap-2 p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-700 font-medium">
+              <Ban className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <span>
+                Solicitud cancelada
+                {solicitud.cancelada_motivo ? ` — ${solicitud.cancelada_motivo}` : ""}
+              </span>
+            </div>
+          )}
 
           {/* Metadata grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -594,6 +626,18 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
         onOpenChange={setEditDialogOpen}
         editSolicitud={solicitud}
       />
+
+      {/* Dialog cancelar solicitud (#64) */}
+      {role && (
+        <CancelarSolicitudDialog
+          open={cancelarOpen}
+          onOpenChange={setCancelarOpen}
+          solicitudId={solicitudId}
+          usuarioId={role.usuarioId}
+          visitasAsignadas={visitas.filter((v) => v.estado_visita === "asignada").length}
+          onCancelada={() => setCancelarOpen(false)}
+        />
+      )}
 
       {/* Dialog reprogramar visita (#64) */}
       {reprogramarId &&

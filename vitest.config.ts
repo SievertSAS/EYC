@@ -62,8 +62,12 @@ export default defineConfig({
         "src/lib/db/index.ts": { lines: 63 },
         // Tier 5 — PDF. Tests de contrato (smoke end-to-end + recopilarDatosConv);
         // no snapshots de píxeles. Cobertura alta para un smoke porque
-        // generarPreInforme recorre casi toda la tubería de render.
-        "src/lib/pdf/generar-pre-informe.ts": { lines: 65, functions: 40, branches: 58 },
+        // generarPreInforme recorre casi toda la tubería de render. El render de
+        // imágenes del equipo (#61: tarjeta foto/tabla, drawImagenCard) no se
+        // ejercita: happy-dom + fake-indexeddb no conservan el Blob en el
+        // round-trip por IndexedDB, así que `dataUrl` queda undefined y esas
+        // ~90 líneas caen fuera del smoke.
+        "src/lib/pdf/generar-pre-informe.ts": { lines: 64, functions: 40, branches: 58 },
         "src/lib/pdf/secciones-convencional.ts": { lines: 43, functions: 28, branches: 20 },
         // Tier 6 — Módulo 17 (form-dialogs) + piezas compartidas del Módulo 18.
         // #10 (writes multi-tabla del equipo ahora transaccionales + soft-delete

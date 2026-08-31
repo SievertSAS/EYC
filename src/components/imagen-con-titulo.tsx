@@ -13,7 +13,7 @@ import { Camera, Trash2, X } from "lucide-react";
 // ============================================================
 
 export function ImagenConTitulo({
-  nombre,
+  nombre = "",
   src,
   placeholder = "Título de la imagen",
   onNombreChange,
@@ -21,10 +21,11 @@ export function ImagenConTitulo({
   onRemoveImagen,
   onDelete,
 }: {
-  nombre: string;
+  nombre?: string;
   src: string | null;
   placeholder?: string;
-  onNombreChange: (value: string) => void;
+  /** Si se omite, no se muestra el input de título (solo la imagen). */
+  onNombreChange?: (value: string) => void;
   onCapture: (file: File) => void;
   onRemoveImagen?: () => void;
   onDelete?: () => void;
@@ -36,26 +37,32 @@ export function ImagenConTitulo({
     if (file && file.type.startsWith("image/")) onCapture(file);
   }
 
+  const conTitulo = typeof onNombreChange === "function";
+
   return (
     <div className="rounded-xl border border-slate-100 p-3 space-y-2">
-      <div className="flex items-center gap-2">
-        <input
-          className="flex-1 rounded-lg border border-slate-200 h-9 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          placeholder={placeholder}
-          value={nombre}
-          onChange={(e) => onNombreChange(e.target.value)}
-        />
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            aria-label={`Eliminar ${nombre || "identificación"}`}
-            className="text-slate-300 hover:text-red-500 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+      {(conTitulo || onDelete) && (
+        <div className="flex items-center gap-2">
+          {conTitulo && (
+            <input
+              className="flex-1 rounded-lg border border-slate-200 h-9 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              placeholder={placeholder}
+              value={nombre}
+              onChange={(e) => onNombreChange!(e.target.value)}
+            />
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Eliminar ${nombre || "identificación"}`}
+              className={`text-slate-300 hover:text-red-500 transition-colors ${conTitulo ? "" : "ml-auto"}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {src ? (
         <div className="relative rounded-lg overflow-hidden border border-slate-200">

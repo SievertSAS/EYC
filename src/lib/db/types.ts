@@ -256,9 +256,15 @@ export interface Gantry extends Partial<SyncFields> {
  * etc. `blob_local` es la imagen local; se sube al bucket y su path queda en
  * `url_storage` (mismo pipeline que las evidencias, #67).
  */
+/** Dónde vive la identificación: la placa de una subtabla del equipo, o una "otra" suelta. */
+export type SubtablaIdentificacion = "generador" | "tubo" | "colimador" | "otra";
+
 export interface EquipoIdentificacion extends Partial<SyncFields> {
   id?: string;
   equipo_id: string;
+  /** "generador" / "tubo" / "colimador" = foto de referencia de esa sección (1 sola).
+   *  "otra" = entrada libre de la lista "Otras identificaciones". Default: "otra". */
+  subtabla?: SubtablaIdentificacion;
   nombre?: string;
   orden?: number;
   blob_local?: Blob | null;

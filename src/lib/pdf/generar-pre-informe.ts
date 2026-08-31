@@ -119,7 +119,7 @@ interface DatosInforme {
   sede?: Sede;
   cliente?: Cliente;
   tubos: Tubo[];
-  identificaciones: { nombre: string; dataUrl?: string }[];
+  identificaciones: { subtabla: string; nombre: string; dataUrl?: string }[];
   sala?: SalaDimensiones;
   tecnico?: Usuario;
   contactos: Contacto[];
@@ -173,6 +173,7 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
     idenRows
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       .map(async (r) => ({
+        subtabla: r.subtabla ?? "otra",
         nombre: r.nombre?.trim() || "Identificación",
         dataUrl: r.blob_local ? await blobADataUrl(r.blob_local).catch(() => undefined) : undefined,
       }))
@@ -418,6 +419,24 @@ export async function generarPreInforme(
     doc.setTextColor(...COLOR_BLACK);
     doc.text(`${number} ${title}`, MARGIN, y);
     y += 5;
+  }
+
+  /** Foto de referencia (placa) de una subtabla del equipo, si se capturó (#61). */
+  function renderRefImagen(subtabla: string, caption: string) {
+    const iden = datos.identificaciones.find((i) => i.subtabla === subtabla);
+    if (!iden?.dataUrl) return;
+    checkPage(52);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...COLOR_GRAY);
+    doc.text(caption, MARGIN, y);
+    y += 4;
+    try {
+      doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
+      y += 44;
+    } catch {
+      y += 2;
+    }
   }
 
   // Contactos helper
@@ -689,6 +708,7 @@ export async function generarPreInforme(
   });
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  renderRefImagen("generador", "Placa / referencia del generador");
 
   // Especificaciones del Tubo — cantidad de tubos del equipo, en texto
   {
@@ -739,29 +759,7 @@ export async function generarPreInforme(
 
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
   });
-
-  // Identificaciones del equipo (placas / inventario / calibración) — #61
-  if (datos.identificaciones.length > 0) {
-    checkPage(20);
-    addSubsectionTitle("", "Identificaciones del Equipo");
-    datos.identificaciones.forEach((iden) => {
-      checkPage(iden.dataUrl ? 60 : 10);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(...COLOR_GRAY);
-      doc.text(iden.nombre, MARGIN, y);
-      y += 4;
-      if (iden.dataUrl) {
-        try {
-          doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
-          y += 44;
-        } catch {
-          y += 2;
-        }
-      }
-    });
-    y += 2;
-  }
+  renderRefImagen("tubo", "Placa / referencia del tubo");
 
   // Características del Colimador y Sistema de Adquisición
   checkPage(30);
@@ -791,6 +789,7 @@ export async function generarPreInforme(
   });
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  renderRefImagen("colimador", "Placa / referencia del colimador");
 
   // Condiciones ambientales
   checkPage(15);
@@ -801,6 +800,32 @@ export async function generarPreInforme(
   y += 5;
   doc.text(`Presión (hPa): ${datos.visita.presion_hpa ?? "—"}`, MARGIN, y);
   y += 8;
+
+  // Otras identificaciones del equipo de rayos X — lista título + imagen (#61)
+  {
+    const otras = datos.identificaciones.filter((i) => (i.subtabla ?? "otra") === "otra");
+    if (otras.length > 0) {
+      checkPage(20);
+      addSubsectionTitle("", "Otras identificaciones del equipo de rayos X");
+      otras.forEach((iden) => {
+        checkPage(iden.dataUrl ? 60 : 10);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(...COLOR_GRAY);
+        doc.text(iden.nombre, MARGIN, y);
+        y += 4;
+        if (iden.dataUrl) {
+          try {
+            doc.addImage(iden.dataUrl, MARGIN, y, 50, 40);
+            y += 44;
+          } catch {
+            y += 2;
+          }
+        }
+      });
+      y += 2;
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA — INTRODUCCIÓN

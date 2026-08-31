@@ -1203,31 +1203,37 @@ export type Database = {
       equipo_identificaciones: {
         Row: {
           creado_en: string;
+          deleted_at: string | null;
           equipo_id: string;
           id: string;
           last_modified: string;
           nombre: string | null;
           orden: number | null;
+          subtabla: string;
           sync_status: string;
           url_storage: string | null;
         };
         Insert: {
           creado_en?: string;
+          deleted_at?: string | null;
           equipo_id: string;
           id?: string;
           last_modified?: string;
           nombre?: string | null;
           orden?: number | null;
+          subtabla?: string;
           sync_status?: string;
           url_storage?: string | null;
         };
         Update: {
           creado_en?: string;
+          deleted_at?: string | null;
           equipo_id?: string;
           id?: string;
           last_modified?: string;
           nombre?: string | null;
           orden?: number | null;
+          subtabla?: string;
           sync_status?: string;
           url_storage?: string | null;
         };

@@ -152,24 +152,42 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).not.toContain("TUBO-BORRADO");
   });
 
-  it("#61 (D2c): las identificaciones del equipo salen en el informe; una borrada no", async () => {
+  it("#61: 'Otras identificaciones' salen en el informe; una borrada no", async () => {
     const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.equipo_identificaciones.bulkAdd([
-      { id: randomUUID(), equipo_id: equipo.id!, nombre: "IDEN-PLACA-FABRICANTE", orden: 1 },
-      { id: randomUUID(), equipo_id: equipo.id!, nombre: "IDEN-INVENTARIO", orden: 2 },
+      { id: randomUUID(), equipo_id: equipo.id!, subtabla: "otra", nombre: "IDEN-PLACA", orden: 1 },
       {
         id: randomUUID(),
         equipo_id: equipo.id!,
+        subtabla: "otra",
+        nombre: "IDEN-INVENTARIO",
+        orden: 2,
+      },
+      {
+        id: randomUUID(),
+        equipo_id: equipo.id!,
+        subtabla: "otra",
         nombre: "IDEN-BORRADA",
         orden: 3,
         deleted_at: new Date().toISOString(),
       },
     ]);
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
-    expect(text).toContain("Identificaciones del Equipo");
-    expect(text).toContain("IDEN-PLACA-FABRICANTE");
+    expect(text).toContain("Otras identificaciones del equipo de rayos X");
+    expect(text).toContain("IDEN-PLACA");
     expect(text).toContain("IDEN-INVENTARIO");
     expect(text).not.toContain("IDEN-BORRADA");
+  });
+
+  it("#61: las identificaciones de subtabla generador/tubo/colimador NO van a la lista 'Otras'", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipo_identificaciones.bulkAdd([
+      { id: randomUUID(), equipo_id: equipo.id!, subtabla: "generador", nombre: "REF-GENERADOR" },
+      { id: randomUUID(), equipo_id: equipo.id!, subtabla: "otra", nombre: "IDEN-SUELTA" },
+    ]);
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("IDEN-SUELTA");
+    expect(text).not.toContain("REF-GENERADOR");
   });
 
   it("#63: piso y techo del blindaje salen en la tabla de áreas colindantes", async () => {

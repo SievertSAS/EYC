@@ -164,33 +164,47 @@ describe("InfoModulo — no se puede dejar en blanco una columna NOT NULL (23502
   });
   afterEach(() => cleanup());
 
-  it("borrar 'Nombre del Servicio' no persiste undefined y el campo revierte", async () => {
+  it("borrar 'Nombre del Servicio' no persiste undefined y el campo revierte (al salir del campo)", async () => {
     const { visita, ubicacion } = await seedGraph();
     render(<InfoModulo visitaId={visita!.id!} />);
     await screen.findByText(/Volver al workspace/i);
 
     const input = screen.getByDisplayValue("Radiología Convencional") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
 
-    // Pasado el debounce (800 ms) el guard revierte y NO guarda.
-    await new Promise((r) => setTimeout(r, 950));
-
+    await waitFor(() => expect(input.value).toBe("Radiología Convencional"));
     const row = await db.ubicaciones_rx.get(ubicacion.id!);
     expect(row?.nombre_servicio).toBe("Radiología Convencional");
-    expect(input.value).toBe("Radiología Convencional");
   });
 
-  it("un valor nuevo no vacío sí se guarda", async () => {
+  it("un valor nuevo no vacío se guarda al salir del campo", async () => {
     const { visita, ubicacion } = await seedGraph();
     render(<InfoModulo visitaId={visita!.id!} />);
     await screen.findByText(/Volver al workspace/i);
 
     const input = screen.getByDisplayValue("Radiología Convencional");
     fireEvent.change(input, { target: { value: "Mamografía" } });
-    await new Promise((r) => setTimeout(r, 950));
+    fireEvent.blur(input);
 
-    const row = await db.ubicaciones_rx.get(ubicacion.id!);
-    expect(row?.nombre_servicio).toBe("Mamografía");
+    await waitFor(async () => {
+      const row = await db.ubicaciones_rx.get(ubicacion.id!);
+      expect(row?.nombre_servicio).toBe("Mamografía");
+    });
+  });
+
+  it("un decimal a medias como '1,' no se reformatea mientras escribís (solo al salir)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const { container } = render(<InfoModulo visitaId={visita!.id!} />);
+    await screen.findByText(/Volver al workspace/i);
+
+    // Primer campo numérico (inputMode=decimal) de la sección equipo.
+    const input = container.querySelector('input[inputmode="decimal"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    fireEvent.change(input, { target: { value: "1," } });
+    await new Promise((r) => setTimeout(r, 60));
+    // Sin blur: conserva "1," tal cual, no lo parsea a "1".
+    expect(input.value).toBe("1,");
   });
 });
 

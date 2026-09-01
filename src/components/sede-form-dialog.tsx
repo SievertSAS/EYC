@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { matchIdPorNombre } from "@/lib/divipola";
 
 // ============================================================
 //  Dialog para crear / editar una sede
@@ -49,14 +50,6 @@ interface SedeFormDialogProps {
 
 const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
 const inputClass = "rounded-xl border-slate-200 focus:border-primary font-medium h-11";
-
-/** Busca el id de un departamento/municipio por nombre (sedes antiguas con texto plano) */
-function matchIdPorNombre(items: { id: number; nombre: string }[], nombre?: string): string {
-  if (!nombre) return "";
-  const target = nombre.trim().toLowerCase();
-  const match = items.find((item) => item.nombre.toLowerCase() === target);
-  return match ? String(match.id) : "";
-}
 
 export function SedeFormDialog({
   open,

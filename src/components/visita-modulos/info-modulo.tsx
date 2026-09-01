@@ -6,7 +6,8 @@ import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, noBorrado } from "@/lib/db";
 import { SISTEMAS_ADQUISICION } from "@/lib/db/types";
-import type { EquipoIdentificacion } from "@/lib/db/types";
+import type { EquipoIdentificacion, Sede } from "@/lib/db/types";
+import { matchIdPorNombre } from "@/lib/divipola";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
 import { ImagenConTitulo } from "@/components/imagen-con-titulo";
 import { useDb } from "@/components/db-provider";
@@ -14,6 +15,16 @@ import { useRole } from "@/components/role-provider";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import {
   ArrowLeft,
   Building2,
@@ -176,6 +187,142 @@ function SelectField({
         ))}
       </select>
     </div>
+  );
+}
+
+// Ciudad / Departamento en Condiciones Ambientales: precarga lo que la sede
+// ya tenga definido (id del catálogo DIVIPOLA, o texto plano de sedes viejas)
+// y deja elegir de la lista. Escribe id + nombre denormalizado sobre la sede.
+function GeoAmbientalFields({
+  sede,
+  onSave,
+}: {
+  sede: Sede | undefined;
+  onSave: (patch: Partial<Sede>) => void;
+}) {
+  const [deptoOverride, setDeptoOverride] = useState<string | null>(null);
+  const [muniOverride, setMuniOverride] = useState<string | null>(null);
+
+  const departamentos =
+    useLiveQuery(
+      async () =>
+        (await db.departamentos.toArray()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+      []
+    ) ?? [];
+
+  const deptoId =
+    deptoOverride ??
+    (sede?.departamento_id
+      ? String(sede.departamento_id)
+      : matchIdPorNombre(departamentos, sede?.departamento));
+
+  const municipios =
+    useLiveQuery(
+      async () =>
+        deptoId
+          ? (
+              await db.municipios.where("departamento_id").equals(parseInt(deptoId, 10)).toArray()
+            ).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+          : [],
+      [deptoId]
+    ) ?? [];
+
+  const muniId =
+    muniOverride ??
+    (sede?.municipio_id ? String(sede.municipio_id) : matchIdPorNombre(municipios, sede?.ciudad));
+
+  const catalogoListo = departamentos.length > 0;
+
+  if (!catalogoListo) {
+    // Catálogo aún no sincronizado — texto libre como antes.
+    return (
+      <>
+        <EditableField
+          label="Departamento"
+          value={sede?.departamento ?? ""}
+          icon={MapPin}
+          onSave={(v) => onSave({ departamento: v || undefined })}
+        />
+        <EditableField
+          label="Ciudad"
+          value={sede?.ciudad ?? ""}
+          icon={MapPin}
+          onSave={(v) => onSave({ ciudad: v || undefined })}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-1">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+          <MapPin className="w-3 h-3" />
+          Departamento
+        </p>
+        <Combobox
+          items={departamentos}
+          itemToStringLabel={(d) => d.nombre}
+          value={departamentos.find((d) => String(d.id) === deptoId) ?? null}
+          onValueChange={(d) => {
+            setDeptoOverride(d ? String(d.id) : "");
+            setMuniOverride("");
+            onSave({
+              departamento_id: d?.id,
+              departamento: d?.nombre,
+              municipio_id: undefined,
+              ciudad: undefined,
+            });
+          }}
+        >
+          <ComboboxTrigger className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800 data-[placeholder]:text-slate-400">
+            <ComboboxValue placeholder="Seleccionar..." />
+          </ComboboxTrigger>
+          <ComboboxContent>
+            <ComboboxInput placeholder="Buscar departamento..." />
+            <ComboboxEmpty>Sin resultados.</ComboboxEmpty>
+            <ComboboxList>
+              {(d: { id: number; nombre: string }) => (
+                <ComboboxItem key={d.id} value={d}>
+                  {d.nombre}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </div>
+      <div className="space-y-1">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+          <MapPin className="w-3 h-3" />
+          Ciudad
+        </p>
+        <Combobox
+          items={municipios}
+          itemToStringLabel={(m) => m.nombre}
+          value={municipios.find((m) => String(m.id) === muniId) ?? null}
+          onValueChange={(m) => {
+            setMuniOverride(m ? String(m.id) : "");
+            onSave({ municipio_id: m?.id, ciudad: m?.nombre });
+          }}
+          disabled={!deptoId}
+        >
+          <ComboboxTrigger className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800 data-[placeholder]:text-slate-400">
+            <ComboboxValue placeholder={deptoId ? "Seleccionar..." : "Elegí departamento"} />
+          </ComboboxTrigger>
+          <ComboboxContent>
+            <ComboboxInput placeholder="Buscar ciudad..." />
+            <ComboboxEmpty>Sin resultados.</ComboboxEmpty>
+            <ComboboxList>
+              {(m: { id: number; nombre: string }) => (
+                <ComboboxItem key={m.id} value={m}>
+                  {m.nombre}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </div>
+    </>
   );
 }
 
@@ -461,6 +608,20 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     if (!id || requeridoVacio("sedes", field, value)) return;
     await db.sedes.update(id, {
       [field]: value || undefined,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("sedes", id);
+  }
+
+  // Actualiza varios campos geográficos de la sede a la vez (depto/municipio del
+  // catálogo + su nombre denormalizado). `Table.update` con `undefined` borra la
+  // clave — acá es lo que queremos al limpiar el municipio.
+  async function saveSedeGeo(patch: Partial<Sede>) {
+    const id = data?.sede?.id;
+    if (!id) return;
+    await db.sedes.update(id, {
+      ...patch,
       sync_status: "pending",
       last_modified: now(),
     });
@@ -1327,18 +1488,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             type="number"
             onSave={(v) => saveVisita("presion_hpa", v, true)}
           />
-          <EditableField
-            label="Ciudad"
-            value={toStr(sede?.ciudad)}
-            icon={MapPin}
-            onSave={(v) => saveSede("ciudad", v)}
-          />
-          <EditableField
-            label="Departamento"
-            value={toStr(sede?.departamento)}
-            icon={MapPin}
-            onSave={(v) => saveSede("departamento", v)}
-          />
+          <GeoAmbientalFields sede={sede} onSave={saveSedeGeo} />
           <div className="sm:col-span-2 lg:col-span-3">
             <EditableField
               label="Observaciones"

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MANUAL_CONVENCIONAL, getManualPrueba, getManualGrupo } from "./manual";
 import { CATALOGO_SECCIONES, getCatalogoSeccion } from "./informe-secciones";
+import { tieneCriterio } from "./evaluacion";
 import { ITEMS_INSPECCION_EQUIPO, ITEMS_CONDICIONES_OPERACION } from "./inspeccion-items";
 import { GRUPOS_CONVENCIONAL } from "./grupos";
 
@@ -52,6 +53,20 @@ describe("CATALOGO_SECCIONES", () => {
   it("getCatalogoSeccion", () => {
     expect(getCatalogoSeccion("2.5")?.grupo).toBe("B");
     expect(getCatalogoSeccion("9.9")).toBeUndefined();
+  });
+
+  it("toda prueba con criterio evaluable explica cómo se evalúa (datos/cálculo/criterio)", () => {
+    for (const s of CATALOGO_SECCIONES) {
+      if (tieneCriterio(s.codigo)) {
+        expect(s.comoSeEvalua, s.codigo).toBeTruthy();
+        expect(s.comoSeEvalua?.datos.trim(), s.codigo).toBeTruthy();
+        expect(s.comoSeEvalua?.calculo.trim(), s.codigo).toBeTruthy();
+        expect(s.comoSeEvalua?.criterio.trim(), s.codigo).toBeTruthy();
+      } else {
+        // 2.8 no tiene criterio de aceptación → no describe evaluación.
+        expect(s.comoSeEvalua, s.codigo).toBeUndefined();
+      }
+    }
   });
 });
 

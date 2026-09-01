@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,7 +43,7 @@ export default function EquiposPage() {
   const data = useLiveQuery(async () => {
     if (!isReady) return undefined;
 
-    const equipos = await db.equipos.toArray();
+    const equipos = (await db.equipos.toArray()).filter(noBorrado);
 
     const enriched = await Promise.all(
       equipos.map(async (equipo) => {

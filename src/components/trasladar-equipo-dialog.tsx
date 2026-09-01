@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { trasladarEquipo } from "@/lib/workflow/equipo-service";
@@ -79,13 +79,19 @@ export function TrasladarEquipoDialog({
   );
 
   const sedes = useLiveQuery(
-    () => (isReady && clienteId ? db.sedes.where("cliente_id").equals(clienteId).toArray() : []),
+    () =>
+      isReady && clienteId
+        ? db.sedes.where("cliente_id").equals(clienteId).filter(noBorrado).toArray()
+        : [],
     [isReady, clienteId],
     []
   );
 
   const ubicaciones = useLiveQuery(
-    () => (isReady && sedeId ? db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray() : []),
+    () =>
+      isReady && sedeId
+        ? db.ubicaciones_rx.where("sede_id").equals(sedeId).filter(noBorrado).toArray()
+        : [],
     [isReady, sedeId],
     []
   );

@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -87,18 +87,26 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
     const cliente = await db.clientes.get(clienteId);
     if (!cliente) return null;
 
-    const contactos = await db.contactos.where("cliente_id").equals(clienteId).toArray();
+    const contactos = (await db.contactos.where("cliente_id").equals(clienteId).toArray()).filter(
+      noBorrado
+    );
 
-    const sedes = await db.sedes.where("cliente_id").equals(clienteId).toArray();
+    const sedes = (await db.sedes.where("cliente_id").equals(clienteId).toArray()).filter(
+      noBorrado
+    );
 
     // Enrichir sedes con ubicaciones y equipos
     const sedesEnriched = await Promise.all(
       sedes.map(async (sede) => {
-        const ubicaciones = await db.ubicaciones_rx.where("sede_id").equals(sede.id!).toArray();
+        const ubicaciones = (
+          await db.ubicaciones_rx.where("sede_id").equals(sede.id!).toArray()
+        ).filter(noBorrado);
 
         const ubicacionesEnriched = await Promise.all(
           ubicaciones.map(async (ubi) => {
-            const equipos = await db.equipos.where("ubicacion_id").equals(ubi.id!).toArray();
+            const equipos = (
+              await db.equipos.where("ubicacion_id").equals(ubi.id!).toArray()
+            ).filter(noBorrado);
             return { ubicacion: ubi, equipos };
           })
         );

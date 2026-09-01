@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { SISTEMAS_ADQUISICION } from "@/lib/db/types";
 import type { EquipoIdentificacion } from "@/lib/db/types";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
@@ -412,7 +412,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
       : [];
 
     const contactos = cliente?.id
-      ? await db.contactos.where("cliente_id").equals(cliente.id).toArray()
+      ? (await db.contactos.where("cliente_id").equals(cliente.id).toArray()).filter(noBorrado)
       : [];
 
     return {

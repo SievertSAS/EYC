@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +49,7 @@ export default function VisitasPage() {
   const visitas = useLiveQuery(async () => {
     if (!isReady) return undefined;
 
-    let allVisitas = await db.visitas.toArray();
+    let allVisitas = (await db.visitas.toArray()).filter(noBorrado);
 
     // Técnicos solo ven sus visitas asignadas
     if (role?.cargo === "tecnico" && role?.usuarioId) {

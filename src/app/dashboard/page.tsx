@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +24,7 @@ export default function DashboardPage() {
   const kpis = useLiveQuery(async () => {
     if (!isReady || !role) return null;
 
-    const allVisitas = await db.visitas.toArray();
+    const allVisitas = (await db.visitas.toArray()).filter(noBorrado);
 
     const asignadas = allVisitas.filter((v) => v.estado_visita === "asignada").length;
     const enProgreso = allVisitas.filter((v) => v.estado_visita === "en_progreso").length;

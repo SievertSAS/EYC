@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +78,9 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
     );
 
     // Visitas del equipo (más reciente primero)
-    const visitas = await db.visitas.where("equipo_id").equals(equipoId).toArray();
+    const visitas = (await db.visitas.where("equipo_id").equals(equipoId).toArray()).filter(
+      noBorrado
+    );
     visitas.sort((a, b) => (b.creado_en ?? "").localeCompare(a.creado_en ?? ""));
 
     // Informes del equipo (más reciente primero)

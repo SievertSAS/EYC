@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,7 +32,9 @@ export default function RevisionPage() {
     if (!isReady) return undefined;
 
     // Obtener visitas pendientes de revisión
-    const pendientes = await db.visitas.where("estado_visita").equals("en_revision").toArray();
+    const pendientes = (
+      await db.visitas.where("estado_visita").equals("en_revision").toArray()
+    ).filter(noBorrado);
 
     const enriched = await Promise.all(
       pendientes.map(async (visita) => {

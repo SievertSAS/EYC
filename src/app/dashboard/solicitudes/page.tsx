@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -106,7 +106,7 @@ export default function SolicitudesPage() {
   const data = useLiveQuery(async () => {
     if (!isReady) return undefined;
 
-    const solicitudes = await db.solicitudes.toArray();
+    const solicitudes = (await db.solicitudes.toArray()).filter(noBorrado);
 
     const enriched = await Promise.all(
       solicitudes.map(async (sol) => {

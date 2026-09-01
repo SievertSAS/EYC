@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import type { Solicitud } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -87,16 +87,26 @@ export function SolicitudFormDialog({
   }
 
   // Data queries
-  const clientes = useLiveQuery(() => (isReady ? db.clientes.toArray() : []), [isReady], []);
+  const clientes = useLiveQuery(
+    () => (isReady ? db.clientes.filter(noBorrado).toArray() : []),
+    [isReady],
+    []
+  );
 
   const sedes = useLiveQuery(
-    () => (isReady && clienteId ? db.sedes.where("cliente_id").equals(clienteId).toArray() : []),
+    () =>
+      isReady && clienteId
+        ? db.sedes.where("cliente_id").equals(clienteId).filter(noBorrado).toArray()
+        : [],
     [isReady, clienteId],
     []
   );
 
   const ubicaciones = useLiveQuery(
-    () => (isReady && sedeId ? db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray() : []),
+    () =>
+      isReady && sedeId
+        ? db.ubicaciones_rx.where("sede_id").equals(sedeId).filter(noBorrado).toArray()
+        : [],
     [isReady, sedeId],
     []
   );

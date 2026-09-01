@@ -102,7 +102,10 @@ export function AppSidebar() {
 
   async function handleLogout() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    // `scope: "local"` — cerrar sesión solo en ESTE dispositivo. Sin scope,
+    // Supabase revoca el refresh token y tira abajo todas las sesiones del
+    // usuario (otros equipos, la app de campo, etc.).
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
   }
 

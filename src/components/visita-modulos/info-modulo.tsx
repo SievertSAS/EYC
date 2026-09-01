@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -89,7 +89,6 @@ function EditableField({
   const [local, setLocal] = useState(() => paraMostrar(value));
   const [prevValue, setPrevValue] = useState(value);
   const [saved, setSaved] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Sincronizar `local` cuando el valor externo cambia (guardado remoto,
   // sync entre dispositivos): ajuste de estado en render, no en efecto.
@@ -98,24 +97,20 @@ function EditableField({
     setLocal(paraMostrar(value));
   }
 
-  const handleChange = useCallback(
-    (v: string) => {
-      setLocal(v);
-      setSaved(false);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        if (required && !v.trim()) {
-          // Campo obligatorio: no se puede dejar en blanco. Revertir al valor real.
-          setLocal(paraMostrar(value));
-          return;
-        }
-        onSave(v);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 1500);
-      }, 800);
-    },
-    [onSave, required, value]
-  );
+  // #68 / feedback: se guarda AL SALIR del campo (blur), no por debounce por
+  // tecla. Si guardaba mientras escribías, un decimal a medias como `1,` se
+  // parseaba a `1` y te borraba la coma en pleno tipeo. Ahora se comporta como
+  // los campos de los grupos A–E (`SetupField`).
+  function handleBlur() {
+    if (required && !local.trim()) {
+      setLocal(paraMostrar(value)); // obligatorio: no se puede dejar vacío
+      return;
+    }
+    if (local === paraMostrar(value)) return; // sin cambios reales
+    onSave(local);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
 
   return (
     <div className="space-y-1">
@@ -129,7 +124,11 @@ function EditableField({
         inputMode={esNumero ? "decimal" : undefined}
         className="rounded-xl border-slate-200 focus:border-primary font-medium h-9 text-sm"
         value={local}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => {
+          setLocal(e.target.value);
+          setSaved(false);
+        }}
+        onBlur={handleBlur}
         placeholder="—"
       />
     </div>
@@ -194,7 +193,6 @@ function EditableTextArea({
   const [local, setLocal] = useState(value);
   const [prevValue, setPrevValue] = useState(value);
   const [saved, setSaved] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Sincronizar `local` cuando el valor externo cambia (guardado remoto,
   // sync entre dispositivos): ajuste de estado en render, no en efecto.
@@ -203,19 +201,13 @@ function EditableTextArea({
     setLocal(value);
   }
 
-  const handleChange = useCallback(
-    (v: string) => {
-      setLocal(v);
-      setSaved(false);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        onSave(v);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 1500);
-      }, 800);
-    },
-    [onSave]
-  );
+  // Guarda al salir del campo (blur), no por debounce por tecla.
+  function handleBlur() {
+    if (local === value) return;
+    onSave(local);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
 
   return (
     <div className="space-y-1">
@@ -226,7 +218,11 @@ function EditableTextArea({
       <textarea
         className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         value={local}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => {
+          setLocal(e.target.value);
+          setSaved(false);
+        }}
+        onBlur={handleBlur}
         placeholder={placeholder}
       />
     </div>

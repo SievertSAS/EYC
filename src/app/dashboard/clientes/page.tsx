@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,21 +36,33 @@ export default function ClientesPage() {
   const data = useLiveQuery(async () => {
     if (!isReady) return undefined;
 
-    const clientes = await db.clientes.toArray();
+    const clientes = (await db.clientes.toArray()).filter(noBorrado);
 
     // Enriquecer con conteo de sedes y equipos
     const enriched = await Promise.all(
       clientes.map(async (cliente) => {
-        const sedes = await db.sedes.where("cliente_id").equals(cliente.id!).count();
+        const sedes = await db.sedes
+          .where("cliente_id")
+          .equals(cliente.id!)
+          .filter(noBorrado)
+          .count();
 
         // Contar equipos: sedes → ubicaciones → equipos
-        const sedesList = await db.sedes.where("cliente_id").equals(cliente.id!).toArray();
+        const sedesList = (await db.sedes.where("cliente_id").equals(cliente.id!).toArray()).filter(
+          noBorrado
+        );
         const sedeIds = sedesList.map((s) => s.id!);
         let equiposCount = 0;
         for (const sedeId of sedeIds) {
-          const ubis = await db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray();
+          const ubis = (await db.ubicaciones_rx.where("sede_id").equals(sedeId).toArray()).filter(
+            noBorrado
+          );
           for (const ubi of ubis) {
-            const eqCount = await db.equipos.where("ubicacion_id").equals(ubi.id!).count();
+            const eqCount = await db.equipos
+              .where("ubicacion_id")
+              .equals(ubi.id!)
+              .filter(noBorrado)
+              .count();
             equiposCount += eqCount;
           }
         }

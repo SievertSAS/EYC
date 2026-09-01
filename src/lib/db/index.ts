@@ -339,6 +339,14 @@ class EyCDatabase extends Dexie {
 
 export const db = new EyCDatabase();
 
+/**
+ * Predicado de borrado suave (#34). Invariante: TODA lectura que arma una
+ * lista (maestras, visitas, solicitudes…) filtra las filas con `deleted_at`.
+ * Dexie no filtra solo; se encadena `.filter(noBorrado)` antes de
+ * `.toArray()` / `.count()`. Los consumidores `conv_*` ya lo hacían inline.
+ */
+export const noBorrado = (r: { deleted_at?: string | null }): boolean => r.deleted_at == null;
+
 db.on("blocked", () => {
   if (typeof window !== "undefined") {
     window.location.reload();

@@ -19,6 +19,12 @@ export interface SeccionInfoCatalogo {
   criterio: string;
   /** Texto por defecto del análisis (editable por el físico, p.ej. 2.2) */
   analisis?: string;
+  /**
+   * Explicación en lenguaje llano de cómo `evaluacion.ts` decide el concepto:
+   * qué datos toma, qué cálculo hace y qué regla exacta determina el estado.
+   * Se muestra en el editor del pre-informe (solo visual, no afecta el veredicto).
+   */
+  comoSeEvalua?: { datos: string; calculo: string; criterio: string };
   /** Acciones correctivas predeterminadas cuando el concepto es Conforme/Favorable (editable) */
   accionesConforme?: string;
   /** Acciones correctivas predeterminadas cuando el concepto es No conforme/No favorable (editable) */
@@ -39,6 +45,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se realizó el levantamiento radiométrico mediante mediciones de radiación dispersa en puntos representativos del área donde se encuentra instalado el equipo de radiología general. Las mediciones se efectuaron utilizando una cámara de ionización o un detector de estado sólido calibrado en términos de dosis equivalente ambiental H*(10), posicionando un simulador de dispersión en la ubicación habitual del paciente durante la exposición, aplicando la técnica máxima utilizada en la práctica clínica. Los puntos de medición evaluados se presentan en el diagrama radiométrico de la instalación.",
     criterio:
       "Área controlada (trabajadores): H*(10) <= 5 mSv/año. Área supervisada (público): H*(10) <= 0.5 mSv/año.",
+    comoSeEvalua: {
+      datos:
+        "El concepto (Conforme / No conforme) que el técnico asignó a cada punto del levantamiento radiométrico, comparando la dosis medida en ese punto contra el nivel de referencia de su zona.",
+      calculo:
+        "No promedia ni recalcula nada: recorre todos los puntos cargados y hace un rollup del peor caso.",
+      criterio:
+        "Conforme si ningún punto quedó marcado como No conforme. Un solo punto No conforme vuelve toda la prueba No conforme. Sin puntos cargados → Pendiente.",
+    },
     accionesConforme: "No se requieren acciones correctivas.",
     accionesNoConforme:
       "Se recomienda evaluar las condiciones de blindaje de la instalación, revisar la carga de trabajo del equipo y adoptar las medidas de protección radiológica necesarias para garantizar el cumplimiento de los niveles de restricción de dosis establecidos. Una vez subsanada la condición identificada, se deberá repetir el estudio radiométrico para verificar el cumplimiento de los criterios establecidos.",
@@ -88,6 +102,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe seleccionó una combinación representativa de tensión y corriente del generador y se realizaron al menos tres exposiciones para un tiempo de exposición determinado, registrando el tiempo medido en cada exposición. El procedimiento se repitió para otros dos tiempos de exposición seleccionados, manteniendo constantes los demás parámetros de irradiación.",
     criterio:
       "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder +/-10 %.\nLa repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 10 %.",
+    comoSeEvalua: {
+      datos:
+        "Disparos principales del RaySafe de los grupos 1, 2 y 6: tiempo nominal (s) y tiempo medido (s) de cada disparo.",
+      calculo:
+        "Agrupa los disparos por tiempo nominal. Por cada grupo calcula la desviación = |promedio medido − nominal| ÷ nominal × 100, y el coeficiente de variación CV = desviación estándar (n−1) ÷ promedio × 100.",
+      criterio:
+        "Cada grupo nominal debe cumplir desviación ≤ 10 % y CV ≤ 10 %. Si un solo grupo falla, la prueba es No conforme. Sin disparos válidos → Pendiente.",
+    },
   },
   {
     codigo: "2.5",
@@ -114,6 +136,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe realizaron exposiciones utilizando valores representativos de tensión del tubo de rayos X, registrando la capa hemirreductora (CHR) reportada por el analizador para cada condición de irradiación. Los valores obtenidos se compararon con los valores mínimos de referencia establecidos para radiodiagnóstico según la tensión del tubo utilizada.",
     criterio:
       "La capa hemirreductora del haz de rayos X debe ser igual o mayor que los valores mínimos de referencia establecidos para cada nivel de tensión del tubo.",
+    comoSeEvalua: {
+      datos: "Disparos principales del RaySafe: kV nominal y CHR medida (mm Al) de cada disparo.",
+      calculo:
+        "Agrupa por kV nominal y promedia la CHR medida de cada grupo. Compara ese promedio contra la CHR mínima de referencia TECDOC del kV (60 → 1,8 · 70 → 2,1 · 80 → 2,3 · 90 → 2,5 mm Al).",
+      criterio:
+        "Cada grupo de kV debe tener CHR promedio ≥ el mínimo de su kV. Si un grupo queda por debajo, la prueba es No conforme. Sin disparos con kV y CHR → Pendiente.",
+    },
   },
   {
     codigo: "2.7",

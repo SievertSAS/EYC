@@ -28,6 +28,7 @@ import {
   SlidersHorizontal,
   MonitorCheck,
   Target,
+  Calculator,
 } from "lucide-react";
 import { irAModulo } from "@/lib/modulo-nav";
 import { getCamposFaltantesInfo, type CampoFaltante } from "@/lib/workflow/module-completeness";
@@ -179,6 +180,31 @@ function SeccionCard({
                 : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de los datos capturados de la prueba. Usa el interruptor para marcar la prueba como no aplicable."}
             </p>
           </div>
+
+          {/* Cómo se evalúa — qué datos toma, qué cálculo hace, qué regla decide.
+              Solo informativo: no afecta el veredicto. */}
+          {!sinCriterio && catalogo.comoSeEvalua && (
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-2.5 space-y-2">
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5">
+                <Calculator className="w-3 h-3" />
+                Cómo se evalúa
+              </p>
+              <div className="space-y-1.5 text-[10px] text-slate-600 leading-relaxed">
+                <p>
+                  <span className="font-black text-slate-700">Datos que toma: </span>
+                  {catalogo.comoSeEvalua.datos}
+                </p>
+                <p>
+                  <span className="font-black text-slate-700">Cálculo: </span>
+                  {catalogo.comoSeEvalua.calculo}
+                </p>
+                <p>
+                  <span className="font-black text-slate-700">Criterio de aceptación: </span>
+                  {catalogo.comoSeEvalua.criterio}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Acciones correctivas — 2.1/2.2/2.13 traen predeterminado editable
               según el concepto (Conforme/No conforme); el resto usa texto

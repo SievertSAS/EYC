@@ -2206,6 +2206,7 @@ export type Database = {
           forma_pago: string | null;
           id: string;
           last_modified: string;
+          numero_solicitud: string | null;
           pago_recibido: boolean;
           pipeline_estado: string;
           sync_status: string;
@@ -2225,6 +2226,7 @@ export type Database = {
           forma_pago?: string | null;
           id?: string;
           last_modified?: string;
+          numero_solicitud?: string | null;
           pago_recibido?: boolean;
           pipeline_estado?: string;
           sync_status?: string;
@@ -2244,6 +2246,7 @@ export type Database = {
           forma_pago?: string | null;
           id?: string;
           last_modified?: string;
+          numero_solicitud?: string | null;
           pago_recibido?: boolean;
           pipeline_estado?: string;
           sync_status?: string;

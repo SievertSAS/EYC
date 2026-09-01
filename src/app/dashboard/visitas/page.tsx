@@ -6,6 +6,7 @@ import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
 import { getVisitCompletenessBulk } from "@/lib/workflow/module-completeness";
 import {
@@ -16,6 +17,8 @@ import {
   Calendar,
   ArrowRight,
   Loader2,
+  User,
+  Search,
 } from "lucide-react";
 import { irAVisita } from "@/lib/visita-nav";
 import type { EstadoVisita } from "@/lib/db/types";
@@ -45,6 +48,7 @@ export default function VisitasPage() {
   const { isReady } = useDb();
   const { role } = useRole();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("todas");
+  const [search, setSearch] = useState("");
 
   const visitas = useLiveQuery(async () => {
     if (!isReady) return undefined;
@@ -64,18 +68,23 @@ export default function VisitasPage() {
     const solicitudIds = [
       ...new Set(allVisitas.map((v) => v.solicitud_id).filter(Boolean)),
     ] as string[];
+    const tecnicoIds = [
+      ...new Set(allVisitas.map((v) => v.tecnico_id).filter(Boolean)),
+    ] as string[];
     const visitaIds = allVisitas.map((v) => v.id!);
 
-    const [equipos, ubicaciones, solicitudes, completenessMap] = await Promise.all([
+    const [equipos, ubicaciones, solicitudes, tecnicos, completenessMap] = await Promise.all([
       db.equipos.bulkGet(equipoIds),
       db.ubicaciones_rx.bulkGet(ubicacionIds),
       db.solicitudes.bulkGet(solicitudIds),
+      db.usuarios.bulkGet(tecnicoIds),
       getVisitCompletenessBulk(visitaIds),
     ]);
 
     const equipoMap = new Map(equipoIds.map((id, i) => [id, equipos[i]]));
     const ubicacionMap = new Map(ubicacionIds.map((id, i) => [id, ubicaciones[i]]));
     const solicitudMap = new Map(solicitudIds.map((id, i) => [id, solicitudes[i]]));
+    const tecnicoMap = new Map(tecnicoIds.map((id, i) => [id, tecnicos[i]]));
 
     // Fetch sedes y clientes (secondary lookups)
     const sedeIds = [
@@ -109,6 +118,7 @@ export default function VisitasPage() {
       const solicitud = solicitudMap.get(visita.solicitud_id);
       const sede = ubicacion?.sede_id ? sedeMap.get(ubicacion.sede_id) : undefined;
       const cliente = solicitud?.cliente_id ? clienteMap.get(solicitud.cliente_id) : undefined;
+      const tecnico = visita.tecnico_id ? tecnicoMap.get(visita.tecnico_id) : undefined;
 
       return {
         visita,
@@ -116,6 +126,7 @@ export default function VisitasPage() {
         ubicacion,
         sede,
         cliente,
+        tecnico,
         solicitud,
         completeness: completenessMap.get(visita.id!) ?? {
           total: 0,
@@ -139,10 +150,25 @@ export default function VisitasPage() {
 
   // Filtrar por tab activo
   const activeTab = FILTER_TABS.find((t) => t.id === activeFilter)!;
-  const filteredVisitas =
+  const porTab =
     activeFilter === "todas"
       ? visitas
       : visitas.filter((v) => activeTab.states.includes(v.visita.estado_visita));
+
+  // Búsqueda por cliente / equipo / técnico
+  const q = search.trim().toLowerCase();
+  const filteredVisitas = q
+    ? porTab.filter((v) => {
+        const campos = [
+          v.cliente?.nombre_cliente,
+          v.equipo?.gen_marca,
+          v.equipo?.gen_modelo,
+          v.equipo?.tipo_equipo?.replace(/_/g, " "),
+          v.tecnico?.nombre,
+        ];
+        return campos.some((c) => c?.toLowerCase().includes(q));
+      })
+    : porTab;
 
   // Contadores por filtro
   const counts: Record<FilterTab, number> = {
@@ -165,6 +191,17 @@ export default function VisitasPage() {
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Servicios asignados y en progreso
         </p>
+      </div>
+
+      {/* Búsqueda */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por cliente, equipo o técnico…"
+          className="pl-9 rounded-xl border-slate-200 h-11"
+        />
       </div>
 
       {/* Filter tabs */}
@@ -223,6 +260,7 @@ export default function VisitasPage() {
                     <TableHead>Cliente</TableHead>
                     <TableHead>Ubicación</TableHead>
                     <TableHead>Equipo</TableHead>
+                    <TableHead>Técnico</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead className="text-center">Progreso</TableHead>
                     <TableHead>Estado</TableHead>
@@ -231,7 +269,7 @@ export default function VisitasPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredVisitas.map(
-                    ({ visita, equipo, ubicacion, sede, cliente, completeness }) => {
+                    ({ visita, equipo, ubicacion, sede, cliente, tecnico, completeness }) => {
                       const estado = ESTADO_CONFIG[visita.estado_visita];
                       const muestraProgreso =
                         visita.estado_visita !== "asignada" &&
@@ -269,6 +307,16 @@ export default function VisitasPage() {
                             )}
                           </TableCell>
                           <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                            {tecnico ? (
+                              <span className="flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5 text-slate-400" />
+                                {tecnico.nombre.split(" ").slice(0, 2).join(" ")}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Sin asignar</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-600 whitespace-nowrap">
                             {visita.fecha_visita ?? "Sin fecha"}
                           </TableCell>
                           <TableCell className="text-center">
@@ -301,70 +349,78 @@ export default function VisitasPage() {
 
           {/* Tarjetas (móvil) */}
           <div className="space-y-3 md:hidden">
-            {filteredVisitas.map(({ visita, equipo, ubicacion, sede, cliente, completeness }) => {
-              const estado = ESTADO_CONFIG[visita.estado_visita];
-              return (
-                <a key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
-                  <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
-                    <CardContent className="p-4 sm:p-5 md:p-6">
-                      <div className="flex items-start justify-between gap-3">
-                        {/* Info principal */}
-                        <div className="flex-1 min-w-0 space-y-2">
-                          {/* Cliente */}
-                          <div className="flex items-start gap-2">
-                            <Building2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                            <p className="font-black text-slate-900 text-sm sm:text-base leading-tight">
-                              {cliente?.nombre_cliente ?? "Sin cliente"}
-                            </p>
-                          </div>
+            {filteredVisitas.map(
+              ({ visita, equipo, ubicacion, sede, cliente, tecnico, completeness }) => {
+                const estado = ESTADO_CONFIG[visita.estado_visita];
+                return (
+                  <a key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
+                    <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
+                      <CardContent className="p-4 sm:p-5 md:p-6">
+                        <div className="flex items-start justify-between gap-3">
+                          {/* Info principal */}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            {/* Cliente */}
+                            <div className="flex items-start gap-2">
+                              <Building2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                              <p className="font-black text-slate-900 text-sm sm:text-base leading-tight">
+                                {cliente?.nombre_cliente ?? "Sin cliente"}
+                              </p>
+                            </div>
 
-                          {/* Ubicación y equipo */}
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {sede?.ciudad ?? "—"}, {ubicacion?.nombre_servicio ?? "—"}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Radio className="w-3 h-3" />
-                              {equipo?.gen_marca} {equipo?.gen_modelo}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {visita.fecha_visita ?? "Sin fecha"}
-                            </span>
-                          </div>
-
-                          {/* Badges + Progress */}
-                          <div className="flex flex-wrap items-center gap-2 pt-1">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
-                            >
-                              {estado.label}
-                            </span>
-                            {equipo?.tipo_equipo && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
-                                {equipo.tipo_equipo.replace(/_/g, " ")}
+                            {/* Ubicación y equipo */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {sede?.ciudad ?? "—"}, {ubicacion?.nombre_servicio ?? "—"}
                               </span>
-                            )}
-                            {/* Progress pill */}
-                            {visita.estado_visita !== "asignada" &&
-                              visita.estado_visita !== "aprobada" &&
-                              visita.estado_visita !== "enviada" && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
-                                  {completeness.completed}/{completeness.total}
+                              <span className="flex items-center gap-1">
+                                <Radio className="w-3 h-3" />
+                                {equipo?.gen_marca} {equipo?.gen_modelo}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                {tecnico
+                                  ? tecnico.nombre.split(" ").slice(0, 2).join(" ")
+                                  : "Sin asignar"}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {visita.fecha_visita ?? "Sin fecha"}
+                              </span>
+                            </div>
+
+                            {/* Badges + Progress */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
+                              >
+                                {estado.label}
+                              </span>
+                              {equipo?.tipo_equipo && (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+                                  {equipo.tipo_equipo.replace(/_/g, " ")}
                                 </span>
                               )}
+                              {/* Progress pill */}
+                              {visita.estado_visita !== "asignada" &&
+                                visita.estado_visita !== "aprobada" &&
+                                visita.estado_visita !== "enviada" && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+                                    {completeness.completed}/{completeness.total}
+                                  </span>
+                                )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Flecha */}
-                        <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-1 group-hover:text-primary transition-colors" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </a>
-              );
-            })}
+                          {/* Flecha */}
+                          <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-1 group-hover:text-primary transition-colors" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </a>
+                );
+              }
+            )}
           </div>
         </>
       )}

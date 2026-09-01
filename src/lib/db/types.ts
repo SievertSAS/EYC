@@ -538,6 +538,13 @@ export interface Cotizacion {
 
 export interface Solicitud extends Partial<SyncFields> {
   id?: string;
+  /**
+   * Consecutivo legible `SOL-{año}-{NNN}` para identificar la solicitud a
+   * simple vista. El `id` (uuid) sigue siendo la clave real. Se asigna al
+   * crear (mismo criterio que `numero_informe`); no es garantía de unicidad
+   * global offline — es una etiqueta.
+   */
+  numero_solicitud?: string;
   cotizacion_id?: string;
   cliente_id: string;
   contacto_programar_id?: string;

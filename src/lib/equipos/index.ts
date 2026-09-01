@@ -20,15 +20,6 @@ export {
 export type { EquipmentPackage, ModuloVisita } from "./types";
 export type { GrupoPruebaDefinition, PruebaEnGrupo } from "./grupo-types";
 
-// Motor de fórmulas
-export {
-  evaluateFormula,
-  evaluateAllFormulas,
-  evaluateFormulaSummaries,
-  evaluateCriterios,
-  evaluateCriterio,
-  suggestConcepto,
-  evaluateGroup,
-  stats,
-} from "./engine";
-export type { FormulaContext, ResultadoPruebaCalculado } from "./engine";
+// El motor genérico de fórmulas (`engine.ts`) se retiró — #45 opción B.
+// El veredicto Conforme / No conforme lo produce `convencional/evaluacion.ts`
+// (evaluadores a mano). Ninguna fórmula real se llegó a definir en `grupos.ts`.

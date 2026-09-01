@@ -12,8 +12,9 @@
 - **`registry.ts`**: mapea `TipoEquipo → EquipmentPackage`. Hoy solo
   `CONVENCIONAL`. `MODULOS_DEFAULT` es el fallback para tipos sin paquete.
 - **`grupos.ts`**: `GRUPOS_CONVENCIONAL` — 5 grupos (a–e), las 21 pruebas
-  TECDOC (2.1–2.21) repartidas. `formulas`/`criterios_aceptacion` **vacíos**
-  (la conformidad la hace `evaluacion.ts`, no el motor de fórmulas).
+  TECDOC (2.1–2.21) repartidas. `formulas`/`criterios_aceptacion` **siempre vacíos**
+  (la conformidad la hace `convencional/evaluacion.ts`; el motor genérico `engine.ts`
+  se retiró — #45).
 - **`informe-secciones.ts`**: `CATALOGO_SECCIONES` — objetivo/instrumentación/
   metodología/criterio por prueba, + su letra de grupo (A–E). Para el PDF.
 - **`manual.ts`**: `MANUAL_CONVENCIONAL` — el procedimiento por prueba (drawer

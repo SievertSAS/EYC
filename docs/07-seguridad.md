@@ -45,23 +45,19 @@ superficie más sensible porque usa el **service role**. Controles apilados:
    y si el rollback falla lo registra en el logger (mitigación A3).
 6. **Service role lazy init**: el cliente admin se crea por request, no al importar el módulo (M2).
 
-## 7.4 Sandbox de fórmulas
+## 7.4 Sandbox de fórmulas — ⛔ RETIRADO (#45)
 
-Las `PruebaDefinicion` pueden traer expresiones JS (`FormulaDefinicion.expresion`) que se ejecutan
-con `new Function()`. El riesgo (ejecución arbitraria / prototype pollution) se mitiga en
-[`engine.ts`](../src/lib/equipos/engine.ts) con `validateExpression`:
+> `engine.ts` (motor de fórmulas-string con `new Function()` + blocklist) se **borró**
+> (2026-09-01). Nunca se usó. Con él se fue toda esta superficie de seguridad: ya no hay
+> ejecución de código dinámico en la app. El veredicto de conformidad lo produce
+> `convencional/evaluacion.ts` (TypeScript compilado, sin `eval`). Este apartado queda como
+> historia.
 
-- **Blocklist** de ~50 tokens peligrosos (`import`, `require`, `eval`, `Function`, `constructor`,
-  `prototype`, `__proto__`, `this`, `new`, `process`, `fetch`, `window`, `Object`, `Reflect`…).
-- Bloqueo de **escapes Unicode**, **template literals**, **concatenación en acceso por corchetes**
-  y **acceso a proto/constructor por corchetes**.
-- **Límite de longitud** (2000 chars) anti-ReDoS.
-- En ejecución: `"use strict"`, contexto **congelado** (`Object.freeze`) y sólo se inyectan
-  `row`, `rows`, `stats`, `Math`, `equipo`, `valores_ref`, `helpers`.
-
-> Modelo de amenaza: las definiciones de prueba las controla la organización (coordinación /
-> catálogo), pero el sandbox protege ante definiciones maliciosas o corruptas que llegaran por
-> sync. **Al modificar la blocklist, correr `engine.test.ts`.**
+Las `PruebaDefinicion` **podían** traer expresiones JS (`FormulaDefinicion.expresion`) que se
+ejecutaban con `new Function()`; el riesgo se mitigaba en `engine.ts` con `validateExpression`
+(blocklist de ~50 tokens, bloqueo de escapes/template/corchetes, límite de longitud, contexto
+congelado). El campo `FormulaDefinicion.expresion` sigue en el schema de Supabase pero sin
+lector.
 
 ## 7.5 Variables de entorno
 

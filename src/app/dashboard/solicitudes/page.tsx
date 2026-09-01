@@ -227,6 +227,7 @@ export default function SolicitudesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>N.º</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Ubicación</TableHead>
                     <TableHead>Técnico</TableHead>
@@ -247,6 +248,9 @@ export default function SolicitudesPage() {
                         className="cursor-pointer group"
                         onClick={() => router.push(`/dashboard/solicitudes/${solicitud.id}`)}
                       >
+                        <TableCell className="font-mono text-xs font-bold text-slate-500 whitespace-nowrap">
+                          {solicitud.numero_solicitud ?? "—"}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
@@ -318,6 +322,11 @@ export default function SolicitudesPage() {
                             <p className="font-black text-slate-900 text-sm sm:text-base truncate">
                               {cliente?.nombre_cliente ?? "—"}
                             </p>
+                            {solicitud.numero_solicitud && (
+                              <span className="font-mono text-[10px] font-bold text-slate-400 flex-shrink-0">
+                                {solicitud.numero_solicitud}
+                              </span>
+                            )}
                           </div>
 
                           {/* Metadata */}

@@ -7,6 +7,7 @@ import { db, noBorrado } from "@/lib/db";
 import type { Solicitud } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
+import { generarNumeroSolicitud } from "@/lib/workflow/solicitud-numero";
 import {
   Dialog,
   DialogContent,
@@ -187,6 +188,7 @@ export function SolicitudFormDialog({
       } else {
         // Modo creación
         const data: Omit<Solicitud, "id"> = {
+          numero_solicitud: await generarNumeroSolicitud(),
           cliente_id: clienteId,
           contacto_programar_id: contactoId || undefined,
           ubicacion_id: ubicacionId || undefined,

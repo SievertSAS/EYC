@@ -32,6 +32,7 @@ import {
   Pencil,
   CalendarClock,
   Ban,
+  Phone,
 } from "lucide-react";
 import Link from "next/link";
 import { crearVisitaDesdeSolicitud } from "@/lib/workflow/visita-service";
@@ -278,10 +279,13 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                Solicitud #{solicitud.id}
+                Solicitud {solicitud.numero_solicitud ?? `#${solicitud.id!.slice(0, 8)}`}
               </h2>
+              <p className="text-[11px] text-slate-400 font-mono font-medium truncate">
+                #{solicitud.id}
+              </p>
               <p className="text-sm text-slate-500 font-medium">{cliente?.nombre_cliente}</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -353,6 +357,12 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   Contacto
                 </p>
                 <p className="text-sm font-bold text-slate-700">{contacto.nombre}</p>
+                {contacto.telefono && (
+                  <p className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-slate-400" />
+                    {contacto.telefono}
+                  </p>
+                )}
               </div>
             )}
             {solicitud.tipo_servicio && (

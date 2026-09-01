@@ -4,6 +4,15 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { resetAndReopen } from "@/lib/db/recovery";
+import {
   RefreshCw,
   Wifi,
   WifiOff,
@@ -17,6 +26,8 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  ShieldAlert,
 } from "lucide-react";
 import {
   fullSync,
@@ -115,6 +126,9 @@ export default function SyncPage() {
   const [pendingRecords, setPendingRecords] = useState<SyncRecordPreview[]>([]);
   const [pendingExpanded, setPendingExpanded] = useState(false);
   const [retryingRecordId, setRetryingRecordId] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetAck, setResetAck] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const refreshStatus = useCallback(async () => {
     const s = await checkSyncStatus();
@@ -177,6 +191,24 @@ export default function SyncPage() {
       setRetryingRecordId(null);
     }
   }
+
+  /**
+   * Borra TODO el IndexedDB de este dispositivo y lo reabre vacío. NO toca el
+   * servidor: los datos ya sincronizados se vuelven a bajar en el próximo
+   * `fullSync`. Los registros pendientes / con error (que aún no subieron) se
+   * pierden. Sin gate de rol — cualquiera en un dispositivo compartido puede
+   * necesitarlo; el riesgo lo cubre el modal de confirmación.
+   */
+  async function handleResetLocal() {
+    setResetting(true);
+    try {
+      await resetAndReopen();
+    } finally {
+      window.location.reload();
+    }
+  }
+
+  const hayDatosSinSubir = (status?.pendingCount ?? 0) > 0 || (status?.errorCount ?? 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -503,6 +535,99 @@ export default function SyncPage() {
           </div>
         </div>
       )}
+
+      {/* Zona de riesgo — resetear datos locales */}
+      <Card className="border-2 border-dashed border-red-200 shadow-none rounded-2xl bg-red-50/40 overflow-hidden">
+        <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-black text-red-700 tracking-tight flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5" />
+              Resetear datos locales
+            </h3>
+            <p className="text-sm text-slate-500 font-medium mt-1">
+              Borra todo lo guardado en <strong>este dispositivo</strong> y lo vuelve a descargar
+              del servidor. Útil si los datos locales quedaron inconsistentes o vas a prestar el
+              equipo. No toca el servidor.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            className="rounded-xl font-black text-red-700 hover:bg-red-100 h-11 px-5 flex-shrink-0"
+            onClick={() => {
+              setResetAck(false);
+              setResetOpen(true);
+            }}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Resetear
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={resetOpen} onOpenChange={(o) => !resetting && setResetOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-black flex items-center gap-2 text-red-700">
+              <ShieldAlert className="w-5 h-5" /> Resetear datos locales
+            </DialogTitle>
+            <DialogDescription>
+              Se van a borrar <strong>todos los datos guardados en este dispositivo</strong>{" "}
+              (IndexedDB) y la app se va a recargar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="text-sm text-slate-600 font-medium space-y-2 list-disc pl-5">
+            <li>
+              <strong>No</strong> toca el servidor: lo que ya está sincronizado se vuelve a bajar
+              solo tras el próximo <code className="text-xs">fullSync</code>.
+            </li>
+            <li>
+              Hay que <strong>volver a iniciar sesión</strong> si la sesión no persiste, y esperar
+              la sincronización inicial.
+            </li>
+          </ul>
+
+          {hayDatosSinSubir && (
+            <div className="flex gap-2 p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-700 font-bold">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>
+                Tenés {status?.pendingCount ?? 0} pendiente
+                {(status?.pendingCount ?? 0) !== 1 ? "s" : ""} y {status?.errorCount ?? 0} con error
+                sin subir. <strong>Se van a perder.</strong> Sincronizá primero si tenés conexión.
+              </span>
+            </div>
+          )}
+
+          <label className="flex items-start gap-2 text-sm text-slate-700 font-medium cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 accent-red-600"
+              checked={resetAck}
+              onChange={(e) => setResetAck(e.target.checked)}
+            />
+            Entiendo que se borran los datos locales de este dispositivo.
+          </label>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              className="rounded-xl font-bold"
+              onClick={() => setResetOpen(false)}
+              disabled={resetting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="rounded-xl font-black bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleResetLocal}
+              disabled={!resetAck || resetting}
+            >
+              {resetting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Borrar y recargar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

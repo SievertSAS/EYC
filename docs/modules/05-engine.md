@@ -1,7 +1,15 @@
-# Módulo: motor de fórmulas (`src/lib/equipos/engine.ts`)
+# Módulo: motor de fórmulas (`src/lib/equipos/engine.ts`) — ⛔ RETIRADO
 
-> Estado: 🟡 en curso (Tier 3 · Módulo 5) · 2026-08-28
-> Ya bien cubierto por `engine.test.ts` (422 líneas). Pasada media.
+> **Estado: BORRADO (#45, opción B) · 2026-09-01.**
+> `engine.ts` y `engine.test.ts` se eliminaron. Nunca se usó: las 21 pruebas de
+> `grupos.ts` tenían `formulas: []` / `criterios_aceptacion: []` y ningún caller
+> fuera de tests. La superficie de seguridad (`new Function` + denylist) no se
+> justificaba para un motor dormido. El veredicto Conforme / No conforme lo
+> produce **`src/lib/equipos/convencional/evaluacion.ts`** (evaluadores a mano —
+> Módulo 7), la única fuente de verdad. #41 (redesign de `engine.ts`) se cierra:
+> solo aplicaba si se mantenía el motor.
+>
+> El resto de este documento se conserva como historia de por qué existió.
 
 ---
 

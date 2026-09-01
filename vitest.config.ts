@@ -39,7 +39,6 @@ export default defineConfig({
         statements: 13,
         functions: 9,
         branches: 12,
-        "src/lib/equipos/engine.ts": { lines: 85, functions: 85, branches: 77 },
         "src/lib/equipos/registry.ts": { lines: 90, functions: 85 },
         "src/lib/equipos/convencional/evaluacion.ts": { lines: 70, functions: 78, branches: 58 },
         "src/lib/equipos/convencional/raysafe-parser.ts": {

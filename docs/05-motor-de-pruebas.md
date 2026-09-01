@@ -59,12 +59,16 @@ cada prueba lleva `numero_tecdoc`, `formulas`, `criterios_aceptacion`, `textos_i
 - **2.9 DDI/EI:** desviación vs base `≤ 20 %`
 - **2.10 Repetibilidad:** CV de 3 repeticiones `≤ 20 %`
 
-## 5.3 Motor de fórmulas y criterios
+## 5.3 Motor de fórmulas y criterios — ⛔ RETIRADO (#45)
 
-El corazón de cálculo es [`src/lib/equipos/engine.ts`](../src/lib/equipos/engine.ts): **puro,
-sin Dexie ni React**, por lo que es determinista y fácil de testear
-([`engine.test.ts`](../src/lib/equipos/engine.test.ts)). Está **compartido por todos los
-paquetes de equipo**.
+> `engine.ts` / `engine.test.ts` se **borraron** (2026-09-01). Nunca se usaron: cero
+> fórmulas reales en `grupos.ts`. El veredicto Conforme / No conforme lo produce
+> [`convencional/evaluacion.ts`](../src/lib/equipos/convencional/evaluacion.ts) (evaluadores
+> a mano). Lo de abajo queda como historia.
+
+El corazón de cálculo era `src/lib/equipos/engine.ts`: **puro, sin Dexie ni React**, por lo
+que era determinista y fácil de testear. Estaba **compartido por todos los paquetes de
+equipo**.
 
 ### Flujo de evaluación
 

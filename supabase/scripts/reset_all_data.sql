@@ -47,6 +47,7 @@ TRUNCATE TABLE
   partes_equipo,
   valores_referencia,
   equipo_movimientos,
+  equipo_identificaciones,
   tubos,
   colimadores,
   gantry,

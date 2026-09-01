@@ -70,6 +70,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se realizó una inspección visual del equipo y de las condiciones de operación de la instalación mediante una lista de verificación basada en los lineamientos del IAEA-TECDOC-1958 y en los criterios de seguridad aplicables a equipos de radiología general.",
     criterio:
       "La inspección visual se considera aceptable cuando los componentes visibles del equipo y las condiciones de operación de la instalación se encuentran en buen estado físico, sin deterioros, fugas o defectos que puedan comprometer la protección radiológica del operador, los pacientes o el público.",
+    comoSeEvalua: {
+      datos:
+        "El concepto que el técnico marcó en cada ítem de la lista de inspección visual y en cada elemento de protección cargado (delantal, protector tiroideo, gafas, etc.).",
+      calculo:
+        "No calcula: hace un rollup. Considera la prueba iniciada si hay al menos un ítem con concepto o un elemento de protección cargado.",
+      criterio:
+        "Conforme si ningún ítem de inspección y ningún elemento quedó como No conforme. Uno solo No conforme vuelve toda la prueba No conforme. Sin ítems ni elementos → Pendiente.",
+    },
     analisis:
       "La inspección visual realizada al equipo de radiografía general y a las condiciones de operación de la instalación permitió verificar que los componentes visibles del sistema de rayos X se encuentran en adecuado estado físico, con el fin de identificar deterioros, fugas de aceite, daños mecánicos o anomalías en los cables de alimentación y control.\n\nAsimismo, se revisaron las condiciones de operación del equipo, la señalización de radioprotección y los elementos de seguridad presentes en la instalación para determinar si son consistentes con los requerimientos para la operación segura del equipo evaluado.",
     accionesConforme: "No se requieren acciones correctivas.",
@@ -89,6 +97,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se ubicó el dispositivo de verificación de colimación sobre el receptor de imagen y se ajustó el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba. Posteriormente, se realizó una exposición radiográfica con una técnica adecuada para visualizar el campo irradiado y la posición del rayo central.\n\nA partir de la imagen obtenida se evaluó la coincidencia entre el campo luminoso y el campo de radiación, así como la perpendicularidad del rayo central respecto al plano del receptor, de acuerdo con los criterios establecidos en el IAEA-TECDOC-1958.",
     criterio:
       "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular menor o igual a 3°.",
+    comoSeEvalua: {
+      datos:
+        "La apertura nominal y la medida de los cuatro bordes del campo (ánodo, cátodo, izquierda, derecha), la distancia foco-receptor (SID, por defecto 100 cm) y la posición de la esfera del test de perpendicularidad.",
+      calculo:
+        "Por cada borde: desviación % = |medido − nominal| × 100 ÷ SID. Suma las cuatro para la desviación total.",
+      criterio:
+        "Colimación conforme si cada borde desvía < 2 % y la suma de los cuatro < 4 %. Perpendicularidad conforme si la esfera cae en el centro, el primer o el segundo círculo. La prueba es Conforme solo si ambas lo son. Sin bordes medidos ni posición de esfera → Pendiente.",
+    },
   },
   {
     codigo: "2.4",
@@ -123,6 +139,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe seleccionaron al menos tres valores representativos de tensión del tubo de rayos X y se realizaron al menos tres exposiciones para cada valor seleccionado, registrando la tensión medida en cada irradiación. Durante las mediciones se mantuvieron constantes los demás parámetros de irradiación.",
     criterio:
       "La desviación entre la tensión seleccionada y la tensión medida no debe exceder +/-10 %.\nLa repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 5 %.",
+    comoSeEvalua: {
+      datos:
+        "Disparos principales del RaySafe de los grupos 1, 2 y 6: kV nominal y kV medido de cada disparo.",
+      calculo:
+        "Agrupa los disparos por kV nominal. Por cada grupo calcula la desviación = |promedio medido − nominal| ÷ nominal × 100, y el coeficiente de variación CV = desviación estándar (n−1) ÷ promedio × 100.",
+      criterio:
+        "Cada grupo nominal debe cumplir desviación ≤ 10 % y CV ≤ 5 %. Si un solo grupo falla, la prueba es No conforme. Sin disparos válidos → Pendiente.",
+    },
   },
   {
     codigo: "2.6",
@@ -156,6 +180,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nEl detector del sistema dosimétrico se ubicó aproximadamente a 100 cm del foco del tubo de rayos X. Se seleccionó un valor de 80 kV como tensión de referencia. Posteriormente se realizaron exposiciones utilizando diferentes valores de mAs, registrando el kerma en aire reportado por el analizador en cada irradiación.\n\nA partir de las mediciones obtenidas se calculó el rendimiento del tubo de rayos X, expresado como kerma en aire por unidad de carga (µGy/mAs). La repetibilidad se evaluó mediante el cálculo del coeficiente de variación (CV) para exposiciones repetidas bajo las mismas condiciones de irradiación, mientras que la linealidad se evaluó mediante la comparación del rendimiento obtenido para los diferentes valores de mAs.",
     criterio:
       "El coeficiente de variación (CV) para exposiciones repetidas no debe exceder 5 %.\nLa desviación en la linealidad del rendimiento con respecto al mAs no debe exceder +/-10 %.",
+    comoSeEvalua: {
+      datos:
+        "Disparos principales del RaySafe a 80 kV con dosis (kerma en aire): el grupo 3 para la repetibilidad, y disparos a distintos mAs para la linealidad.",
+      calculo:
+        "Repetibilidad: CV (n−1) de la dosis de los disparos del grupo 3. Linealidad: rendimiento = dosis ÷ mAs × 1000 por cada mAs; toma el del mAs más bajo como referencia y mide la desviación % de los demás contra esa referencia.",
+      criterio:
+        "Repetibilidad conforme con CV ≤ 5 %; linealidad conforme con desviación ≤ 10 %. Si alguna de las dos falla, la prueba es No conforme. Sin disparos a 80 kV con dosis → Pendiente.",
+    },
   },
   {
     codigo: "2.8",
@@ -184,6 +216,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     metodologia:
       "De acuerdo con el protocolo IAEA-TECDOC-1958, esta prueba consiste en registrar el valor del indicador de exposición (EI o DDI) del sistema bajo condiciones de exposición reproducibles y compararlo con el valor base definido por el fabricante o por el programa de control de calidad.",
     criterio: "La desviación no debe exceder ± 20 % de los valores base.",
+    comoSeEvalua: {
+      datos:
+        "La primera toma del grupo 1: el índice de exposición (EI) y la desviación del índice (DI) medidos, con sus valores de línea base.",
+      calculo:
+        "Desviación del EI = |EI − EI base| ÷ EI base. Si se registró DI, también |DI − DI base| ÷ |DI base|.",
+      criterio:
+        "Conforme si la desviación del EI ≤ 20 % y (cuando hay DI) la del DI ≤ 20 %. Sin EI o sin EI base → Pendiente.",
+    },
   },
   {
     codigo: "2.10",
@@ -196,6 +236,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     metodologia:
       "De acuerdo con el protocolo IAEA-TECDOC-1958, la repetibilidad del indicador de exposición se evalúa realizando varias exposiciones consecutivas bajo las mismas condiciones de irradiación y registrando el valor del indicador de exposición (DDI o EI) reportado por el sistema.",
     criterio: "El valor del coeficiente de variación debe ser <= 20 %.",
+    comoSeEvalua: {
+      datos: "Los índices de exposición (EI) de todas las tomas del grupo 1.",
+      calculo: "Coeficiente de variación = desviación estándar (n−1) ÷ promedio de los EI.",
+      criterio: "Conforme si el CV ≤ 20 %. Con menos de 2 tomas con EI → Pendiente.",
+    },
   },
   {
     codigo: "2.11",
@@ -210,6 +255,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de uniformidad del detector se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, obteniendo imágenes uniformes del detector mediante la interposición de una lámina de cobre y registrando el valor medio de píxel en diferentes regiones de interés (ROI) distribuidas en la imagen. Adicionalmente, se realizó inspección visual para identificar la presencia de píxeles defectuosos o artefactos.",
     criterio:
       "La imagen uniforme obtenida debe presentar una respuesta homogénea del detector y no evidenciar píxeles defectuosos ni artefactos que afecten la calidad de la imagen. La variación de uniformidad del detector, calculada a partir de los valores máximos y mínimos de señal registrados en las regiones de interés, no debe exceder el [TOLERANCIA_PCT] %.",
+    comoSeEvalua: {
+      datos:
+        "Por cada imagen de uniformidad: el valor medio de píxel (VMP) del ROI central y de los 4 ROIs periféricos, en las orientaciones ánodo-cátodo y cátodo-ánodo, más las marcas de píxeles defectuosos y de artefactos. Tolerancia por defecto 15 %.",
+      calculo:
+        "Desviación de cada ROI periférico = |VMP periférico − VMP central| ÷ VMP central × 100. Se queda con la mayor.",
+      criterio:
+        "Cada imagen es conforme si la mayor desviación ≤ la tolerancia (15 % salvo que se cambie) y no se marcaron píxeles defectuosos ni artefactos. Si una imagen falla, la prueba es No conforme. Sin VMP central → Pendiente.",
+    },
   },
   {
     codigo: "2.12",
@@ -223,6 +276,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     metodologia:
       "Se posicionó el objeto de prueba para resolución espacial sobre el receptor de imagen, asegurando su correcta alineación 45° con el centro del haz de radiación. Posteriormente se realizó una exposición radiográfica utilizando parámetros técnicos representativos de la práctica clínica habitual del equipo evaluado.\n\nLa imagen obtenida fue analizada visualmente mediante el software de visualización del sistema, identificando el grupo de pares de líneas por milímetro (pl/mm) que pueden distinguirse claramente en la imagen radiográfica. La evaluación se realizó de acuerdo con los criterios establecidos en el protocolo IAEA-TECDOC-1958, determinando el valor máximo de resolución espacial reproducible por el sistema.",
     criterio: "La resolución espacial del sistema debe ser mayor o igual a 2,4 pl/mm.",
+    comoSeEvalua: {
+      datos:
+        "Los pares de líneas por milímetro (pl/mm) resueltos en la imagen del patrón de resolución.",
+      calculo: "Compara directamente el valor cargado con el mínimo de referencia.",
+      criterio: "Conforme si la resolución ≥ 2,4 pl/mm. Sin valor cargado → Pendiente.",
+    },
   },
   {
     codigo: "2.13",
@@ -236,6 +295,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La prueba se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, utilizando el módulo de bajo contraste del fantoma correspondiente. Se adquirió la imagen bajo condiciones representativas de operación y se evaluó visualmente la cantidad de detalles de bajo contraste visibles en la imagen.",
     criterio:
       "Debe observarse una cantidad mayor a tres masas o tener un porcentaje de contraste inferior a 4 %.",
+    comoSeEvalua: {
+      datos:
+        "El formato del maniquí (objetos de contraste o masas) y cuáles de sus elementos marcó como visibles el técnico.",
+      calculo:
+        "Cuenta los elementos visibles. En formato de contraste, además revisa si se alcanzó alguno de los cuatro niveles más bajos (2,8 / 1,8 / 1,3 / 0,9).",
+      criterio:
+        "Conforme si hay más de 3 elementos visibles, o (en formato de contraste) si se alcanzó alguno de los niveles bajos. Sin maniquí cargado → Pendiente.",
+    },
     accionesConforme:
       "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",
     accionesNoConforme:
@@ -253,6 +320,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La verificación de integridad y limpieza de los cassettes y pantallas IP se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, mediante inspección visual de los cassettes y de las pantallas de fósforo fotoestimulable (IP).\n\nDurante la inspección se verificó la correcta identificación de las IP CR y de los cassettes, se examinaron posibles defectos externos, así como la presencia de polvo o rayaduras en las pantallas. En caso necesario, las pantallas se limpiaron siguiendo las recomendaciones del fabricante.",
     criterio:
       "Los cassettes y pantallas IP no deben presentar defectos externos, polvo ni rayaduras que puedan generar artefactos en la imagen radiográfica.",
+    comoSeEvalua: {
+      datos: "El concepto que el técnico marcó en cada cassette / pantalla IP inspeccionada.",
+      calculo: "No calcula: hace un rollup de los cassettes que tengan concepto asignado.",
+      criterio:
+        "Conforme si ninguno quedó como No conforme. Uno solo No conforme vuelve la prueba No conforme. Sin cassettes con concepto → Pendiente.",
+    },
   },
   {
     codigo: "2.15",
@@ -265,6 +338,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de la uniformidad de sensibilidad de las pantallas IP se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, mediante la adquisición de imágenes uniformes y el análisis de la respuesta de la pantalla en diferentes regiones de la imagen.",
     criterio:
       "El coeficiente de variación (CV) del índice de exposición (EI) entre pantallas IP no debe exceder el 10 %.",
+    comoSeEvalua: {
+      datos: "El índice de exposición (EI) de cada pantalla IP CR irradiada de forma uniforme.",
+      calculo: "Coeficiente de variación = desviación estándar (n−1) ÷ promedio × 100 de los EI.",
+      criterio: "Conforme si el CV ≤ 10 %. Con menos de 2 pantallas con EI → Pendiente.",
+    },
   },
   {
     codigo: "2.16",
@@ -279,6 +357,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de la función de transferencia de modulación se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, adquiriendo una imagen del patrón de resolución espacial bajo condiciones representativas de operación del sistema.\n\nLa imagen obtenida fue analizada mediante software de procesamiento de imagen para determinar la respuesta del sistema a diferentes frecuencias espaciales.",
     criterio:
       "Las variaciones del valor de la MTF en el tiempo no deben superar el 10 % respecto al valor de referencia inicial.",
+    comoSeEvalua: {
+      datos: "Los valores de MTF al 50 % en horizontal y vertical, con sus valores de línea base.",
+      calculo:
+        "Desviación % por eje = |MTF50 − MTF50 base| ÷ MTF50 base × 100. Toma la mayor de los dos ejes.",
+      criterio:
+        "Sin línea base, la primera medición se registra como base y queda Conforme. Con base, conforme si la mayor desviación ≤ 10 %. Con base pero sin ejes comparables → Pendiente.",
+    },
   },
   {
     codigo: "2.17",
@@ -292,6 +377,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de la sensibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con el sistema CAE activado para diferentes espesores de material simulador y verificando la respuesta del detector.",
     criterio:
       "La variación de los parámetros evaluados (mAs, EI y D.I.) respecto a los valores de referencia no debe superar el 50 %.",
+    comoSeEvalua: {
+      datos: "La toma nº 9 del CAE: mAs, EI y DI medidos, con sus valores de línea base.",
+      calculo: "Variación relativa = |medido − base| ÷ |base| para mAs, EI y DI. Toma la mayor.",
+      criterio: "Conforme si la mayor variación ≤ 50 %. Sin toma 9 o sin línea base → Pendiente.",
+    },
   },
   {
     codigo: "2.18",
@@ -305,6 +395,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de la consistencia entre los sensores del control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con los sensores del CAE de manera individual y en sus diferentes combinaciones, bajo condiciones equivalentes de irradiación, y comparando la respuesta del detector.",
     criterio:
       "Las diferencias porcentuales respecto a los valores promedio deben ser menores o iguales al 30 %.",
+    comoSeEvalua: {
+      datos: "Las tomas nº 2 a 8 del CAE (una por sensor): mAs y EI de cada una.",
+      calculo:
+        "Rango relativo = (máximo − mínimo) ÷ promedio, calculado por separado para los mAs y para los EI. Toma el mayor.",
+      criterio: "Conforme si el mayor rango ≤ 30 %. Sin tomas 2–8 con valores → Pendiente.",
+    },
   },
   {
     codigo: "2.19",
@@ -319,6 +415,12 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de la repetibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando varias exposiciones consecutivas con el sistema CAE activado y registrando la respuesta del detector para las mismas condiciones de irradiación.",
     criterio:
       "El coeficiente de variación de los parámetros evaluados debe ser menor o igual al 10 %.",
+    comoSeEvalua: {
+      datos: "Las tomas repetidas del CAE (la nº 3 y las nº 9 a 12): mAs y EI de cada una.",
+      calculo:
+        "Coeficiente de variación = desviación estándar (n−1) ÷ promedio, por separado para los mAs y para los EI. Toma el mayor.",
+      criterio: "Conforme si el mayor CV ≤ 10 %. Con menos de 2 tomas repetidas → Pendiente.",
+    },
   },
   {
     codigo: "2.20",
@@ -332,6 +434,13 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La evaluación de la compensación del sistema de control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con diferentes valores de kVp y con diferentes espesores de material atenuador, manteniendo constante la selección del sensor del CAE. Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores iniciales de referencia correspondientes.",
     criterio:
       "La variación porcentual de los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) para cada condición evaluada debe ser menor o igual al 30 % respecto a los valores base correspondientes.",
+    comoSeEvalua: {
+      datos:
+        "Las tomas del CAE a distintos kVp (60, 70, 81) y con filtros de cobre (Cu1–Cu3): mAs y EI, con sus líneas base por condición.",
+      calculo:
+        "Variación relativa = |medido − base| ÷ |base| para el mAs y el EI de cada condición. Toma la mayor.",
+      criterio: "Conforme si la mayor variación ≤ 30 %. Sin líneas base cargadas → Pendiente.",
+    },
   },
   {
     codigo: "2.21",
@@ -345,6 +454,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La determinación de la dosis al receptor se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958. El tubo de rayos X se centró con el detector y el haz se colimó para cubrir completamente el área del receptor. Se colocó una lámina de cobre de 1 mm en la salida del haz de radiación y el dosímetro en la superficie del Bucky, alineado con el eje central del haz. Se registraron la distancia fuente–dosímetro (d1) y la distancia fuente–receptor de imagen (d2). Se seleccionaron parámetros clínicos representativos y se realizaron exposiciones, registrando el valor de dosis medida en cada condición. La dosis al receptor se calculó aplicando la corrección geométrica correspondiente.",
     criterio:
       "La diferencia entre el valor de la dosis calculada y la dosis base inicial debe ser menor a 0,01 mGy (10 μGy).",
+    comoSeEvalua: {
+      datos:
+        "Los disparos 'sin rejilla' del RaySafe: dosis medida y dosis de línea base, más las distancias foco-sensor (d1) y foco-detector (d2), por defecto 100 cm cada una.",
+      calculo:
+        "Corrige la dosis medida por geometría con el factor (d2 ÷ d1)². Luego calcula la diferencia absoluta contra la dosis base, en mGy, y toma la mayor.",
+      criterio:
+        "Conforme si la mayor diferencia corregida < 0,01 mGy. Sin línea base previa (se establece en esta visita) o sin dosis comparables → Pendiente.",
+    },
   },
 ];
 

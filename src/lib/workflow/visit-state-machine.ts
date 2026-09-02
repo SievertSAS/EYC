@@ -209,14 +209,29 @@ const GATED_ACTIONS: VisitAction[] = ["enviar_revision", "aprobar"];
 export async function checkGate(visitaId: string, action: VisitAction): Promise<GateResult> {
   if (GATED_ACTIONS.includes(action)) {
     const completeness = await getVisitCompleteness(visitaId);
-    if (completeness.blocking.length > 0) {
-      return {
-        canProceed: false,
-        errors: completeness.blocking.map((moduleId) => ({
-          moduleId,
-          message: getBlockingMessage(moduleId),
-        })),
-      };
+
+    const errors = completeness.blocking.map((moduleId) => ({
+      moduleId,
+      message: getBlockingMessage(moduleId),
+    }));
+
+    // Ninguna prueba puede quedar PENDIENTE: solo se envía a revisión / se
+    // aprueba con todas las pruebas en Favorable, No favorable o No aplica.
+    // Aplica a todos los grupos, incluidos los opcionales (CAE); una prueba
+    // marcada "No aplica" (incluida = false) no cuenta como pendiente.
+    if (completeness.pendientesPruebas > 0) {
+      const n = completeness.pendientesPruebas;
+      errors.push({
+        moduleId: "pruebas-pendientes",
+        message:
+          n === 1
+            ? "Queda 1 prueba sin concepto: complete los datos o márquela como “No aplica”."
+            : `Quedan ${n} pruebas sin concepto: complete los datos o márquelas como “No aplica”.`,
+      });
+    }
+
+    if (errors.length > 0) {
+      return { canProceed: false, errors };
     }
   }
   return { canProceed: true, errors: [] };

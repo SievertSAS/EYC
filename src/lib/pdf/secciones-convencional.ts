@@ -31,6 +31,16 @@ import {
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import { detalle213 } from "@/lib/equipos/convencional/evaluacion";
 import { descargarEvidencia } from "@/lib/supabase/storage";
+import {
+  COLOR_GRAY,
+  COLOR_BLACK,
+  COLOR_ALT_ROW,
+  COLOR_OK,
+  COLOR_BAD,
+  MARGIN,
+  TABLE_STYLE,
+  didParseVeredictoCell,
+} from "./estilo-informe";
 
 // ============================================================
 //  Secciones del pre-informe para el equipo CONVENCIONAL
@@ -40,26 +50,8 @@ import { descargarEvidencia } from "@/lib/supabase/storage";
 //  usa el esqueleto genérico hasta que se implemente el suyo.
 // ============================================================
 
-// ─── Estilo (espejo de generar-pre-informe.ts) ───
-
-const COLOR_PRIMARY: [number, number, number] = [51, 65, 85];
-const COLOR_GRAY: [number, number, number] = [100, 116, 139];
-const COLOR_BLACK: [number, number, number] = [30, 30, 30];
-const COLOR_ALT_ROW: [number, number, number] = [248, 250, 252];
-const MARGIN = 20;
-
-const TABLE_STYLE = {
-  theme: "grid" as const,
-  headStyles: {
-    fillColor: COLOR_PRIMARY,
-    textColor: [255, 255, 255] as [number, number, number],
-    fontStyle: "bold" as const,
-    fontSize: 7,
-  },
-  bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
-  alternateRowStyles: { fillColor: COLOR_ALT_ROW },
-  margin: { left: MARGIN, right: MARGIN },
-};
+// ─── Estilo ───
+// Fuente única en `./estilo-informe`.
 
 /** Contexto que el generador comparte con los renderizadores */
 export interface InformeCtx {
@@ -480,25 +472,11 @@ function finalY(doc: jsPDF): number {
   return (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 }
 
-/** Pinta verde/rojo las celdas de concepto de una tabla */
-function colorearConcepto(columnIndex: number) {
-  return (data: {
-    section: string;
-    column: { index: number };
-    cell: { raw: unknown; styles: { textColor: unknown; fontStyle: string } };
-  }) => {
-    if (data.section === "body" && data.column.index === columnIndex) {
-      const val = String(data.cell.raw);
-      if (val === "Conforme") {
-        data.cell.styles.textColor = [16, 150, 80];
-        data.cell.styles.fontStyle = "bold";
-      } else if (val === "No conforme") {
-        data.cell.styles.textColor = [220, 50, 50];
-        data.cell.styles.fontStyle = "bold";
-      }
-    }
-  };
-}
+/**
+ * Colorea las celdas de concepto de una tabla (verde/rojo/ámbar).
+ * Alias de `didParseVeredictoCell` (fuente única en `estilo-informe`).
+ */
+const colorearConcepto = didParseVeredictoCell;
 
 // ─── Renderizador 2.1: Levantamiento radiométrico ───
 
@@ -1347,18 +1325,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
       ["Concepto", perpConcepto ?? "—"],
     ],
     columnStyles: { 0: { cellWidth: 70, fontStyle: "bold", fillColor: COLOR_ALT_ROW } },
-    didParseCell: (data) => {
-      if (data.section === "body" && data.row.index === 2 && data.column.index === 1) {
-        const val = String(data.cell.raw);
-        if (val === "Conforme") {
-          data.cell.styles.textColor = [16, 150, 80];
-          data.cell.styles.fontStyle = "bold";
-        } else if (val === "No conforme") {
-          data.cell.styles.textColor = [220, 50, 50];
-          data.cell.styles.fontStyle = "bold";
-        }
-      }
-    },
+    didParseCell: didParseVeredictoCell(1),
   });
   ctx.y = finalY(doc) + 4;
 
@@ -2153,7 +2120,7 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index > 0) {
         const val = data.cell.raw as string;
-        data.cell.styles.textColor = val === "SI" ? [16, 150, 80] : [220, 50, 50];
+        data.cell.styles.textColor = val === "SI" ? COLOR_OK : COLOR_BAD;
         data.cell.styles.fontStyle = "bold";
       }
     },

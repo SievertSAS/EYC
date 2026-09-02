@@ -26,13 +26,13 @@ import {
   COLOR_GRAY,
   COLOR_BLACK,
   COLOR_ALT_ROW,
-  COLOR_BORDER,
   MARGIN,
   PAGE_WIDTH,
   CONTENT_WIDTH,
   HEADER_HEIGHT,
   veredictoColor,
   didParseVeredictoCell,
+  dato,
 } from "./estilo-informe";
 import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
 import { evaluarConceptoPrueba, tieneCriterio } from "@/lib/equipos/convencional/evaluacion";
@@ -40,20 +40,8 @@ import {
   recopilarDatosConv,
   renderResultadosSeccion,
   renderDiagramaRadiometrico,
-  renderFotos22,
-  renderFotos23,
-  renderFotos24,
-  renderFotos25,
-  renderFotos26,
-  renderFotos27,
-  renderFotos28,
-  renderFotos29,
-  renderFotos210,
-  renderFotos211,
-  renderFotos212,
-  renderFotos213,
-  renderFotos216,
-  renderFotos217,
+  tieneEvidenciaGrafica,
+  renderEvidenciaGrafica,
   renderTablaChrRef,
   renderTablaBaseRef29,
   type InformeCtx,
@@ -466,8 +454,11 @@ export async function generarPreInforme(
     doc.setFontSize(fontSize);
   }
 
-  function addSubsectionTitle(number: string, title: string) {
-    checkPage(10);
+  function addSubsectionTitle(number: string, title: string, keepWithMm = 14) {
+    // Reservar el título + un mínimo de contenido: si no entra, saltar de página
+    // ANTES del título para que no quede huérfano al pie (issue: título abajo,
+    // contenido arriba en la hoja siguiente).
+    checkPage(6 + keepWithMm);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(...COLOR_BLACK);
@@ -480,6 +471,15 @@ export async function generarPreInforme(
    * fotos de referencia por sección y para "otras identificaciones" (#61).
    * Devuelve `false` si `dataUrl` no es utilizable (el llamador decide el fallback).
    */
+  /**
+   * Estilo de tarjeta ÚNICO del informe: relleno gris-azulado (`COLOR_HEADER_BG`),
+   * esquinas redondeadas, sin borde. Igual que los recuadros de la portada.
+   */
+  function drawCardBg(x: number, cy: number, w: number, h: number) {
+    doc.setFillColor(...COLOR_HEADER_BG);
+    doc.roundedRect(x, cy, w, h, 2, 2, "F");
+  }
+
   function drawImagenCard(caption: string, dataUrl: string): boolean {
     const imgW = 58;
     const imgH = 44;
@@ -490,31 +490,19 @@ export async function generarPreInforme(
 
     checkPage(cardH + 6);
 
-    // Cuerpo de la tarjeta
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(...COLOR_BORDER);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN, y, cardW, cardH, 2, 2, "FD");
+    drawCardBg(MARGIN, y, cardW, cardH);
 
-    // Cabecera
-    doc.setFillColor(...COLOR_HEADER_BG);
-    doc.rect(MARGIN + 0.4, y + 0.4, cardW - 0.8, headerH - 0.4, "F");
+    // Rótulo
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(...COLOR_PRIMARY);
     doc.text(caption.toUpperCase(), MARGIN + pad, y + headerH - 3);
-    doc.setDrawColor(...COLOR_BORDER);
-    doc.setLineWidth(0.2);
-    doc.line(MARGIN, y + headerH, MARGIN + cardW, y + headerH);
 
-    // Imagen enmarcada
+    // Imagen
     try {
       const imgX = MARGIN + pad;
       const imgY = y + headerH + pad;
       doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
-      doc.setDrawColor(...COLOR_BORDER);
-      doc.setLineWidth(0.2);
-      doc.rect(imgX, imgY, imgW, imgH, "S");
       y += cardH + 6;
       return true;
     } catch {
@@ -589,8 +577,16 @@ export async function generarPreInforme(
       // sin metadata: se usa el fallback 4:3
     }
 
-    checkPage(Math.max(filas.length * 9, imgH) + pad * 2 + 6);
+    // Alto estimado del cuerpo (filas de tabla vs. alto de la foto). Se usa para
+    // pintar el fondo de la tarjeta ANTES del contenido: el estilo único es
+    // relleno sin borde, así que no se puede dibujar el marco después.
+    const estBodyH = Math.max(filas.length * 8.6, imgH);
+    const cardH = estBodyH + pad * 2;
+
+    checkPage(cardH + 6);
     const startY = y;
+
+    drawCardBg(MARGIN, startY, CONTENT_WIDTH, cardH);
 
     autoTable(doc, {
       startY: startY + pad,
@@ -600,28 +596,16 @@ export async function generarPreInforme(
       theme: "grid",
       bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
       columnStyles: {
-        0: { fontStyle: "bold", cellWidth: labelW, fillColor: COLOR_HEADER_BG },
+        0: { fontStyle: "bold", cellWidth: labelW, fillColor: [255, 255, 255] },
         1: { cellWidth: tableWidth - labelW },
       },
     });
 
-    const tableH = lastAutoTableFinalY() - (startY + pad);
-    const bodyH = Math.max(tableH, imgH);
-    const cardH = bodyH + pad * 2;
-
-    // Marco de la tarjeta (solo trazo, minimalista)
-    doc.setDrawColor(...COLOR_BORDER);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN, startY, CONTENT_WIDTH, cardH, 2, 2, "S");
-
     // Foto centrada dentro de su box (vertical respecto al alto de la tarjeta)
     const imgX = MARGIN + pad + (imgBoxW - imgW) / 2;
-    const imgY = startY + pad + (bodyH - imgH) / 2;
+    const imgY = startY + pad + (estBodyH - imgH) / 2;
     try {
       doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
-      doc.setDrawColor(...COLOR_BORDER);
-      doc.setLineWidth(0.2);
-      doc.rect(imgX, imgY, imgW, imgH, "S");
     } catch {
       // sin imagen utilizable: la tarjeta queda solo con la tabla
     }
@@ -712,8 +696,7 @@ export async function generarPreInforme(
 
   // Recuadro: Identificación de la unidad
   y += 12;
-  doc.setFillColor(...COLOR_HEADER_BG);
-  doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 30, 2, 2, "F");
+  drawCardBg(MARGIN, y, CONTENT_WIDTH, 30);
 
   y += 7;
   doc.setFont("helvetica", "bold");
@@ -735,8 +718,7 @@ export async function generarPreInforme(
 
   // Recuadro: Identificación de la instalación
   y += 14;
-  doc.setFillColor(...COLOR_HEADER_BG);
-  doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 50, 2, 2, "F");
+  drawCardBg(MARGIN, y, CONTENT_WIDTH, 50);
 
   y += 7;
   doc.setFont("helvetica", "bold");
@@ -922,14 +904,11 @@ export async function generarPreInforme(
 
   // Características del Colimador y Sistema de Adquisición
   const datosColimador = [
-    ["Distancia Foco / Paciente (cm)", String(datos.equipo?.distancia_foco_paciente ?? "—")],
-    ["Bucky", datos.equipo?.bucky?.replace(/_/g, " ") ?? "—"],
-    ["Sistema de Adquisición de Imágenes", datos.equipo?.sistema_adquisicion ?? "—"],
-    [
-      "Filtración Inherente (mm Al)",
-      String(datos.equipo?.filtracion_inherente_mmal ?? "No reporta"),
-    ],
-    ["Filtración Añadida (mm Al)", String(datos.equipo?.filtracion_anadida_mmal ?? "No reporta")],
+    ["Distancia Foco / Paciente (cm)", dato(datos.equipo?.distancia_foco_paciente)],
+    ["Bucky", dato(datos.equipo?.bucky?.replace(/_/g, " "))],
+    ["Sistema de Adquisición de Imágenes", dato(datos.equipo?.sistema_adquisicion)],
+    ["Filtración Inherente (mm Al)", dato(datos.equipo?.filtracion_inherente_mmal)],
+    ["Filtración Añadida (mm Al)", dato(datos.equipo?.filtracion_anadida_mmal)],
   ];
 
   renderTablaEquipo(
@@ -1086,107 +1065,17 @@ export async function generarPreInforme(
 
       // Diagrama radiométrico (solo 2.1)
       if (codigo === "2.1" && aplica) {
-        renderDiagramaRadiometrico(ctx, conv);
-        nextSub = 8;
-      }
-
-      // Evidencia gráfica (solo 2.2) — entre Criterio y Concepto
-      if (codigo === "2.2" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos22(ctx, conv);
+        renderDiagramaRadiometrico(ctx, conv, nextSub);
         nextSub++;
       }
 
-      // Evidencia gráfica (2.3 y 2.4) — entre Criterio y Concepto
-      if (codigo === "2.3" && aplica) {
+      // Evidencia gráfica — entre Criterio y Concepto. Un solo bloque: el
+      // dispatcher sabe qué pruebas la llevan y con qué layout. La 2.1 tiene
+      // diagrama radiométrico en su lugar; 2.14 / 2.15 no llevan evidencia.
+      if (aplica && tieneEvidenciaGrafica(codigo)) {
         checkPage(20);
         addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos23(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.4" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos24(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.5" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos25(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.6" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos26(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.7" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos27(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.8" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos28(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.9" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos29(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.10" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos210(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.11" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos211(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.12" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos212(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.13" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos213(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.16" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos216(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.17" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos217(ctx, conv);
-        nextSub++;
-      }
-      if ((codigo === "2.18" || codigo === "2.19" || codigo === "2.20") && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos217(ctx, conv);
-        nextSub++;
-      }
-      if (codigo === "2.21" && aplica) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
-        renderFotos217(ctx, conv);
+        renderEvidenciaGrafica(ctx, conv, codigo);
         nextSub++;
       }
 
@@ -1678,7 +1567,7 @@ export async function generarPreInforme(
           alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           columnStyles: { 0: { cellWidth: 8 } },
         });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
       }
       // Para INS, mostrar tablas de inspección
       else if (codigo === "INS" && datos.partes.length > 0) {
@@ -1702,7 +1591,7 @@ export async function generarPreInforme(
           bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
           alternateRowStyles: { fillColor: COLOR_ALT_ROW },
         });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
         // Elementos de protección
         if (datos.elementos.length > 0) {
@@ -1734,7 +1623,7 @@ export async function generarPreInforme(
             bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
             alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           });
-          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
         }
       }
       // Para las demás pruebas, tabla genérica de mediciones
@@ -1760,7 +1649,7 @@ export async function generarPreInforme(
             bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
             alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           });
-          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
         }
       }
     }

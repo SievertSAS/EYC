@@ -296,10 +296,86 @@ describe("generarPreInforme — contrato de datos", () => {
 
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
+    // Un informe OFICIAL no se emite con pruebas PENDIENTE: se excluyen todas
+    // las secciones (No aplica) para que el concepto general sea concluyente.
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: false,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
     const qr =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
     const blob = await generarPreInforme(visita!.id!, { qrDataUrl: qr });
     expect(blob).toBeInstanceOf(Blob);
+  });
+
+  it("versión oficial con pruebas pendientes → null (no se emite)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
+    // Secciones incluidas pero sin datos → PENDIENTE → el OFICIAL no se genera.
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: true,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    expect(await generarPreInforme(visita!.id!)).toBeNull();
+  });
+});
+
+describe("concepto general y acciones correctivas", () => {
+  it("borrador con pruebas sin datos → CONCEPTO PENDIENTE + nota explicativa", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "en_progreso" });
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: true,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    // Sin datos en ninguna prueba: nada Conforme ni No conforme → el concepto
+    // general (y todas las filas del resumen) quedan en PENDIENTE.
+    expect(text).toContain("PENDIENTE");
+    expect(text).not.toContain("FAVORABLE");
+  });
+
+  it("ya no existe la sección consolidada 'ACCIONES CORRECTIVAS'", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toContain("ACCIONES CORRECTIVAS");
+  });
+
+  it("la evidencia de la 2.2 se rotula 'Evidencia gráfica', no 'Fotografías'", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "en_progreso" });
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: true,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Evidencia gr");
+    expect(text).not.toContain("Fotograf");
   });
 });
 

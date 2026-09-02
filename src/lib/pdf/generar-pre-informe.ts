@@ -20,6 +20,20 @@ import type {
 import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
+import {
+  COLOR_PRIMARY,
+  COLOR_HEADER_BG,
+  COLOR_GRAY,
+  COLOR_BLACK,
+  COLOR_ALT_ROW,
+  COLOR_BORDER,
+  MARGIN,
+  PAGE_WIDTH,
+  CONTENT_WIDTH,
+  HEADER_HEIGHT,
+  veredictoColor,
+  didParseVeredictoCell,
+} from "./estilo-informe";
 import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
 import { evaluarConceptoPrueba, tieneCriterio } from "@/lib/equipos/convencional/evaluacion";
 import {
@@ -146,17 +160,8 @@ interface DatosInforme {
 }
 
 // ─── Constantes de estilo ───
-
-const COLOR_PRIMARY: [number, number, number] = [51, 65, 85];
-const COLOR_HEADER_BG: [number, number, number] = [241, 245, 249];
-const COLOR_GRAY: [number, number, number] = [100, 116, 139];
-const COLOR_BLACK: [number, number, number] = [30, 30, 30];
-const COLOR_ALT_ROW: [number, number, number] = [248, 250, 252];
-const COLOR_BORDER: [number, number, number] = [203, 213, 225];
-const MARGIN = 20;
-const PAGE_WIDTH = 210;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
-const HEADER_HEIGHT = 22;
+// Fuente única en `./estilo-informe`; se re-exportan aquí los nombres que ya
+// usaba este módulo para no tocar cada call site.
 
 // ============================================================
 //  Recopilar todos los datos de la visita
@@ -407,21 +412,26 @@ export async function generarPreInforme(
     doc.setTextColor(...COLOR_BLACK);
     const x0 = MARGIN + indent;
     const spaceWidth = doc.getTextWidth(" ");
+    // Tope al ensanchado por hueco: si repartir el sobrante deja huecos mayores
+    // que ~3 espacios, la línea se ve como un "río" — se deja al ras izquierdo.
+    const maxExtraPerGap = spaceWidth * 3;
+
     // Justificación manual palabra por palabra: el align:"justify" nativo de
-    // jsPDF reparte el espacio sobrante letra por letra (se ve muy mal), y
-    // además estira también la última línea de cada párrafo. Aquí solo se
-    // separan las palabras de las líneas intermedias; la última línea (y los
-    // párrafos de una sola línea) se dejan alineados a la izquierda.
+    // jsPDF reparte el sobrante letra por letra (se ve muy mal) y estira también
+    // la última línea. Aquí solo se justifican las líneas intermedias con 3+
+    // palabras y sin huecos excesivos; el resto va al ras izquierdo.
     lines.forEach((line, i) => {
       const lineY = y + i * 4.2;
       const words = line.split(" ").filter(Boolean);
       const isLast = i === lines.length - 1;
-      if (isLast || words.length < 2) {
-        doc.text(line, x0, lineY);
+      const naturalWidth = doc.getTextWidth(line);
+      const extraPerGap =
+        words.length > 1 ? Math.max(0, width - naturalWidth) / (words.length - 1) : 0;
+
+      if (isLast || words.length < 3 || extraPerGap > maxExtraPerGap) {
+        drawLineDentroDeCaja(line, x0, lineY, width, fontSize);
         return;
       }
-      const naturalWidth = doc.getTextWidth(line);
-      const extraPerGap = Math.max(0, width - naturalWidth) / (words.length - 1);
       let cx = x0;
       words.forEach((word, wi) => {
         doc.text(word, cx, lineY);
@@ -431,6 +441,29 @@ export async function generarPreInforme(
       });
     });
     y += lines.length * 4.2 + 2;
+  }
+
+  /**
+   * Dibuja una línea al ras izquierdo garantizando que no se salga de la caja:
+   * si un token no rompible la hace más ancha que `width`, se reduce el cuerpo
+   * de fuente solo para esa línea (nunca por debajo de 6 pt).
+   */
+  function drawLineDentroDeCaja(
+    line: string,
+    x: number,
+    lineY: number,
+    width: number,
+    fontSize: number
+  ) {
+    const w = doc.getTextWidth(line);
+    if (w <= width || w === 0) {
+      doc.text(line, x, lineY);
+      return;
+    }
+    const escala = Math.max(6 / fontSize, width / w);
+    doc.setFontSize(fontSize * escala);
+    doc.text(line, x, lineY);
+    doc.setFontSize(fontSize);
   }
 
   function addSubsectionTitle(number: string, title: string) {
@@ -970,8 +1003,8 @@ export async function generarPreInforme(
 
   // ─── Acumuladores para el resumen final (ambos flujos) ───
   const resumenRows: [string, string][] = [];
-  const accionesPendientes: string[] = [];
   let conceptoGeneralOk = true;
+  let hayPendiente = false;
 
   // ═══ Flujo CONVENCIONAL: secciones desde conv_informe_secciones (estructura CE_NIT) ═══
   if (conv) {
@@ -1002,16 +1035,7 @@ export async function generarPreInforme(
       // Título de la prueba
       checkPage(60);
       y += 2;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(...COLOR_PRIMARY);
-      const tituloLines = doc.splitTextToSize(`${codigo} ${cat.nombre}`, CONTENT_WIDTH);
-      doc.text(tituloLines, MARGIN, y);
-      y += (tituloLines.length - 1) * 5 + 2;
-      doc.setDrawColor(...COLOR_PRIMARY);
-      doc.setLineWidth(0.3);
-      doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
-      y += 6;
+      y = addSectionTitle(doc, `${codigo} ${cat.nombre}`, y, 2);
 
       addSubsectionTitle(`${codigo}.1.`, "Objetivo");
       addParagraph(cat.objetivo);
@@ -1066,10 +1090,10 @@ export async function generarPreInforme(
         nextSub = 8;
       }
 
-      // Fotografías (solo 2.2) — entre Criterio y Concepto
+      // Evidencia gráfica (solo 2.2) — entre Criterio y Concepto
       if (codigo === "2.2" && aplica) {
         checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Fotografías");
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
         renderFotos22(ctx, conv);
         nextSub++;
       }
@@ -1548,11 +1572,7 @@ export async function generarPreInforme(
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
-      if (conceptoLabel === "CONFORME" || conceptoLabel === "FAVORABLE")
-        doc.setTextColor(16, 150, 80);
-      else if (conceptoLabel === "NO CONFORME" || conceptoLabel === "NO FAVORABLE")
-        doc.setTextColor(220, 50, 50);
-      else doc.setTextColor(...COLOR_GRAY);
+      doc.setTextColor(...veredictoColor(conceptoLabel));
       doc.text(conceptoLabel, MARGIN, y);
       y += 6;
       if (conceptoParrafo) {
@@ -1574,10 +1594,8 @@ export async function generarPreInforme(
       y += 4;
 
       resumenRows.push([`${codigo} ${cat.nombre}`, conceptoLabel]);
-      if (esNoConforme) {
-        conceptoGeneralOk = false;
-        accionesPendientes.push(`• ${cat.nombre}: ${accionesTexto}`);
-      }
+      if (esNoConforme) conceptoGeneralOk = false;
+      if (esPendiente) hayPendiente = true;
     }
   }
 
@@ -1594,15 +1612,7 @@ export async function generarPreInforme(
     // Título de la prueba
     checkPage(60);
     y += 2;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...COLOR_PRIMARY);
-    doc.text(`${numPrueba} ${nombre}`, MARGIN, y);
-    y += 2;
-    doc.setDrawColor(...COLOR_PRIMARY);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
-    y += 6;
+    y = addSectionTitle(doc, `${numPrueba} ${nombre}`, y, 2);
 
     // Objetivo
     addSubsectionTitle(`${numPrueba}.1.`, "Objetivo");
@@ -1773,11 +1783,7 @@ export async function generarPreInforme(
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.setTextColor(
-      prueba.concepto === "FAVORABLE" ? 16 : prueba.concepto === "NO_FAVORABLE" ? 220 : 100,
-      prueba.concepto === "FAVORABLE" ? 150 : prueba.concepto === "NO_FAVORABLE" ? 50 : 116,
-      prueba.concepto === "FAVORABLE" ? 80 : prueba.concepto === "NO_FAVORABLE" ? 50 : 139
-    );
+    doc.setTextColor(...veredictoColor(conceptoText));
     doc.text(conceptoText, MARGIN, y);
     y += 6;
 
@@ -1792,12 +1798,17 @@ export async function generarPreInforme(
     y += 4;
 
     resumenRows.push([`${numPrueba} ${nombre}`, conceptoText]);
-    if (prueba.concepto === "NO_FAVORABLE") {
-      conceptoGeneralOk = false;
-      accionesPendientes.push(
-        `• ${nombre}: ${prueba.acciones_correctivas ?? "Se requieren acciones correctivas."}`
-      );
-    }
+    if (prueba.concepto === "NO_FAVORABLE") conceptoGeneralOk = false;
+  }
+
+  // Guarda: una versión OFICIAL no puede emitirse con pruebas PENDIENTE. El
+  // gate de `enviar_revision` / `aprobar` ya lo impide; esto es defensa en
+  // profundidad. El llamador (`publicarVersionOficial`) trata `null` como fallo.
+  if (esFinal && hayPendiente) {
+    logger.warn("pdf", "No se genera el informe OFICIAL: hay pruebas PENDIENTE sin concepto", {
+      visitaId,
+    });
+    return null;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1809,6 +1820,7 @@ export async function generarPreInforme(
   autoTable(doc, {
     startY: y,
     margin: { left: MARGIN, right: MARGIN },
+    tableWidth: CONTENT_WIDTH,
     head: [["Prueba realizada", "Concepto"]],
     body: resumenRows,
     theme: "grid",
@@ -1820,21 +1832,10 @@ export async function generarPreInforme(
     },
     bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
     alternateRowStyles: { fillColor: COLOR_ALT_ROW },
-    columnStyles: { 0: { cellWidth: 130 } },
-    didParseCell: (data) => {
-      if (data.section === "body" && data.column.index === 1) {
-        const val = String(data.cell.raw);
-        if (val === "FAVORABLE" || val === "CONFORME") {
-          data.cell.styles.textColor = [16, 150, 80];
-          data.cell.styles.fontStyle = "bold";
-        } else if (val === "NO FAVORABLE" || val === "NO CONFORME") {
-          data.cell.styles.textColor = [220, 50, 50];
-          data.cell.styles.fontStyle = "bold";
-        } else {
-          data.cell.styles.textColor = COLOR_GRAY;
-        }
-      }
-    },
+    // Col 0 ocupa el resto; "Concepto" con ancho fijo → la tabla nunca se
+    // desborda del margen aunque un nombre de prueba sea largo.
+    columnStyles: { 1: { cellWidth: 34, halign: "center" } },
+    didParseCell: didParseVeredictoCell(1),
   });
 
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
@@ -1843,7 +1844,14 @@ export async function generarPreInforme(
   checkPage(30);
   y = addSectionTitle(doc, "CONCEPTO", y);
 
-  const conceptoGeneral = conceptoGeneralOk ? "FAVORABLE" : "NO FAVORABLE";
+  // FAVORABLE solo si todas las pruebas están Conformes o No aplica. Cualquier
+  // prueba No conforme → NO FAVORABLE; si no hay No conformes pero quedan
+  // pruebas sin datos suficientes → PENDIENTE (concepto no concluyente).
+  const conceptoGeneral = !conceptoGeneralOk
+    ? "NO FAVORABLE"
+    : hayPendiente
+      ? "PENDIENTE"
+      : "FAVORABLE";
 
   addParagraph(
     "Con base en los resultados obtenidos en las pruebas de control de calidad realizadas al equipo de radiografía general, y de acuerdo con los criterios establecidos en los protocolos de control de calidad aplicables, se concluye que el desempeño del equipo evaluado es:"
@@ -1851,23 +1859,17 @@ export async function generarPreInforme(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(
-    conceptoGeneralOk ? 16 : 220,
-    conceptoGeneralOk ? 150 : 50,
-    conceptoGeneralOk ? 80 : 50
-  );
+  doc.setTextColor(...veredictoColor(conceptoGeneral));
   doc.text(conceptoGeneral, PAGE_WIDTH / 2, y, { align: "center" });
   y += 10;
 
-  // ACCIONES CORRECTIVAS
-  y = addSectionTitle(doc, "ACCIONES CORRECTIVAS", y);
-
-  if (accionesPendientes.length === 0) {
-    addParagraph("No se requieren acciones correctivas.");
-  } else {
-    for (const accion of accionesPendientes) {
-      addParagraph(accion);
-    }
+  if (conceptoGeneral === "PENDIENTE") {
+    const nPend = resumenRows.filter((r) => r[1] === "PENDIENTE").length;
+    addParagraph(
+      nPend === 1
+        ? "Queda 1 prueba sin datos suficientes para emitir concepto. El concepto definitivo del equipo se emitirá al completarla."
+        : `Quedan ${nPend} pruebas sin datos suficientes para emitir concepto. El concepto definitivo del equipo se emitirá al completarlas.`
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1964,14 +1966,24 @@ export async function generarPreInforme(
 
 // ─── Helpers de layout ───
 
-function addSectionTitle(doc: jsPDF, title: string, y: number): number {
+/**
+ * Único componente de jerarquía de título del informe.
+ *  - `level` 1: secciones ("INFORMACIÓN DE LA PRÁCTICA", "CONCEPTO"…) — 12pt, regla 0.5
+ *  - `level` 2: título de cada prueba ("2.8 Determinación…") — 11pt, regla 0.3
+ * Ajusta el texto largo a varias líneas dentro del ancho de contenido.
+ */
+function addSectionTitle(doc: jsPDF, title: string, y: number, level: 1 | 2 = 1): number {
+  const fontSize = level === 1 ? 12 : 11;
+  const lineWidth = level === 1 ? 0.5 : 0.3;
+  const lineH = level === 1 ? 5.5 : 5;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(fontSize);
   doc.setTextColor(...COLOR_PRIMARY);
-  doc.text(title, MARGIN, y);
-  y += 2;
+  const lines: string[] = doc.splitTextToSize(title, CONTENT_WIDTH);
+  doc.text(lines, MARGIN, y);
+  y += (lines.length - 1) * lineH + 2;
   doc.setDrawColor(...COLOR_PRIMARY);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(lineWidth);
   doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
   return y + 7;
 }
@@ -2003,11 +2015,6 @@ function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string) {
   doc.text(datos.cliente?.nombre_cliente?.substring(0, 60) ?? "", PAGE_WIDTH - MARGIN, 16, {
     align: "right",
   });
-
-  // Línea separadora
-  doc.setDrawColor(220, 220, 230);
-  doc.setLineWidth(0.3);
-  doc.line(MARGIN, MARGIN + HEADER_HEIGHT - 4, PAGE_WIDTH - MARGIN, MARGIN + HEADER_HEIGHT - 4);
 }
 
 function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPages: number) {

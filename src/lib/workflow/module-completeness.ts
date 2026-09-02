@@ -29,6 +29,12 @@ export interface VisitCompleteness {
   percentage: number;
   blocking: string[];
   modules: ModuloInfo[];
+  /**
+   * Pruebas del pre-informe que quedan sin concepto (ni Conforme, ni No
+   * conforme, ni No aplica). Suma sobre todos los grupos, incluidos los
+   * opcionales (CAE). Una prueba con `incluida = false` NO cuenta aquí.
+   */
+  pendientesPruebas: number;
 }
 
 // ─── Helpers ───
@@ -314,8 +320,11 @@ export async function getModuleStatuses(visitaId: string): Promise<Record<string
 // ─── Visit completeness ───
 
 export async function getVisitCompleteness(visitaId: string): Promise<VisitCompleteness> {
-  const progressMap = await getModuleStatuses(visitaId);
-  const modulos = await getModulosForVisita(visitaId);
+  const [progressMap, modulos, estadoPorGrupo] = await Promise.all([
+    getModuleStatuses(visitaId),
+    getModulosForVisita(visitaId),
+    getEstadoPruebasPorGrupo(visitaId),
+  ]);
 
   const modules: ModuloInfo[] = modulos.map((m) => {
     const p = progressMap[m.id] ?? { status: "sin_iniciar" as ModuloStatus, percentage: 0 };
@@ -325,6 +334,7 @@ export async function getVisitCompleteness(visitaId: string): Promise<VisitCompl
   const completed = modules.filter((m) => m.status === "completado").length;
   const total = modules.length;
   const blocking = modules.filter((m) => m.required && m.status !== "completado").map((m) => m.id);
+  const pendientesPruebas = Object.values(estadoPorGrupo).reduce((acc, g) => acc + g.pendientes, 0);
 
   return {
     total,
@@ -332,6 +342,7 @@ export async function getVisitCompleteness(visitaId: string): Promise<VisitCompl
     percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
     blocking,
     modules,
+    pendientesPruebas,
   };
 }
 

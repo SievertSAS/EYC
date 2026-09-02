@@ -72,6 +72,47 @@ describe("#8 — aprobar tiene gate de completitud", () => {
   });
 });
 
+// ─── Issue 11: no se envía a revisión con pruebas PENDIENTE ───
+
+describe("gate — pruebas pendientes bloquean enviar_revision / aprobar", () => {
+  async function seedSecciones(visitaId: string, incluidas: string[]) {
+    // Todas las secciones existen; solo las de `incluidas` quedan incluida:true.
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => {
+        const codigo = `2.${i + 1}`;
+        return {
+          id: `s-${i}`,
+          visita_id: visitaId,
+          prueba_codigo: codigo,
+          orden: i + 1,
+          incluida: incluidas.includes(codigo),
+          sync_status: "synced" as const,
+          last_modified: new Date().toISOString(),
+        };
+      })
+    );
+  }
+
+  it("una prueba de CAE (grupo opcional) incluida sin datos → bloqueado por pendientes", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "en_revision" });
+    // Grupos requeridos (A, B, D, E) resueltos como "No aplica"; solo 2.17
+    // (grupo C, opcional) queda incluida y sin datos → PENDIENTE.
+    await seedSecciones(visita!.id!, ["2.17"]);
+
+    const gate = await checkGate(visita!.id!, "aprobar");
+    expect(gate.canProceed).toBe(false);
+    expect(gate.errors.some((e) => e.moduleId === "pruebas-pendientes")).toBe(true);
+  });
+
+  it("esa misma prueba marcada 'No aplica' (incluida:false) → gate pasa", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "en_revision" });
+    await seedSecciones(visita!.id!, []);
+
+    const gate = await checkGate(visita!.id!, "aprobar");
+    expect(gate.canProceed).toBe(true);
+  });
+});
+
 // ─── #9 interino: transacción + reconciliación ───
 
 describe("#9 interino — estado consistente", () => {

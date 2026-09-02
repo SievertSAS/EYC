@@ -360,6 +360,25 @@ describe("concepto general y acciones correctivas", () => {
     expect(text).not.toContain("ACCIONES CORRECTIVAS");
   });
 
+  it("la numeración de subsecciones de la 2.8 no salta la .5 cuando no hay datos", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "en_progreso" });
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: true,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    // Antes: 2.8.4 → 2.8.6 (se quemaba la .5). Ahora la .5 existe.
+    expect(text).toContain("2.8.4.");
+    expect(text).toContain("2.8.5.");
+  });
+
   it("la evidencia de la 2.2 se rotula 'Evidencia gráfica', no 'Fotografías'", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "en_progreso" });
     await db.conv_informe_secciones.bulkAdd(

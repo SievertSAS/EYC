@@ -304,13 +304,10 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
 
   // Fotografías de la 2.3 (sección 2.3.7): montaje y patrón de colimación
   const SLOTS_FOTOS_23: [string, string][] = [
-    [
-      "montaje_colimacion",
-      "Fig. 2.3.1. Montaje experimental para la verificación del sistema de colimación",
-    ],
+    ["montaje_colimacion", "Montaje experimental para la verificación del sistema de colimación"],
     [
       "patron_colimacion",
-      "Fig. 2.3.2. Imagen radiográfica del patrón de colimación con la posición del rayo central",
+      "Imagen radiográfica del patrón de colimación con la posición del rayo central",
     ],
   ];
   const fotos23: NonNullable<DatosConvencional["fotos23"]> = [];
@@ -323,32 +320,27 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   // Fotografía de montaje RaySafe (secciones 2.4.7 y 2.5.7 — misma imagen)
   const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
   const img24 = await cargarImagen(ev24);
+  const LABEL_MONTAJE_RAYSAFE = "Implementación de instrumentación en la prueba";
   const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
-  if (img24)
-    fotos24.push({ label: "Fig. Implementación de instrumentación en la prueba", ...img24 });
+  if (img24) fotos24.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
   const fotos25: NonNullable<DatosConvencional["fotos25"]> = [];
-  if (img24)
-    fotos25.push({ label: "Fig 2.5.1. Implementación de instrumentación en la prueba", ...img24 });
+  if (img24) fotos25.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
   const fotos26: NonNullable<DatosConvencional["fotos26"]> = [];
-  if (img24)
-    fotos26.push({ label: "Fig 2.6.1 Implementación de instrumentación en la prueba", ...img24 });
+  if (img24) fotos26.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
   const fotos27: NonNullable<DatosConvencional["fotos27"]> = [];
-  if (img24)
-    fotos27.push({ label: "Fig 2.7.1 Implementación de instrumentación en la prueba", ...img24 });
+  if (img24) fotos27.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
   const fotos28: NonNullable<DatosConvencional["fotos28"]> = [];
-  if (img24)
-    fotos28.push({ label: "Fig 2.1.8 Implementación de instrumentación en la prueba", ...img24 });
+  if (img24) fotos28.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
 
   // Fotografía de montaje DDI (secciones 2.9.7 y 2.10.7)
   const ev29 = evidencias.find((e) => e.prueba_codigo === "2.9" && e.slot === "montaje_ddi");
   const img29 = await cargarImagen(ev29);
   const fotos29: NonNullable<DatosConvencional["fotos29"]> = [];
-  if (img29)
-    fotos29.push({ label: "Fig. 2.9.1 Montaje experimental para la prueba DDI/EI", ...img29 });
+  if (img29) fotos29.push({ label: "Montaje experimental para la prueba DDI/EI", ...img29 });
   const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
   if (img29)
     fotos210.push({
-      label: "Fig. 2.10.1 Montaje experimental para la prueba de repetibilidad DDI/EI",
+      label: "Montaje experimental para la prueba de repetibilidad DDI/EI",
       ...img29,
     });
 
@@ -358,12 +350,12 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   );
   const img213 = await cargarImagen(ev213);
   const fotos213: NonNullable<DatosConvencional["fotos213"]> = [];
-  if (img213) fotos213.push({ label: "Fig. 2.13.1 Patrón de bajo contraste", ...img213 });
+  if (img213) fotos213.push({ label: "Patrón de bajo contraste", ...img213 });
 
   // Fotografías patrón resolución para 2.12.7 (montaje + DICOM)
   const SLOTS_FOTOS_212: [string, string][] = [
-    ["montaje_resolucion", "Fig. 2.12.1 Foto montaje experimental"],
-    ["dicom_resolucion", "Fig. 2.12.2 Radiografía del patrón de resolución espacial"],
+    ["montaje_resolucion", "Foto montaje experimental"],
+    ["dicom_resolucion", "Radiografía del patrón de resolución espacial"],
   ];
   const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_212) {
@@ -376,7 +368,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const ev216 = evidencias.find((e) => e.prueba_codigo === "2.16" && e.slot === "dicom_mtf");
   const img216 = await cargarImagen(ev216);
   const fotos216: NonNullable<DatosConvencional["fotos216"]> = [];
-  if (img216) fotos216.push({ label: "Fig. 2.16.1 Imagen DICOM para análisis MTF", ...img216 });
+  if (img216) fotos216.push({ label: "Imagen DICOM para análisis MTF", ...img216 });
 
   // Foto montaje CAE para 2.17.7
   const ev217 = evidencias.find((e) => e.prueba_codigo === "2.17" && e.slot === "montaje_cae");
@@ -384,14 +376,14 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const fotos217: NonNullable<DatosConvencional["fotos217"]> = [];
   if (img217)
     fotos217.push({
-      label: "Fig. 2.17.1 Montaje experimental para la prueba de sensibilidad del CAE",
+      label: "Montaje experimental para la prueba de sensibilidad del CAE",
       ...img217,
     });
 
   // Fotografías DICOM para 2.11.7 (0° y 180°)
   const SLOTS_FOTOS_211: [string, string][] = [
-    ["dicom_0", "Fig. 2.11.1 Orientación inicial 0°"],
-    ["dicom_180", "Fig. 2.11.2 Orientación final 180°"],
+    ["dicom_0", "Orientación inicial 0°"],
+    ["dicom_180", "Orientación final 180°"],
   ];
   const fotos211: NonNullable<DatosConvencional["fotos211"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_211) {
@@ -468,6 +460,16 @@ function addCaption(ctx: InformeCtx, text: string) {
   ctx.y += 4;
 }
 
+/**
+ * Rótulo de figura, numerado por prueba: `Fig. 2.3.1. Montaje experimental…`.
+ * `n` arranca en 1 dentro de cada prueba. `desc` es solo la descripción (sin
+ * prefijo "Fig." ni número — eso lo pone esta función).
+ */
+function figCaption(codigo: string, n: number, desc: string): string {
+  const limpio = desc.replace(/^Fig\.?\s*(\d+(\.\d+)*\.?\s*)?/i, "").trim();
+  return `Fig. ${codigo}.${n}. ${limpio}`;
+}
+
 function finalY(doc: jsPDF): number {
   return (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 }
@@ -519,7 +521,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       3: { cellWidth: 40 },
     },
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
   ctx.addParagraph(
     "En cada punto se realizaron varias mediciones consecutivas, registrándose el valor máximo obtenido para su posterior análisis. Los resultados se presentan a continuación."
   );
@@ -543,7 +545,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       ]),
       columnStyles: { 0: { cellWidth: 14 } },
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   // .5 Análisis (carga de trabajo + tabla de dosis anual)
@@ -577,7 +579,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
     ],
     columnStyles: { 0: { cellWidth: 110 } },
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   if (conv.mediciones.length > 0) {
     ctx.checkPage(30);
@@ -612,7 +614,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       columnStyles: { 0: { cellWidth: 12 } },
       didParseCell: colorearConcepto(6),
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   // .6 Criterio (lo agrega el generador con el texto del catálogo)
@@ -621,8 +623,8 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
 }
 
 /** Subsección extra de la 2.1: diagrama radiométrico (después del criterio) */
-export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencional) {
-  ctx.addSubsectionTitle("2.1.7.", "Diagrama radiométrico");
+export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencional, sub: number) {
+  ctx.addSubsectionTitle(`2.1.${sub}.`, "Diagrama radiométrico");
   const plano = conv.planoRadiometrico;
   if (!plano) {
     ctx.addParagraph("No se adjuntó el plano radiométrico de la instalación.");
@@ -643,12 +645,12 @@ export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencio
   }
 }
 
-/** Subsección 2.2.8: fotografías de la inspección (equipo, consola, avisos, elementos) */
-export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional) {
+/** Subsección de evidencia de la 2.2: fotos de la inspección (equipo, consola, avisos, elementos) */
+export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.2") {
   const { doc } = ctx;
   const fotos = conv.fotos22 ?? [];
   if (fotos.length === 0) {
-    ctx.addParagraph("No se adjuntaron fotografías de la inspección visual.");
+    ctx.addParagraph("No se adjuntó evidencia gráfica de la inspección visual.");
     return;
   }
 
@@ -675,15 +677,16 @@ export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(...COLOR_GRAY);
-      doc.text(`Fig. ${r.label}`, x, startY + r.h + 4);
+      const caption = doc.splitTextToSize(figCaption(codigo, i + idx + 1, r.label), colW);
+      doc.text(caption, x, startY + r.h + 4);
     });
 
     ctx.y = startY + rowH + 2;
   }
 }
 
-/** Subsección 2.3.7: montaje experimental y patrón radiográfico de colimación */
-export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional) {
+/** Subsección de evidencia de la 2.3: montaje experimental y patrón radiográfico de colimación */
+export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.3") {
   const { doc } = ctx;
   const fotos = conv.fotos23 ?? [];
   if (fotos.length === 0) {
@@ -714,7 +717,7 @@ export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(r.label, colW);
+      const caption = doc.splitTextToSize(figCaption(codigo, i + idx + 1, r.label), colW);
       doc.text(caption, x, startY + r.h + 4);
     });
 
@@ -722,8 +725,8 @@ export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional) {
   }
 }
 
-/** Subsección 2.4.7: fotografía del montaje con sensor RaySafe */
-export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
+/** Subsección de evidencia de la 2.4: fotografía del montaje con sensor RaySafe */
+export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.4") {
   const { doc } = ctx;
   const fotos = conv.fotos24 ?? [];
   if (fotos.length === 0) {
@@ -731,6 +734,7 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170; // ancho de contenido (mm)
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -747,14 +751,14 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
 /** Subsección 2.8.7: fotografía del montaje con sensor RaySafe */
-export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.8") {
   const { doc } = ctx;
   const fotos = conv.fotos28 ?? [];
   if (fotos.length === 0) {
@@ -762,6 +766,7 @@ export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -778,14 +783,14 @@ export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
 /** Subsección 2.9.7: fotografía del montaje DDI/EI */
-export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.9") {
   const { doc } = ctx;
   const fotos = conv.fotos29 ?? [];
   if (fotos.length === 0) {
@@ -793,6 +798,7 @@ export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -809,14 +815,14 @@ export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
 /** Subsección 2.13.7: fotografía del patrón de bajo contraste */
-export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.13") {
   const { doc } = ctx;
   const fotos = conv.fotos213 ?? [];
   if (fotos.length === 0) {
@@ -824,6 +830,7 @@ export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.7;
     const scale = Math.min(maxW / f.width, 100 / f.height, 1);
@@ -839,14 +846,14 @@ export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
-/** Subsección 2.12.7: fotografía del patrón de resolución espacial */
-export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional) {
+/** Subsección de evidencia de la 2.12: fotografía del patrón de resolución espacial */
+export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.12") {
   const { doc } = ctx;
   const fotos = conv.fotos212 ?? [];
   if (fotos.length === 0) {
@@ -875,15 +882,15 @@ export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(f.label, colW - 4);
+      const caption = doc.splitTextToSize(figCaption(codigo, i + j + 1, f.label), colW - 4);
       doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
     });
     ctx.y += rowH + 12;
   }
 }
 
-/** Subsección 2.11.7: imágenes DICOM de uniformidad (0° y 180°) */
-export function renderFotos211(ctx: InformeCtx, conv: DatosConvencional) {
+/** Subsección de evidencia de la 2.11: imágenes DICOM de uniformidad (0° y 180°) */
+export function renderFotos211(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.11") {
   const { doc } = ctx;
   const fotos = conv.fotos211 ?? [];
   if (fotos.length === 0) {
@@ -912,15 +919,15 @@ export function renderFotos211(ctx: InformeCtx, conv: DatosConvencional) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(f.label, colW - 4);
+      const caption = doc.splitTextToSize(figCaption(codigo, i + j + 1, f.label), colW - 4);
       doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
     });
     ctx.y += rowH + 12;
   }
 }
 
-/** Subsección 2.10.7: fotografía del montaje DDI/EI (repetibilidad) */
-export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional) {
+/** Subsección de evidencia de la 2.10: fotografía del montaje DDI/EI (repetibilidad) */
+export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.10") {
   const { doc } = ctx;
   const fotos = conv.fotos210 ?? [];
   if (fotos.length === 0) {
@@ -928,6 +935,7 @@ export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -944,14 +952,14 @@ export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
 /** Subsección 2.7.7: fotografía del montaje con sensor RaySafe */
-export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.7") {
   const { doc } = ctx;
   const fotos = conv.fotos27 ?? [];
   if (fotos.length === 0) {
@@ -959,6 +967,7 @@ export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -975,14 +984,14 @@ export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
 /** Subsección 2.6.7: fotografía del montaje con sensor RaySafe */
-export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.6") {
   const { doc } = ctx;
   const fotos = conv.fotos26 ?? [];
   if (fotos.length === 0) {
@@ -990,6 +999,7 @@ export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -1006,14 +1016,14 @@ export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
 }
 
 /** Subsección 2.5.7: fotografía del montaje con sensor RaySafe */
-export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.5") {
   const { doc } = ctx;
   const fotos = conv.fotos25 ?? [];
   if (fotos.length === 0) {
@@ -1021,6 +1031,7 @@ export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional) {
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const f of fotos) {
     const maxW = CWIDTH * 0.5;
     const maxH = 80;
@@ -1037,7 +1048,7 @@ export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
     doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(f.label, CWIDTH);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
     doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
     ctx.y += h + 12;
   }
@@ -1086,7 +1097,7 @@ function render22(
       body: zonas,
       columnStyles: { 0: { cellWidth: 16, halign: "center", fontStyle: "bold" } },
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   // Dimensiones de la sala en mini-tabla horizontal
@@ -1114,7 +1125,7 @@ function render22(
       bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" },
       headStyles: { ...TABLE_STYLE.headStyles, halign: "center" },
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   // .5 Resultados
@@ -1148,7 +1159,7 @@ function render22(
       columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 95 }, 2: { cellWidth: 22 } },
       didParseCell: colorearConcepto(2),
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   };
 
   if (equipoItems.length === 0 && operacionItems.length === 0) {
@@ -1188,7 +1199,7 @@ function render22(
       columnStyles: { 0: { cellWidth: 10 }, 2: { cellWidth: 16 }, 3: { cellWidth: 18 } },
       didParseCell: colorearConcepto(4),
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   return 6;
@@ -1231,7 +1242,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
       5: { cellWidth: 18 },
     },
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   const sid = c.sid_cm || 100;
   const DIRS = [
@@ -1294,7 +1305,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 } },
     didParseCell: colorearConcepto(6),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   const esfera = c.posicion_esfera;
   const CRITERIO_ESFERA: Record<string, string> = {
@@ -1313,7 +1324,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
   ctx.checkPage(28);
   addCaption(
     ctx,
-    "Tabla 2.3.2: Registro de mediciones para la perpendicularidad del campo de radiación"
+    "Tabla 2.3.2. Registro de mediciones para la perpendicularidad del campo de radiación"
   );
   autoTable(doc, {
     ...TABLE_STYLE,
@@ -1327,7 +1338,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 70, fontStyle: "bold", fillColor: COLOR_ALT_ROW } },
     didParseCell: didParseVeredictoCell(1),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   // .5 Análisis — texto auto-generado según la fórmula del Excel
   ctx.addSubsectionTitle("2.3.5.", "Análisis");
@@ -1374,8 +1385,10 @@ function desvNominal(medidos: number[], nominal: number): number {
 // ─── Renderizadores 2.4–2.7 (pruebas RaySafe) ───
 
 const SIN_DATOS = (ctx: InformeCtx) => {
+  // Solo se dibujó la subsección .4 (Resultados); la siguiente libre es la .5.
+  // Devolver 6 aquí dejaba un hueco de numeración (p.ej. 2.8.4 → 2.8.6).
   ctx.addParagraph("Sin datos registrados para esta prueba.");
-  return 6;
+  return 5;
 };
 
 // Grupos 1, 2, 6: los tres tiempos nominales distintos (60kV/80kV/90kV)
@@ -1440,7 +1453,7 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
     didParseCell: colorearConcepto(5),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   ctx.addParagraph(
     "La exactitud del tiempo de exposición se evaluó mediante la desviación máxima porcentual entre el tiempo nominal seleccionado y el tiempo medido con mayor desviación."
@@ -1524,7 +1537,7 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
     didParseCell: colorearConcepto(5),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   ctx.addParagraph(
     "La exactitud de la tensión del tubo se evaluó mediante la desviación máxima porcentual entre la tensión nominal seleccionada y la tensión medida con mayor desviación."
@@ -1592,7 +1605,7 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 36 }, 3: { cellWidth: 28 } },
     didParseCell: colorearConcepto(3),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   ctx.addParagraph(
     "Para la evaluación del cumplimiento se compararon los valores medidos con los valores mínimos de referencia de capa hemirreductora correspondientes a cada nivel de tensión."
@@ -1633,7 +1646,7 @@ export function renderTablaChrRef(ctx: InformeCtx) {
     },
     margin: { left: MARGIN + (170 - 90) / 2 },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 }
 
 export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
@@ -1654,11 +1667,11 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
         kv != null ? formatDecimal(kv, 1) : "—",
         mas != null ? formatDecimal(mas, 1) : "—",
         eiBase != null ? String(eiBase) : "—",
-        diBase != null ? formatDecimal(diBase, 2) : "NA",
+        diBase != null ? formatDecimal(diBase, 2) : "—",
       ],
     ],
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 }
 
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
@@ -1741,7 +1754,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       body: rowsLin,
       columnStyles: { 0: { cellWidth: 38 } },
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   ctx.addParagraph(
@@ -1796,7 +1809,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
         0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
       },
     });
-    ctx.y = finalY(doc) + 4;
+    ctx.y = finalY(doc) + 8;
   }
 
   // ── 2.7.5 Análisis ──
@@ -1876,7 +1889,7 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
   });
 
   ctx.checkPage(40);
-  addCaption(ctx, "Tabla 2.8.1 Determinación del factor de corrección del PKA");
+  addCaption(ctx, "Tabla 2.8.1. Determinación del factor de corrección del PKA");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
@@ -1892,7 +1905,7 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
     body: rows.map((r) => [r.kv, r.mas, r.dapNom, r.dapEst, r.fc]),
     columnStyles: { 4: { cellWidth: 32 } },
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   // ── 2.8.5 Análisis ──
   ctx.addSubsectionTitle("2.8.5.", "Análisis");
@@ -1932,7 +1945,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
     head: [["Tensión (kVp)", "Carga (mAs)", "EI"]],
     body: [[kv ? String(kv) : "—", mas ? String(mas) : "—", ei != null ? String(ei) : "—"]],
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   // Cálculo de desviaciones
   const eiDev =
@@ -1942,7 +1955,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
       ? (Math.abs(di - diBase) / Math.abs(diBase)) * 100
       : null;
   const eiConf = eiDev != null ? (eiDev <= 20 ? "Conforme" : "No conforme") : "—";
-  const diConf = diDev != null ? (diDev <= 20 ? "Conforme" : "No conforme") : "NA";
+  const diConf = diDev != null ? (diDev <= 20 ? "Conforme" : "No conforme") : "—";
   const conforme = eiDev == null || eiDev <= 20;
 
   // 2.9.5 Análisis — párrafo dinámico + Tabla 2.9.2
@@ -1953,7 +1966,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
       : "Se evidencian desviaciones en el indicador de exposición (EI) y/o en la desviación del indicador (D.I.) fuera del rango de tolerancia establecido, lo que indica inconsistencias en la respuesta del sistema."
   );
 
-  addCaption(ctx, "Tabla 2.9.2: Análisis de los indicadores de exposición");
+  addCaption(ctx, "Tabla 2.9.2. Análisis de los indicadores de exposición");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
@@ -1968,15 +1981,15 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
       ],
       [
         "D.I.",
-        di != null ? formatDecimal(di, 2) : "NA",
-        diBase != null ? formatDecimal(diBase, 2) : "NA",
-        diDev != null ? `${formatDecimal(diDev, 1)}%` : "NA",
+        di != null ? formatDecimal(di, 2) : "—",
+        diBase != null ? formatDecimal(diBase, 2) : "—",
+        diDev != null ? `${formatDecimal(diDev, 1)}%` : "—",
         diConf,
       ],
     ],
     didParseCell: colorearConcepto(4),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   return 6; // 2.9.4 y 2.9.5 renderizados; caller inicia en 6 (Criterio)
 }
@@ -2039,7 +2052,7 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
     ],
     didParseCell: colorearConcepto(4),
   });
-  ctx.y = finalY(doc) + 4;
+  ctx.y = finalY(doc) + 8;
 
   const conforme210 = eiCv == null || eiCv <= 20;
 
@@ -2247,7 +2260,7 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
     for (const orient of ["ac", "ca"] as const) {
       const orientLabel = orient === "ac" ? "Orientación AC 0°" : "Orientación CA 180°";
       const tableNum = detIdx * 2 + (orient === "ac" ? 1 : 2);
-      ctx.addSubsectionTitle(`Tabla 2.11.${tableNum}.`, `${orientLabel}${detLabel}`);
+      addCaption(ctx, `Tabla 2.11.${tableNum}. ${orientLabel}${detLabel}`);
 
       const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
 
@@ -2377,7 +2390,7 @@ function render214(ctx: InformeCtx, conv: DatosConvencional): number {
     },
     startY: ctx.y,
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addSubsectionTitle("2.14.5.", "Análisis");
 
@@ -2406,13 +2419,14 @@ function render214(ctx: InformeCtx, conv: DatosConvencional): number {
 
 // ─── 2.16 — MTF ───
 
-export function renderFotos216(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos216(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.16") {
   const fotos = conv.fotos216 ?? [];
   if (fotos.length === 0) {
-    ctx.addParagraph("No se adjuntó imagen DICOM para el análisis MTF.");
+    ctx.addParagraph("No se adjuntó evidencia gráfica para el análisis MTF.");
     return;
   }
   const CWIDTH = 170;
+  let nFig = 0;
   for (const foto of fotos) {
     ctx.checkPage(70);
     const maxW = CWIDTH;
@@ -2429,11 +2443,13 @@ export function renderFotos216(ctx: InformeCtx, conv: DatosConvencional) {
     ctx.y += h + 2;
     ctx.doc.setFont("helvetica", "italic");
     ctx.doc.setFontSize(7);
-    ctx.doc.setTextColor(100, 116, 139);
-    ctx.doc.text(foto.label, MARGIN + CWIDTH / 2, ctx.y, { align: "center" });
+    ctx.doc.setTextColor(...COLOR_GRAY);
+    ctx.doc.text(figCaption(codigo, ++nFig, foto.label), MARGIN + CWIDTH / 2, ctx.y, {
+      align: "center",
+    });
     ctx.y += 6;
     ctx.doc.setFont("helvetica", "normal");
-    ctx.doc.setTextColor(30, 30, 30);
+    ctx.doc.setTextColor(...COLOR_BLACK);
   }
 }
 
@@ -2479,7 +2495,7 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
     didDrawPage: undefined,
     startY: ctx.y,
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addSubsectionTitle("2.16.5.", "Análisis");
 
@@ -2552,7 +2568,7 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
     ]),
     startY: ctx.y,
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   // Calcular promedio y CV del EI
   const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
@@ -2619,32 +2635,33 @@ function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional
 
 // ─── Entrada principal por sección ───
 
-export function renderFotos217(ctx: InformeCtx, conv: DatosConvencional) {
+export function renderFotos217(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.17") {
   const fotos = conv.fotos217 ?? [];
   if (fotos.length === 0) {
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
   const { doc, autoTable } = ctx;
-  const CONTENT_WIDTH = doc.internal.pageSize.getWidth() - 40;
+  const CONTENT_W = doc.internal.pageSize.getWidth() - 40;
+  let nFig = 0;
   for (const foto of fotos) {
     const maxW = 170;
     const maxH = 80;
     const ratio = Math.min(maxW / foto.width, maxH / foto.height, 1);
     const w = foto.width * ratio;
     const h = foto.height * ratio;
-    const x = 20 + (CONTENT_WIDTH - w) / 2;
+    const x = 20 + (CONTENT_W - w) / 2;
     ctx.checkPage(h + 14);
     doc.addImage(foto.dataUrl, "JPEG", x, ctx.y, w, h);
     ctx.y += h + 2;
     autoTable(doc, {
-      body: [[foto.label]],
+      body: [[figCaption(codigo, ++nFig, foto.label)]],
       startY: ctx.y,
-      styles: { fontSize: 7, fontStyle: "italic", halign: "center", textColor: [100, 116, 139] },
+      styles: { fontSize: 7, fontStyle: "italic", halign: "center", textColor: COLOR_GRAY },
       theme: "plain",
       margin: { left: 20, right: 20 },
     });
-    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   }
 }
 
@@ -2679,7 +2696,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
     m.posicion_sensor ?? "—",
     fmt(m.carga_mas),
     m.ei != null ? String(m.ei) : "—",
-    m.di != null ? String(m.di) : "NA",
+    m.di != null ? String(m.di) : "—",
   ]);
 
   checkPage(20);
@@ -2693,7 +2710,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   // Análisis
   addSubsectionTitle("2.17.5.", "Análisis");
@@ -2732,8 +2749,8 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
         ],
         [
           "D.I.",
-          t9.di != null ? String(t9.di) : "NA",
-          s?.di_base_217 != null ? String(s.di_base_217) : "NA",
+          t9.di != null ? String(t9.di) : "—",
+          s?.di_base_217 != null ? String(s.di_base_217) : "—",
           varDi == null ? "NA" : fmtPct(varDi),
           varDi == null ? "NA" : varDi <= 0.5 ? "Conforme" : "No conforme",
         ],
@@ -2743,7 +2760,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
         ctx.y = 30;
       },
     });
-    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
     addParagraph(
       "Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores de referencia establecidos para el equipo bajo las mismas condiciones de exposición. La comparación realizada evidencia que las variaciones observadas en los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba, indicando una respuesta estable del sistema de control automático de exposición."
@@ -2778,7 +2795,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
     m.posicion_sensor ?? "—",
     fmt(m.carga_mas),
     m.ei != null ? String(m.ei) : "—",
-    m.di != null ? String(m.di) : "NA",
+    m.di != null ? String(m.di) : "—",
   ]);
 
   addParagraph("Tabla 2.18.1. Resultados consistencia entre los sensores del CAE", 8);
@@ -2791,7 +2808,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addSubsectionTitle("2.18.5.", "Análisis");
 
@@ -2826,7 +2843,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addParagraph(
     "Las diferencias porcentuales calculadas respecto a los valores promedio para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Lo anterior evidencia consistencia en la respuesta del sistema entre las diferentes configuraciones de sensores del control automático de exposición bajo las condiciones de irradiación evaluadas."
@@ -2866,7 +2883,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
     m.posicion_sensor ?? "—",
     fmt(m.carga_mas),
     m.ei != null ? String(m.ei) : "—",
-    m.di != null ? String(m.di) : "NA",
+    m.di != null ? String(m.di) : "—",
   ]);
 
   addParagraph("Tabla 2.19.1. Resultados de repetibilidad del CAE", 8);
@@ -2879,7 +2896,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addSubsectionTitle("2.19.5.", "Análisis");
 
@@ -2918,7 +2935,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addParagraph(
     "Los coeficientes de variación obtenidos para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Esto evidencia una respuesta repetible del sistema de control automático de exposición bajo condiciones equivalentes de irradiación."
@@ -2969,7 +2986,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       esp,
       m?.carga_mas != null ? fmt(m.carga_mas) : "—",
       m?.ei != null ? String(m.ei) : "—",
-      m?.di != null ? String(m.di) : "NA",
+      m?.di != null ? String(m.di) : "—",
     ];
   });
 
@@ -2984,7 +3001,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addSubsectionTitle("2.20.5.", "Análisis");
 
@@ -3028,7 +3045,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addParagraph(
     "Los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) obtenidos para los diferentes espesores evaluados fueron comparados con los valores iniciales de referencia correspondientes."
@@ -3062,7 +3079,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addParagraph(
     "Las variaciones porcentuales observadas se mantienen dentro de la tolerancia establecida para esta prueba, evidenciando una adecuada compensación del sistema de control automático de exposición frente a cambios de kilovoltaje y espesor."
@@ -3118,7 +3135,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
   addSubsectionTitle("2.21.5.", "Análisis");
 
@@ -3155,7 +3172,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
         ctx.y = 30;
       },
     });
-    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
     addParagraph(
       "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se comparan con el criterio de aceptación establecido en el IAEA-TECDOC-1958."
@@ -3222,4 +3239,48 @@ export function renderResultadosSeccion(
     default:
       return renderGenerico(ctx, codigo, conv);
   }
+}
+
+// ─── Evidencia gráfica por prueba ───
+
+type RenderFotos = (ctx: InformeCtx, conv: DatosConvencional, codigo: string) => void;
+
+/**
+ * Renderizador de evidencia gráfica por código de prueba. Las pruebas que no
+ * están acá (2.1 tiene diagrama; 2.14 / 2.15 no llevan evidencia) no muestran
+ * la subsección.
+ */
+const RENDER_FOTOS: Record<string, RenderFotos> = {
+  "2.2": renderFotos22,
+  "2.3": renderFotos23,
+  "2.4": renderFotos24,
+  "2.5": renderFotos25,
+  "2.6": renderFotos26,
+  "2.7": renderFotos27,
+  "2.8": renderFotos28,
+  "2.9": renderFotos29,
+  "2.10": renderFotos210,
+  "2.11": renderFotos211,
+  "2.12": renderFotos212,
+  "2.13": renderFotos213,
+  "2.16": renderFotos216,
+  "2.17": renderFotos217,
+  "2.18": renderFotos217,
+  "2.19": renderFotos217,
+  "2.20": renderFotos217,
+  "2.21": renderFotos217,
+};
+
+/** ¿La prueba `codigo` lleva subsección "Evidencia gráfica"? */
+export function tieneEvidenciaGrafica(codigo: string): boolean {
+  return codigo in RENDER_FOTOS;
+}
+
+/** Dibuja la evidencia gráfica de la prueba (sin el título de subsección). */
+export function renderEvidenciaGrafica(
+  ctx: InformeCtx,
+  conv: DatosConvencional,
+  codigo: string
+): void {
+  RENDER_FOTOS[codigo]?.(ctx, conv, codigo);
 }

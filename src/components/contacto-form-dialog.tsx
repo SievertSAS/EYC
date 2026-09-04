@@ -42,13 +42,14 @@ interface ContactoFormDialogProps {
 
 // Debe cubrir todos los valores de `Contacto["cargo"]` — incluido
 // `responsable_visita`, que se crea desde Información General. La tabla
-// `contactos` de Supabase tiene un CHECK sobre esta lista (migración 022).
+// `contactos` de Supabase tiene un CHECK sobre esta lista (migraciones 022, 029).
 export const CARGO_OPTIONS = [
   { value: "medico_responsable", label: "Médico Responsable" },
   { value: "tecnologo", label: "Tecnólogo" },
   { value: "opr", label: "OPR" },
   { value: "representante", label: "Representante" },
   { value: "responsable_visita", label: "Responsable de la Visita" },
+  { value: "ingeniero_biomedico", label: "Ingeniero Biomédico" },
   { value: "otro", label: "Otro" },
 ];
 

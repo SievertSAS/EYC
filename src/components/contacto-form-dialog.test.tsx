@@ -122,10 +122,10 @@ describe("ContactoFormDialog", () => {
     expect(boton.disabled).toBe(true);
   });
 
-  it("CARGO_OPTIONS cubre todos los cargos que la app escribe (incl. responsable_visita)", () => {
+  it("CARGO_OPTIONS cubre todos los cargos que la app escribe (incl. responsable_visita, ingeniero_biomedico)", () => {
     const valores = CARGO_OPTIONS.map((o) => o.value);
     // El union Contacto["cargo"] completo — si crece, este test recuerda
-    // agregarlo acá y al CHECK de contactos (migración 022).
+    // agregarlo acá y al CHECK de contactos (migraciones 022, 029).
     expect(new Set(valores)).toEqual(
       new Set([
         "medico_responsable",
@@ -133,6 +133,7 @@ describe("ContactoFormDialog", () => {
         "opr",
         "representante",
         "responsable_visita",
+        "ingeniero_biomedico",
         "otro",
       ])
     );

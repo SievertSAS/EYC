@@ -114,6 +114,7 @@ export interface Contacto extends Partial<SyncFields> {
     | "opr"
     | "representante"
     | "responsable_visita"
+    | "ingeniero_biomedico"
     | "otro";
   cedula?: string;
   telefono?: string;

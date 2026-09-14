@@ -2370,6 +2370,7 @@ export type Database = {
           nombre_servicio: string;
           piso_desc: string | null;
           sede_id: string;
+          sin_fecha_expiracion_licencia: boolean;
           sync_status: string;
           techo_desc: string | null;
           ubicacion_fisica: string | null;
@@ -2393,6 +2394,7 @@ export type Database = {
           nombre_servicio: string;
           piso_desc?: string | null;
           sede_id: string;
+          sin_fecha_expiracion_licencia?: boolean;
           sync_status?: string;
           techo_desc?: string | null;
           ubicacion_fisica?: string | null;
@@ -2416,6 +2418,7 @@ export type Database = {
           nombre_servicio?: string;
           piso_desc?: string | null;
           sede_id?: string;
+          sin_fecha_expiracion_licencia?: boolean;
           sync_status?: string;
           techo_desc?: string | null;
           ubicacion_fisica?: string | null;

@@ -44,6 +44,7 @@ export function UbicacionFormDialog({
   const [nombre, setNombre] = useState(ubicacion?.nombre_servicio ?? "");
   const [licencia, setLicencia] = useState(ubicacion?.licencia ?? "");
   const [fechaExp, setFechaExp] = useState(ubicacion?.fecha_expiracion_licencia ?? "");
+  const [sinFechaExp, setSinFechaExp] = useState(ubicacion?.sin_fecha_expiracion_licencia ?? false);
   const [codigo, setCodigo] = useState(ubicacion?.codigo_habilitacion ?? "");
   const [horas, setHoras] = useState(ubicacion?.horas_x_dia?.toString() ?? "");
   // Sala y blindaje
@@ -69,6 +70,7 @@ export function UbicacionFormDialog({
     setNombre(ubicacion?.nombre_servicio ?? "");
     setLicencia(ubicacion?.licencia ?? "");
     setFechaExp(ubicacion?.fecha_expiracion_licencia ?? "");
+    setSinFechaExp(ubicacion?.sin_fecha_expiracion_licencia ?? false);
     setCodigo(ubicacion?.codigo_habilitacion ?? "");
     setHoras(ubicacion?.horas_x_dia?.toString() ?? "");
     setUbicFisica(ubicacion?.ubicacion_fisica ?? "");
@@ -97,7 +99,8 @@ export function UbicacionFormDialog({
         sede_id: sedeId,
         nombre_servicio: nombre.trim(),
         licencia: licencia || undefined,
-        fecha_expiracion_licencia: fechaExp || undefined,
+        fecha_expiracion_licencia: sinFechaExp ? undefined : fechaExp || undefined,
+        sin_fecha_expiracion_licencia: sinFechaExp,
         codigo_habilitacion: codigo || undefined,
         horas_x_dia: horas ? parseInt(horas, 10) : undefined,
         ubicacion_fisica: ubicFisica || undefined,
@@ -179,12 +182,27 @@ export function UbicacionFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Vencimiento Licencia
-              </Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                  Vencimiento Licencia
+                </Label>
+                <label className="flex items-center gap-1 text-[10px] font-medium text-slate-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sinFechaExp}
+                    onChange={(e) => {
+                      setSinFechaExp(e.target.checked);
+                      if (e.target.checked) setFechaExp("");
+                    }}
+                    className="w-3 h-3 rounded border-slate-300 text-primary focus:ring-primary"
+                  />
+                  Sin vencimiento
+                </label>
+              </div>
               <Input
                 type="date"
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                disabled={sinFechaExp}
+                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11 disabled:opacity-50 disabled:bg-slate-50"
                 value={fechaExp}
                 onChange={(e) => setFechaExp(e.target.value)}
               />

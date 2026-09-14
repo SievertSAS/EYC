@@ -77,6 +77,8 @@ function EditableField({
   onSave,
   type = "text",
   required = false,
+  disabled = false,
+  labelExtra,
 }: {
   label: string;
   value: string;
@@ -89,6 +91,9 @@ function EditableField({
    * Supabase con `23502 not_null_violation` y la fila queda atascada en error.
    */
   required?: boolean;
+  disabled?: boolean;
+  /** Elemento chico al final de la fila del label (ej. un toggle relacionado al campo) */
+  labelExtra?: React.ReactNode;
 }) {
   // #68: los campos numéricos se muestran con coma decimal (es-CO) y aceptan
   // coma o punto. El input real es `text` + `inputMode=decimal` (evita la
@@ -129,11 +134,13 @@ function EditableField({
         {Icon && <Icon className="w-3 h-3" />}
         {label}
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
+        {labelExtra && <span className="ml-auto normal-case tracking-normal">{labelExtra}</span>}
       </p>
       <Input
         type={esNumero ? "text" : type}
         inputMode={esNumero ? "decimal" : undefined}
-        className="rounded-xl border-slate-200 focus:border-primary font-medium h-9 text-sm"
+        disabled={disabled}
+        className="rounded-xl border-slate-200 focus:border-primary font-medium h-9 text-sm disabled:opacity-50 disabled:bg-slate-50"
         value={local}
         onChange={(e) => {
           setLocal(e.target.value);
@@ -634,6 +641,18 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
     await db.ubicaciones_rx.update(id, {
       [field]: parsed,
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("ubicaciones_rx", id);
+  }
+
+  async function toggleSinFechaExpiracionLicencia(checked: boolean) {
+    const id = data?.ubicacion?.id;
+    if (!id) return;
+    await db.ubicaciones_rx.update(id, {
+      sin_fecha_expiracion_licencia: checked,
+      fecha_expiracion_licencia: checked ? undefined : data?.ubicacion?.fecha_expiracion_licencia,
       sync_status: "pending",
       last_modified: now(),
     });
@@ -1180,7 +1199,19 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             value={toStr(ubicacion?.fecha_expiracion_licencia)}
             icon={Calendar}
             type="date"
+            disabled={!!ubicacion?.sin_fecha_expiracion_licencia}
             onSave={(v) => saveUbicacion("fecha_expiracion_licencia", v)}
+            labelExtra={
+              <label className="flex items-center gap-1 text-[9px] font-medium text-slate-400 normal-case cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!ubicacion?.sin_fecha_expiracion_licencia}
+                  onChange={(e) => toggleSinFechaExpiracionLicencia(e.target.checked)}
+                  className="w-3 h-3 rounded border-slate-300 text-primary focus:ring-primary"
+                />
+                Sin vencimiento
+              </label>
+            }
           />
           <EditableField
             label="Código de Habilitación"

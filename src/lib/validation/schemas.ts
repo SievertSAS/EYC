@@ -49,6 +49,13 @@ export const patchUsuarioSchema = z
       .optional()
       .or(z.literal("")),
     activo: z.boolean().optional(),
+    // Path en el bucket `evidencias` tras subir la firma (#109), o null para
+    // quitarla. La subida en sí llega como archivo separado (multipart), no
+    // por este campo — ver PATCH /api/usuarios/[id].
+    firma_url: z.string().nullable().optional(),
+    // Título/cargo libre mostrado bajo la firma (distinto de `cargo`, que
+    // controla permisos) — ej. "Coordinadora de estudios y controles".
+    titulo_firma: z.string().max(150).nullable().optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "Nada que actualizar" });
 

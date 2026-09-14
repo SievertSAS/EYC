@@ -17,6 +17,7 @@ import type {
   ElementoProteccion,
   ParteEquipo,
 } from "@/lib/db/types";
+import { ROL_LABELS } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
@@ -140,6 +141,8 @@ interface DatosInforme {
   identificaciones: { subtabla: string; ref_id?: string; nombre: string; dataUrl?: string }[];
   sala?: SalaDimensiones;
   tecnico?: Usuario;
+  /** Usuario que genera/publica el informe (#109) — firma "Responsable de generación de documento". */
+  responsableGeneracion?: Usuario;
   contactos: Contacto[];
   pruebas: (PruebaResultado & { definicion?: PruebaDefinicion })[];
   mediciones: MedicionRadiometrica[];
@@ -355,7 +358,7 @@ function getTextoPrueba(codigo: string): TextoPrueba {
 
 export async function generarPreInforme(
   visitaId: string,
-  opts?: { qrDataUrl?: string }
+  opts?: { qrDataUrl?: string; usuarioGeneradorId?: string }
 ): Promise<Blob | null> {
   const [{ jsPDF }, { default: autoTable }, logoBase64] = await Promise.all([
     import("jspdf"),
@@ -366,6 +369,15 @@ export async function generarPreInforme(
   const datosRaw = await recopilarDatos(visitaId);
   if (!datosRaw) return null;
   const datos: DatosInforme = datosRaw;
+  datos.responsableGeneracion = opts?.usuarioGeneradorId
+    ? await db.usuarios.get(opts.usuarioGeneradorId)
+    : undefined;
+  // Se resuelve antes de dibujar: el bloque de FIRMAS es síncrono, igual que
+  // el resto de imágenes del informe (`identificaciones`, más abajo).
+  const firmaGeneracionDataUrl = await imagenDataUrl(
+    undefined,
+    datos.responsableGeneracion?.firma_url
+  );
   // Versión oficial (sin marca de agua): la visita ya fue aprobada o entregada
   const esFinal =
     datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
@@ -618,6 +630,7 @@ export async function generarPreInforme(
   const tecnologo = datos.contactos.find((c) => c.cargo === "tecnologo");
   const opr = datos.contactos.find((c) => c.cargo === "opr");
   const contactoProgramar = datos.contactos.find((c) => c.para_programar);
+  const responsableVisita = datos.contactos.find((c) => c.cargo === "responsable_visita");
 
   // Formato fecha
   const fechaInforme = datos.visita.fecha_visita
@@ -799,8 +812,8 @@ export async function generarPreInforme(
       opr?.nombre ?? contactoProgramar?.nombre ?? "—",
     ],
     ["Correo Electrónico Institución", datos.cliente?.email ?? "—"],
-    ["Responsable de la Visita", datos.tecnico?.nombre ?? "—"],
-    ["Cédula Responsable de la Visita", datos.tecnico?.cedula ?? "—"],
+    ["Responsable de la Visita", responsableVisita?.nombre ?? "—"],
+    ["Cédula Responsable de la Visita", responsableVisita?.cedula ?? "—"],
   ];
 
   autoTable(doc, {
@@ -1774,7 +1787,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   //  FIRMAS
   // ═══════════════════════════════════════════════════════════
-  checkPage(60);
+  checkPage(90);
   y += 10;
   y = addSectionTitle(doc, "FIRMAS", y);
   y += 5;
@@ -1794,7 +1807,7 @@ export async function generarPreInforme(
   doc.setTextColor(...COLOR_GRAY);
   doc.text("Sievert Protección Radiológica S.A.S.", MARGIN, y);
 
-  // Responsable de visita
+  // Responsable de visita — contacto del cliente (no el técnico de Sievert que ejecuta la visita)
   y += 15;
   doc.setDrawColor(...COLOR_GRAY);
   doc.line(MARGIN, y + 15, MARGIN + 70, y + 15);
@@ -1803,13 +1816,38 @@ export async function generarPreInforme(
   doc.setTextColor(...COLOR_BLACK);
   doc.text("Responsable de visita:", MARGIN, y);
   y += 20;
-  doc.text(datos.tecnico?.nombre ?? "—", MARGIN, y);
+  doc.text(responsableVisita?.nombre ?? "—", MARGIN, y);
+  y += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...COLOR_GRAY);
+  doc.text(`C.C. ${responsableVisita?.cedula ?? "—"}`, MARGIN, y);
+
+  // Responsable de generación de documento — usuario que generó/publicó el
+  // informe (#109), con su firma tomada automáticamente del módulo de usuario.
+  y += 15;
+  doc.setDrawColor(...COLOR_GRAY);
+  doc.line(MARGIN, y + 15, MARGIN + 70, y + 15);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...COLOR_BLACK);
+  doc.text("Responsable de generación de documento:", MARGIN, y);
+  if (firmaGeneracionDataUrl) {
+    try {
+      doc.addImage(firmaGeneracionDataUrl, MARGIN, y + 1, 40, 13);
+    } catch {
+      // firma no utilizable: la línea queda en blanco, igual que sin firma
+    }
+  }
+  y += 20;
+  doc.text(datos.responsableGeneracion?.nombre ?? "—", MARGIN, y);
   y += 4;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLOR_GRAY);
   doc.text(
-    `C.C. ${datos.tecnico?.cedula ?? "—"} — ${datos.tecnico?.cargo?.replace(/_/g, " ") ?? "Físico Técnico"}`,
+    datos.responsableGeneracion?.titulo_firma?.trim() ||
+      (datos.responsableGeneracion ? ROL_LABELS[datos.responsableGeneracion.cargo] : "—"),
     MARGIN,
     y
   );

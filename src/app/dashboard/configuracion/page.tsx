@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
@@ -19,7 +19,19 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Users, Shield, Plus, Loader2, UserCheck, UserX, Pencil, Eye, Trash2 } from "lucide-react";
+import {
+  Users,
+  Shield,
+  Plus,
+  Loader2,
+  UserCheck,
+  UserX,
+  Pencil,
+  Eye,
+  Trash2,
+  Camera,
+  PenLine,
+} from "lucide-react";
 import type { RolUsuario, ModuloApp, AccionPermiso, RolPermiso } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import {
@@ -32,6 +44,7 @@ import {
   accionesEfectivas,
 } from "@/lib/db/types";
 import { createClient } from "@/lib/supabase/client";
+import { compressImage, resolverImagenSrc } from "@/lib/supabase/storage";
 import { logger } from "@/lib/logger";
 
 export default function ConfiguracionPage() {
@@ -102,13 +115,24 @@ export default function ConfiguracionPage() {
  */
 async function patchUsuario(
   id: string,
-  cambios: Record<string, unknown>
+  cambios: Record<string, unknown>,
+  firma?: Blob | null
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const res = await fetch(`/api/usuarios/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cambios),
-  });
+  let res: Response;
+  if (firma) {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(cambios)) {
+      if (v !== undefined) form.append(k, String(v));
+    }
+    form.append("firma", firma, "firma.jpg");
+    res = await fetch(`/api/usuarios/${id}`, { method: "PATCH", body: form });
+  } else {
+    res = await fetch(`/api/usuarios/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cambios),
+    });
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     return { ok: false, error: data.error ?? "Error al actualizar el usuario" };
@@ -240,6 +264,11 @@ function UsuarioFormDialog({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [firmaUrl, setFirmaUrl] = useState<string | null | undefined>(undefined);
+  const [firmaPreview, setFirmaPreview] = useState<string | null>(null);
+  const [firmaFile, setFirmaFile] = useState<Blob | null>(null);
+  const [tituloFirma, setTituloFirma] = useState("");
+  const firmaInputRef = useRef<HTMLInputElement>(null);
 
   // Repoblar el form SOLO en la transición cerrado→abierto (#11 / #58). El
   // hack anterior (setState en render con un flag `initialized` de un disparo)
@@ -247,6 +276,7 @@ function UsuarioFormDialog({
   useReseedOnOpen(open, () => {
     void (async () => {
       setError("");
+      setFirmaFile(null);
       if (editId) {
         const u = await db.usuarios.get(editId);
         setNombre(u?.nombre ?? "");
@@ -254,6 +284,8 @@ function UsuarioFormDialog({
         setEmail(u?.email ?? "");
         setTelefono(u?.telefono ?? "");
         setCargo((u?.cargo as RolUsuario) ?? "tecnico");
+        setFirmaUrl(u?.firma_url ?? null);
+        setTituloFirma(u?.titulo_firma ?? "");
       } else {
         setNombre("");
         setCedula("");
@@ -261,9 +293,37 @@ function UsuarioFormDialog({
         setTelefono("");
         setCargo("tecnico");
         setPassword("");
+        setFirmaUrl(undefined);
+        setTituloFirma("");
       }
     })();
   });
+
+  // Preview de la firma ya guardada (signed URL del path en `firma_url`).
+  // Se reemplaza por el preview local en cuanto se elige un archivo nuevo.
+  useEffect(() => {
+    if (firmaFile) return;
+    if (!firmaUrl) {
+      setFirmaPreview(null);
+      return;
+    }
+    let vivo = true;
+    resolverImagenSrc({ url_storage: firmaUrl }).then((src) => {
+      if (vivo) setFirmaPreview(src);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [firmaUrl, firmaFile]);
+
+  async function handleFirmaChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const comprimida = await compressImage(file);
+    setFirmaFile(comprimida);
+    setFirmaPreview(URL.createObjectURL(comprimida));
+    if (firmaInputRef.current) firmaInputRef.current.value = "";
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -272,12 +332,17 @@ function UsuarioFormDialog({
 
     try {
       if (editId) {
-        const r = await patchUsuario(editId, {
-          nombre,
-          cedula,
-          cargo,
-          telefono: telefono || "",
-        });
+        const r = await patchUsuario(
+          editId,
+          {
+            nombre,
+            cedula,
+            cargo,
+            telefono: telefono || "",
+            titulo_firma: tituloFirma.trim(),
+          },
+          firmaFile
+        );
         if (!r.ok) {
           setError(r.error);
           return;
@@ -406,6 +471,54 @@ function UsuarioFormDialog({
             className="rounded-xl"
           />
         </div>
+
+        {editId && (
+          <div className="space-y-2">
+            <Label htmlFor="tituloFirma" className="font-bold text-xs text-slate-600">
+              Cargo para firma (ej. &quot;Coordinadora de estudios y controles&quot;)
+            </Label>
+            <Input
+              id="tituloFirma"
+              value={tituloFirma}
+              onChange={(e) => setTituloFirma(e.target.value)}
+              placeholder={ROL_LABELS[cargo]}
+              className="rounded-xl"
+            />
+          </div>
+        )}
+
+        {editId && (
+          <div className="space-y-2">
+            <Label className="font-bold text-xs text-slate-600 flex items-center gap-1.5">
+              <PenLine className="w-3.5 h-3.5" />
+              Firma (responsable de generación de documento)
+            </Label>
+            {firmaPreview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={firmaPreview}
+                alt="Firma"
+                className="h-16 rounded-lg border border-slate-200 bg-white object-contain px-2"
+              />
+            )}
+            <input
+              ref={firmaInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFirmaChange}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl border-dashed border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 w-full font-bold text-sm text-slate-500"
+              onClick={() => firmaInputRef.current?.click()}
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              {firmaPreview ? "Cambiar firma" : "Capturar firma"}
+            </Button>
+          </div>
+        )}
 
         {error && (
           <p className="text-xs text-red-600 font-bold bg-red-50 p-2 rounded-lg">{error}</p>

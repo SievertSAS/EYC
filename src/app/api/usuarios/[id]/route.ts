@@ -3,6 +3,34 @@ import { patchUsuarioSchema } from "@/lib/validation/schemas";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { requireCoordinador } from "../helpers";
+import { EVIDENCIAS_BUCKET } from "@/lib/supabase/storage";
+
+/**
+ * Lee el body como JSON normal, o como `multipart/form-data` cuando trae la
+ * firma (#109) — un archivo no cabe en JSON. Los campos de texto llegan como
+ * strings sueltas en el FormData; `activo` se normaliza a boolean.
+ */
+async function leerBody(
+  request: NextRequest
+): Promise<{ campos: Record<string, unknown>; firma: File | null }> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("multipart/form-data")) {
+    return { campos: await request.json(), firma: null };
+  }
+
+  const form = await request.formData();
+  const campos: Record<string, unknown> = {};
+  let firma: File | null = null;
+  for (const [key, value] of form.entries()) {
+    if (key === "firma" && value instanceof File) {
+      firma = value;
+      continue;
+    }
+    campos[key] = value;
+  }
+  if (typeof campos.activo === "string") campos.activo = campos.activo === "true";
+  return { campos, firma };
+}
 
 /**
  * PATCH /api/usuarios/[id] — edición de un usuario existente (#58).
@@ -31,17 +59,40 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     return NextResponse.json({ error: "Falta el id del usuario" }, { status: 400 });
   }
 
-  const body = await request.json();
-  const parsed = patchUsuarioSchema.safeParse(body);
-  if (!parsed.success) {
-    // A2: no exponer detalles del schema al cliente
-    logger.warn("usuarios", "PATCH validación fallida", parsed.error.issues);
-    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  const { campos, firma } = await leerBody(request);
+
+  // Una subida de solo-firma no trae otros campos; el `.refine` del schema
+  // ("nada que actualizar") no debe bloquear ese caso.
+  let datosValidados: Record<string, unknown> = {};
+  if (Object.keys(campos).length > 0) {
+    const parsed = patchUsuarioSchema.safeParse(campos);
+    if (!parsed.success) {
+      // A2: no exponer detalles del schema al cliente
+      logger.warn("usuarios", "PATCH validación fallida", parsed.error.issues);
+      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    }
+    datosValidados = parsed.data;
+  }
+  if (Object.keys(datosValidados).length === 0 && !firma) {
+    return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
   }
 
-  const { telefono, ...rest } = parsed.data;
+  const { telefono, ...rest } = datosValidados;
   const cambios: Record<string, unknown> = { ...rest };
   if (telefono !== undefined) cambios.telefono = telefono || null;
+
+  if (firma) {
+    const path = `usuarios/${id}/firma.jpg`;
+    const buffer = Buffer.from(await firma.arrayBuffer());
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(EVIDENCIAS_BUCKET)
+      .upload(path, buffer, { upsert: true, contentType: "image/jpeg" });
+    if (uploadError) {
+      logger.error("usuarios", "PATCH: subida de firma falló", { id, uploadError });
+      return NextResponse.json({ error: "Error al subir la firma" }, { status: 500 });
+    }
+    cambios.firma_url = path;
+  }
 
   const { data: usuario, error } = await supabaseAdmin
     .from("usuarios")

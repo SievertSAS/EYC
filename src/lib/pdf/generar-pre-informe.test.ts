@@ -294,6 +294,116 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("15/03/2027");
   });
 
+  it("#108: 'Responsable de visita' toma el contacto del cliente, no el técnico de Sievert", async () => {
+    const { visita, cliente } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const tecnicoId = randomUUID();
+    await db.usuarios.add({
+      id: tecnicoId,
+      nombre: "TECNICO-SIEVERT-NO-DEBE-SALIR",
+      cedula: "999999",
+      cargo: "tecnico",
+      activo: true,
+    });
+    await db.visitas.update(visita!.id!, { tecnico_id: tecnicoId });
+
+    await db.contactos.add({
+      id: randomUUID(),
+      cliente_id: cliente.id!,
+      nombre: "RESPONSABLE-VISITA-CLIENTE",
+      cargo: "responsable_visita",
+      cedula: "111222",
+      para_programar: false,
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("RESPONSABLE-VISITA-CLIENTE");
+    expect(text).toContain("111222");
+    expect(text).not.toContain("TECNICO-SIEVERT-NO-DEBE-SALIR");
+  });
+
+  it("#108: sin contacto responsable_visita → muestra '—' en vez del técnico", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const tecnicoId = randomUUID();
+    await db.usuarios.add({
+      id: tecnicoId,
+      nombre: "TECNICO-SIEVERT-SIN-CONTACTO",
+      cedula: "888888",
+      cargo: "tecnico",
+      activo: true,
+    });
+    await db.visitas.update(visita!.id!, { tecnico_id: tecnicoId });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toContain("TECNICO-SIEVERT-SIN-CONTACTO");
+  });
+
+  it("#109: 'Responsable de generación de documento' toma nombre y cargo del usuario que genera el informe", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const generadorId = randomUUID();
+    await db.usuarios.add({
+      id: generadorId,
+      nombre: "COORDINADOR-GENERADOR-INFORME",
+      cedula: "555444",
+      cargo: "coordinador",
+      activo: true,
+    });
+
+    const text = await pdfText(
+      (await generarPreInforme(visita!.id!, { usuarioGeneradorId: generadorId }))!
+    );
+    expect(text).toContain("COORDINADOR-GENERADOR-INFORME");
+    expect(text).toContain("Responsable de generaci");
+  });
+
+  it("#109: sin usuarioGeneradorId → la fila queda en blanco, el PDF no se rompe", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).toBeInstanceOf(Blob);
+    const text = await pdfText(blob!);
+    expect(text).toContain("Responsable de generaci");
+  });
+
+  it("#109: con titulo_firma → usa el título libre en vez del rol genérico", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const generadorId = randomUUID();
+    await db.usuarios.add({
+      id: generadorId,
+      nombre: "NINI-GOMEZ",
+      cedula: "555444",
+      cargo: "coordinador",
+      titulo_firma: "Coordinadora de estudios y controles",
+      activo: true,
+    });
+
+    const text = await pdfText(
+      (await generarPreInforme(visita!.id!, { usuarioGeneradorId: generadorId }))!
+    );
+    expect(text).toContain("Coordinadora de estudios y controles");
+  });
+
+  it("#109: sin titulo_firma → cae a ROL_LABELS[cargo]", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const generadorId = randomUUID();
+    await db.usuarios.add({
+      id: generadorId,
+      nombre: "SIN-TITULO-LIBRE",
+      cedula: "555555",
+      cargo: "coordinador",
+      activo: true,
+    });
+
+    const text = await pdfText(
+      (await generarPreInforme(visita!.id!, { usuarioGeneradorId: generadorId }))!
+    );
+    expect(text).toContain("Coordinador");
+  });
+
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
     // Un informe OFICIAL no se emite con pruebas PENDIENTE: se excluyen todas

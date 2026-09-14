@@ -33,6 +33,9 @@ const state = {
   },
 };
 const updateSpy = vi.fn();
+const uploadSpy = vi.fn(async (..._args: unknown[]) => ({
+  error: null as { message: string } | null,
+}));
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({ getAll: () => [] }),
@@ -66,6 +69,11 @@ vi.mock("@supabase/supabase-js", () => ({
         };
       },
     }),
+    storage: {
+      from: (_bucket: string) => ({
+        upload: (path: string, bytes: unknown, opts: unknown) => uploadSpy(path, bytes, opts),
+      }),
+    },
   }),
 }));
 
@@ -73,7 +81,10 @@ import { PATCH } from "./route";
 
 function req(body: unknown, id = "u-1") {
   return [
-    { json: async () => body } as Parameters<typeof PATCH>[0],
+    {
+      json: async () => body,
+      headers: { get: () => null },
+    } as unknown as Parameters<typeof PATCH>[0],
     { params: Promise.resolve({ id }) },
   ] as const;
 }
@@ -89,6 +100,7 @@ beforeEach(() => {
     error: null,
   };
   updateSpy.mockClear();
+  uploadSpy.mockClear();
 });
 afterEach(() => vi.clearAllMocks());
 
@@ -145,6 +157,54 @@ describe("PATCH /api/usuarios/[id]", () => {
     state.updateResult = { data: null, error: { message: "no rows", code: "PGRST116" } };
     const res = await PATCH(...req({ activo: false }));
     expect(res.status).toBe(404);
+  });
+
+  it("#109: multipart con firma → sube a Storage y guarda el path en firma_url", async () => {
+    const form = new FormData();
+    form.append("nombre", "Nombre Nuevo");
+    form.append("firma", new File([new Uint8Array([1, 2, 3])], "firma.png"));
+
+    const res = await PATCH(
+      {
+        headers: { get: (h: string) => (h === "content-type" ? "multipart/form-data" : null) },
+        formData: async () => form,
+      } as unknown as Parameters<typeof PATCH>[0],
+      { params: Promise.resolve({ id: "u-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(uploadSpy).toHaveBeenCalledWith("usuarios/u-1/firma.jpg", expect.anything(), {
+      upsert: true,
+      contentType: "image/jpeg",
+    });
+    expect(updateSpy).toHaveBeenCalledWith({
+      nombre: "Nombre Nuevo",
+      firma_url: "usuarios/u-1/firma.jpg",
+    });
+  });
+
+  it("#109: multipart solo con firma (sin otros campos) no cae en 'nada que actualizar'", async () => {
+    const form = new FormData();
+    form.append("firma", new File([new Uint8Array([1, 2, 3])], "firma.png"));
+
+    const res = await PATCH(
+      {
+        headers: { get: (h: string) => (h === "content-type" ? "multipart/form-data" : null) },
+        formData: async () => form,
+      } as unknown as Parameters<typeof PATCH>[0],
+      { params: Promise.resolve({ id: "u-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(updateSpy).toHaveBeenCalledWith({ firma_url: "usuarios/u-1/firma.jpg" });
+  });
+
+  it("#109: acepta titulo_firma como texto libre, distinto del cargo", async () => {
+    const res = await PATCH(...req({ titulo_firma: "Coordinadora de estudios y controles" }));
+    expect(res.status).toBe(200);
+    expect(updateSpy).toHaveBeenCalledWith({
+      titulo_firma: "Coordinadora de estudios y controles",
+    });
   });
 
   it("responde 429 al superar el límite por IP", async () => {

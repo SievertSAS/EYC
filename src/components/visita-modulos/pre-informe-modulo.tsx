@@ -5,6 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
 import { useDb } from "@/components/db-provider";
+import { useRole } from "@/components/role-provider";
 import { updateAndSync } from "@/lib/supabase/sync-engine";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -428,6 +429,7 @@ function DatosFaltantesPanel({
 export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   const visitaId = id;
   const { isReady } = useDb();
+  const { role } = useRole();
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -531,7 +533,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       setPdfUrl(null);
 
       const { generarPreInforme } = await import("@/lib/pdf/generar-pre-informe");
-      const blob = await generarPreInforme(visitaId);
+      const blob = await generarPreInforme(visitaId, { usuarioGeneradorId: role?.usuarioId });
       if (!blob) {
         setError("No se pudo generar el pre-informe. Verifica los datos.");
         return;
@@ -544,7 +546,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [visitaId]);
+  }, [visitaId, role]);
 
   const handleDescargar = useCallback(() => {
     if (!pdfUrl) return;

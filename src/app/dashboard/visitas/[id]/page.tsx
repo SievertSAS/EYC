@@ -221,7 +221,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
         visita.tecnico_id ?? role.usuarioId
       );
       if (nuevoInforme.id) {
-        await publicarVersionOficial(nuevoInforme.id, visitaId);
+        await publicarVersionOficial(nuevoInforme.id, visitaId, role.usuarioId);
       }
     } catch (err) {
       console.error("[Visita] Error al generar el informe faltante:", err);

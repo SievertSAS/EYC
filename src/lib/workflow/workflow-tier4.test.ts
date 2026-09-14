@@ -68,7 +68,7 @@ describe("#8 — aprobar tiene gate de completitud", () => {
     expect(res.success).toBe(true);
     expect(res.newState).toBe("aprobada");
     expect(crearInformeDesdeVisita).toHaveBeenCalledWith(visita!.id!, "u1", expect.any(String));
-    expect(publicarVersionOficial).toHaveBeenCalledWith("inf-1", visita!.id!);
+    expect(publicarVersionOficial).toHaveBeenCalledWith("inf-1", visita!.id!, "u1");
   });
 });
 

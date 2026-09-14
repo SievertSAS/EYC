@@ -2442,11 +2442,13 @@ export type Database = {
           cedula: string;
           creado_en: string;
           email: string | null;
+          firma_url: string | null;
           id: string;
           last_modified: string;
           nombre: string;
           sync_status: string;
           telefono: string | null;
+          titulo_firma: string | null;
         };
         Insert: {
           activo?: boolean;
@@ -2455,11 +2457,13 @@ export type Database = {
           cedula: string;
           creado_en?: string;
           email?: string | null;
+          firma_url?: string | null;
           id?: string;
           last_modified?: string;
           nombre: string;
           sync_status?: string;
           telefono?: string | null;
+          titulo_firma?: string | null;
         };
         Update: {
           activo?: boolean;
@@ -2468,11 +2472,13 @@ export type Database = {
           cedula?: string;
           creado_en?: string;
           email?: string | null;
+          firma_url?: string | null;
           id?: string;
           last_modified?: string;
           nombre?: string;
           sync_status?: string;
           telefono?: string | null;
+          titulo_firma?: string | null;
         };
         Relationships: [];
       };

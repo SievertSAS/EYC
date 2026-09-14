@@ -330,7 +330,7 @@ export async function executeTransition(
     if (informe.id) {
       informeAfectadoId = informe.id;
       const { publicarVersionOficial } = await import("./publicar-informe");
-      publicarVersionOficial(informe.id, visitaId).then((r) => {
+      publicarVersionOficial(informe.id, visitaId, extra.usuarioId).then((r) => {
         if (!r.success) {
           // #9: la transición ya ocurrió pero el PDF oficial NO se publicó.
           // Queda pendiente de reintento (botón "Publicar versión oficial"

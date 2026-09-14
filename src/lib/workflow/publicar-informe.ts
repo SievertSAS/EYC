@@ -27,7 +27,8 @@ async function hashBlob(blob: Blob): Promise<string> {
  */
 export async function publicarVersionOficial(
   informeId: string,
-  visitaId: string
+  visitaId: string,
+  usuarioGeneradorId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const informe = await db.informes.get(informeId);
@@ -36,7 +37,7 @@ export async function publicarVersionOficial(
     const qrUrl = `${window.location.origin}/verificar/${informe.qr_token}`;
     const qrDataUrl = await QRCode.toDataURL(qrUrl, { errorCorrectionLevel: "M" });
 
-    const blob = await generarPreInforme(visitaId, { qrDataUrl });
+    const blob = await generarPreInforme(visitaId, { qrDataUrl, usuarioGeneradorId });
     if (!blob) return { success: false, error: "No se pudo generar el PDF" };
 
     const hash = await hashBlob(blob);

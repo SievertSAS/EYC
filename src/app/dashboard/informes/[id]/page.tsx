@@ -67,7 +67,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const informeId = id;
   const { isReady } = useDb();
-  const { hasPermission } = useRole();
+  const { role, hasPermission } = useRole();
   // Tier 7: la lista de informes exige `hasPermission("informes")`; el detalle
   // no lo hacía. Publicar la versión oficial (QR + hash) es acción de edición
   // → solo roles con `informes:editar` (por defecto, coordinador).
@@ -155,7 +155,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   async function handleRegenerar() {
     if (!visita) return;
     try {
-      const blob = await generarPreInforme(visita.id!);
+      const blob = await generarPreInforme(visita.id!, { usuarioGeneradorId: role?.usuarioId });
       if (blob) {
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
@@ -170,7 +170,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
     setPublicando(true);
     setPublicarError(null);
     try {
-      const result = await publicarVersionOficial(informe.id, visita.id);
+      const result = await publicarVersionOficial(informe.id, visita.id, role?.usuarioId);
       if (!result.success) setPublicarError(result.error ?? "Error desconocido");
     } finally {
       setPublicando(false);

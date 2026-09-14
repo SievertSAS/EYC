@@ -339,6 +339,71 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).not.toContain("TECNICO-SIEVERT-SIN-CONTACTO");
   });
 
+  it("#109: 'Responsable de generación de documento' toma nombre y cargo del usuario que genera el informe", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const generadorId = randomUUID();
+    await db.usuarios.add({
+      id: generadorId,
+      nombre: "COORDINADOR-GENERADOR-INFORME",
+      cedula: "555444",
+      cargo: "coordinador",
+      activo: true,
+    });
+
+    const text = await pdfText(
+      (await generarPreInforme(visita!.id!, { usuarioGeneradorId: generadorId }))!
+    );
+    expect(text).toContain("COORDINADOR-GENERADOR-INFORME");
+    expect(text).toContain("Responsable de generaci");
+  });
+
+  it("#109: sin usuarioGeneradorId → la fila queda en blanco, el PDF no se rompe", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).toBeInstanceOf(Blob);
+    const text = await pdfText(blob!);
+    expect(text).toContain("Responsable de generaci");
+  });
+
+  it("#109: con titulo_firma → usa el título libre en vez del rol genérico", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const generadorId = randomUUID();
+    await db.usuarios.add({
+      id: generadorId,
+      nombre: "NINI-GOMEZ",
+      cedula: "555444",
+      cargo: "coordinador",
+      titulo_firma: "Coordinadora de estudios y controles",
+      activo: true,
+    });
+
+    const text = await pdfText(
+      (await generarPreInforme(visita!.id!, { usuarioGeneradorId: generadorId }))!
+    );
+    expect(text).toContain("Coordinadora de estudios y controles");
+  });
+
+  it("#109: sin titulo_firma → cae a ROL_LABELS[cargo]", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const generadorId = randomUUID();
+    await db.usuarios.add({
+      id: generadorId,
+      nombre: "SIN-TITULO-LIBRE",
+      cedula: "555555",
+      cargo: "coordinador",
+      activo: true,
+    });
+
+    const text = await pdfText(
+      (await generarPreInforme(visita!.id!, { usuarioGeneradorId: generadorId }))!
+    );
+    expect(text).toContain("Coordinador");
+  });
+
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
     // Un informe OFICIAL no se emite con pruebas PENDIENTE: se excluyen todas

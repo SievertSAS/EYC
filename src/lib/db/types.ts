@@ -393,6 +393,10 @@ export interface Usuario {
   activo: boolean;
   auth_uid?: string;
   creado_en?: string;
+  /** Path en el bucket `evidencias` (no URL) — igual convención que las fotos. */
+  firma_url?: string | null;
+  /** Título/cargo libre mostrado bajo la firma (distinto de `cargo`, que controla permisos). */
+  titulo_firma?: string | null;
 }
 
 // ─── Acciones de permiso por módulo ───

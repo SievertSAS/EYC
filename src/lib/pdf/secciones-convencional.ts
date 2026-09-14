@@ -299,7 +299,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
       (e) => e.prueba_codigo === "2.2" && e.slot === `elemento_${elem.id}`
     );
     const img = await cargarImagen(ev);
-    if (img) fotos22.push({ label: elem.descripcion?.trim() || "Elemento de protección", ...img });
+    if (img) fotos22.push({ label: "Elementos de protección radiológica", ...img });
   }
 
   // Fotografías de la 2.3 (sección 2.3.7): montaje y patrón de colimación

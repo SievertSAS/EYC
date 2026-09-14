@@ -662,6 +662,7 @@ export type Database = {
       conv_levantamiento_setup: {
         Row: {
           calibrado_en: string | null;
+          carga_trabajo_modo: string | null;
           creado_en: string;
           humedad_pct: number | null;
           id: string;
@@ -676,6 +677,7 @@ export type Database = {
         };
         Insert: {
           calibrado_en?: string | null;
+          carga_trabajo_modo?: string | null;
           creado_en?: string;
           humedad_pct?: number | null;
           id?: string;
@@ -690,6 +692,7 @@ export type Database = {
         };
         Update: {
           calibrado_en?: string | null;
+          carga_trabajo_modo?: string | null;
           creado_en?: string;
           humedad_pct?: number | null;
           id?: string;

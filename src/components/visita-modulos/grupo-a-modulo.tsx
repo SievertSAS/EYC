@@ -46,6 +46,7 @@ import {
   ComboboxValue,
 } from "@/components/ui/combobox";
 import type { ConvInspeccionItem } from "@/lib/equipos/convencional/db/types";
+import { calcularWUsado } from "@/lib/equipos/convencional/carga-trabajo";
 
 // ─── Constants ───
 
@@ -691,7 +692,9 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   const nrSemana = data?.visita?.radiografias_por_semana ?? 0;
   const masMaxClinico = data?.visita?.mas_maximo_usado ?? 0;
   const wEstimada = (nrSemana * masMaxClinico) / 60;
-  const wUsado = Math.max(wEstimada, W_ESTANDAR);
+  const cargaTrabajoModo = setup?.carga_trabajo_modo;
+  const modoActivo = cargaTrabajoModo ?? (wEstimada >= W_ESTANDAR ? "estimada" : "tipica");
+  const wUsado = calcularWUsado(wEstimada, W_ESTANDAR, cargaTrabajoModo);
   const corrientePrueba = num(setup?.tecnica_ma);
   const semanasLaborales = num(setup?.semanas_laborales) || 50;
 
@@ -931,8 +934,9 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
           <CollapsibleSection title="Carga de trabajo">
             <Tip>
-              Se usa el mayor entre W estimada y W estándar (160 mA·min/sem). El factor de uso U se
-              selecciona por punto en la tabla de mediciones.
+              Por defecto se usa el mayor entre W estimada y W estándar (160 mA·min/sem), pero podés
+              fijar manualmente cuál aplica según la operación real del equipo. El factor de uso U
+              se selecciona por punto en la tabla de mediciones.
             </Tip>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -971,11 +975,38 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  W usado = max(estimada, estándar)
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  W usado
+                  {!cargaTrabajoModo && (
+                    <span className="normal-case font-medium text-slate-400">(auto: máximo)</span>
+                  )}
                 </label>
                 <div className="h-9 flex items-center text-sm font-black text-emerald-700 bg-emerald-50 rounded-xl px-3">
                   {wUsado.toFixed(1)}
+                </div>
+                <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => updateSetup({ carga_trabajo_modo: "estimada" })}
+                    className={`flex-1 h-7 text-[10px] font-black uppercase tracking-wide transition-colors ${
+                      modoActivo === "estimada"
+                        ? "bg-primary text-white"
+                        : "bg-white text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    Estimada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateSetup({ carga_trabajo_modo: "tipica" })}
+                    className={`flex-1 h-7 text-[10px] font-black uppercase tracking-wide transition-colors border-l border-slate-200 ${
+                      modoActivo === "tipica"
+                        ? "bg-primary text-white"
+                        : "bg-white text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    Típica
+                  </button>
                 </div>
               </div>
               <div className="space-y-1">

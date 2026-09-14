@@ -618,6 +618,7 @@ export async function generarPreInforme(
   const tecnologo = datos.contactos.find((c) => c.cargo === "tecnologo");
   const opr = datos.contactos.find((c) => c.cargo === "opr");
   const contactoProgramar = datos.contactos.find((c) => c.para_programar);
+  const responsableVisita = datos.contactos.find((c) => c.cargo === "responsable_visita");
 
   // Formato fecha
   const fechaInforme = datos.visita.fecha_visita
@@ -799,8 +800,8 @@ export async function generarPreInforme(
       opr?.nombre ?? contactoProgramar?.nombre ?? "—",
     ],
     ["Correo Electrónico Institución", datos.cliente?.email ?? "—"],
-    ["Responsable de la Visita", datos.tecnico?.nombre ?? "—"],
-    ["Cédula Responsable de la Visita", datos.tecnico?.cedula ?? "—"],
+    ["Responsable de la Visita", responsableVisita?.nombre ?? "—"],
+    ["Cédula Responsable de la Visita", responsableVisita?.cedula ?? "—"],
   ];
 
   autoTable(doc, {
@@ -1794,7 +1795,7 @@ export async function generarPreInforme(
   doc.setTextColor(...COLOR_GRAY);
   doc.text("Sievert Protección Radiológica S.A.S.", MARGIN, y);
 
-  // Responsable de visita
+  // Responsable de visita — contacto del cliente (no el técnico de Sievert que ejecuta la visita)
   y += 15;
   doc.setDrawColor(...COLOR_GRAY);
   doc.line(MARGIN, y + 15, MARGIN + 70, y + 15);
@@ -1803,16 +1804,12 @@ export async function generarPreInforme(
   doc.setTextColor(...COLOR_BLACK);
   doc.text("Responsable de visita:", MARGIN, y);
   y += 20;
-  doc.text(datos.tecnico?.nombre ?? "—", MARGIN, y);
+  doc.text(responsableVisita?.nombre ?? "—", MARGIN, y);
   y += 4;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLOR_GRAY);
-  doc.text(
-    `C.C. ${datos.tecnico?.cedula ?? "—"} — ${datos.tecnico?.cargo?.replace(/_/g, " ") ?? "Físico Técnico"}`,
-    MARGIN,
-    y
-  );
+  doc.text(`C.C. ${responsableVisita?.cedula ?? "—"}`, MARGIN, y);
 
   // ─── Marca de agua PRE-INFORME (solo mientras no sea la versión oficial) ───
   if (!esFinal) {

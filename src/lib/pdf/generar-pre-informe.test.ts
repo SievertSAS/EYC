@@ -294,6 +294,51 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("15/03/2027");
   });
 
+  it("#108: 'Responsable de visita' toma el contacto del cliente, no el técnico de Sievert", async () => {
+    const { visita, cliente } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const tecnicoId = randomUUID();
+    await db.usuarios.add({
+      id: tecnicoId,
+      nombre: "TECNICO-SIEVERT-NO-DEBE-SALIR",
+      cedula: "999999",
+      cargo: "tecnico",
+      activo: true,
+    });
+    await db.visitas.update(visita!.id!, { tecnico_id: tecnicoId });
+
+    await db.contactos.add({
+      id: randomUUID(),
+      cliente_id: cliente.id!,
+      nombre: "RESPONSABLE-VISITA-CLIENTE",
+      cargo: "responsable_visita",
+      cedula: "111222",
+      para_programar: false,
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("RESPONSABLE-VISITA-CLIENTE");
+    expect(text).toContain("111222");
+    expect(text).not.toContain("TECNICO-SIEVERT-NO-DEBE-SALIR");
+  });
+
+  it("#108: sin contacto responsable_visita → muestra '—' en vez del técnico", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const tecnicoId = randomUUID();
+    await db.usuarios.add({
+      id: tecnicoId,
+      nombre: "TECNICO-SIEVERT-SIN-CONTACTO",
+      cedula: "888888",
+      cargo: "tecnico",
+      activo: true,
+    });
+    await db.visitas.update(visita!.id!, { tecnico_id: tecnicoId });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toContain("TECNICO-SIEVERT-SIN-CONTACTO");
+  });
+
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
     // Un informe OFICIAL no se emite con pruebas PENDIENTE: se excluyen todas

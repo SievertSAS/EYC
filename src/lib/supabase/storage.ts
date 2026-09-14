@@ -74,6 +74,10 @@ export async function compressImage(blob: Blob, maxDim = 1600, quality = 0.8): P
     canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return blob;
+    // JPEG no soporta alfa: sin este fill, el navegador aplana la
+    // transparencia a negro (ej. firma recortada con fondo transparente).
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
     ctx.drawImage(bmp, 0, 0, w, h);
     bmp.close();
 

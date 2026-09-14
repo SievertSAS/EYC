@@ -145,6 +145,38 @@ describe("UbicacionFormDialog", () => {
     expect(row.techo_desc).toBe("Cubierta liviana, sin tránsito");
   });
 
+  it("#104: 'Sin vencimiento' limpia y deshabilita la fecha, y persiste la intención", async () => {
+    const ubicacion = await seedUbicacion({
+      nombre_servicio: "rayos x",
+      fecha_expiracion_licencia: "2030-01-01",
+    });
+    const onSaved = vi.fn();
+
+    render(
+      <UbicacionFormDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        sedeId="sede-1"
+        ubicacion={ubicacion}
+        onSaved={onSaved}
+      />
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: /sin vencimiento/i });
+    fireEvent.click(checkbox);
+
+    const fechaInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(fechaInput.disabled).toBe(true);
+    expect(fechaInput.value).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(ubicacion.id));
+    const row = (await db.ubicaciones_rx.get(ubicacion.id!))!;
+    expect(row.sin_fecha_expiracion_licencia).toBe(true);
+    expect(row.fecha_expiracion_licencia).toBeUndefined();
+  });
+
   it("no permite guardar sin nombre de servicio", async () => {
     render(
       <UbicacionFormDialog

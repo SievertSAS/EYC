@@ -162,6 +162,7 @@ export interface UbicacionRx extends Partial<SyncFields> {
   nombre_servicio: string;
   licencia?: string;
   fecha_expiracion_licencia?: string;
+  sin_fecha_expiracion_licencia?: boolean;
   codigo_habilitacion?: string;
   horas_x_dia?: number;
   // Sala y blindaje (precarga del informe 2.2)

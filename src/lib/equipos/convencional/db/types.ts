@@ -20,6 +20,8 @@ export interface ConvLevantamientoSetup extends Partial<SyncFields> {
   tecnica_mas?: number;
   w_estimada?: number;
   w_estandar?: number;
+  /** Selección manual del ingeniero (#105) — sin fijar usa max(estimada, estándar) */
+  carga_trabajo_modo?: "estimada" | "tipica";
   factor_uso_u?: number;
   semanas_laborales?: number;
   creado_en?: string;

@@ -44,9 +44,7 @@ export function UbicacionFormDialog({
   const [nombre, setNombre] = useState(ubicacion?.nombre_servicio ?? "");
   const [licencia, setLicencia] = useState(ubicacion?.licencia ?? "");
   const [fechaExp, setFechaExp] = useState(ubicacion?.fecha_expiracion_licencia ?? "");
-  const [sinFechaExp, setSinFechaExp] = useState(
-    ubicacion?.sin_fecha_expiracion_licencia ?? false
-  );
+  const [sinFechaExp, setSinFechaExp] = useState(ubicacion?.sin_fecha_expiracion_licencia ?? false);
   const [codigo, setCodigo] = useState(ubicacion?.codigo_habilitacion ?? "");
   const [horas, setHoras] = useState(ubicacion?.horas_x_dia?.toString() ?? "");
   // Sala y blindaje

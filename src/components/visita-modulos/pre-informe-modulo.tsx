@@ -24,6 +24,7 @@ import {
   ToggleLeft,
   ToggleRight,
   RotateCcw,
+  Wrench,
   Zap,
   Gauge,
   SlidersHorizontal,
@@ -37,7 +38,7 @@ import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 import {
   cargarTablasConv,
-  evaluarConceptoPrueba,
+  conceptoEfectivoSeccion,
   tieneCriterio,
 } from "@/lib/equipos/convencional/evaluacion";
 
@@ -51,7 +52,7 @@ const GRUPO_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   E: Target,
 };
 
-type ConceptoType = "Conforme" | "No_conforme" | "No_aplica";
+type ConceptoType = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
 
 // ─── UI Components ───
 
@@ -62,6 +63,7 @@ function SeccionCard({
   expanded,
   onToggleExpand,
   onToggleIncluida,
+  onToggleNoEjecutada,
   onUpdateAcciones,
   onUpdateObservaciones,
 }: {
@@ -72,6 +74,8 @@ function SeccionCard({
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleIncluida: () => void;
+  /** #120 — override manual: aplica pero no se pudo ejecutar por falla de un componente. */
+  onToggleNoEjecutada: () => void;
   onUpdateAcciones: (v: string) => void;
   onUpdateObservaciones: (v: string) => void;
 }) {
@@ -79,6 +83,7 @@ function SeccionCard({
   const analisisRef = useRef<HTMLTextAreaElement>(null);
   const accionesRef = useRef<HTMLTextAreaElement>(null);
   const sinCriterio = !tieneCriterio(catalogo.codigo);
+  const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
   const [savedAcciones, setSavedAcciones] = useState(false);
   const [savedObservaciones, setSavedObservaciones] = useState(false);
 
@@ -105,6 +110,8 @@ function SeccionCard({
       : conceptoEfectivo === "No_conforme"
         ? catalogo.accionesNoConforme
         : undefined;
+  const requiereAccionLibre =
+    conceptoEfectivo === "No_conforme" || conceptoEfectivo === "No_favorable_no_ejecutada";
 
   return (
     <div
@@ -123,6 +130,19 @@ function SeccionCard({
           ) : (
             <ToggleLeft className="w-6 h-6 text-slate-300" />
           )}
+        </button>
+
+        {/* #120 — "No se pudo ejecutar" (falla de un componente, distinto de
+            "No aplica": la prueba sí aplica, pero no se realizó). */}
+        <button
+          type="button"
+          onClick={onToggleNoEjecutada}
+          title="Marcar: no se pudo ejecutar por falla de un componente"
+          className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
+            noEjecutada ? "bg-amber-100" : "hover:bg-slate-100"
+          }`}
+        >
+          <Wrench className={`w-3.5 h-3.5 ${noEjecutada ? "text-amber-600" : "text-slate-300"}`} />
         </button>
 
         {/* Icon */}
@@ -178,7 +198,7 @@ function SeccionCard({
             <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
               {sinCriterio
                 ? "Esta prueba es de carácter descriptivo/referencial y no define un criterio de aceptación, por lo que no emite concepto."
-                : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de los datos capturados de la prueba. Usa el interruptor para marcar la prueba como no aplicable."}
+                : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de los datos capturados de la prueba. Usa el interruptor para marcar la prueba como no aplicable, o el ícono de llave si la prueba aplica pero no se pudo ejecutar por falla de un componente."}
             </p>
           </div>
 
@@ -239,7 +259,7 @@ function SeccionCard({
               />
             </div>
           ) : (
-            conceptoEfectivo === "No_conforme" && (
+            requiereAccionLibre && (
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   Acciones correctivas
@@ -248,7 +268,11 @@ function SeccionCard({
                 <textarea
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   defaultValue={seccion.acciones_correctivas ?? ""}
-                  placeholder="Describa las acciones correctivas requeridas..."
+                  placeholder={
+                    conceptoEfectivo === "No_favorable_no_ejecutada"
+                      ? "Describa la falla del componente que impidió ejecutar la prueba..."
+                      : "Describa las acciones correctivas requeridas..."
+                  }
                   onBlur={(e) => handleUpdateAcciones(e.target.value)}
                 />
               </div>
@@ -329,6 +353,12 @@ function ConceptoBadgeSmall({ concepto }: { concepto?: ConceptoType }) {
     return (
       <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-700 bg-red-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
         <XCircle className="w-3 h-3" /> NC
+      </span>
+    );
+  if (concepto === "No_favorable_no_ejecutada")
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+        <Wrench className="w-3 h-3" /> N/E
       </span>
     );
   return (
@@ -461,11 +491,8 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   // Concepto efectivo de una prueba: No aplica si está excluida, o el veredicto
   // automático del evaluador (undefined = pendiente / sin datos).
   const conceptoDe = useCallback(
-    (seccion: ConvInformeSeccion): ConceptoType | undefined => {
-      if (!seccion.incluida) return "No_aplica";
-      if (!datos) return undefined;
-      return evaluarConceptoPrueba(seccion.prueba_codigo, datos);
-    },
+    (seccion: ConvInformeSeccion): ConceptoType | undefined =>
+      conceptoEfectivoSeccion(seccion, datos),
     [datos]
   );
 
@@ -527,10 +554,13 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
     const conformes = secciones.filter((s) => conceptoDe(s) === "Conforme").length;
     const noConformes = secciones.filter((s) => conceptoDe(s) === "No_conforme").length;
     const noAplica = secciones.filter((s) => conceptoDe(s) === "No_aplica").length;
+    const noEjecutadas = secciones.filter(
+      (s) => conceptoDe(s) === "No_favorable_no_ejecutada"
+    ).length;
     const sinConcepto = secciones.filter(
       (s) => s.incluida && conceptoDe(s) == null && tieneCriterio(s.prueba_codigo)
     ).length;
-    return { total: secciones.length, conformes, noConformes, noAplica, sinConcepto };
+    return { total: secciones.length, conformes, noConformes, noAplica, noEjecutadas, sinConcepto };
   }, [secciones, conceptoDe]);
 
   // ─── Generate PDF ───
@@ -658,6 +688,12 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
                 <div className="text-center">
                   <p className="text-lg font-black text-amber-500">{stats.sinConcepto}</p>
                   <p className="text-[9px] font-bold text-slate-400 uppercase">Pendientes</p>
+                </div>
+              )}
+              {stats.noEjecutadas > 0 && (
+                <div className="text-center">
+                  <p className="text-lg font-black text-amber-600">{stats.noEjecutadas}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">No ejec.</p>
                 </div>
               )}
             </div>
@@ -808,6 +844,15 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
               }
               onToggleIncluida={() =>
                 seccion.id && updateSeccion(seccion.id, { incluida: !seccion.incluida })
+              }
+              onToggleNoEjecutada={() =>
+                seccion.id &&
+                updateSeccion(seccion.id, {
+                  concepto:
+                    seccion.concepto === "No_favorable_no_ejecutada"
+                      ? undefined
+                      : "No_favorable_no_ejecutada",
+                })
               }
               onUpdateAcciones={(v) =>
                 seccion.id && updateSeccion(seccion.id, { acciones_correctivas: v || undefined })

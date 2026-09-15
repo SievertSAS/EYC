@@ -465,8 +465,12 @@ export interface ConvInformeSeccion extends Partial<SyncFields> {
   orden: number;
   /** Si la sección está incluida en el informe */
   incluida: boolean;
-  /** Concepto: Conforme / No conforme / No aplica */
-  concepto?: "Conforme" | "No_conforme" | "No_aplica";
+  /**
+   * Concepto: Conforme / No conforme / No aplica, o el override manual
+   * "No_favorable_no_ejecutada" (#120) -- la prueba aplica pero no se pudo
+   * ejecutar por falla de un componente del equipo.
+   */
+  concepto?: "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
   /** Texto de acciones correctivas (editable inline) */
   acciones_correctivas?: string;
   /** Observaciones adicionales del físico */

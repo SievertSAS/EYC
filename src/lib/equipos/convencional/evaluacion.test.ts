@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { evaluarConceptoPrueba, tieneCriterio, detalle213 } from "./evaluacion";
+import {
+  evaluarConceptoPrueba,
+  tieneCriterio,
+  detalle213,
+  conceptoEfectivoSeccion,
+} from "./evaluacion";
 import type { DatosEvalConv } from "./evaluacion";
 
 // evaluacion.ts es la ÚNICA fuente de verdad de "Conforme / No_conforme".
@@ -473,5 +478,40 @@ describe("2.21 — normaliza dosis_medida_mgy con unidad_kerma antes de comparar
         })
       )
     ).toBe("Conforme");
+  });
+});
+
+describe("conceptoEfectivoSeccion — precedencia de overrides manuales (#120)", () => {
+  it("incluida=false → 'No_aplica' sin importar el resto (precedencia máxima)", () => {
+    const seccion = { incluida: false, concepto: undefined, prueba_codigo: "2.1" };
+    const d = datos({
+      mediciones: [rs({ id: "m1", concepto: "Conforme" })],
+    });
+    expect(conceptoEfectivoSeccion(seccion, d)).toBe("No_aplica");
+  });
+
+  it("incluida=true + concepto='No_favorable_no_ejecutada' → gana sobre el veredicto automático", () => {
+    const seccion = {
+      incluida: true,
+      concepto: "No_favorable_no_ejecutada" as const,
+      prueba_codigo: "2.1",
+    };
+    const d = datos({
+      mediciones: [rs({ id: "m1", concepto: "Conforme" })],
+    });
+    expect(conceptoEfectivoSeccion(seccion, d)).toBe("No_favorable_no_ejecutada");
+  });
+
+  it("incluida=true sin override → delega en evaluarConceptoPrueba (comportamiento normal)", () => {
+    const seccion = { incluida: true, concepto: undefined, prueba_codigo: "2.1" };
+    const d = datos({
+      mediciones: [rs({ id: "m1", concepto: "No_conforme" })],
+    });
+    expect(conceptoEfectivoSeccion(seccion, d)).toBe("No_conforme");
+  });
+
+  it("incluida=true sin override y sin datos → undefined (pendiente)", () => {
+    const seccion = { incluida: true, concepto: undefined, prueba_codigo: "2.1" };
+    expect(conceptoEfectivoSeccion(seccion, undefined)).toBeUndefined();
   });
 });

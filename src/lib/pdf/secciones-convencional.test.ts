@@ -226,3 +226,91 @@ describe("2.9/2.10/2.15 — columnas D.I./TEI ocultas según reporta_di/reporta_
     expect(tabla291!.body[0]).toEqual(["70", "—", "100", "4,50"]);
   });
 });
+
+// ─── #113: conversión de unidad DAP/Kerma en 2.7/2.8/2.21 ───
+
+describe("2.7/2.8/2.21 — conversión de unidad según unidad_dap/unidad_kerma del setup (#113)", () => {
+  it("2.7: unidad_kerma=ugy → el kerma promedio y el rendimiento se normalizan a mGy", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeSetup = row({ id: "s1", visita_id: V, unidad_kerma: "ugy" });
+    // 5000 µGy == 5 mGy — equivalente a haber ingresado "5" directo en mGy.
+    conv.raysafeMediciones = [
+      row({
+        id: "m1",
+        visita_id: V,
+        tipo_medicion: "principal",
+        kv_nominal: 80,
+        grupo_numero: 2,
+        mas_nominal: 10,
+        toma_numero: 1,
+        dosis_medida_mgy: 5000,
+      }),
+    ];
+    renderResultadosSeccion(ctx, "2.7", visitaFixture, conv, undefined);
+    const tabla271 = tablas.find((t) => t.head.includes("Kerma en aire promedio (mGy)"));
+    expect(tabla271).toBeDefined();
+    // kermaProm = 5 mGy; rendimiento = (5/10)*1000 = 500 µGy/mAs
+    expect(tabla271!.body[0][1]).toBe("5,000");
+    expect(tabla271!.body[0][2]).toBe("500,0");
+  });
+
+  it("2.8: unidad_dap=ugy_cm2 y unidad_kerma=ugy → factor de corrección correcto tras normalizar ambos", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeSetup = row({
+      id: "s1",
+      visita_id: V,
+      unidad_dap: "ugy_cm2",
+      unidad_kerma: "ugy",
+    });
+    conv.raysafeMediciones = [
+      row({
+        id: "m1",
+        visita_id: V,
+        tipo_medicion: "kerma",
+        toma_numero: 1,
+        kv_nominal: 70,
+        mas_nominal: 10,
+        // 500 µGy == 0,5 mGy; distancias por defecto (d1=d2=100) → factorDist=1
+        dosis_medida_mgy: 500,
+        ancho_irradiacion_cm: 10,
+        largo_irradiacion_cm: 10,
+        // dapEst = 0,5 mGy * 100 cm² = 50 mGy·cm²; 50 000 µGy·cm² == 50 mGy·cm²
+        dap_nominal: 50000,
+      }),
+    ];
+    renderResultadosSeccion(ctx, "2.8", visitaFixture, conv, undefined);
+    const tabla281 = tablas.find((t) => t.head.includes("Factor de corrección"));
+    expect(tabla281).toBeDefined();
+    const [, , dapNom, dapEst, fc] = tabla281!.body[0];
+    expect(dapNom).toBe("50,00");
+    expect(dapEst).toBe("50,00");
+    expect(fc).toBe("1,0");
+  });
+
+  it("2.8: sin unidad configurada → mismo resultado que antes (comportamiento actual)", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = [
+      row({
+        id: "m1",
+        visita_id: V,
+        tipo_medicion: "kerma",
+        toma_numero: 1,
+        kv_nominal: 70,
+        mas_nominal: 10,
+        dosis_medida_mgy: 0.5,
+        ancho_irradiacion_cm: 10,
+        largo_irradiacion_cm: 10,
+        dap_nominal: 50,
+      }),
+    ];
+    renderResultadosSeccion(ctx, "2.8", visitaFixture, conv, undefined);
+    const tabla281 = tablas.find((t) => t.head.includes("Factor de corrección"));
+    const [, , dapNom, dapEst, fc] = tabla281!.body[0];
+    expect(dapNom).toBe("50,00");
+    expect(dapEst).toBe("50,00");
+    expect(fc).toBe("1,0");
+  });
+});

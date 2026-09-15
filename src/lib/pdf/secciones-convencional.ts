@@ -30,6 +30,12 @@ import {
 } from "@/lib/equipos/convencional/inspeccion-items";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import { detalle213 } from "@/lib/equipos/convencional/evaluacion";
+import {
+  convertirDap,
+  convertirKerma,
+  LABEL_UNIDAD_DAP,
+  LABEL_UNIDAD_KERMA,
+} from "@/lib/equipos/convencional/unidades-raysafe";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import {
   COLOR_GRAY,
@@ -1682,6 +1688,11 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
 
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
+  const unidadKerma = conv.raysafeSetup?.unidad_kerma;
+  // #113: normalizado a mGy — los cálculos y las etiquetas de esta función
+  // asumen mGy, sin importar en qué unidad reporta el instrumento RaySafe.
+  const kerma = (m: { dosis_medida_mgy?: number }) =>
+    convertirKerma(m.dosis_medida_mgy!, unidadKerma);
   const shots80 = conv.raysafeMediciones.filter(
     (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
   );
@@ -1727,7 +1738,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   if (gruposArr.length > 0) {
     const rowsLin = gruposArr.map(([, ms]) => {
       const mas = ms[0].mas_nominal!;
-      const kermaProm = mean(ms.map((m) => m.dosis_medida_mgy!));
+      const kermaProm = mean(ms.map(kerma));
       const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0;
       // Linealidad: comparación con el grupo anterior (fórmula |a-b|/(a+b)*100)
       const linPct =
@@ -1774,7 +1785,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
     .filter((m) => m.grupo_numero === 3)
     .sort((a, b) => a.toma_numero - b.toma_numero);
 
-  const kermasRep = repShots.map((m) => m.dosis_medida_mgy!);
+  const kermasRep = repShots.map(kerma);
   const promRep = kermasRep.length > 0 ? mean(kermasRep) : 0;
   const stdRep = kermasRep.length > 0 ? stdDev(kermasRep) : 0;
   const cvRep = promRep > 0 ? (stdRep / promRep) * 100 : 0;
@@ -1796,7 +1807,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   if (repShots.length > 0) {
     const rowsIndiv: string[][] = repShots.map((m, i) => [
       String(i + 1),
-      formatDecimal(m.dosis_medida_mgy!, 4),
+      formatDecimal(kerma(m), 4),
     ]);
 
     ctx.checkPage(40);
@@ -1828,7 +1839,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const allRends = gruposArr.map(([, ms]) => {
     const mas = ms[0].mas_nominal!;
-    return mas > 0 ? (mean(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000 : 0;
+    return mas > 0 ? (mean(ms.map(kerma)) / mas) * 1000 : 0;
   });
   const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
   const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;
@@ -1857,6 +1868,8 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render28(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
+  const unidadKerma = conv.raysafeSetup?.unidad_kerma;
+  const unidadDap = conv.raysafeSetup?.unidad_dap;
 
   const mediciones = conv.raysafeMediciones
     .filter((m) => m.tipo_medicion === "kerma" && m.dosis_medida_mgy != null)
@@ -1871,10 +1884,14 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
+  // #113: kerma y DAP nominal vienen de fuentes distintas (instrumento
+  // RaySafe vs. panel del equipo del cliente), cada uno con su propia
+  // unidad configurada. Ambos se normalizan a mGy/mGy·cm² antes de calcular
+  // el factor de corrección -- sin esto, `fc` puede salir hasta 1000x mal.
   const rows = mediciones.map((m) => {
     const kvNom = m.kv_nominal;
     const masNom = m.mas_nominal;
-    const kerma = m.dosis_medida_mgy!;
+    const kerma = convertirKerma(m.dosis_medida_mgy!, unidadKerma);
     const ancho = m.ancho_irradiacion_cm ?? 0;
     const largo = m.largo_irradiacion_cm ?? 0;
     const d1 = m.distancia_foco_sensor_cm ?? d1Setup;
@@ -1883,12 +1900,12 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
     const areaCorr = ancho * largo * factorDist;
     const kermaCorr = kerma * factorDist;
     const dapEst = kermaCorr * areaCorr;
-    const dapNom = m.dap_nominal;
+    const dapNom = m.dap_nominal != null ? convertirDap(m.dap_nominal, unidadDap) : null;
     const fc = dapNom != null && dapNom > 0 ? dapEst / dapNom : null;
     return {
       kv: kvNom != null ? formatDecimal(kvNom, 1) : "—",
       mas: masNom != null ? formatDecimal(masNom, 1) : "—",
-      dapNom: dapNom != null ? formatDecimal(dapNom, 0) : "—",
+      dapNom: dapNom != null ? formatDecimal(dapNom, 2) : "—",
       dapEst: dapEst > 0 ? formatDecimal(dapEst, 2) : "—",
       fc: fc != null ? formatDecimal(fc, 1) : "—",
     };
@@ -1896,6 +1913,7 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
   ctx.checkPage(40);
   addCaption(ctx, "Tabla 2.8.1. Determinación del factor de corrección del PKA");
+  const labelDap = LABEL_UNIDAD_DAP.mgy_cm2;
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
@@ -1903,8 +1921,8 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
       [
         "Tensión (kV)",
         "Carga (mAs)",
-        "DAP nominal (mGy·cm²)",
-        "DAP estimado (mGy·cm²)",
+        `DAP nominal (${labelDap})`,
+        `DAP estimado (${labelDap})`,
         "Factor de corrección",
       ],
     ],
@@ -3132,6 +3150,10 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
   const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
   const corrGeom = (d2 / d1) ** 2;
+  // #113: `dosis_base_mgy` se asume ya en mGy (así se guardó siempre, antes
+  // de que existiera esta conversión) — solo la medición actual se normaliza.
+  const unidadKerma = setup?.unidad_kerma;
+  const labelKerma = LABEL_UNIDAD_KERMA.mgy;
 
   const sinRejilla = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
 
@@ -3143,12 +3165,14 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   addParagraph(`Distancia foco-sensor d1: ${d1} cm. Distancia foco-detector d2: ${d2} cm.`);
 
   const filas221 = sinRejilla.map((m) => {
-    const dosisR = m.dosis_medida_mgy != null ? m.dosis_medida_mgy * corrGeom : null;
+    const dosisMedida =
+      m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
+    const dosisR = dosisMedida != null ? dosisMedida * corrGeom : null;
     return [
       m.programa_clinico ?? "—",
       fmt(m.kv_nominal, 0),
       fmt(m.mas_nominal),
-      m.dosis_medida_mgy != null ? formatDecimal(m.dosis_medida_mgy, 5) : "—",
+      dosisMedida != null ? formatDecimal(dosisMedida, 5) : "—",
       "1",
       dosisR != null ? formatDecimal(dosisR, 5) : "—",
     ];
@@ -3162,9 +3186,9 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
         "Programa",
         "Tensión (kVp)",
         "Carga (mAs)",
-        "Dosis medida (mGy)",
+        `Dosis medida (${labelKerma})`,
         "TPR",
-        "Dosis al receptor (mGy)",
+        `Dosis al receptor (${labelKerma})`,
       ],
     ],
     body: filas221.length > 0 ? filas221 : [["—", "—", "—", "—", "1", "—"]],
@@ -3185,7 +3209,9 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
     );
   } else {
     const filas221Analisis = sinRejilla.map((m) => {
-      const dosisR = m.dosis_medida_mgy != null ? m.dosis_medida_mgy * corrGeom : null;
+      const dosisMedida =
+        m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
+      const dosisR = dosisMedida != null ? dosisMedida * corrGeom : null;
       const diff =
         dosisR != null && m.dosis_base_mgy != null ? Math.abs(dosisR - m.dosis_base_mgy) : null;
       return [
@@ -3202,7 +3228,13 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
     autoTable(doc, {
       ...TABLE_STYLE,
       head: [
-        ["Programa", "Dosis receptor (mGy)", "Dosis base (mGy)", "Diferencia (mGy)", "Cumple"],
+        [
+          "Programa",
+          `Dosis receptor (${labelKerma})`,
+          `Dosis base (${labelKerma})`,
+          `Diferencia (${labelKerma})`,
+          "Cumple",
+        ],
       ],
       body: filas221Analisis,
       startY: ctx.y,

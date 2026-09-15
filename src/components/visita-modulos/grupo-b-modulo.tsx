@@ -714,6 +714,37 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               defaultValue={setup?.distancia_foco_sensor_cm ?? 100}
               onSave={(v) => updateSetup({ distancia_foco_sensor_cm: v ? parseDecimal(v) : 100 })}
             />
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Unidad DAP nominal (equipo)
+              </label>
+              <select
+                className="rounded-xl h-9 text-sm font-medium border border-slate-200 bg-white w-full px-2"
+                defaultValue={setup?.unidad_dap ?? "mgy_cm2"}
+                onChange={(e) => updateSetup({ unidad_dap: e.target.value })}
+              >
+                <option value="mgy_cm2">mGy·cm²</option>
+                <option value="ugy_cm2">µGy·cm²</option>
+                <option value="dgy_cm2">dGy·cm²</option>
+                <option value="gy_m2">Gy·m²</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Unidad Kerma/DAP medido (RaySafe)
+              </label>
+              <select
+                className="rounded-xl h-9 text-sm font-medium border border-slate-200 bg-white w-full px-2"
+                defaultValue={setup?.unidad_kerma ?? "mgy"}
+                onChange={(e) => updateSetup({ unidad_kerma: e.target.value })}
+              >
+                <option value="ugy">µGy</option>
+                <option value="mgy">mGy</option>
+                <option value="cgy">cGy</option>
+                <option value="dgy">dGy</option>
+                <option value="gy">Gy</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

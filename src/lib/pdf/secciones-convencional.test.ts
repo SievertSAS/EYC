@@ -7,6 +7,7 @@ import {
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
+import { evaluarConceptoPrueba, type DatosEvalConv } from "@/lib/equipos/convencional/evaluacion";
 
 // Las filas conv_* tienen muchos campos obligatorios que no importan acá;
 // `row()` afloja el tipado para armar fixtures mínimos.
@@ -366,5 +367,97 @@ describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 
     const d = await recopilarDatosConv(V);
     expect(d.fotos212).toEqual([]);
     expect(d.fotos213).toEqual([]);
+  });
+});
+
+describe("#121 — contrato cruzado: el % de CV del texto de 2.15 coincide con el concepto de evaluacion.ts", () => {
+  async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+    return { ctx, parrafos };
+  }
+
+  it("CV<=10% → concepto 'Conforme' y el texto muestra el mismo % (dentro del criterio)", async () => {
+    const eiValues = [98, 99, 100, 101, 102]; // CV ≈ 1.58 %, dentro de tolerancia
+    const filas = eiValues.map((ei, i) => row({ id: `u${i}`, visita_id: V, ei }));
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.uniformidadCr = filas;
+    renderResultadosSeccion(ctx, "2.15", visitaFixture, conv, undefined);
+
+    const texto = parrafos.join(" ");
+    const match = texto.match(/coeficiente de variación de ([\d,.]+) %/);
+    expect(match).not.toBeNull();
+    const cvTexto = parseFloat(match![1].replace(",", "."));
+
+    const datosEval: DatosEvalConv = {
+      mediciones: [],
+      inspeccion: [],
+      elementos: [],
+      raysafeMediciones: [],
+      ddiMediciones: [],
+      uniformidadDetector: [],
+      cassettes: [],
+      uniformidadCr: filas,
+      caeMediciones: [],
+    };
+    const concepto = evaluarConceptoPrueba("2.15", datosEval);
+
+    expect(concepto).toBe("Conforme");
+    expect(cvTexto).toBeLessThanOrEqual(10);
+    expect(texto).toContain("dentro del criterio de aceptación");
+  });
+
+  it("CV>10% → concepto 'No_conforme' y el texto muestra el mismo % (supera el criterio)", async () => {
+    const eiValues = [80, 100, 120, 90, 110]; // CV bien por encima de 10%
+    const filas = eiValues.map((ei, i) => row({ id: `u${i}`, visita_id: V, ei }));
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.uniformidadCr = filas;
+    renderResultadosSeccion(ctx, "2.15", visitaFixture, conv, undefined);
+
+    const texto = parrafos.join(" ");
+    const match = texto.match(/coeficiente de variación de ([\d,.]+) %/);
+    expect(match).not.toBeNull();
+    const cvTexto = parseFloat(match![1].replace(",", "."));
+
+    const datosEval: DatosEvalConv = {
+      mediciones: [],
+      inspeccion: [],
+      elementos: [],
+      raysafeMediciones: [],
+      ddiMediciones: [],
+      uniformidadDetector: [],
+      cassettes: [],
+      uniformidadCr: filas,
+      caeMediciones: [],
+    };
+    const concepto = evaluarConceptoPrueba("2.15", datosEval);
+
+    expect(concepto).toBe("No_conforme");
+    expect(cvTexto).toBeGreaterThan(10);
+    expect(texto).toContain("supera el criterio de aceptación");
   });
 });

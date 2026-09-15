@@ -36,6 +36,7 @@ import {
   LABEL_UNIDAD_DAP,
   LABEL_UNIDAD_KERMA,
 } from "@/lib/equipos/convencional/unidades-raysafe";
+import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import {
   COLOR_GRAY,
@@ -1386,15 +1387,10 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
 
 const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
 
-function mean(arr: number[]): number {
-  return arr.length === 0 ? 0 : arr.reduce((s, v) => s + v, 0) / arr.length;
-}
-
-function stdDev(arr: number[]): number {
-  if (arr.length <= 1) return 0;
-  const m = mean(arr);
-  return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
-}
+// Alias locales sobre la fuente única de verdad (#121) — evita reescribir
+// todos los usos ya existentes de `mean`/`stdDev` en este archivo.
+const mean = promedio;
+const stdDev = desviacion;
 
 // Desviación según TECDOC: |promedio - nominal| / nominal × 100
 function desvNominal(medidos: number[], nominal: number): number {
@@ -2060,12 +2056,10 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
   const diVals = grupo1.map((m) => m.di).filter((v): v is number => v != null);
 
   function ddiAvg(arr: number[]): number | null {
-    return arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    return arr.length > 0 ? promedio(arr) : null;
   }
   function ddiStd(arr: number[]): number | null {
-    if (arr.length < 2) return null;
-    const m = ddiAvg(arr)!;
-    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
+    return arr.length < 2 ? null : desviacion(arr);
   }
 
   const eiAvg = ddiAvg(eiVals);
@@ -2638,11 +2632,8 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
 
   // Calcular promedio y CV del EI
   const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
-  const promedioEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
-  const desvEi =
-    eiVals.length >= 2
-      ? Math.sqrt(eiVals.reduce((s, v) => s + (v - promedioEi!) ** 2, 0) / (eiVals.length - 1))
-      : null;
+  const promedioEi = eiVals.length > 0 ? promedio(eiVals) : null;
+  const desvEi = eiVals.length >= 2 ? desviacion(eiVals) : null;
   const cv = promedioEi && desvEi != null ? (desvEi / promedioEi) * 100 : null;
 
   addSubsectionTitle("2.15.5.", "Análisis");
@@ -2923,10 +2914,9 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
 
   function cv(arr: number[]): number | null {
     if (arr.length < 2) return null;
-    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-    if (!mean) return null;
-    const stdev = Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / (arr.length - 1));
-    return stdev / mean;
+    const m = promedio(arr);
+    if (!m) return null;
+    return desviacion(arr) / m;
   }
 
   function fmtPct(v: number | null) {

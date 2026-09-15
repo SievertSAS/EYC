@@ -42,6 +42,7 @@ import {
   sistemaEsDR,
   tolerancia211Default,
 } from "@/lib/equipos/convencional/evaluacion";
+import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import {
   recopilarDatosConv,
   renderResultadosSeccion,
@@ -1409,10 +1410,8 @@ export async function generarPreInforme(
         if (eiVals.length < 2) {
           conceptoLabel = "PENDIENTE";
         } else {
-          const prom = eiVals.reduce((a, b) => a + b, 0) / eiVals.length;
-          const desv = Math.sqrt(
-            eiVals.reduce((s, v) => s + (v - prom) ** 2, 0) / (eiVals.length - 1)
-          );
+          const prom = promedio(eiVals);
+          const desv = desviacion(eiVals);
           const cv = (desv / prom) * 100;
           const conforme = cv <= 10;
           esNoConforme = !conforme;

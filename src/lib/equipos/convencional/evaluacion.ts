@@ -18,6 +18,7 @@ import type {
 } from "@/lib/equipos/convencional/db/types";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import { convertirKerma } from "@/lib/equipos/convencional/unidades-raysafe";
+import { promedio, desviacion, cvPct } from "@/lib/equipos/convencional/estadistica";
 
 // ============================================================
 //  Evaluación automática de conformidad — informe convencional
@@ -78,22 +79,6 @@ export function tolerancia211Default(sistemaAdquisicion?: string): number {
   if (sistemaEsDR(sistemaAdquisicion)) return 5;
   if (sistemaEsCR(sistemaAdquisicion)) return 10;
   return 15;
-}
-
-// ─── Helpers estadísticos (n-1, mismos que usa el PDF) ───
-
-function promedio(arr: number[]): number {
-  return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
-}
-function desviacion(arr: number[]): number {
-  if (arr.length < 2) return 0;
-  const m = promedio(arr);
-  return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1));
-}
-/** Coeficiente de variación en % */
-function cvPct(arr: number[]): number {
-  const m = promedio(arr);
-  return m > 0 ? (desviacion(arr) / m) * 100 : 0;
 }
 
 // ─── Evaluadores por prueba ───

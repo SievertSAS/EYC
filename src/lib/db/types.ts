@@ -203,6 +203,14 @@ export interface Equipo extends Partial<SyncFields> {
   // Filtracion
   filtracion_inherente_mmal?: number;
   filtracion_anadida_mmal?: number;
+  /**
+   * Qué indicadores reporta el sistema de adquisición en la prueba 2.9/2.10
+   * (DDI/EI) — no todos los CR/DR reportan D.I. o TEI. `undefined` = sí
+   * reporta (comportamiento histórico, columna siempre visible). Solo se
+   * descubre en campo durante la visita, por eso es editable desde ahí.
+   */
+  reporta_di?: boolean;
+  reporta_tei?: boolean;
   creado_en?: string;
 }
 

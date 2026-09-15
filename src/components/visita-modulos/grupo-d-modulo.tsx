@@ -284,27 +284,29 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [ddiMediciones, cassettes, uniformidad, evidencias, equipoBase] = await Promise.all([
-      db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
-      db.conv_cassette_inspeccion
-        .where("visita_id")
-        .equals(visitaId)
-        .filter((r) => !r.deleted_at)
-        .sortBy("item_numero"),
-      db.conv_uniformidad_cr
-        .where("visita_id")
-        .equals(visitaId)
-        .filter((r) => !r.deleted_at)
-        .sortBy("item_numero"),
-      db.conv_evidencias
-        .where("visita_id")
-        .equals(visitaId)
-        .filter((r) => !r.deleted_at)
-        .toArray(),
-      obtenerValoresBaseEquipo(visita.equipo_id),
-    ]);
+    const [ddiMediciones, cassettes, uniformidad, evidencias, equipoBase, equipo] =
+      await Promise.all([
+        db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
+        db.conv_cassette_inspeccion
+          .where("visita_id")
+          .equals(visitaId)
+          .filter((r) => !r.deleted_at)
+          .sortBy("item_numero"),
+        db.conv_uniformidad_cr
+          .where("visita_id")
+          .equals(visitaId)
+          .filter((r) => !r.deleted_at)
+          .sortBy("item_numero"),
+        db.conv_evidencias
+          .where("visita_id")
+          .equals(visitaId)
+          .filter((r) => !r.deleted_at)
+          .toArray(),
+        obtenerValoresBaseEquipo(visita.equipo_id),
+        visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
+      ]);
 
-    return { visita, ddiMediciones, cassettes, uniformidad, evidencias, equipoBase };
+    return { visita, ddiMediciones, cassettes, uniformidad, evidencias, equipoBase, equipo };
   }, [isReady, visitaId]);
 
   // ─── Initialize default DDI rows (6 tomas: grupo 1 ×3, grupos 2-4 ×1) ───
@@ -378,6 +380,23 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     const base = mapearBase29AEquipo(fields);
     if (base) await upsertValoresBaseEquipo(data?.visita.equipo_id, base);
   }
+
+  // Solo se descubre en campo si el sistema reporta D.I./TEI (#111) —
+  // editable desde la visita, persistido a nivel de equipo.
+  const reportaDi = data?.equipo?.reporta_di ?? true;
+  const reportaTei = data?.equipo?.reporta_tei ?? true;
+  async function toggleReporta(campo: "reporta_di" | "reporta_tei", valor: boolean) {
+    const equipoId = data?.visita.equipo_id;
+    if (!equipoId) return;
+    await updateAndSync("equipos", equipoId, { [campo]: valor });
+  }
+
+  const camposDdi: ["carga_mas" | "ei" | "di" | "tei", string][] = [
+    ["carga_mas", "mAs"],
+    ["ei", "EI"],
+  ];
+  if (reportaDi) camposDdi.push(["di", "D.I."]);
+  if (reportaTei) camposDdi.push(["tei", "TEI"]);
 
   async function addCassette() {
     const next = (data?.cassettes?.length ?? 0) + 1;
@@ -602,18 +621,39 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
             adicionales.
           </StepHeader>
 
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+              <input
+                type="checkbox"
+                checked={reportaDi}
+                onChange={(e) => toggleReporta("reporta_di", e.target.checked)}
+              />
+              Reporta D.I.
+            </label>
+            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+              <input
+                type="checkbox"
+                checked={reportaTei}
+                onChange={(e) => toggleReporta("reporta_tei", e.target.checked)}
+              />
+              Reporta TEI
+            </label>
+          </div>
+
           <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
             <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
-                  {["Grp", "#", "Serie CR/DR", "kVp", "mAs", "EI", "D.I.", "TEI"].map((label) => (
-                    <th
-                      key={label}
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
-                    >
-                      {label}
-                    </th>
-                  ))}
+                  {["Grp", "#", "Serie CR/DR", "kVp", ...camposDdi.map(([, label]) => label)].map(
+                    (label) => (
+                      <th
+                        key={label}
+                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                      >
+                        {label}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -650,7 +690,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                         />
                       </td>
                       <td className="py-1.5 px-1.5 text-slate-600 font-mono">{m.kv_nominal}</td>
-                      {(["carga_mas", "ei", "di", "tei"] as const).map((field) => (
+                      {camposDdi.map(([field]) => (
                         <td key={field} className="py-1.5 px-1.5">
                           <Input
                             type="number"
@@ -687,7 +727,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           >
             Si es primera visita, estos campos quedan vacios y se establece la referencia.
           </StepHeader>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid gap-3 ${reportaDi ? "grid-cols-2" : "grid-cols-1"}`}>
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                 EI base
@@ -710,28 +750,32 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 placeholder="—"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                D.I. base
-                {savedDiBase && <Check className="w-3 h-3 text-emerald-500" />}
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                className="rounded-xl h-9 text-sm font-medium"
-                value={baseDi29}
-                onChange={(e) => setBaseDi29(e.target.value)}
-                onBlur={(e) => {
-                  const t1 = data?.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
-                  if (t1?.id) {
-                    updateDdi(t1.id, { di_base: parseDecimal(e.target.value) || null });
-                    setSavedDiBase(true);
-                    setTimeout(() => setSavedDiBase(false), 1500);
-                  }
-                }}
-                placeholder="—"
-              />
-            </div>
+            {reportaDi && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  D.I. base
+                  {savedDiBase && <Check className="w-3 h-3 text-emerald-500" />}
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  className="rounded-xl h-9 text-sm font-medium"
+                  value={baseDi29}
+                  onChange={(e) => setBaseDi29(e.target.value)}
+                  onBlur={(e) => {
+                    const t1 = data?.ddiMediciones.find(
+                      (m) => m.grupo === 1 && m.toma_numero === 1
+                    );
+                    if (t1?.id) {
+                      updateDdi(t1.id, { di_base: parseDecimal(e.target.value) || null });
+                      setSavedDiBase(true);
+                      setTimeout(() => setSavedDiBase(false), 1500);
+                    }
+                  }}
+                  placeholder="—"
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -754,18 +798,20 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 : null
             }
           />
-          <ResultRow
-            label="D.I."
-            valor={fmtPct(resultados.prueba29.varDi)}
-            limite="≤ 20%"
-            concepto={
-              resultados.prueba29.varDi !== null
-                ? resultados.prueba29.varDi <= 0.2
-                  ? "Conforme"
-                  : "No_conforme"
-                : null
-            }
-          />
+          {reportaDi && (
+            <ResultRow
+              label="D.I."
+              valor={fmtPct(resultados.prueba29.varDi)}
+              limite="≤ 20%"
+              concepto={
+                resultados.prueba29.varDi !== null
+                  ? resultados.prueba29.varDi <= 0.2
+                    ? "Conforme"
+                    : "No_conforme"
+                  : null
+              }
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -787,18 +833,20 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 : null
             }
           />
-          <ResultRow
-            label="D.I."
-            valor={fmtPct(resultados.prueba210.cvDi)}
-            limite="CV ≤ 20%"
-            concepto={
-              resultados.prueba210.cvDi !== null
-                ? resultados.prueba210.cvDi <= 0.2
-                  ? "Conforme"
-                  : "No_conforme"
-                : null
-            }
-          />
+          {reportaDi && (
+            <ResultRow
+              label="D.I."
+              valor={fmtPct(resultados.prueba210.cvDi)}
+              limite="CV ≤ 20%"
+              concepto={
+                resultados.prueba210.cvDi !== null
+                  ? resultados.prueba210.cvDi <= 0.2
+                    ? "Conforme"
+                    : "No_conforme"
+                  : null
+              }
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -920,14 +968,16 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
             <table className="w-full min-w-[500px] text-xs">
               <thead>
                 <tr className="border-b border-slate-200">
-                  {["#", "Serie cassette", "mAs", "EI", "D.I.", "TEI", ""].map((label) => (
-                    <th
-                      key={label}
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
-                    >
-                      {label}
-                    </th>
-                  ))}
+                  {["#", "Serie cassette", ...camposDdi.map(([, label]) => label), ""].map(
+                    (label) => (
+                      <th
+                        key={label}
+                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                      >
+                        {label}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -951,7 +1001,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                         }}
                       />
                     </td>
-                    {(["carga_mas", "ei", "di", "tei"] as const).map((field) => (
+                    {camposDdi.map(([field]) => (
                       <td key={field} className="py-1.5 px-1.5">
                         <Input
                           type="number"

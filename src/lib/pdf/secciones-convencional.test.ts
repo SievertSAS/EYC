@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import { resetTestDb } from "@/test/db-reset";
-import { recopilarDatosConv } from "./secciones-convencional";
+import {
+  recopilarDatosConv,
+  renderResultadosSeccion,
+  type DatosConvencional,
+  type InformeCtx,
+} from "./secciones-convencional";
 
 // Las filas conv_* tienen muchos campos obligatorios que no importan acá;
 // `row()` afloja el tipado para armar fixtures mínimos.
@@ -104,5 +109,95 @@ describe("recopilarDatosConv — filtra deleted_at en TODAS las lecturas conv_* 
     ]);
     const d = await recopilarDatosConv(V);
     expect(d.inspeccion.map((i) => i.id)).toEqual(["i1"]);
+  });
+});
+
+// ─── #111: reporta_di/reporta_tei ocultan columnas en 2.9/2.10/2.15 ───
+
+const visitaFixture = row({ id: V, estado_visita: "asignada" });
+
+interface TablaCapturada {
+  head: unknown[];
+  body: unknown[][];
+}
+
+/** Ctx real (jsPDF + autoTable) que además captura head/body de cada tabla dibujada. */
+async function ctxConTablasCapturadas(): Promise<{ ctx: InformeCtx; tablas: TablaCapturada[] }> {
+  const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const doc = new jsPDF();
+  const tablas: TablaCapturada[] = [];
+  const autoTable: typeof autoTableReal = (d, opts) => {
+    tablas.push({
+      head: (opts.head?.[0] as unknown[]) ?? [],
+      body: (opts.body as unknown[][]) ?? [],
+    });
+    return autoTableReal(d, opts);
+  };
+  let y = 20;
+  const ctx: InformeCtx = {
+    doc,
+    autoTable,
+    get y() {
+      return y;
+    },
+    set y(v: number) {
+      y = v;
+    },
+    checkPage: () => {},
+    addParagraph: () => {},
+    addSubsectionTitle: () => {},
+  };
+  return { ctx, tablas };
+}
+
+describe("2.9/2.10/2.15 — columnas D.I./TEI ocultas según reporta_di/reporta_tei del equipo (#111)", () => {
+  it("2.9: reporta_di=false → la tabla de análisis (Tabla 2.9.2) no incluye la fila D.I.", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.reporta_di = false;
+    conv.ddiMediciones = [
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 1, ei: 100, ei_base: 100 }),
+    ];
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const tabla292 = tablas.find((t) => t.head.includes("Parámetro"));
+    expect(tabla292).toBeDefined();
+    expect(tabla292!.body.map((f) => f[0])).toEqual(["EI"]);
+  });
+
+  it("2.9: sin flag (default true) → la tabla de análisis incluye EI y D.I.", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.ddiMediciones = [
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 1, ei: 100, ei_base: 100 }),
+    ];
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const tabla292 = tablas.find((t) => t.head.includes("Parámetro"));
+    expect(tabla292!.body.map((f) => f[0])).toEqual(["EI", "D.I."]);
+  });
+
+  it("2.15: reporta_di=false y reporta_tei=false → el header de la tabla no incluye esas columnas", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.reporta_di = false;
+    conv.reporta_tei = false;
+    conv.uniformidadCr = [row({ id: "u1", visita_id: V, ei: 100, serie_cassette: "S1" })];
+    renderResultadosSeccion(ctx, "2.15", visitaFixture, conv, undefined);
+    const tablaUniformidad = tablas.find((t) => t.head.includes("Serie cassette"));
+    expect(tablaUniformidad).toBeDefined();
+    expect(tablaUniformidad!.head).not.toContain("D.I.");
+    expect(tablaUniformidad!.head).not.toContain("TEI");
+  });
+
+  it("2.15: sin flags (default true) → el header incluye D.I. y TEI", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.uniformidadCr = [row({ id: "u1", visita_id: V, ei: 100, serie_cassette: "S1" })];
+    renderResultadosSeccion(ctx, "2.15", visitaFixture, conv, undefined);
+    const tablaUniformidad = tablas.find((t) => t.head.includes("Serie cassette"));
+    expect(tablaUniformidad!.head).toContain("D.I.");
+    expect(tablaUniformidad!.head).toContain("TEI");
   });
 });

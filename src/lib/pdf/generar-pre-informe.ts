@@ -393,6 +393,12 @@ export async function generarPreInforme(
   // #116: sistema_adquisicion vive en el equipo, no en ninguna tabla conv_*
   // -- se inyecta acá para que evaluarConceptoPrueba() lo vea en `conv`.
   if (conv) conv.sistema_adquisicion = datos.equipo?.sistema_adquisicion;
+  // #111: idem para reporta_di/reporta_tei -- controlan si el informe
+  // muestra las columnas D.I./TEI de la prueba 2.9/2.10 y 2.15.
+  if (conv) {
+    conv.reporta_di = datos.equipo?.reporta_di ?? true;
+    conv.reporta_tei = datos.equipo?.reporta_tei ?? true;
+  }
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let y = MARGIN;

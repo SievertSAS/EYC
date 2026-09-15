@@ -257,11 +257,11 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La imagen uniforme obtenida debe presentar una respuesta homogénea del detector y no evidenciar píxeles defectuosos ni artefactos que afecten la calidad de la imagen. La variación de uniformidad del detector, calculada a partir de los valores máximos y mínimos de señal registrados en las regiones de interés, no debe exceder el [TOLERANCIA_PCT] %.",
     comoSeEvalua: {
       datos:
-        "Por cada imagen de uniformidad: el valor medio de píxel (VMP) del ROI central y de los 4 ROIs periféricos, en las orientaciones ánodo-cátodo y cátodo-ánodo, más las marcas de píxeles defectuosos y de artefactos. Tolerancia por defecto 15 %.",
+        "Por cada imagen de uniformidad: el valor medio de píxel (VMP) del ROI central y de los 4 ROIs periféricos, en las orientaciones ánodo-cátodo y cátodo-ánodo, más las marcas de píxeles defectuosos y de artefactos. Tolerancia por defecto según sistema_adquisicion del equipo: 5 % (Digital/DR), 10 % (Digitalizado/CR), 15 % en cualquier otro caso (#116).",
       calculo:
         "Desviación de cada ROI periférico = |VMP periférico − VMP central| ÷ VMP central × 100. Se queda con la mayor.",
       criterio:
-        "Cada imagen es conforme si la mayor desviación ≤ la tolerancia (15 % salvo que se cambie) y no se marcaron píxeles defectuosos ni artefactos. Si una imagen falla, la prueba es No conforme. Sin VMP central → Pendiente.",
+        "Cada imagen es conforme si la mayor desviación ≤ la tolerancia (5 %/10 %/15 % según el sistema de adquisición, salvo que se cambie manualmente) y no se marcaron píxeles defectuosos ni artefactos. Si una imagen falla, la prueba es No conforme. Sin VMP central → Pendiente.",
     },
   },
   {

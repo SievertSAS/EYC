@@ -327,6 +327,16 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     const img = await cargarImagen(ev);
     if (img) fotos23.push({ label, ...img });
   }
+  // Montaje y patrón de la 2.3 se reutilizan en 2.12/2.13 (#117) — misma
+  // configuración física del detector, no se vuelve a fotografiar.
+  const evMontajeColimacion = evidencias.find(
+    (e) => e.prueba_codigo === "2.3" && e.slot === "montaje_colimacion"
+  );
+  const imgMontajeColimacion = await cargarImagen(evMontajeColimacion);
+  const evPatronColimacion = evidencias.find(
+    (e) => e.prueba_codigo === "2.3" && e.slot === "patron_colimacion"
+  );
+  const imgPatronColimacion = await cargarImagen(evPatronColimacion);
 
   // Fotografía de montaje RaySafe (secciones 2.4.7 y 2.5.7 — misma imagen)
   const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
@@ -355,25 +365,25 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
       ...img29,
     });
 
-  // Fotografía patrón bajo contraste para 2.13.7
-  const ev213 = evidencias.find(
-    (e) => e.prueba_codigo === "2.13" && e.slot === "montaje_bajo_contraste"
-  );
-  const img213 = await cargarImagen(ev213);
+  // Fotografía patrón bajo contraste para 2.13.7 — reutiliza patron_colimacion de 2.3 (#117)
   const fotos213: NonNullable<DatosConvencional["fotos213"]> = [];
-  if (img213) fotos213.push({ label: "Patrón de bajo contraste", ...img213 });
+  if (imgPatronColimacion)
+    fotos213.push({ label: "Patrón de bajo contraste", ...imgPatronColimacion });
 
-  // Fotografías patrón resolución para 2.12.7 (montaje + DICOM)
-  const SLOTS_FOTOS_212: [string, string][] = [
-    ["montaje_resolucion", "Foto montaje experimental"],
-    ["dicom_resolucion", "Radiografía del patrón de resolución espacial"],
-  ];
+  // Fotografías patrón resolución para 2.12.7 — el montaje reutiliza
+  // montaje_colimacion de 2.3 (#117), el DICOM sigue siendo propio de 2.12
   const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
-  for (const [slot, label] of SLOTS_FOTOS_212) {
-    const ev = evidencias.find((e) => e.prueba_codigo === "2.12" && e.slot === slot);
-    const img = await cargarImagen(ev);
-    if (img) fotos212.push({ label, ...img });
-  }
+  if (imgMontajeColimacion)
+    fotos212.push({ label: "Foto montaje experimental", ...imgMontajeColimacion });
+  const evDicomResolucion = evidencias.find(
+    (e) => e.prueba_codigo === "2.12" && e.slot === "dicom_resolucion"
+  );
+  const imgDicomResolucion = await cargarImagen(evDicomResolucion);
+  if (imgDicomResolucion)
+    fotos212.push({
+      label: "Radiografía del patrón de resolución espacial",
+      ...imgDicomResolucion,
+    });
 
   // Imagen DICOM MTF para 2.16.7
   const ev216 = evidencias.find((e) => e.prueba_codigo === "2.16" && e.slot === "dicom_mtf");

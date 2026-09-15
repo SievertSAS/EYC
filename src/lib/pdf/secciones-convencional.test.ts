@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { db } from "@/lib/db";
 import { resetTestDb } from "@/test/db-reset";
 import {
@@ -312,5 +312,59 @@ describe("2.7/2.8/2.21 — conversión de unidad según unidad_dap/unidad_kerma 
     expect(dapNom).toBe("50,00");
     expect(dapEst).toBe("50,00");
     expect(fc).toBe("1,0");
+  });
+});
+
+// ─── #117: montaje/patrón de 2.3 reutilizados en 2.12/2.13 ───
+
+describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 (#117)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue({ width: 10, height: 10, close: () => {} })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(["x"], { type: "image/jpeg" }),
+      })
+    );
+  });
+
+  it("montaje_colimacion de 2.3 aparece también en fotos212", async () => {
+    await db.conv_evidencias.add(
+      row({
+        id: "ev-montaje",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "montaje_colimacion",
+        url_storage: "https://example.com/montaje.jpg",
+        ...ok,
+      })
+    );
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos212?.some((f) => f.label === "Foto montaje experimental")).toBe(true);
+  });
+
+  it("patron_colimacion de 2.3 aparece también en fotos213", async () => {
+    await db.conv_evidencias.add(
+      row({
+        id: "ev-patron",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "patron_colimacion",
+        url_storage: "https://example.com/patron.jpg",
+        ...ok,
+      })
+    );
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos213?.some((f) => f.label === "Patrón de bajo contraste")).toBe(true);
+  });
+
+  it("sin foto en 2.3 → fotos212/fotos213 quedan vacías (no hay fallback a slots viejos)", async () => {
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos212).toEqual([]);
+    expect(d.fotos213).toEqual([]);
   });
 });

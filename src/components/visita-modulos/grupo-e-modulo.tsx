@@ -1177,6 +1177,21 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             onRemove={() => removeImage("2.16", "dicom_mtf")}
           />
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ImageSlot
+              label="Curva MTF Horizontal"
+              evidencia={getEvidencia("2.16", "curva_mtf_horizontal")}
+              onCapture={(f) => captureImage("2.16", "curva_mtf_horizontal", f)}
+              onRemove={() => removeImage("2.16", "curva_mtf_horizontal")}
+            />
+            <ImageSlot
+              label="Curva MTF Vertical"
+              evidencia={getEvidencia("2.16", "curva_mtf_vertical")}
+              onCapture={(f) => captureImage("2.16", "curva_mtf_vertical", f)}
+              onRemove={() => removeImage("2.16", "curva_mtf_vertical")}
+            />
+          </div>
+
           <CollapsibleSection title="Tecnica y parametros">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[

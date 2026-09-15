@@ -201,6 +201,11 @@ describe("2.9 — DDI/EI desviación vs base ≤ ±20%", () => {
       ev("2.9", datos({ ddiMediciones: [rs({ grupo: 1, toma_numero: 1, ei: 200, ei_base: 100 })] }))
     ).toBe("No_conforme");
   });
+  it("#111: sin D.I./TEI (equipo no los reporta) → evalúa solo con EI, sin romperse", () => {
+    expect(
+      ev("2.9", datos({ ddiMediciones: [rs({ grupo: 1, toma_numero: 1, ei: 110, ei_base: 100 })] }))
+    ).toBe("Conforme");
+  });
 });
 
 describe("2.10 — DDI/EI CV ≤ 20% (necesita ≥2)", () => {

@@ -1471,6 +1471,8 @@ export type Database = {
           id: string;
           last_modified: string;
           planilla_espacial: boolean;
+          reporta_di: boolean | null;
+          reporta_tei: boolean | null;
           sistema_adquisicion: string | null;
           sync_status: string;
           tipo_equipo: string | null;
@@ -1491,6 +1493,8 @@ export type Database = {
           id?: string;
           last_modified?: string;
           planilla_espacial?: boolean;
+          reporta_di?: boolean | null;
+          reporta_tei?: boolean | null;
           sistema_adquisicion?: string | null;
           sync_status?: string;
           tipo_equipo?: string | null;
@@ -1511,6 +1515,8 @@ export type Database = {
           id?: string;
           last_modified?: string;
           planilla_espacial?: boolean;
+          reporta_di?: boolean | null;
+          reporta_tei?: boolean | null;
           sistema_adquisicion?: string | null;
           sync_status?: string;
           tipo_equipo?: string | null;

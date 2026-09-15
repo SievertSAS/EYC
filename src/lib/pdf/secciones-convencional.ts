@@ -69,6 +69,9 @@ export interface InformeCtx {
 export interface DatosConvencional {
   /** `equipo.sistema_adquisicion` (#116) -- inyectado por el caller, no se carga acá. */
   sistema_adquisicion?: string;
+  /** `equipo.reporta_di`/`reporta_tei` (#111) -- inyectados por el caller. */
+  reporta_di?: boolean;
+  reporta_tei?: boolean;
   secciones: ConvInformeSeccion[];
   setup?: ConvLevantamientoSetup;
   mediciones: ConvMedicionRadiometrica[];
@@ -1658,18 +1661,19 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
   const mas = toma1?.carga_mas ?? null;
   const eiBase = toma1?.ei_base ?? null;
   const diBase = toma1?.di_base ?? null;
+  const reportaDi = conv.reporta_di ?? true;
   ctx.checkPage(30);
   addCaption(ctx, "Valores base de referencia");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["Tensión (kVp)", "Carga (mAs)", "EI", "D.I."]],
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI", ...(reportaDi ? ["D.I."] : [])]],
     body: [
       [
         kv != null ? formatDecimal(kv, 1) : "—",
         mas != null ? formatDecimal(mas, 1) : "—",
         eiBase != null ? String(eiBase) : "—",
-        diBase != null ? formatDecimal(diBase, 2) : "—",
+        ...(reportaDi ? [diBase != null ? formatDecimal(diBase, 2) : "—"] : []),
       ],
     ],
   });
@@ -1921,6 +1925,7 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
+  const reportaDi = conv.reporta_di ?? true;
 
   const grupo1 = conv.ddiMediciones
     .filter((m) => m.grupo === 1)
@@ -1963,9 +1968,13 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   // 2.9.5 Análisis — párrafo dinámico + Tabla 2.9.2
   ctx.addSubsectionTitle("2.9.5.", "Análisis");
   ctx.addParagraph(
-    conforme
-      ? "Los valores del indicador de exposición (EI) y de la desviación del indicador (D.I.) presentan variaciones dentro del rango de tolerancia establecido (± 20 %), evidenciando una adecuada consistencia en la respuesta del sistema de adquisición de imagen bajo condiciones de exposición reproducibles."
-      : "Se evidencian desviaciones en el indicador de exposición (EI) y/o en la desviación del indicador (D.I.) fuera del rango de tolerancia establecido, lo que indica inconsistencias en la respuesta del sistema."
+    reportaDi
+      ? conforme
+        ? "Los valores del indicador de exposición (EI) y de la desviación del indicador (D.I.) presentan variaciones dentro del rango de tolerancia establecido (± 20 %), evidenciando una adecuada consistencia en la respuesta del sistema de adquisición de imagen bajo condiciones de exposición reproducibles."
+        : "Se evidencian desviaciones en el indicador de exposición (EI) y/o en la desviación del indicador (D.I.) fuera del rango de tolerancia establecido, lo que indica inconsistencias en la respuesta del sistema."
+      : conforme
+        ? "El valor del indicador de exposición (EI) presenta variación dentro del rango de tolerancia establecido (± 20 %), evidenciando una adecuada consistencia en la respuesta del sistema de adquisición de imagen bajo condiciones de exposición reproducibles."
+        : "Se evidencia una desviación en el indicador de exposición (EI) fuera del rango de tolerancia establecido, lo que indica inconsistencias en la respuesta del sistema."
   );
 
   addCaption(ctx, "Tabla 2.9.2. Análisis de los indicadores de exposición");
@@ -1981,13 +1990,17 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
         eiDev != null ? `${formatDecimal(eiDev, 1)}%` : "—",
         eiConf,
       ],
-      [
-        "D.I.",
-        di != null ? formatDecimal(di, 2) : "—",
-        diBase != null ? formatDecimal(diBase, 2) : "—",
-        diDev != null ? `${formatDecimal(diDev, 1)}%` : "—",
-        diConf,
-      ],
+      ...(reportaDi
+        ? [
+            [
+              "D.I.",
+              di != null ? formatDecimal(di, 2) : "—",
+              diBase != null ? formatDecimal(diBase, 2) : "—",
+              diDev != null ? `${formatDecimal(diDev, 1)}%` : "—",
+              diConf,
+            ],
+          ]
+        : []),
     ],
     didParseCell: colorearConcepto(4),
   });
@@ -1998,6 +2011,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render210(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
+  const reportaDi = conv.reporta_di ?? true;
 
   const grupo1 = conv.ddiMediciones
     .filter((m) => m.grupo === 1)
@@ -2044,13 +2058,17 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
         eiCv != null ? formatDecimal(eiCv, 1) : "—",
         eiConf,
       ],
-      [
-        "D.I.",
-        diAvg != null ? formatDecimal(diAvg, 2) : "—",
-        diStd != null ? formatDecimal(diStd, 2) : "—",
-        diCv != null ? formatDecimal(diCv, 1) : "—",
-        diConf,
-      ],
+      ...(reportaDi
+        ? [
+            [
+              "D.I.",
+              diAvg != null ? formatDecimal(diAvg, 2) : "—",
+              diStd != null ? formatDecimal(diStd, 2) : "—",
+              diCv != null ? formatDecimal(diCv, 1) : "—",
+              diConf,
+            ],
+          ]
+        : []),
     ],
     didParseCell: colorearConcepto(4),
   });
@@ -2546,6 +2564,8 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
 function render215(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable, addSubsectionTitle, addParagraph, checkPage } = ctx;
   const filas = conv.uniformidadCr ?? [];
+  const reportaDi = conv.reporta_di ?? true;
+  const reportaTei = conv.reporta_tei ?? true;
 
   addSubsectionTitle("2.15.4.", "Resultados");
 
@@ -2559,14 +2579,23 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
   checkPage(20);
   autoTable(doc, {
     ...TABLE_STYLE,
-    head: [["N°", "Serie cassette", "mAs", "EI", "D.I.", "TEI"]],
+    head: [
+      [
+        "N°",
+        "Serie cassette",
+        "mAs",
+        "EI",
+        ...(reportaDi ? ["D.I."] : []),
+        ...(reportaTei ? ["TEI"] : []),
+      ],
+    ],
     body: filas.map((u, i) => [
       i + 1,
       u.serie_cassette ?? "—",
       u.carga_mas != null ? formatDecimal(u.carga_mas, 1) : "—",
       u.ei != null ? formatDecimal(u.ei, 1) : "—",
-      u.di != null ? formatDecimal(u.di, 2) : "—",
-      u.tei != null ? formatDecimal(u.tei, 1) : "—",
+      ...(reportaDi ? [u.di != null ? formatDecimal(u.di, 2) : "—"] : []),
+      ...(reportaTei ? [u.tei != null ? formatDecimal(u.tei, 1) : "—"] : []),
     ]),
     startY: ctx.y,
   });

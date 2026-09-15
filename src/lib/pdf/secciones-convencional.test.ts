@@ -461,3 +461,59 @@ describe("#121 — contrato cruzado: el % de CV del texto de 2.15 coincide con e
     expect(texto).toContain("supera el criterio de aceptación");
   });
 });
+
+describe("recopilarDatosConv — fotos216 (curvas MTF + objeto borde) (#118)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue({ width: 10, height: 10, close: () => {} })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(["x"], { type: "image/jpeg" }),
+      })
+    );
+  });
+
+  it("arma fotos216 en orden: MTF Horizontal, Objeto borde, MTF vertical", async () => {
+    await db.conv_evidencias.bulkAdd([
+      row({
+        id: "ev-curva-v",
+        visita_id: V,
+        prueba_codigo: "2.16",
+        slot: "curva_mtf_vertical",
+        url_storage: "https://example.com/curva-v.jpg",
+        ...ok,
+      }),
+      row({
+        id: "ev-dicom",
+        visita_id: V,
+        prueba_codigo: "2.16",
+        slot: "dicom_mtf",
+        url_storage: "https://example.com/dicom.jpg",
+        ...ok,
+      }),
+      row({
+        id: "ev-curva-h",
+        visita_id: V,
+        prueba_codigo: "2.16",
+        slot: "curva_mtf_horizontal",
+        url_storage: "https://example.com/curva-h.jpg",
+        ...ok,
+      }),
+    ]);
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos216?.map((f) => f.label)).toEqual([
+      "MTF Horizontal",
+      "Objeto borde",
+      "MTF vertical",
+    ]);
+  });
+
+  it("sin ninguna evidencia → fotos216 queda vacío", async () => {
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos216).toEqual([]);
+  });
+});

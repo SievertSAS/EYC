@@ -67,6 +67,8 @@ export interface InformeCtx {
 // ─── Datos convencionales ───
 
 export interface DatosConvencional {
+  /** `equipo.sistema_adquisicion` (#116) -- inyectado por el caller, no se carga acá. */
+  sistema_adquisicion?: string;
   secciones: ConvInformeSeccion[];
   setup?: ConvLevantamientoSetup;
   mediciones: ConvMedicionRadiometrica[];

@@ -32,7 +32,7 @@ import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones
 //  (ver tieneCriterio()).
 // ============================================================
 
-export type Concepto = "Conforme" | "No_conforme";
+export type Concepto = "Conforme" | "No_conforme" | "No_aplica";
 
 /** CHR mínima (mm Al) por kV — tabla de referencia TECDOC (fuente única). */
 export const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
@@ -54,6 +54,29 @@ export interface DatosEvalConv {
   mtf?: ConvMtf;
   caeSetup?: ConvCaeSetup;
   caeMediciones: ConvCaeMedicion[];
+  /** `equipo.sistema_adquisicion` (#116) — determina tolerancia 2.11 y aplicabilidad 2.14/2.15. */
+  sistema_adquisicion?: string;
+}
+
+/**
+ * #116 — `sistema_adquisicion` solo dispara la regla DR/CR para estos dos
+ * valores exactos (los únicos inequívocos: "Digital" = flat panel, sin
+ * placas; "Digitalizado" = CR, con placas IP). Cualquier otro valor
+ * (análogos, "No Aplica", vacío) mantiene el comportamiento previo sin
+ * ninguna regla nueva.
+ */
+export function sistemaEsDR(sistemaAdquisicion?: string): boolean {
+  return sistemaAdquisicion === "Digital";
+}
+export function sistemaEsCR(sistemaAdquisicion?: string): boolean {
+  return sistemaAdquisicion === "Digitalizado";
+}
+
+/** Tolerancia por defecto de la 2.11 según el tipo de sistema (regla del cliente: 5% DR / 10% CR). */
+export function tolerancia211Default(sistemaAdquisicion?: string): number {
+  if (sistemaEsDR(sistemaAdquisicion)) return 5;
+  if (sistemaEsCR(sistemaAdquisicion)) return 10;
+  return 15;
 }
 
 // ─── Helpers estadísticos (n-1, mismos que usa el PDF) ───
@@ -242,7 +265,7 @@ function evaluar211(d: DatosEvalConv): Concepto | undefined {
   const dets = d.uniformidadDetector ?? [];
   if (dets.length === 0) return undefined;
   const allConforme = dets.every((det) => {
-    const tolPct = det.tolerancia_pct ?? 15;
+    const tolPct = det.tolerancia_pct ?? tolerancia211Default(d.sistema_adquisicion);
     let maxG = 0;
     for (const orient of ["ac", "ca"] as const) {
       const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;
@@ -319,16 +342,18 @@ function evaluar213(d: DatosEvalConv): Concepto | undefined {
   return det.conforme ? "Conforme" : "No_conforme";
 }
 
-/** 2.14 — Inspección de cassettes/pantallas IP (rollup). */
+/** 2.14 — Inspección de cassettes/pantallas IP (rollup). No aplica a sistemas DR (#116). */
 function evaluar214(d: DatosEvalConv): Concepto | undefined {
+  if (sistemaEsDR(d.sistema_adquisicion)) return "No_aplica";
   const cassettes = d.cassettes ?? [];
   const conConcepto = cassettes.filter((c) => c.concepto);
   if (conConcepto.length === 0) return undefined;
   return conConcepto.some((c) => c.concepto === "No_conforme") ? "No_conforme" : "Conforme";
 }
 
-/** 2.15 — Uniformidad de sensibilidad IP CR: CV(EI) ≤ 10%. */
+/** 2.15 — Uniformidad de sensibilidad IP CR: CV(EI) ≤ 10%. No aplica a sistemas DR (#116). */
 function evaluar215(d: DatosEvalConv): Concepto | undefined {
+  if (sistemaEsDR(d.sistema_adquisicion)) return "No_aplica";
   const eiVals = (d.uniformidadCr ?? []).map((u) => u.ei ?? 0).filter((v) => v > 0);
   if (eiVals.length < 2) return undefined;
   return cvPct(eiVals) <= 10 ? "Conforme" : "No_conforme";
@@ -522,6 +547,7 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     mtf,
     caeSetup,
     caeMediciones,
+    visita,
   ] = await Promise.all([
     db.conv_mediciones.where("visita_id").equals(visitaId).filter(vivo).toArray(),
     db.conv_inspeccion_items.where("visita_id").equals(visitaId).filter(vivo).toArray(),
@@ -538,7 +564,9 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     db.conv_mtf.where("visita_id").equals(visitaId).filter(vivo).first(),
     db.conv_cae_setup.where("visita_id").equals(visitaId).filter(vivo).first(),
     db.conv_cae_mediciones.where("visita_id").equals(visitaId).filter(vivo).toArray(),
+    db.visitas.get(visitaId),
   ]);
+  const equipo = visita?.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
 
   return {
     mediciones,
@@ -550,6 +578,7 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     ddiMediciones,
     uniformidadDetector,
     resolucion,
+    sistema_adquisicion: equipo?.sistema_adquisicion,
     bajoContraste,
     cassettes,
     uniformidadCr,

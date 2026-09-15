@@ -256,6 +256,110 @@ describe("2.15 — uniformidad IP CR: CV(EI) ≤ 10% (necesita ≥2)", () => {
   });
 });
 
+// ─── #116: sistema_adquisicion (DR/CR) → tolerancia 2.11 y aplicabilidad 2.14/2.15 ───
+
+describe("#116 — sistema_adquisicion determina tolerancia 2.11 y aplicabilidad 2.14/2.15", () => {
+  const detector11 = (over: Record<string, unknown> = {}) =>
+    rs({ roi_0_vmp_ac: 100, roi_1_vmp_ac: 106, ...over });
+
+  it("Digital (DR): tolerancia 2.11 = 5% -- 6% de desviación es No_conforme", () => {
+    expect(
+      ev(
+        "2.11",
+        datos({
+          uniformidadDetector: [detector11()],
+          sistema_adquisicion: "Digital",
+        })
+      )
+    ).toBe("No_conforme");
+  });
+
+  it("Digitalizado (CR): tolerancia 2.11 = 10% -- 6% de desviación es Conforme", () => {
+    expect(
+      ev(
+        "2.11",
+        datos({
+          uniformidadDetector: [detector11()],
+          sistema_adquisicion: "Digitalizado",
+        })
+      )
+    ).toBe("Conforme");
+  });
+
+  it("sistema_adquisicion no reconocido u undefined: mantiene el default de 15%", () => {
+    expect(
+      ev(
+        "2.11",
+        datos({
+          uniformidadDetector: [detector11()],
+          sistema_adquisicion: "Análogo: Revelado manual",
+        })
+      )
+    ).toBe("Conforme");
+    expect(ev("2.11", datos({ uniformidadDetector: [detector11()] }))).toBe("Conforme");
+  });
+
+  it("tolerancia_pct manual siempre gana sobre el default por sistema", () => {
+    expect(
+      ev(
+        "2.11",
+        datos({
+          uniformidadDetector: [detector11({ tolerancia_pct: 3 })],
+          sistema_adquisicion: "Digitalizado",
+        })
+      )
+    ).toBe("No_conforme");
+  });
+
+  it("2.14 con sistema Digital (DR) → No_aplica, aunque haya datos de cassettes", () => {
+    expect(
+      ev(
+        "2.14",
+        datos({
+          cassettes: [rs({ concepto: "No_conforme" })],
+          sistema_adquisicion: "Digital",
+        })
+      )
+    ).toBe("No_aplica");
+  });
+
+  it("2.14 con sistema Digitalizado (CR) → evalúa normalmente", () => {
+    expect(
+      ev(
+        "2.14",
+        datos({
+          cassettes: [rs({ concepto: "Conforme" })],
+          sistema_adquisicion: "Digitalizado",
+        })
+      )
+    ).toBe("Conforme");
+  });
+
+  it("2.15 con sistema Digital (DR) → No_aplica, aunque haya datos de uniformidad", () => {
+    expect(
+      ev(
+        "2.15",
+        datos({
+          uniformidadCr: [rs({ ei: 100 }), rs({ ei: 100 })],
+          sistema_adquisicion: "Digital",
+        })
+      )
+    ).toBe("No_aplica");
+  });
+
+  it("2.15 con sistema_adquisicion no reconocido → evalúa normalmente (comportamiento actual)", () => {
+    expect(
+      ev(
+        "2.15",
+        datos({
+          uniformidadCr: [rs({ ei: 100 }), rs({ ei: 100 })],
+          sistema_adquisicion: "No Aplica",
+        })
+      )
+    ).toBe("Conforme");
+  });
+});
+
 // ─── #13: 2.16-2.21 con setup/base pero SIN mediciones → undefined (fix) ───
 
 describe("#13 — base/setup presente pero mediciones incompletas → undefined (no 'Conforme')", () => {

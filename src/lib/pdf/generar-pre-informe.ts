@@ -36,7 +36,12 @@ import {
   dato,
 } from "./estilo-informe";
 import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
-import { evaluarConceptoPrueba, tieneCriterio } from "@/lib/equipos/convencional/evaluacion";
+import {
+  evaluarConceptoPrueba,
+  tieneCriterio,
+  sistemaEsDR,
+  tolerancia211Default,
+} from "@/lib/equipos/convencional/evaluacion";
 import {
   recopilarDatosConv,
   renderResultadosSeccion,
@@ -385,6 +390,9 @@ export async function generarPreInforme(
   // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
   const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
   const conv = esConv ? await recopilarDatosConv(visitaId) : null;
+  // #116: sistema_adquisicion vive en el equipo, no en ninguna tabla conv_*
+  // -- se inyecta acá para que evaluarConceptoPrueba() lo vea en `conv`.
+  if (conv) conv.sistema_adquisicion = datos.equipo?.sistema_adquisicion;
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let y = MARGIN;
@@ -1060,7 +1068,10 @@ export async function generarPreInforme(
         codigo === "2.11"
           ? cat.criterio.replace(
               "[TOLERANCIA_PCT]",
-              String(conv.uniformidadDetector[0]?.tolerancia_pct ?? 15)
+              String(
+                conv.uniformidadDetector[0]?.tolerancia_pct ??
+                  tolerancia211Default(datos.equipo?.sistema_adquisicion)
+              )
             )
           : cat.criterio;
       addParagraph(criterioTexto);
@@ -1367,6 +1378,12 @@ export async function generarPreInforme(
           accionesTexto =
             "Se recomienda verificar las condiciones del detector y del sistema de procesamiento de imagen, y repetir la prueba para confirmar los resultados obtenidos.";
         }
+      } else if (codigo === "2.15" && aplica && sistemaEsDR(datos.equipo?.sistema_adquisicion)) {
+        conceptoLabel = "NO APLICA";
+        conceptoParrafo =
+          "Esta prueba solo aplica a sistemas CR (con pantallas de fósforo fotoestimulable). El equipo evaluado es un sistema DR (flat panel).";
+        accionesTexto = "No Aplica";
+        esNoConforme = false;
       } else if (codigo === "2.15" && aplica) {
         const filas = conv.uniformidadCr ?? [];
         const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
@@ -1392,6 +1409,12 @@ export async function generarPreInforme(
               "Se recomienda verificar el estado y la limpieza de las pantallas IP, y repetir la prueba para confirmar el cumplimiento del criterio de uniformidad.";
           }
         }
+      } else if (codigo === "2.14" && aplica && sistemaEsDR(datos.equipo?.sistema_adquisicion)) {
+        conceptoLabel = "NO APLICA";
+        conceptoParrafo =
+          "Esta prueba solo aplica a sistemas CR (cassettes y pantallas de fósforo fotoestimulable). El equipo evaluado es un sistema DR (flat panel).";
+        accionesTexto = "No Aplica";
+        esNoConforme = false;
       } else if (codigo === "2.14" && aplica) {
         if (esPendiente) {
           conceptoLabel = "PENDIENTE";

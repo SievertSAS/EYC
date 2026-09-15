@@ -1114,11 +1114,17 @@ export async function generarPreInforme(
       checkPage(15);
       addSubsectionTitle(`${codigo}.${nextSub}.`, "Concepto");
       nextSub++;
-      const veredicto = aplica ? evaluarConceptoPrueba(codigo, conv) : undefined;
-      const esPendiente = aplica && tieneCriterio(codigo) && veredicto === undefined;
-      const esAuto21 = codigo === "2.1" && aplica;
-      const esAuto22 = codigo === "2.2" && aplica;
-      const esAuto23 = codigo === "2.3" && aplica;
+      // #120: override manual -- "aplica pero no se pudo ejecutar por falla
+      // de un componente". Gana sobre el veredicto automático, igual que el
+      // switch "incluida" gana sobre el cálculo (ver también conceptoDe en
+      // pre-informe-modulo.tsx, misma precedencia).
+      const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
+      const veredicto = aplica && !noEjecutada ? evaluarConceptoPrueba(codigo, conv) : undefined;
+      const esPendiente =
+        aplica && !noEjecutada && tieneCriterio(codigo) && veredicto === undefined;
+      const esAuto21 = codigo === "2.1" && aplica && !noEjecutada;
+      const esAuto22 = codigo === "2.2" && aplica && !noEjecutada;
+      const esAuto23 = codigo === "2.3" && aplica && !noEjecutada;
 
       let conceptoLabel: string;
       let conceptoParrafo: string | undefined;
@@ -1127,7 +1133,14 @@ export async function generarPreInforme(
         ? seccion.acciones_correctivas
         : "No se requieren acciones correctivas.";
 
-      if (esAuto23) {
+      if (noEjecutada) {
+        conceptoLabel = "NO EJECUTADA";
+        conceptoParrafo =
+          "La prueba aplica al equipo evaluado, pero no pudo ejecutarse durante la visita debido a la falla de un componente. Se documenta como pendiente de repetición una vez subsanada la falla.";
+        accionesTexto = seccion.acciones_correctivas?.trim()
+          ? seccion.acciones_correctivas
+          : "Corregir la falla del componente que impidió la ejecución de la prueba y reprogramar su realización en una visita posterior.";
+      } else if (esAuto23) {
         if (esPendiente) {
           conceptoLabel = "PENDIENTE";
         } else if (!esNoConforme) {
@@ -1526,7 +1539,10 @@ export async function generarPreInforme(
 
       resumenRows.push([`${codigo} ${cat.nombre}`, conceptoLabel]);
       if (esNoConforme) conceptoGeneralOk = false;
-      if (esPendiente) hayPendiente = true;
+      // "No ejecutada" no es un fallo de conformidad, pero el desempeño del
+      // equipo tampoco puede darse por FAVORABLE mientras esa prueba siga sin
+      // realizarse -- cuenta como pendiente para el concepto general (#120).
+      if (esPendiente || noEjecutada) hayPendiente = true;
     }
   }
 

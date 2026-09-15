@@ -33,7 +33,7 @@ import { convertirKerma } from "@/lib/equipos/convencional/unidades-raysafe";
 //  (ver tieneCriterio()).
 // ============================================================
 
-export type Concepto = "Conforme" | "No_conforme" | "No_aplica";
+export type Concepto = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
 
 /** CHR mínima (mm Al) por kV — tabla de referencia TECDOC (fuente única). */
 export const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
@@ -530,6 +530,27 @@ export function tieneCriterio(codigo: string): boolean {
  */
 export function evaluarConceptoPrueba(codigo: string, d: DatosEvalConv): Concepto | undefined {
   return EVALUADORES[codigo]?.(d);
+}
+
+/**
+ * Concepto EFECTIVO de una sección del pre-informe: aplica la precedencia de
+ * overrides manuales sobre el cálculo automático (#120).
+ *   1. `!incluida` → "No_aplica" (switch "no aplica").
+ *   2. `concepto === "No_favorable_no_ejecutada"` → ese valor (aplica pero no
+ *      se pudo ejecutar por falla de un componente).
+ *   3. Si no hay override, el veredicto automático de `evaluarConceptoPrueba`
+ *      (undefined = pendiente, sin datos suficientes).
+ * Usada tanto por el editor de pre-informe como por el generador de PDF para
+ * que nunca diverjan.
+ */
+export function conceptoEfectivoSeccion(
+  seccion: { incluida: boolean; concepto?: Concepto; prueba_codigo: string },
+  datos: DatosEvalConv | undefined
+): Concepto | undefined {
+  if (!seccion.incluida) return "No_aplica";
+  if (seccion.concepto === "No_favorable_no_ejecutada") return "No_favorable_no_ejecutada";
+  if (!datos) return undefined;
+  return evaluarConceptoPrueba(seccion.prueba_codigo, datos);
 }
 
 /** Carga todas las tablas conv_* necesarias para evaluar (sin fotos). */

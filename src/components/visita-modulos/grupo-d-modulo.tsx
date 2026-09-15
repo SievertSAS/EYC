@@ -398,7 +398,14 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   if (reportaDi) camposDdi.push(["di", "D.I."]);
   if (reportaTei) camposDdi.push(["tei", "TEI"]);
 
+  // Locks contra doble-disparo (doble click/tap): `data` puede no reflejar
+  // el insert anterior todavía, y dos llamadas casi simultáneas calcularían
+  // el mismo `item_numero` -- eso viola el UNIQUE remoto (visita_id,
+  // item_numero) y el push queda atascado en "failed" (#119).
+  const addCassetteLock = useRef(false);
   async function addCassette() {
+    if (addCassetteLock.current) return;
+    addCassetteLock.current = true;
     const next = (data?.cassettes?.length ?? 0) + 1;
     const newId = await db.conv_cassette_inspeccion.add({
       id: randomUUID(),
@@ -409,6 +416,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       last_modified: new Date().toISOString(),
     });
     pushSingle("conv_cassette_inspeccion", newId as string);
+    addCassetteLock.current = false;
   }
 
   async function updateCassette(id: string, fields: Record<string, unknown>) {
@@ -419,7 +427,10 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     await deleteAndSync("conv_cassette_inspeccion", id);
   }
 
+  const addUniformidadLock = useRef(false);
   async function addUniformidad() {
+    if (addUniformidadLock.current) return;
+    addUniformidadLock.current = true;
     const next = (data?.uniformidad?.length ?? 0) + 1;
     const newId = await db.conv_uniformidad_cr.add({
       id: randomUUID(),
@@ -430,6 +441,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       last_modified: new Date().toISOString(),
     });
     pushSingle("conv_uniformidad_cr", newId as string);
+    addUniformidadLock.current = false;
   }
 
   async function updateUniformidad(id: string, fields: Record<string, unknown>) {

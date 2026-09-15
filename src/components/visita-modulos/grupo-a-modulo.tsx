@@ -551,7 +551,14 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
     }, 600);
   }
 
+  // Lock contra doble-disparo (doble click/tap): `data.mediciones` puede no
+  // reflejar el insert anterior todavía, y dos llamadas casi simultáneas
+  // calcularían el mismo `punto_numero` -- eso viola el UNIQUE remoto
+  // (visita_id, punto_numero) y el push queda atascado en "failed" (#119).
+  const addMedicionLock = useRef(false);
   async function addMedicion() {
+    if (addMedicionLock.current) return;
+    addMedicionLock.current = true;
     const next = (data?.mediciones?.length ?? 0) + 1;
     const newId = await db.conv_mediciones.add({
       id: randomUUID(),
@@ -565,6 +572,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
       last_modified: new Date().toISOString(),
     });
     pushSingle("conv_mediciones", newId as string);
+    addMedicionLock.current = false;
   }
 
   async function updateMedicion(id: string, fields: Record<string, unknown>) {

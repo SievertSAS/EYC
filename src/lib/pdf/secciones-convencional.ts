@@ -386,11 +386,26 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
       ...imgDicomResolucion,
     });
 
-  // Imagen DICOM MTF para 2.16.7
-  const ev216 = evidencias.find((e) => e.prueba_codigo === "2.16" && e.slot === "dicom_mtf");
-  const img216 = await cargarImagen(ev216);
+  // Evidencia gráfica MTF para 2.16.7: curva horizontal, objeto borde
+  // (imagen DICOM ya capturada), curva vertical -- en ese orden.
+  const evCurvaH = evidencias.find(
+    (e) => e.prueba_codigo === "2.16" && e.slot === "curva_mtf_horizontal"
+  );
+  const evObjetoBorde = evidencias.find(
+    (e) => e.prueba_codigo === "2.16" && e.slot === "dicom_mtf"
+  );
+  const evCurvaV = evidencias.find(
+    (e) => e.prueba_codigo === "2.16" && e.slot === "curva_mtf_vertical"
+  );
+  const [imgCurvaH, imgObjetoBorde, imgCurvaV] = await Promise.all([
+    cargarImagen(evCurvaH),
+    cargarImagen(evObjetoBorde),
+    cargarImagen(evCurvaV),
+  ]);
   const fotos216: NonNullable<DatosConvencional["fotos216"]> = [];
-  if (img216) fotos216.push({ label: "Imagen DICOM para análisis MTF", ...img216 });
+  if (imgCurvaH) fotos216.push({ label: "MTF Horizontal", ...imgCurvaH });
+  if (imgObjetoBorde) fotos216.push({ label: "Objeto borde", ...imgObjetoBorde });
+  if (imgCurvaV) fotos216.push({ label: "MTF vertical", ...imgCurvaV });
 
   // Foto montaje CAE para 2.17.7
   const ev217 = evidencias.find((e) => e.prueba_codigo === "2.17" && e.slot === "montaje_cae");

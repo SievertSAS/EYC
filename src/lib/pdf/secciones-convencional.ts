@@ -1949,8 +1949,15 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["Tensión (kVp)", "Carga (mAs)", "EI"]],
-    body: [[kv ? String(kv) : "—", mas ? String(mas) : "—", ei != null ? String(ei) : "—"]],
+    head: [["Tensión (kVp)", "Carga (mAs)", "EI", ...(reportaDi ? ["D.I."] : [])]],
+    body: [
+      [
+        kv ? String(kv) : "—",
+        mas ? String(mas) : "—",
+        ei != null ? String(ei) : "—",
+        ...(reportaDi ? [di != null ? formatDecimal(di, 2) : "—"] : []),
+      ],
+    ],
   });
   ctx.y = finalY(doc) + 8;
 

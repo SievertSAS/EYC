@@ -200,4 +200,29 @@ describe("2.9/2.10/2.15 — columnas D.I./TEI ocultas según reporta_di/reporta_
     expect(tablaUniformidad!.head).toContain("D.I.");
     expect(tablaUniformidad!.head).toContain("TEI");
   });
+
+  it("2.9: reporta_di=false → la Tabla 2.9.1 (medición) no incluye la columna D.I. (#112)", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.reporta_di = false;
+    conv.ddiMediciones = [
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 1, kv_nominal: 70, ei: 100, di: 4.5 }),
+    ];
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const tabla291 = tablas.find((t) => t.head.includes("Tensión (kVp)"));
+    expect(tabla291).toBeDefined();
+    expect(tabla291!.head).toEqual(["Tensión (kVp)", "Carga (mAs)", "EI"]);
+  });
+
+  it("2.9: sin flag (default true) → la Tabla 2.9.1 incluye D.I. (#112)", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.ddiMediciones = [
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 1, kv_nominal: 70, ei: 100, di: 4.5 }),
+    ];
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const tabla291 = tablas.find((t) => t.head.includes("Tensión (kVp)"));
+    expect(tabla291!.head).toEqual(["Tensión (kVp)", "Carga (mAs)", "EI", "D.I."]);
+    expect(tabla291!.body[0]).toEqual(["70", "—", "100", "4,50"]);
+  });
 });

@@ -431,3 +431,47 @@ describe("PIN — sin línea base previa (a revisar prueba por prueba, issue)", 
     expect(ev("2.16", datos({ mtf: rs({ mtf50_horizontal: 5 }) }))).toBe("Conforme");
   });
 });
+
+// ─── #113: conversión de unidad de Kerma en 2.21 (umbral absoluto, no razón) ───
+
+describe("2.21 — normaliza dosis_medida_mgy con unidad_kerma antes de comparar contra la base", () => {
+  it("unidad_kerma=ugy: 5000 µGy (= 5 mGy) vs base 5 mGy → Conforme tras normalizar", () => {
+    expect(
+      ev(
+        "2.21",
+        datos({
+          raysafeSetup: rs({ unidad_kerma: "ugy" }),
+          raysafeMediciones: [
+            rs({ tipo_medicion: "sin_rejilla", dosis_medida_mgy: 5000, dosis_base_mgy: 5 }),
+          ],
+        })
+      )
+    ).toBe("Conforme");
+  });
+
+  it("sin normalizar, el mismo caso daría 'No_conforme' — confirma que la conversión es necesaria", () => {
+    expect(
+      ev(
+        "2.21",
+        datos({
+          raysafeMediciones: [
+            rs({ tipo_medicion: "sin_rejilla", dosis_medida_mgy: 5000, dosis_base_mgy: 5 }),
+          ],
+        })
+      )
+    ).toBe("No_conforme");
+  });
+
+  it("sin unidad_kerma configurada (mgy por defecto) → comportamiento actual sin cambios", () => {
+    expect(
+      ev(
+        "2.21",
+        datos({
+          raysafeMediciones: [
+            rs({ tipo_medicion: "sin_rejilla", dosis_medida_mgy: 5, dosis_base_mgy: 5 }),
+          ],
+        })
+      )
+    ).toBe("Conforme");
+  });
+});

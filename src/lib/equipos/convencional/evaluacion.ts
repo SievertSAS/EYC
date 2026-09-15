@@ -17,6 +17,7 @@ import type {
   ConvCaeMedicion,
 } from "@/lib/equipos/convencional/db/types";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
+import { convertirKerma } from "@/lib/equipos/convencional/unidades-raysafe";
 
 // ============================================================
 //  Evaluación automática de conformidad — informe convencional
@@ -204,7 +205,11 @@ function evaluar26(d: DatosEvalConv): Concepto | undefined {
   return conformes.some((ok) => !ok) ? "No_conforme" : "Conforme";
 }
 
-/** 2.7 — Rendimiento: repetibilidad (CV ≤5%) y linealidad (≤10%). */
+/**
+ * 2.7 — Rendimiento: repetibilidad (CV ≤5%) y linealidad (≤10%). No necesita
+ * `convertirKerma` (#113): CV y linealidad son razones entre mediciones del
+ * mismo instrumento/visita, el factor de unidad se cancela en la división.
+ */
 function evaluar27(d: DatosEvalConv): Concepto | undefined {
   const shots80 = d.raysafeMediciones.filter(
     (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
@@ -470,14 +475,19 @@ function evaluar221(d: DatosEvalConv): Concepto | undefined {
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
   const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
   const corrGeom = (d2 / d1) ** 2;
+  const unidadKerma = setup?.unidad_kerma;
   const sinRejilla = d.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
   const hayBase = sinRejilla.some((m) => m.dosis_base_mgy != null);
   if (!hayBase) return undefined; // sin referencia previa → se establece base
+  // #113: `dosis_medida_mgy` se normaliza a mGy antes de comparar contra
+  // `dosis_base_mgy` (umbral absoluto, no una razón) -- `dosis_base_mgy` se
+  // asume ya en mGy, como siempre se guardó antes de que existiera esta
+  // conversión.
   const diffs = sinRejilla
     .map((m) =>
       m.dosis_medida_mgy == null || m.dosis_base_mgy == null
         ? null
-        : Math.abs(m.dosis_medida_mgy * corrGeom - m.dosis_base_mgy)
+        : Math.abs(convertirKerma(m.dosis_medida_mgy, unidadKerma) * corrGeom - m.dosis_base_mgy)
     )
     .filter((v): v is number => v != null);
   // #13: hay base pero ninguna dosis comparable → pendiente, no "Conforme".

@@ -1008,6 +1008,8 @@ export type Database = {
           modo_medicion: string | null;
           notas: string | null;
           sync_status: string;
+          unidad_dap: string | null;
+          unidad_kerma: string | null;
           url_storage: string | null;
           visita_id: string;
         };
@@ -1022,6 +1024,8 @@ export type Database = {
           modo_medicion?: string | null;
           notas?: string | null;
           sync_status?: string;
+          unidad_dap?: string | null;
+          unidad_kerma?: string | null;
           url_storage?: string | null;
           visita_id: string;
         };
@@ -1036,6 +1040,8 @@ export type Database = {
           modo_medicion?: string | null;
           notas?: string | null;
           sync_status?: string;
+          unidad_dap?: string | null;
+          unidad_kerma?: string | null;
           url_storage?: string | null;
           visita_id?: string;
         };

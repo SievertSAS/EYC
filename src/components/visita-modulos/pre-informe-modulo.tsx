@@ -470,8 +470,16 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   );
 
   // ─── Initialize secciones from catalog ───
+  // Guard síncrono: `data` se recalcula cada vez que CUALQUIERA de las tablas
+  // que lee `cargarTablasConv` cambia (incluida `equipos`, consultada ahí
+  // desde #116) — eso puede reinvocar este efecto antes de que el `bulkAdd`
+  // previo se refleje en `data.secciones`, duplicando las 21 filas del
+  // catálogo. Mismo patrón de fix que `setupInsertadoRef` en grupo-a-modulo.
+  const seccionesInicializadasRef = useRef<string | null>(null);
   useEffect(() => {
     if (!data || data.secciones.length > 0) return;
+    if (seccionesInicializadasRef.current === visitaId) return;
+    seccionesInicializadasRef.current = visitaId;
     const now = new Date().toISOString();
     const rows = CATALOGO_SECCIONES.map((cat) => ({
       id: randomUUID(),

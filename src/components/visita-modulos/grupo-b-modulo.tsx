@@ -8,6 +8,11 @@ import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { deleteAndSync, pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
+  obtenerValoresBaseEquipo,
+  upsertValoresBaseEquipo,
+} from "@/lib/equipos/convencional/equipo-valores-base-sync";
+import { campoDosisBasePorPrograma } from "@/lib/equipos/convencional/valores-base-equipo";
+import {
   ArrowLeft,
   Check,
   Zap,
@@ -326,7 +331,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [setup, mediciones, evidencias] = await Promise.all([
+    const [setup, mediciones, evidencias, equipoBase] = await Promise.all([
       db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_evidencias
@@ -334,9 +339,10 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         .equals(visitaId)
         .filter((r) => !r.deleted_at)
         .toArray(),
+      obtenerValoresBaseEquipo(visita.equipo_id),
     ]);
 
-    return { visita, setup, mediciones, evidencias };
+    return { visita, setup, mediciones, evidencias, equipoBase };
   }, [isReady, visitaId]);
 
   // ─── Initialize setup ───
@@ -500,6 +506,17 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
 
   async function updateMedicion(id: string, fields: Record<string, unknown>) {
     await updateAndSync("conv_raysafe_mediciones", id, fields);
+    // 2.21 (#110): la dosis base al receptor persiste a nivel de equipo,
+    // desglosada por programa clínico (Extremidad/Tórax/Columna).
+    if ("dosis_base_mgy" in fields) {
+      const row = data?.mediciones.find((m) => m.id === id);
+      const campo = campoDosisBasePorPrograma(row?.programa_clinico);
+      if (campo) {
+        await upsertValoresBaseEquipo(data?.visita.equipo_id, {
+          [campo]: fields.dosis_base_mgy as number | undefined,
+        });
+      }
+    }
   }
 
   /** Propaga la técnica nominal a todas las tomas del mismo grupo (espejo). */
@@ -595,6 +612,22 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
   const conRejillaPorPrograma = new Map(
     conRejilla.filter((m) => m.programa_clinico).map((m) => [m.programa_clinico!, m])
   );
+
+  // Precarga de dosis base al receptor desde el equipo (#110): una sola vez
+  // por visita, solo para las filas sin_rejilla que todavía no tienen valor.
+  const precargaDosisBaseRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data?.mediciones.length || precargaDosisBaseRef.current === visitaId) return;
+    const pendientes = sinRejilla.filter((m) => m.dosis_base_mgy == null && m.id);
+    if (pendientes.length === 0) return;
+    precargaDosisBaseRef.current = visitaId;
+    for (const m of pendientes) {
+      const campo = campoDosisBasePorPrograma(m.programa_clinico);
+      const valor = campo ? data.equipoBase?.[campo] : undefined;
+      if (valor != null) updateAndSync("conv_raysafe_mediciones", m.id!, { dosis_base_mgy: valor });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, visitaId]);
 
   // ─── Loading ───
   if (!isReady || data === undefined) {

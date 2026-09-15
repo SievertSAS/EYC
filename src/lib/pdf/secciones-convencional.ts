@@ -2963,12 +2963,12 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   const filasKvp = [
     { toma: 1, kv: 60, esp: "Cu 1 mm" },
     { toma: 12, kv: 70, esp: "Cu 1 mm" },
-    { toma: 13, kv: 81, esp: "Cu 1 mm" },
+    { toma: 13, kv: 80, esp: "Cu 1 mm" },
   ];
   const filasEsp = [
-    { toma: 13, kv: 81, esp: "Cu 1 mm" },
-    { toma: 14, kv: 81, esp: "Cu 2 mm" },
-    { toma: 15, kv: 81, esp: "Cu 3 mm" },
+    { toma: 13, kv: 80, esp: "Cu 1 mm" },
+    { toma: 14, kv: 80, esp: "Cu 2 mm" },
+    { toma: 15, kv: 80, esp: "Cu 3 mm" },
   ];
 
   checkPage(40);
@@ -3019,23 +3019,23 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   checkPage(30);
   addParagraph("Tabla 2.20.2. Análisis compensación por kilovoltajes", 8);
   const hayBaseKvp =
-    s?.mas_base_60kv != null || s?.mas_base_70kv != null || s?.mas_base_81kv != null;
+    s?.mas_base_60kv != null || s?.mas_base_70kv != null || s?.mas_base_80kv != null;
   autoTable(doc, {
     ...TABLE_STYLE,
-    head: [["Parámetro", "% Var. 60 kVp", "% Var. 70 kVp", "% Var. 81 kVp"]],
+    head: [["Parámetro", "% Var. 60 kVp", "% Var. 70 kVp", "% Var. 80 kVp"]],
     body: hayBaseKvp
       ? [
           [
             "Carga (mAs)",
             fmtPct(pv(t1?.carga_mas, s?.mas_base_60kv)),
             fmtPct(pv(t12?.carga_mas, s?.mas_base_70kv)),
-            fmtPct(pv(t13?.carga_mas, s?.mas_base_81kv)),
+            fmtPct(pv(t13?.carga_mas, s?.mas_base_80kv)),
           ],
           [
             "EI",
             fmtPct(pv(t1?.ei, s?.ei_base_60kv)),
             fmtPct(pv(t12?.ei, s?.ei_base_70kv)),
-            fmtPct(pv(t13?.ei, s?.ei_base_81kv)),
+            fmtPct(pv(t13?.ei, s?.ei_base_80kv)),
           ],
           ["D.I.", "NA", "NA", "NA"],
         ]

@@ -335,8 +335,8 @@ export const MANUAL_CONVENCIONAL: ManualPrueba[] = [
       "Verificar que el CAE ajusta correctamente la exposición cuando cambia el voltaje (kVp) o el espesor del paciente (simulado con placas de cobre de diferente grosor).",
     instrumentacion: ["Placas de cobre: 1 mm, 2 mm, 3 mm", "Equipo con CAE activado"],
     pasos: [
-      "Compensación por kVp: dispara a 60, 70 y 81 kVp con Cu 1mm y sensor Centro. Compara con valores base.",
-      "Compensación por espesores: dispara a 81 kVp con Cu 1mm, 2mm y 3mm. Compara con valores base.",
+      "Compensación por kVp: dispara a 60, 70 y 80 kVp con Cu 1mm y sensor Centro. Compara con valores base.",
+      "Compensación por espesores: dispara a 80 kVp con Cu 1mm, 2mm y 3mm. Compara con valores base.",
       "Calcula la variación porcentual de mAs, EI y D.I. respecto a los valores base de cada configuración.",
     ],
     criterios: [

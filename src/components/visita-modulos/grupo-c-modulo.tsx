@@ -8,6 +8,15 @@ import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { deleteAndSync, pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
+  obtenerValoresBaseEquipo,
+  upsertValoresBaseEquipo,
+} from "@/lib/equipos/convencional/equipo-valores-base-sync";
+import {
+  CAMPOS_BASE_CAE,
+  calcularPrecarga,
+  extraerValoresBaseParaEquipo,
+} from "@/lib/equipos/convencional/valores-base-equipo";
+import {
   ArrowLeft,
   Check,
   SlidersHorizontal,
@@ -57,9 +66,9 @@ const DISPAROS_CAE: {
   { toma: 10, kv: 70, cu: 1, sensor: "Centro", para: "2.19 rep" },
   { toma: 11, kv: 70, cu: 1, sensor: "Centro", para: "2.19 rep" },
   { toma: 12, kv: 70, cu: 1, sensor: "Centro", para: "2.19 rep, 2.20 kVp" },
-  { toma: 13, kv: 81, cu: 1, sensor: "Centro", para: "2.20 kVp, 2.20 esp" },
-  { toma: 14, kv: 81, cu: 2, sensor: "Centro", para: "2.20 esp" },
-  { toma: 15, kv: 81, cu: 3, sensor: "Centro", para: "2.20 esp" },
+  { toma: 13, kv: 80, cu: 1, sensor: "Centro", para: "2.20 kVp, 2.20 esp" },
+  { toma: 14, kv: 80, cu: 2, sensor: "Centro", para: "2.20 esp" },
+  { toma: 15, kv: 80, cu: 3, sensor: "Centro", para: "2.20 esp" },
 ];
 
 const SLOTS_IMAGEN = [{ slot: "montaje_cae", label: "Montaje experimental CAE" }];
@@ -284,7 +293,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [mediciones, evidencias, setup] = await Promise.all([
+    const [mediciones, evidencias, setup, equipoBase] = await Promise.all([
       db.conv_cae_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_evidencias
         .where("visita_id")
@@ -292,9 +301,10 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
         .filter((r) => !r.deleted_at)
         .toArray(),
       db.conv_cae_setup.where("visita_id").equals(visitaId).first(),
+      obtenerValoresBaseEquipo(visita.equipo_id),
     ]);
 
-    return { visita, mediciones, evidencias, setup };
+    return { visita, mediciones, evidencias, setup, equipoBase };
   }, [isReady, visitaId]);
 
   // ─── Initialize default rows ───
@@ -377,7 +387,9 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
     return map;
   }, [mediciones]);
 
-  // ─── Valores base (precarga) — persisten en conv_cae_setup ───
+  // ─── Valores base (precarga) — persisten en conv_cae_setup Y en
+  // conv_equipo_valores_base (#110), para que futuras visitas del mismo
+  // equipo los recuperen automáticamente.
   const setup = data?.setup ?? null;
 
   async function saveSetup(fields: Record<string, number | undefined>) {
@@ -394,7 +406,23 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       });
       pushSingle("conv_cae_setup", newId as string);
     }
+    await upsertValoresBaseEquipo(
+      data?.visita.equipo_id,
+      extraerValoresBaseParaEquipo(fields, CAMPOS_BASE_CAE)
+    );
   }
+
+  // Precarga desde el equipo (#110): una sola vez por visita, solo los
+  // campos que la visita todavía no tiene y el equipo sí.
+  const precargaHechaRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || precargaHechaRef.current === visitaId) return;
+    const aPrecargar = calcularPrecarga(data.equipoBase, data.setup, CAMPOS_BASE_CAE);
+    if (!aPrecargar) return;
+    precargaHechaRef.current = visitaId;
+    saveSetup(aPrecargar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, visitaId]);
 
   function parseSetupField(v: string): number | undefined {
     return parseDecimal(v);
@@ -432,7 +460,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       cvDi: repDi.length >= 2 ? stdev(repDi) / avg(repDi) : null,
     };
 
-    // --- 2.20 Compensación kVp: tomas 1 (60kV), 12 (70kV), 13 (81kV) ---
+    // --- 2.20 Compensación kVp: tomas 1 (60kV), 12 (70kV), 13 (80kV) ---
     const compKvp = {
       "60": {
         varMas: pctVar(num(byToma.get(1)?.carga_mas), setup?.mas_base_60kv ?? 0),
@@ -444,10 +472,10 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
         varEi: pctVar(num(byToma.get(12)?.ei), setup?.ei_base_70kv ?? 0),
         varDi: pctVar(num(byToma.get(12)?.di), setup?.di_base_70kv ?? 0),
       },
-      "81": {
-        varMas: pctVar(num(byToma.get(13)?.carga_mas), setup?.mas_base_81kv ?? 0),
-        varEi: pctVar(num(byToma.get(13)?.ei), setup?.ei_base_81kv ?? 0),
-        varDi: pctVar(num(byToma.get(13)?.di), setup?.di_base_81kv ?? 0),
+      "80": {
+        varMas: pctVar(num(byToma.get(13)?.carga_mas), setup?.mas_base_80kv ?? 0),
+        varEi: pctVar(num(byToma.get(13)?.ei), setup?.ei_base_80kv ?? 0),
+        varDi: pctVar(num(byToma.get(13)?.di), setup?.di_base_80kv ?? 0),
       },
     };
 
@@ -702,8 +730,8 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                     fields: { mas: "mas_base_70kv", ei: "ei_base_70kv", di: "di_base_70kv" },
                   },
                   {
-                    kv: "81",
-                    fields: { mas: "mas_base_81kv", ei: "ei_base_81kv", di: "di_base_81kv" },
+                    kv: "80",
+                    fields: { mas: "mas_base_80kv", ei: "ei_base_80kv", di: "di_base_80kv" },
                   },
                 ] as const
               ).map(({ kv, fields }) => (
@@ -859,7 +887,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
           <StepHeader step="Prueba 2.20a" title="Compensacion por kVp" icon={SlidersHorizontal}>
             Variacion de cada parametro respecto a base por kVp. Limite: &le; 30%.
           </StepHeader>
-          {(["60", "70", "81"] as const).map((kv) => {
+          {(["60", "70", "80"] as const).map((kv) => {
             const r = resultados.compKvp[kv];
             if (!r) return null;
             return (

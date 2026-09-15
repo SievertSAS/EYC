@@ -417,7 +417,7 @@ function evaluar219(d: DatosEvalConv): Concepto | undefined {
 function evaluar220(d: DatosEvalConv): Concepto | undefined {
   const s = d.caeSetup;
   const hayBase =
-    s != null && (s.mas_base_60kv != null || s.mas_base_70kv != null || s.mas_base_81kv != null);
+    s != null && (s.mas_base_60kv != null || s.mas_base_70kv != null || s.mas_base_80kv != null);
   if (!hayBase) return undefined;
   const byToma = new Map(d.caeMediciones.map((m) => [m.toma_numero, m]));
   const vals = [
@@ -425,8 +425,8 @@ function evaluar220(d: DatosEvalConv): Concepto | undefined {
     varRel(byToma.get(1)?.ei, s?.ei_base_60kv),
     varRel(byToma.get(12)?.carga_mas, s?.mas_base_70kv),
     varRel(byToma.get(12)?.ei, s?.ei_base_70kv),
-    varRel(byToma.get(13)?.carga_mas, s?.mas_base_81kv),
-    varRel(byToma.get(13)?.ei, s?.ei_base_81kv),
+    varRel(byToma.get(13)?.carga_mas, s?.mas_base_80kv),
+    varRel(byToma.get(13)?.ei, s?.ei_base_80kv),
     varRel(byToma.get(13)?.carga_mas, s?.mas_base_cu1),
     varRel(byToma.get(13)?.ei, s?.ei_base_cu1),
     varRel(byToma.get(14)?.carga_mas, s?.mas_base_cu2),

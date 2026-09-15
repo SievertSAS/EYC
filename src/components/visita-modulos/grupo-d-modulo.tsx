@@ -8,6 +8,14 @@ import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { deleteAndSync, pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
+  obtenerValoresBaseEquipo,
+  upsertValoresBaseEquipo,
+} from "@/lib/equipos/convencional/equipo-valores-base-sync";
+import {
+  mapearBase29AEquipo,
+  precargarBase29DesdeEquipo,
+} from "@/lib/equipos/convencional/valores-base-equipo";
+import {
   ArrowLeft,
   Check,
   MonitorCheck,
@@ -276,7 +284,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [ddiMediciones, cassettes, uniformidad, evidencias] = await Promise.all([
+    const [ddiMediciones, cassettes, uniformidad, evidencias, equipoBase] = await Promise.all([
       db.conv_ddi_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_cassette_inspeccion
         .where("visita_id")
@@ -293,9 +301,10 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
         .equals(visitaId)
         .filter((r) => !r.deleted_at)
         .toArray(),
+      obtenerValoresBaseEquipo(visita.equipo_id),
     ]);
 
-    return { visita, ddiMediciones, cassettes, uniformidad, evidencias };
+    return { visita, ddiMediciones, cassettes, uniformidad, evidencias, equipoBase };
   }, [isReady, visitaId]);
 
   // ─── Initialize default DDI rows (6 tomas: grupo 1 ×3, grupos 2-4 ×1) ───
@@ -334,18 +343,40 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
   const [savedDiBase, setSavedDiBase] = useState(false);
 
   // Inicializar los valores base desde el registro de DB una sola vez, cuando
-  // `data` ya cargó: ajuste de estado en render (guardado, no en efecto).
+  // `data` ya cargó: ajuste de estado en render (guardado, no en efecto). Si
+  // la visita todavía no tiene valor propio, mostrar el del equipo (#110)
+  // mientras el efecto de abajo lo persiste en `conv_ddi_mediciones`.
   const [baseInit, setBaseInit] = useState(false);
   if (!baseInit && data?.ddiMediciones.length) {
     const t1 = data.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
     setBaseInit(true);
+    const precarga = precargarBase29DesdeEquipo(data.equipoBase, t1 ?? null);
     if (t1?.ei_base != null) setBaseEi29(String(t1.ei_base));
+    else if (precarga?.ei_base != null) setBaseEi29(String(precarga.ei_base));
     if (t1?.di_base != null) setBaseDi29(String(t1.di_base));
+    else if (precarga?.di_base != null) setBaseDi29(String(precarga.di_base));
   }
+
+  // Persistir la precarga en `conv_ddi_mediciones` (#110), una sola vez por
+  // visita: `evaluacion.ts`/el PDF leen `ei_base`/`di_base` directo de esa
+  // fila, no del estado local de este componente.
+  const precargaBase29Ref = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data?.ddiMediciones.length || precargaBase29Ref.current === visitaId) return;
+    const t1 = data.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
+    if (!t1?.id) return;
+    const precarga = precargarBase29DesdeEquipo(data.equipoBase, t1);
+    if (!precarga) return;
+    precargaBase29Ref.current = visitaId;
+    updateDdi(t1.id, precarga);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, visitaId]);
 
   // ─── Save helpers ───
   async function updateDdi(id: string, fields: Record<string, unknown>) {
     await updateAndSync("conv_ddi_mediciones", id, fields);
+    const base = mapearBase29AEquipo(fields);
+    if (base) await upsertValoresBaseEquipo(data?.visita.equipo_id, base);
   }
 
   async function addCassette() {

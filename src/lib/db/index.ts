@@ -50,6 +50,7 @@ import type {
   ConvResolucion,
   ConvBajoContraste,
   ConvMtf,
+  ConvEquipoValoresBase,
   ConvInformeSeccion,
   ConvResultadoPrueba,
   ConvEvidencia,
@@ -107,6 +108,7 @@ class EyCDatabase extends Dexie {
   conv_resolucion!: EntityTable<ConvResolucion, "id">;
   conv_bajo_contraste!: EntityTable<ConvBajoContraste, "id">;
   conv_mtf!: EntityTable<ConvMtf, "id">;
+  conv_equipo_valores_base!: EntityTable<ConvEquipoValoresBase, "id">;
   conv_informe_secciones!: EntityTable<ConvInformeSeccion, "id">;
   conv_resultados_prueba!: EntityTable<ConvResultadoPrueba, "id">;
   conv_evidencias!: EntityTable<ConvEvidencia, "id">;
@@ -333,6 +335,15 @@ class EyCDatabase extends Dexie {
     // ─────────────────────────────────────────────────────────────
     this.version(16).stores({
       equipo_identificaciones: "id, equipo_id, sync_status",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v17 — valores base de pruebas 2.x a nivel de EQUIPO (#110).
+    //  Tabla nueva, aditiva. 1 registro por equipo (índice único
+    //  &equipo_id), a diferencia de las demás conv_* que son por visita.
+    // ─────────────────────────────────────────────────────────────
+    this.version(17).stores({
+      conv_equipo_valores_base: "id, &equipo_id, sync_status",
     });
   }
 }

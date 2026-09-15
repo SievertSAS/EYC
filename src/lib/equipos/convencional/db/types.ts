@@ -161,9 +161,10 @@ export interface ConvCaeSetup extends Partial<SyncFields> {
   mas_base_70kv?: number;
   ei_base_70kv?: number;
   di_base_70kv?: number;
-  mas_base_81kv?: number;
-  ei_base_81kv?: number;
-  di_base_81kv?: number;
+  /** Corregido de 81kv a 80kv (#110) — el kV real de este punto de la prueba es 80, no 81 */
+  mas_base_80kv?: number;
+  ei_base_80kv?: number;
+  di_base_80kv?: number;
   /** 2.20 Compensación espesores — base por Cu mm */
   mas_base_cu1?: number;
   ei_base_cu1?: number;
@@ -174,6 +175,61 @@ export interface ConvCaeSetup extends Partial<SyncFields> {
   mas_base_cu3?: number;
   ei_base_cu3?: number;
   di_base_cu3?: number;
+  creado_en?: string;
+}
+
+// ─── Valores base a nivel de EQUIPO (#110) ───
+
+/**
+ * Valores base de comparación de las pruebas 2.x, persistidos por EQUIPO
+ * (no por visita) — 1 registro por `equipo_id`, referencia permanente que se
+ * recupera año tras año en cada visita futura sobre el mismo equipo, en vez
+ * de que el físico los transcriba a mano cada vez. Se actualiza (upsert) al
+ * guardar cualquiera de estos campos en la tabla de la visita
+ * correspondiente, y se usa para precargar esos mismos campos cuando la
+ * visita todavía no tiene un valor propio.
+ */
+export interface ConvEquipoValoresBase extends Partial<SyncFields> {
+  id?: string;
+  equipo_id: string;
+  /** 2.8 — Factor de corrección PKA */
+  pka_base?: number;
+  /** 2.9 — DDI/EI */
+  ei_base_29?: number;
+  di_base_29?: number;
+  /** 2.16 — MTF (mismos nombres que ConvMtf) */
+  mtf50_base_horizontal?: number;
+  mtf20_base_horizontal?: number;
+  mtf50_base_vertical?: number;
+  mtf20_base_vertical?: number;
+  /** 2.17 — Sensibilidad CAE (mismos nombres que ConvCaeSetup) */
+  mas_base_217?: number;
+  ei_base_217?: number;
+  di_base_217?: number;
+  /** 2.20 — Compensación por kVp (mismos nombres que ConvCaeSetup) */
+  mas_base_60kv?: number;
+  ei_base_60kv?: number;
+  di_base_60kv?: number;
+  mas_base_70kv?: number;
+  ei_base_70kv?: number;
+  di_base_70kv?: number;
+  mas_base_80kv?: number;
+  ei_base_80kv?: number;
+  di_base_80kv?: number;
+  /** 2.20 — Compensación por espesor Cu (mismos nombres que ConvCaeSetup) */
+  mas_base_cu1?: number;
+  ei_base_cu1?: number;
+  di_base_cu1?: number;
+  mas_base_cu2?: number;
+  ei_base_cu2?: number;
+  di_base_cu2?: number;
+  mas_base_cu3?: number;
+  ei_base_cu3?: number;
+  di_base_cu3?: number;
+  /** 2.21 — Dosis al receptor, desglosada por programa clínico */
+  dosis_base_extremidades_mgy?: number;
+  dosis_base_torax_mgy?: number;
+  dosis_base_columna_mgy?: number;
   creado_en?: string;
 }
 

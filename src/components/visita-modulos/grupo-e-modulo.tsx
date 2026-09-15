@@ -8,6 +8,15 @@ import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { deleteAndSync, pushSingle, updateAndSync } from "@/lib/supabase/sync-engine";
 import {
+  obtenerValoresBaseEquipo,
+  upsertValoresBaseEquipo,
+} from "@/lib/equipos/convencional/equipo-valores-base-sync";
+import {
+  CAMPOS_BASE_MTF,
+  calcularPrecarga,
+  extraerValoresBaseParaEquipo,
+} from "@/lib/equipos/convencional/valores-base-equipo";
+import {
   ArrowLeft,
   Check,
   Target,
@@ -238,7 +247,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias] =
+    const [colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias, equipoBase] =
       await Promise.all([
         db.conv_colimacion.where("visita_id").equals(visitaId).first(),
         db.conv_uniformidad_detector
@@ -254,9 +263,19 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           .equals(visitaId)
           .filter((r) => !r.deleted_at)
           .toArray(),
+        obtenerValoresBaseEquipo(visita.equipo_id),
       ]);
 
-    return { visita, colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias };
+    return {
+      visita,
+      colimacion,
+      uniformidadDet,
+      resolucion,
+      bajoContraste,
+      mtf,
+      evidencias,
+      equipoBase,
+    };
   }, [isReady, visitaId]);
 
   // ─── Initialize singletons ───
@@ -345,7 +364,22 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
   function updateMtf(fields: Record<string, unknown>) {
     if (!data?.mtf?.id) return;
     updateAndSync("conv_mtf", data.mtf.id, fields);
+    upsertValoresBaseEquipo(
+      data.visita.equipo_id,
+      extraerValoresBaseParaEquipo(fields, CAMPOS_BASE_MTF)
+    );
   }
+
+  // Precarga desde el equipo (#110): una sola vez por visita, solo los
+  // campos de MTF que la visita todavía no tiene y el equipo sí.
+  const precargaMtfHechaRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data?.mtf || precargaMtfHechaRef.current === visitaId) return;
+    const aPrecargar = calcularPrecarga(data.equipoBase, data.mtf, CAMPOS_BASE_MTF);
+    if (!aPrecargar) return;
+    precargaMtfHechaRef.current = visitaId;
+    updateAndSync("conv_mtf", data.mtf.id!, aPrecargar);
+  }, [data, visitaId]);
 
   async function addUniformidadDet() {
     const next = (data?.uniformidadDet?.length ?? 0) + 1;

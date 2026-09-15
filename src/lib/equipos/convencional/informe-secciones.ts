@@ -436,7 +436,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La variación porcentual de los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) para cada condición evaluada debe ser menor o igual al 30 % respecto a los valores base correspondientes.",
     comoSeEvalua: {
       datos:
-        "Las tomas del CAE a distintos kVp (60, 70, 81) y con filtros de cobre (Cu1–Cu3): mAs y EI, con sus líneas base por condición.",
+        "Las tomas del CAE a distintos kVp (60, 70, 80) y con filtros de cobre (Cu1–Cu3): mAs y EI, con sus líneas base por condición.",
       calculo:
         "Variación relativa = |medido − base| ÷ |base| para el mAs y el EI de cada condición. Toma la mayor.",
       criterio: "Conforme si la mayor variación ≤ 30 %. Sin líneas base cargadas → Pendiente.",

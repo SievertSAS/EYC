@@ -412,7 +412,14 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
     updateAndSync("conv_mtf", data.mtf.id!, aPrecargar);
   }, [data, visitaId]);
 
+  // Lock contra doble-disparo (doble click/tap): `data.uniformidadDet` puede
+  // no reflejar el insert anterior todavía, y dos llamadas casi simultáneas
+  // calcularían el mismo `item_numero` -- eso viola el UNIQUE remoto
+  // (visita_id, item_numero) y el push queda atascado en "failed" (#119).
+  const addUniformidadDetLock = useRef(false);
   async function addUniformidadDet() {
+    if (addUniformidadDetLock.current) return;
+    addUniformidadDetLock.current = true;
     const next = (data?.uniformidadDet?.length ?? 0) + 1;
     const newId = await db.conv_uniformidad_detector.add({
       id: randomUUID(),
@@ -423,6 +430,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       last_modified: new Date().toISOString(),
     });
     pushSingle("conv_uniformidad_detector", newId as string);
+    addUniformidadDetLock.current = false;
   }
 
   async function updateUniformidadDet(id: string, fields: Record<string, unknown>) {

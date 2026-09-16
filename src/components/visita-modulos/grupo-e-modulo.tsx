@@ -16,6 +16,7 @@ import {
   calcularPrecarga,
   extraerValoresBaseParaEquipo,
 } from "@/lib/equipos/convencional/valores-base-equipo";
+import { tolerancia211Default } from "@/lib/equipos/convencional/evaluacion";
 import {
   ArrowLeft,
   Check,
@@ -278,7 +279,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias, equipoBase] =
+    const [colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias, equipoBase, equipo] =
       await Promise.all([
         db.conv_colimacion.where("visita_id").equals(visitaId).first(),
         db.conv_uniformidad_detector
@@ -295,6 +296,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           .filter((r) => !r.deleted_at)
           .toArray(),
         obtenerValoresBaseEquipo(visita.equipo_id),
+        visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
       ]);
 
     return {
@@ -306,6 +308,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       mtf,
       evidencias,
       equipoBase,
+      equipo,
     };
   }, [isReady, visitaId]);
 
@@ -844,11 +847,16 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                     type="number"
                     step="1"
                     className="rounded-lg h-7 text-xs font-medium w-20"
-                    defaultValue={ur.det.tolerancia_pct ?? 15}
+                    defaultValue={
+                      ur.det.tolerancia_pct ??
+                      tolerancia211Default(data?.equipo?.sistema_adquisicion)
+                    }
                     onBlur={(e) => {
                       if (!ur.det.id) return;
                       updateUniformidadDet(ur.det.id, {
-                        tolerancia_pct: e.target.value ? parseDecimal(e.target.value) : 15,
+                        tolerancia_pct: e.target.value
+                          ? parseDecimal(e.target.value)
+                          : tolerancia211Default(data?.equipo?.sistema_adquisicion),
                       });
                       flash(ur.det.id);
                     }}
@@ -946,7 +954,9 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
 
                 {ur.maxGlobal !== null &&
                   (() => {
-                    const tolerancia = ur.det.tolerancia_pct ?? 15;
+                    const tolerancia =
+                      ur.det.tolerancia_pct ??
+                      tolerancia211Default(data?.equipo?.sistema_adquisicion);
                     const conforme =
                       ur.maxGlobal <= tolerancia &&
                       !ur.det.pixeles_defectuosos &&

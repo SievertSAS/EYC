@@ -223,6 +223,44 @@ function ConceptoBadge({ concepto }: { concepto: "Conforme" | "No_conforme" | nu
   );
 }
 
+/**
+ * Diagrama de posiciones de los ROI de uniformidad (2.11): ROI1 en el centro
+ * de la imagen, ROI2-5 en las cuatro esquinas — misma numeración que la
+ * plantilla de referencia del área técnica. Puramente visual (sin estado de
+ * React, se resalta por CSS `:hover`): vive dentro de un `.map()` por
+ * detector, así que no puede usar hooks.
+ */
+function RoiDiagrama() {
+  const posiciones: { n: number; className: string }[] = [
+    { n: 2, className: "top-1 left-1" },
+    { n: 3, className: "top-1 right-1" },
+    { n: 1, className: "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" },
+    { n: 4, className: "bottom-1 left-1" },
+    { n: 5, className: "bottom-1 right-1" },
+  ];
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="relative w-20 h-20 shrink-0 border-2 border-slate-200 rounded-lg bg-white">
+        {posiciones.map(({ n, className }) => (
+          <span
+            key={n}
+            className={`absolute w-7 h-7 flex items-center justify-center rounded-md text-xs font-black text-white transition-all hover:scale-110 hover:bg-primary cursor-default ${
+              n === 1 ? "bg-primary" : "bg-primary/60"
+            } ${className}`}
+          >
+            {n}
+          </span>
+        ))}
+      </div>
+      <p className="text-[10px] text-slate-400 leading-snug">
+        ROI1 = centro de la imagen.
+        <br />
+        ROI2-5 = esquinas (sup. izq., sup. der., inf. izq., inf. der.).
+      </p>
+    </div>
+  );
+}
+
 // ─── Constants ───
 
 const DIRECCIONES = [
@@ -863,6 +901,8 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   />
                 </div>
 
+                <RoiDiagrama />
+
                 {(["ac", "ca"] as const).map((orient) => (
                   <div key={orient} className="space-y-2">
                     <p className="text-[10px] font-black text-slate-500 uppercase">
@@ -875,7 +915,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                         return (
                           <div key={i} className="space-y-1">
                             <label className="text-[9px] font-black text-slate-400 uppercase">
-                              {i === 0 ? "ROIc" : `ROI${i}`}
+                              {`ROI${i + 1}`}
                             </label>
                             <Input
                               type="number"

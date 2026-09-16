@@ -643,6 +643,121 @@ describe("2.16 — Análisis (texto fijo) y tabla de valores base de referencia 
   });
 });
 
+describe("2.17-2.21 — 'Análisis' del CAE cita el veredicto real, no un texto fijo de 'conforme'", () => {
+  async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+    return { ctx, parrafos };
+  }
+
+  it("2.17: variación > 50 % vs base → el párrafo dice 'No conforme', no 'respuesta estable'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeSetup = row({ id: "s1", visita_id: V, mas_base_217: 4, ei_base_217: 100 });
+    conv.caeMediciones = [row({ id: "m9", visita_id: V, toma_numero: 9, carga_mas: 10, ei: 100 })];
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.17", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("superan la tolerancia del 50 %");
+    expect(texto).not.toContain("respuesta estable");
+  });
+
+  it("2.18: rango > 30 % entre sensores → el párrafo dice inconsistencia, no 'consistencia'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [2, 3, 4, 5, 6, 7, 8].map((toma_numero, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        toma_numero,
+        carga_mas: toma_numero === 8 ? 20 : 4,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.18", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("evidencia inconsistencia");
+    expect(texto).not.toContain("Lo anterior evidencia consistencia");
+  });
+
+  it("2.19: CV > 10 % entre repeticiones → el párrafo dice 'poco repetible', no 'repetible'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [3, 9, 10, 11, 12].map((toma_numero, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        toma_numero,
+        carga_mas: toma_numero === 12 ? 20 : 4,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.19", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("una respuesta poco repetible");
+    expect(texto).not.toContain("una respuesta repetible del sistema");
+  });
+
+  it("2.20: variación > 30 % vs base (kVp/espesor) → el párrafo dice compensación inadecuada", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeSetup = row({ id: "s1", visita_id: V, mas_base_60kv: 4 });
+    conv.caeMediciones = [row({ id: "m1", visita_id: V, toma_numero: 1, carga_mas: 10 })];
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.20", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("compensación inadecuada");
+    expect(texto).not.toContain("adecuada compensación");
+  });
+
+  it("2.21: diferencia ≥ 0,01 mGy vs base → el párrafo dice variación significativa, no estabilidad", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = [
+      row({
+        id: "m1",
+        visita_id: V,
+        tipo_medicion: "sin_rejilla",
+        programa_clinico: "Tórax",
+        kv_nominal: 70,
+        mas_nominal: 4,
+        dosis_medida_mgy: 0.5,
+        dosis_base_mgy: 0.1,
+      }),
+    ];
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("variación significativa");
+    expect(texto).not.toContain("evidenciando estabilidad");
+  });
+});
+
 describe("#122 — 'Análisis' de 2.3/2.4/2.5 cita la desviación/CV real, no re-parsea texto formateado", () => {
   async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
     const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([

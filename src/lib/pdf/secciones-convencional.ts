@@ -2789,7 +2789,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
   ]);
 
   checkPage(20);
-  addParagraph("Tabla 2.17.1. Registro de mediciones de sensibilidad del CAE", 8);
+  addCaption(ctx, "Tabla 2.17.1. Registro de mediciones de sensibilidad del CAE");
   autoTable(doc, {
     ...TABLE_STYLE,
     head: [["#", "kVp", "Espesor / Atenuador", "Posición Sensor CAE", "mAs", "EI", "D.I."]],
@@ -2817,10 +2817,10 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
     const varDi = pctVar217(t9.di, s?.di_base_217);
 
     checkPage(30);
-    addParagraph("Tabla 2.17.2. Análisis de resultados de sensibilidad", 8);
+    addCaption(ctx, "Tabla 2.17.2. Análisis de resultados de sensibilidad");
     autoTable(doc, {
       ...TABLE_STYLE,
-      head: [["Parámetro", "Valor medido", "Valor base", "% Variación", "Criterio (≤ 50 %)"]],
+      head: [["Parámetro", "Valor medido", "Valor base", "% Variación", "Concepto"]],
       body: [
         [
           "Carga (mAs)",
@@ -2848,11 +2848,17 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
       didDrawPage: () => {
         ctx.y = 30;
       },
+      didParseCell: colorearConcepto(4),
     });
     ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
+    const vals217 = [varMas, varEi, varDi].filter((v): v is number => v != null);
+    const conforme217 = vals217.length === 0 || Math.max(...vals217) <= 0.5;
+
     addParagraph(
-      "Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores de referencia establecidos para el equipo bajo las mismas condiciones de exposición. La comparación realizada evidencia que las variaciones observadas en los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba, indicando una respuesta estable del sistema de control automático de exposición."
+      conforme217
+        ? "Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores de referencia establecidos para el equipo bajo las mismas condiciones de exposición. La comparación realizada evidencia que las variaciones observadas en los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba, indicando una respuesta estable del sistema de control automático de exposición."
+        : "Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores de referencia establecidos para el equipo bajo las mismas condiciones de exposición. La comparación realizada evidencia que uno o más parámetros evaluados superan la tolerancia del 50 % establecida para esta prueba, lo que indica una posible modificación en la respuesta del sistema de control automático de exposición."
     );
   }
 
@@ -2887,7 +2893,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
     m.di != null ? String(m.di) : "—",
   ]);
 
-  addParagraph("Tabla 2.18.1. Resultados consistencia entre los sensores del CAE", 8);
+  addCaption(ctx, "Tabla 2.18.1. Resultados consistencia entre los sensores del CAE");
   autoTable(doc, {
     ...TABLE_STYLE,
     head: [["Posición Sensor CAE", "Carga (mAs)", "EI", "D.I."]],
@@ -2909,10 +2915,10 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
   const promEi = eiVals.length > 0 ? eiVals.reduce((a, b) => a + b, 0) / eiVals.length : null;
 
   checkPage(25);
-  addParagraph("Tabla 2.18.2. Análisis de resultados de consistencia", 8);
+  addCaption(ctx, "Tabla 2.18.2. Análisis de resultados de consistencia");
   autoTable(doc, {
     ...TABLE_STYLE,
-    head: [["Parámetro", "Valor promedio", "% Variación", "Criterio (≤ 30 %)"]],
+    head: [["Parámetro", "Valor promedio", "% Variación", "Concepto"]],
     body: [
       [
         "Carga (mAs)",
@@ -2931,11 +2937,17 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
     didDrawPage: () => {
       ctx.y = 30;
     },
+    didParseCell: colorearConcepto(3),
   });
   ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
+  const vals218 = [varMas, varEi].filter((v): v is number => v != null);
+  const conforme218 = vals218.length === 0 || Math.max(...vals218) <= 0.3;
+
   addParagraph(
-    "Las diferencias porcentuales calculadas respecto a los valores promedio para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Lo anterior evidencia consistencia en la respuesta del sistema entre las diferentes configuraciones de sensores del control automático de exposición bajo las condiciones de irradiación evaluadas."
+    conforme218
+      ? "Las diferencias porcentuales calculadas respecto a los valores promedio para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Lo anterior evidencia consistencia en la respuesta del sistema entre las diferentes configuraciones de sensores del control automático de exposición bajo las condiciones de irradiación evaluadas."
+      : "Las diferencias porcentuales calculadas respecto a los valores promedio para uno o más parámetros evaluados superan la tolerancia establecida para esta prueba, lo que evidencia inconsistencia en la respuesta del sistema entre las diferentes configuraciones de sensores del control automático de exposición."
   );
 
   return 6;
@@ -2974,7 +2986,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
     m.di != null ? String(m.di) : "—",
   ]);
 
-  addParagraph("Tabla 2.19.1. Resultados de repetibilidad del CAE", 8);
+  addCaption(ctx, "Tabla 2.19.1. Resultados de repetibilidad del CAE");
   autoTable(doc, {
     ...TABLE_STYLE,
     head: [["Espesor / Atenuador", "Posición Sensor CAE", "Carga (mAs)", "EI", "D.I."]],
@@ -2998,10 +3010,10 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
   const desvEi = cvEi != null && promEi != null ? cvEi * promEi : null;
 
   checkPage(25);
-  addParagraph("Tabla 2.19.2. Análisis de repetibilidad del CAE", 8);
+  addCaption(ctx, "Tabla 2.19.2. Análisis de repetibilidad del CAE");
   autoTable(doc, {
     ...TABLE_STYLE,
-    head: [["Parámetro", "Valor promedio", "Desviación estándar", "CV (%)", "Criterio (≤ 10 %)"]],
+    head: [["Parámetro", "Valor promedio", "Desviación estándar", "CV (%)", "Concepto"]],
     body: [
       [
         "Carga (mAs)",
@@ -3022,11 +3034,17 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
     didDrawPage: () => {
       ctx.y = 30;
     },
+    didParseCell: colorearConcepto(4),
   });
   ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
+  const vals219 = [cvMas, cvEi].filter((v): v is number => v != null);
+  const conforme219 = vals219.length === 0 || Math.max(...vals219) <= 0.1;
+
   addParagraph(
-    "Los coeficientes de variación obtenidos para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Esto evidencia una respuesta repetible del sistema de control automático de exposición bajo condiciones equivalentes de irradiación."
+    conforme219
+      ? "Los coeficientes de variación obtenidos para los parámetros evaluados se mantienen dentro de la tolerancia establecida para esta prueba. Esto evidencia una respuesta repetible del sistema de control automático de exposición bajo condiciones equivalentes de irradiación."
+      : "Uno o más coeficientes de variación obtenidos para los parámetros evaluados superan la tolerancia establecida para esta prueba, lo que evidencia una respuesta poco repetible del sistema de control automático de exposición."
   );
 
   return 6;
@@ -3061,9 +3079,9 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
 
   checkPage(40);
   addSubsectionTitle("2.20.4.", "Resultados");
-  addParagraph(
-    "Tabla 2.20.1. Resultados de mediciones de compensación por kilovoltajes y espesores",
-    8
+  addCaption(
+    ctx,
+    "Tabla 2.20.1. Resultados de mediciones de compensación por kilovoltajes y espesores"
   );
 
   const todasFilas = [...filasKvp, ...filasEsp.slice(1)].map(({ toma, kv, esp }) => {
@@ -3105,7 +3123,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   checkPage(30);
-  addParagraph("Tabla 2.20.2. Análisis compensación por kilovoltajes", 8);
+  addCaption(ctx, "Tabla 2.20.2. Análisis compensación por kilovoltajes");
   const hayBaseKvp =
     s?.mas_base_60kv != null || s?.mas_base_70kv != null || s?.mas_base_80kv != null;
   autoTable(doc, {
@@ -3140,7 +3158,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   checkPage(30);
-  addParagraph("Tabla 2.20.3. Análisis compensación por espesores", 8);
+  addCaption(ctx, "Tabla 2.20.3. Análisis compensación por espesores");
   const hayBaseEsp = s?.mas_base_cu1 != null || s?.mas_base_cu2 != null || s?.mas_base_cu3 != null;
   autoTable(doc, {
     ...TABLE_STYLE,
@@ -3169,8 +3187,26 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   });
   ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
+  const vals220 = [
+    pv(t1?.carga_mas, s?.mas_base_60kv),
+    pv(t1?.ei, s?.ei_base_60kv),
+    pv(t12?.carga_mas, s?.mas_base_70kv),
+    pv(t12?.ei, s?.ei_base_70kv),
+    pv(t13?.carga_mas, s?.mas_base_80kv),
+    pv(t13?.ei, s?.ei_base_80kv),
+    pv(t13?.carga_mas, s?.mas_base_cu1),
+    pv(t13?.ei, s?.ei_base_cu1),
+    pv(t14?.carga_mas, s?.mas_base_cu2),
+    pv(t14?.ei, s?.ei_base_cu2),
+    pv(t15?.carga_mas, s?.mas_base_cu3),
+    pv(t15?.ei, s?.ei_base_cu3),
+  ].filter((v): v is number => v != null);
+  const conforme220 = vals220.length === 0 || Math.max(...vals220) <= 0.3;
+
   addParagraph(
-    "Las variaciones porcentuales observadas se mantienen dentro de la tolerancia establecida para esta prueba, evidenciando una adecuada compensación del sistema de control automático de exposición frente a cambios de kilovoltaje y espesor."
+    conforme220
+      ? "Las variaciones porcentuales observadas se mantienen dentro de la tolerancia establecida para esta prueba, evidenciando una adecuada compensación del sistema de control automático de exposición frente a cambios de kilovoltaje y espesor."
+      : "Una o más variaciones porcentuales observadas superan la tolerancia establecida para esta prueba, lo que evidencia una compensación inadecuada del sistema de control automático de exposición frente a cambios de kilovoltaje y/o espesor."
   );
 
   return 6;
@@ -3210,7 +3246,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
     ];
   });
 
-  addParagraph("Tabla 2.21.1. Registro de mediciones de dosis al receptor de imagen", 8);
+  addCaption(ctx, "Tabla 2.21.1. Registro de mediciones de dosis al receptor de imagen");
   autoTable(doc, {
     ...TABLE_STYLE,
     head: [
@@ -3256,7 +3292,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
     });
 
     checkPage(30);
-    addParagraph("Tabla 2.21.2. Análisis de dosis al receptor de imagen", 8);
+    addCaption(ctx, "Tabla 2.21.2. Análisis de dosis al receptor de imagen");
     autoTable(doc, {
       ...TABLE_STYLE,
       head: [
@@ -3265,7 +3301,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
           `Dosis receptor (${labelKerma})`,
           `Dosis base (${labelKerma})`,
           `Diferencia (${labelKerma})`,
-          "Cumple",
+          "Concepto",
         ],
       ],
       body: filas221Analisis,
@@ -3273,11 +3309,26 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
       didDrawPage: () => {
         ctx.y = 30;
       },
+      didParseCell: colorearConcepto(4),
     });
     ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
+    const diffs221 = sinRejilla
+      .map((m) => {
+        const dosisMedida =
+          m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
+        const dosisR = dosisMedida != null ? dosisMedida * corrGeom : null;
+        return dosisR != null && m.dosis_base_mgy != null
+          ? Math.abs(dosisR - m.dosis_base_mgy)
+          : null;
+      })
+      .filter((v): v is number => v != null);
+    const conforme221 = diffs221.length === 0 || Math.max(...diffs221) < 0.01;
+
     addParagraph(
-      "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se comparan con el criterio de aceptación establecido en el IAEA-TECDOC-1958."
+      conforme221
+        ? "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se encuentran dentro del criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), evidenciando estabilidad en la dosis entregada al receptor de imagen."
+        : "Una o más diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia superan el criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), lo que indica una variación significativa en la dosis entregada al receptor de imagen."
     );
   }
 

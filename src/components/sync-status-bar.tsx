@@ -13,13 +13,18 @@ const LAST_SYNC_KEY = "ultima-sync-exitosa";
 /**
  * Franja de estado de sincronización — reemplaza a `ConnectionBadge`.
  *
- * Solo se muestra sin conexión, con más de un cambio pendiente, o con
- * algún error — no en el camino feliz online con 0-1 pendientes, para no
- * parpadear ámbar→verde en cada guardado individual de un campo (mala
- * experiencia). El chip de error, cuando aplica, se muestra SIEMPRE en
- * paralelo a cualquier otro estado, nunca reemplazado por él — y el
- * timestamp de última sync exitosa se sigue guardando aunque la franja
- * esté oculta, para no perder ese rastro.
+ * Solo se muestra sin conexión, sin DB lista, o con algún error — nunca por
+ * cambios pendientes: mientras se llenan formularios el conteo de
+ * pendientes sube y baja todo el tiempo, y mostrar/ocultar la franja por eso
+ * generaba parpadeo y corría el resto de la pantalla (mala experiencia). El
+ * chip de error, cuando aplica, se muestra SIEMPRE en paralelo a cualquier
+ * otro estado, nunca reemplazado por él — y el timestamp de última sync
+ * exitosa se sigue guardando aunque la franja esté oculta, para no perder
+ * ese rastro.
+ *
+ * Posicionamiento: `fixed` (no `sticky`) a propósito — no reserva espacio en
+ * el flujo del documento, así que aparecer/desaparecer no corre el resto de
+ * la UI hacia abajo. Se superpone al contenido en vez de empujarlo.
  */
 export function SyncStatusBar() {
   const isOnline = useOnlineStatus();
@@ -38,7 +43,7 @@ export function SyncStatusBar() {
     window.localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   }, [isSynced]);
 
-  const shouldShow = !!error || !isReady || !isOnline || pendingCount > 1 || errorCount > 0;
+  const shouldShow = !!error || !isReady || !isOnline || errorCount > 0;
   if (!shouldShow) return null;
 
   const lastSync =
@@ -63,10 +68,6 @@ export function SyncStatusBar() {
       pendingCount > 0
         ? `Sin conexión — ${pendingCount} cambio${pendingCount !== 1 ? "s" : ""} sin subir`
         : "Sin conexión";
-  } else if (pendingCount > 0) {
-    colorClasses = "bg-amber-500 text-white";
-    icon = <CloudUpload className="w-3.5 h-3.5 animate-pulse" />;
-    label = `Sincronizando… quedan ${pendingCount}`;
   } else {
     colorClasses = "bg-emerald-600 text-white";
     icon = <CheckCircle2 className="w-3.5 h-3.5" />;
@@ -77,7 +78,7 @@ export function SyncStatusBar() {
     <div
       role="status"
       aria-live="polite"
-      className={`sticky top-0 z-30 h-9 flex items-center justify-between px-3 sm:px-4 ${colorClasses}`}
+      className={`fixed inset-x-0 top-0 z-30 h-9 flex items-center justify-between px-3 sm:px-4 ${colorClasses}`}
     >
       <Link
         href="/dashboard/sync"

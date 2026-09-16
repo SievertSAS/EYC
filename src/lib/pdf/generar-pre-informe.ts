@@ -113,21 +113,21 @@ async function imagenDataUrl(
   return bajado ? blobADataUrl(bajado).catch(() => undefined) : undefined;
 }
 
-/** "No aplica" para null / undefined / "" ; el valor tal cual si tiene contenido. */
-export function textoCampo(v: string | null | undefined, fallback = "No aplica"): string {
+/** "No reporta" (o el `fallback` dado) para null / undefined / "" ; el valor tal cual si tiene contenido. */
+export function textoCampo(v: string | null | undefined, fallback = "No reporta"): string {
   const s = (v ?? "").trim();
   return s === "" ? fallback : s;
 }
 
 /**
- * Fecha en dd/mm/aaaa. "No aplica" si viene vacía. Las fechas ISO de solo
- * día (`aaaa-mm-dd`) se reformatean sin pasar por `Date` para no correr el
- * día por la zona horaria; cualquier otro string reconocible se intenta con
- * `Date`, y si no parsea se devuelve tal cual.
+ * Fecha en dd/mm/aaaa. "No aplica" (o el `fallback` dado) si viene vacía. Las
+ * fechas ISO de solo día (`aaaa-mm-dd`) se reformatean sin pasar por `Date`
+ * para no correr el día por la zona horaria; cualquier otro string
+ * reconocible se intenta con `Date`, y si no parsea se devuelve tal cual.
  */
-export function textoFecha(v: string | null | undefined): string {
+export function textoFecha(v: string | null | undefined, fallback = "No aplica"): string {
   const s = (v ?? "").trim();
-  if (s === "") return "No aplica";
+  if (s === "") return fallback;
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
   const d = new Date(s);
@@ -654,7 +654,7 @@ export async function generarPreInforme(
         month: "long",
         day: "numeric",
       })
-    : "—";
+    : "No reporta";
 
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA 1 — PORTADA
@@ -739,7 +739,7 @@ export async function generarPreInforme(
   doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN + 5, y);
   y += 5;
   doc.text(
-    `Marca: ${datos.equipo?.gen_marca ?? "—"}    Modelo: ${datos.equipo?.gen_modelo ?? "—"}    Serie: ${datos.equipo?.gen_numero_serie ?? "—"}`,
+    `Marca: ${datos.equipo?.gen_marca ?? "No reporta"}    Modelo: ${datos.equipo?.gen_modelo ?? "No reporta"}    Serie: ${datos.equipo?.gen_numero_serie ?? "No reporta"}`,
     MARGIN + 5,
     y
   );
@@ -756,12 +756,18 @@ export async function generarPreInforme(
   y += 6;
 
   const infoInstalacion = [
-    ["Razón social:", datos.cliente?.nombre_cliente ?? "—"],
-    ["NIT:", `${datos.cliente?.nit ?? "—"}-${datos.cliente?.digito_verificacion ?? ""}`],
-    ["Sede:", datos.sede?.nombre_sede ?? "—"],
-    ["Área - servicio:", datos.ubicacion?.nombre_servicio ?? "—"],
-    ["Dirección:", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "—"],
-    ["Ciudad - Departamento:", `${datos.sede?.ciudad ?? "—"} - ${datos.sede?.departamento ?? "—"}`],
+    ["Razón social:", datos.cliente?.nombre_cliente ?? "No reporta"],
+    [
+      "NIT:",
+      `${datos.cliente?.nit ?? "No reporta"}-${datos.cliente?.digito_verificacion ?? ""}`,
+    ],
+    ["Sede:", datos.sede?.nombre_sede ?? "No reporta"],
+    ["Área - servicio:", datos.ubicacion?.nombre_servicio ?? "No reporta"],
+    ["Dirección:", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "No reporta"],
+    [
+      "Ciudad - Departamento:",
+      `${datos.sede?.ciudad ?? "No reporta"} - ${datos.sede?.departamento ?? "No reporta"}`,
+    ],
   ];
 
   doc.setFontSize(9);
@@ -804,31 +810,31 @@ export async function generarPreInforme(
 
   const datosGenerales = [
     ["Fecha de Informe", fechaInforme],
-    ["Nombre de la Institución", datos.cliente?.nombre_cliente ?? "—"],
-    ["Sede de ubicación de la unidad de RX", datos.sede?.nombre_sede ?? "—"],
-    ["Dirección", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "—"],
-    ["Teléfono(s)", datos.cliente?.telefono ?? "—"],
+    ["Nombre de la Institución", datos.cliente?.nombre_cliente ?? "No reporta"],
+    ["Sede de ubicación de la unidad de RX", datos.sede?.nombre_sede ?? "No reporta"],
+    ["Dirección", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "No reporta"],
+    ["Teléfono(s)", datos.cliente?.telefono ?? "No reporta"],
     [
       "Naturaleza de la Institución",
       datos.cliente?.naturaleza === "publico"
         ? "Pública"
         : datos.cliente?.naturaleza === "privado"
           ? "Privada"
-          : (datos.cliente?.naturaleza ?? "—"),
+          : (datos.cliente?.naturaleza ?? "No reporta"),
     ],
-    ["Nombre del Representante Legal", datos.cliente?.nombre_representante_legal ?? "—"],
-    ["Nombre del Servicio", datos.ubicacion?.nombre_servicio ?? "—"],
-    ["Médico Responsable", medicoResp?.nombre ?? "—"],
-    ["Tecnólogo Responsable del Servicio", tecnologo?.nombre ?? "—"],
-    ["Correo Electrónico Tecnólogo", tecnologo?.email ?? "—"],
-    ["Información de Contacto Tecnólogo", tecnologo?.telefono ?? "—"],
+    ["Nombre del Representante Legal", datos.cliente?.nombre_representante_legal ?? "No reporta"],
+    ["Nombre del Servicio", datos.ubicacion?.nombre_servicio ?? "No reporta"],
+    ["Médico Responsable", medicoResp?.nombre ?? "No reporta"],
+    ["Tecnólogo Responsable del Servicio", tecnologo?.nombre ?? "No reporta"],
+    ["Correo Electrónico Tecnólogo", tecnologo?.email ?? "No reporta"],
+    ["Información de Contacto Tecnólogo", tecnologo?.telefono ?? "No reporta"],
     [
       "Oficial o encargado de protección radiológica",
-      opr?.nombre ?? contactoProgramar?.nombre ?? "—",
+      opr?.nombre ?? contactoProgramar?.nombre ?? "No reporta",
     ],
-    ["Correo Electrónico Institución", datos.cliente?.email ?? "—"],
-    ["Responsable de la Visita", responsableVisita?.nombre ?? "—"],
-    ["Cédula Responsable de la Visita", responsableVisita?.cedula ?? "—"],
+    ["Correo Electrónico Institución", datos.cliente?.email ?? "No reporta"],
+    ["Responsable de la Visita", responsableVisita?.nombre ?? "No reporta"],
+    ["Cédula Responsable de la Visita", responsableVisita?.cedula ?? "No reporta"],
   ];
 
   autoTable(doc, {
@@ -855,16 +861,21 @@ export async function generarPreInforme(
       "Número de la licencia para funcionamiento de equipos de RX",
       textoCampo(datos.ubicacion?.licencia),
     ],
-    ["Fecha de expiración de la licencia", textoFecha(datos.ubicacion?.fecha_expiracion_licencia)],
+    [
+      "Fecha de expiración de la licencia",
+      datos.ubicacion?.sin_fecha_expiracion_licencia
+        ? "No aplica"
+        : textoFecha(datos.ubicacion?.fecha_expiracion_licencia, "No reporta"),
+    ],
     ["Código de habilitación del servicio", textoCampo(datos.ubicacion?.codigo_habilitacion)],
-    ["Días Laborados por Semana", String(datos.visita.dias_laborados_semana ?? "—")],
-    ["No. de Pacientes por Semana", String(datos.visita.pacientes_por_semana ?? "—")],
-    ["KV máximo usado", String(datos.visita.kv_maximo_usado ?? "—")],
-    ["% de rechazo de Radiografías", String(datos.visita.porcentaje_rechazo ?? "—")],
-    ["Horas por día", String(datos.ubicacion?.horas_x_dia ?? "—")],
-    ["Máximo de disparos/Paciente", String(datos.visita.max_disparos_paciente ?? "—")],
-    ["mAs máximo usado", String(datos.visita.mas_maximo_usado ?? "—")],
-    ["No. de radiografías/semana", String(datos.visita.radiografias_por_semana ?? "—")],
+    ["Días Laborados por Semana", String(datos.visita.dias_laborados_semana ?? "No reporta")],
+    ["No. de Pacientes por Semana", String(datos.visita.pacientes_por_semana ?? "No reporta")],
+    ["KV máximo usado", String(datos.visita.kv_maximo_usado ?? "No reporta")],
+    ["% de rechazo de Radiografías", String(datos.visita.porcentaje_rechazo ?? "No reporta")],
+    ["Horas por día", String(datos.ubicacion?.horas_x_dia ?? "No reporta")],
+    ["Máximo de disparos/Paciente", String(datos.visita.max_disparos_paciente ?? "No reporta")],
+    ["mAs máximo usado", String(datos.visita.mas_maximo_usado ?? "No reporta")],
+    ["No. de radiografías/semana", String(datos.visita.radiografias_por_semana ?? "No reporta")],
   ];
 
   autoTable(doc, {
@@ -884,12 +895,16 @@ export async function generarPreInforme(
 
   // Características del Generador
   const datosGenerador = [
-    ["Marca", datos.equipo?.gen_marca ?? "—"],
-    ["Modelo", datos.equipo?.gen_modelo ?? "—"],
-    ["No. de Serie", datos.equipo?.gen_numero_serie ?? "—"],
-    ["Fecha de fabricación", datos.equipo?.gen_fecha_fabricacion ?? "—"],
-    ["Fase del generador", datos.equipo?.gen_fase?.replace(/_/g, " ") ?? "—"],
-    ["Energía fotones / electrones (MeV)", textoCampo(datos.equipo?.gen_energia_fotones_mev)],
+    ["Marca", datos.equipo?.gen_marca ?? "No reporta"],
+    ["Modelo", datos.equipo?.gen_modelo ?? "No reporta"],
+    ["No. de Serie", datos.equipo?.gen_numero_serie ?? "No reporta"],
+    ["Fecha de fabricación", datos.equipo?.gen_fecha_fabricacion ?? "No reporta"],
+    ["Fase del generador", datos.equipo?.gen_fase?.replace(/_/g, " ") ?? "No reporta"],
+    // Excepción: siempre "No aplica" si está vacío, nunca "No reporta" (regla de negocio).
+    [
+      "Energía fotones / electrones (MeV)",
+      textoCampo(datos.equipo?.gen_energia_fotones_mev, "No aplica"),
+    ],
   ];
 
   renderTablaEquipo("Características del Generador", datosGenerador, { subtabla: "generador" });
@@ -916,15 +931,15 @@ export async function generarPreInforme(
       datos.tubos.length > 1 ? `Especificaciones del Tubo ${i + 1}` : "Especificaciones del Tubo";
 
     const datosTubo = [
-      ["Marca", tuboItem.marca ?? "—"],
-      ["Modelo", tuboItem.modelo ?? "—"],
-      ["No. Serie", tuboItem.numero_serie ?? "—"],
-      ["Tipo", tuboItem.tipo ?? "—"],
-      ["mAs máximo", String(tuboItem.mas_max ?? "—")],
-      ["kV máx", String(tuboItem.kv_max ?? "—")],
-      ["mA máx", String(tuboItem.ma_max ?? "—")],
-      ["Foco fino (mm)", String(tuboItem.foco_fino_mm ?? "—")],
-      ["Foco grueso (mm)", String(tuboItem.foco_grueso_mm ?? "—")],
+      ["Marca", tuboItem.marca ?? "No reporta"],
+      ["Modelo", tuboItem.modelo ?? "No reporta"],
+      ["No. Serie", tuboItem.numero_serie ?? "No reporta"],
+      ["Tipo", tuboItem.tipo ?? "No reporta"],
+      ["mAs máximo", String(tuboItem.mas_max ?? "No reporta")],
+      ["kV máx", String(tuboItem.kv_max ?? "No reporta")],
+      ["mA máx", String(tuboItem.ma_max ?? "No reporta")],
+      ["Foco fino (mm)", String(tuboItem.foco_fino_mm ?? "No reporta")],
+      ["Foco grueso (mm)", String(tuboItem.foco_grueso_mm ?? "No reporta")],
     ];
 
     renderTablaEquipo(titulo, datosTubo, { subtabla: "tubo", refId: tuboItem.id });
@@ -932,11 +947,14 @@ export async function generarPreInforme(
 
   // Características del Colimador y Sistema de Adquisición
   const datosColimador = [
-    ["Distancia Foco / Paciente (cm)", dato(datos.equipo?.distancia_foco_paciente)],
-    ["Bucky", dato(datos.equipo?.bucky?.replace(/_/g, " "))],
-    ["Sistema de Adquisición de Imágenes", dato(datos.equipo?.sistema_adquisicion)],
-    ["Filtración Inherente (mm Al)", dato(datos.equipo?.filtracion_inherente_mmal)],
-    ["Filtración Añadida (mm Al)", dato(datos.equipo?.filtracion_anadida_mmal)],
+    ["Distancia Foco / Paciente (cm)", dato(datos.equipo?.distancia_foco_paciente, "No reporta")],
+    ["Bucky", dato(datos.equipo?.bucky?.replace(/_/g, " "), "No reporta")],
+    ["Sistema de Adquisición de Imágenes", dato(datos.equipo?.sistema_adquisicion, "No reporta")],
+    [
+      "Filtración Inherente (mm Al)",
+      dato(datos.equipo?.filtracion_inherente_mmal, "No reporta"),
+    ],
+    ["Filtración Añadida (mm Al)", dato(datos.equipo?.filtracion_anadida_mmal, "No reporta")],
   ];
 
   renderTablaEquipo(
@@ -950,9 +968,9 @@ export async function generarPreInforme(
   addSubsectionTitle("", "Condiciones ambientales");
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`Temperatura (°C): ${datos.visita.temperatura_c ?? "—"}`, MARGIN, y);
+  doc.text(`Temperatura (°C): ${datos.visita.temperatura_c ?? "No reporta"}`, MARGIN, y);
   y += 5;
-  doc.text(`Presión (hPa): ${datos.visita.presion_hpa ?? "—"}`, MARGIN, y);
+  doc.text(`Presión (hPa): ${datos.visita.presion_hpa ?? "No reporta"}`, MARGIN, y);
   y += 8;
 
   // Otras identificaciones del equipo de rayos X — lista título + imagen (#61)

@@ -366,8 +366,11 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
       ...img29,
     });
 
-  // Fotografía patrón bajo contraste para 2.13.7 — reutiliza patron_colimacion de 2.3 (#117)
+  // Fotografías patrón bajo contraste para 2.13.7 — el montaje reutiliza
+  // montaje_colimacion de 2.3 (#117), igual que 2.12, seguido del patrón propio.
   const fotos213: NonNullable<DatosConvencional["fotos213"]> = [];
+  if (imgMontajeColimacion)
+    fotos213.push({ label: "Foto montaje experimental", ...imgMontajeColimacion });
   if (imgPatronColimacion)
     fotos213.push({ label: "Patrón de bajo contraste", ...imgPatronColimacion });
 

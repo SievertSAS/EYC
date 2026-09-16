@@ -363,6 +363,32 @@ describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 
     expect(d.fotos213?.some((f) => f.label === "Patrón de bajo contraste")).toBe(true);
   });
 
+  it("montaje_colimacion de 2.3 también aparece en fotos213, antes del patrón (igual que en fotos212)", async () => {
+    await db.conv_evidencias.bulkAdd([
+      row({
+        id: "ev-montaje-213",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "montaje_colimacion",
+        url_storage: "https://example.com/montaje.jpg",
+        ...ok,
+      }),
+      row({
+        id: "ev-patron-213",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "patron_colimacion",
+        url_storage: "https://example.com/patron.jpg",
+        ...ok,
+      }),
+    ]);
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos213?.map((f) => f.label)).toEqual([
+      "Foto montaje experimental",
+      "Patrón de bajo contraste",
+    ]);
+  });
+
   it("sin foto en 2.3 → fotos212/fotos213 quedan vacías (no hay fallback a slots viejos)", async () => {
     const d = await recopilarDatosConv(V);
     expect(d.fotos212).toEqual([]);

@@ -552,14 +552,50 @@ export async function generarPreInforme(
     filas: string[][],
     ref?: { subtabla: string; refId?: string }
   ) {
-    checkPage(14);
-    addSubsectionTitle("", titulo);
-
     const dataUrl = ref
       ? datos.identificaciones.find(
           (i) => i.subtabla === ref.subtabla && (i.ref_id ?? undefined) === ref.refId
         )?.dataUrl
       : undefined;
+
+    // Tarjeta: foto (grande, para que la placa se lea) a la izquierda, tabla
+    // clave/valor a la derecha.
+    const pad = 5;
+    const gap = 8;
+    const imgBoxW = 70;
+    const imgBoxH = 90;
+    const tableLeft = MARGIN + pad + imgBoxW + gap;
+    const tableWidth = CONTENT_WIDTH - pad * 2 - imgBoxW - gap;
+    const labelW = 42;
+
+    // Tamaño real de la foto respetando su relación de aspecto dentro del box.
+    // Se calcula ANTES del título para poder reservar título + contenido de
+    // una sola vez (si no, el título puede quedar huérfano: cabe por sí solo
+    // al final de una página, pero la tarjeta con foto no, y salta sola a la
+    // siguiente dejando la página del título casi vacía).
+    let imgW = imgBoxW;
+    let imgH = imgBoxW * 0.75;
+    if (dataUrl) {
+      try {
+        const props = doc.getImageProperties(dataUrl);
+        if (props?.width && props?.height) {
+          const ratio = props.height / props.width;
+          imgH = imgW * ratio;
+          if (imgH > imgBoxH) {
+            imgH = imgBoxH;
+            imgW = imgH / ratio;
+          }
+        }
+      } catch {
+        // sin metadata: se usa el fallback 4:3
+      }
+    }
+
+    // Alto estimado del cuerpo (filas de tabla vs. alto de la foto, si hay).
+    const estBodyH = dataUrl ? Math.max(filas.length * 8.6, imgH) : filas.length * 8.6;
+    const cardH = estBodyH + pad * 2;
+
+    addSubsectionTitle("", titulo, cardH + 6);
 
     if (!dataUrl) {
       autoTable(doc, {
@@ -577,39 +613,8 @@ export async function generarPreInforme(
       return;
     }
 
-    // Tarjeta: foto (grande, para que la placa se lea) a la izquierda, tabla
-    // clave/valor a la derecha.
-    const pad = 5;
-    const gap = 8;
-    const imgBoxW = 70;
-    const imgBoxH = 90;
-    const tableLeft = MARGIN + pad + imgBoxW + gap;
-    const tableWidth = CONTENT_WIDTH - pad * 2 - imgBoxW - gap;
-    const labelW = 42;
-
-    // Tamaño real de la foto respetando su relación de aspecto dentro del box.
-    let imgW = imgBoxW;
-    let imgH = imgBoxW * 0.75;
-    try {
-      const props = doc.getImageProperties(dataUrl);
-      if (props?.width && props?.height) {
-        const ratio = props.height / props.width;
-        imgH = imgW * ratio;
-        if (imgH > imgBoxH) {
-          imgH = imgBoxH;
-          imgW = imgH / ratio;
-        }
-      }
-    } catch {
-      // sin metadata: se usa el fallback 4:3
-    }
-
-    // Alto estimado del cuerpo (filas de tabla vs. alto de la foto). Se usa para
-    // pintar el fondo de la tarjeta ANTES del contenido: el estilo único es
-    // relleno sin borde, así que no se puede dibujar el marco después.
-    const estBodyH = Math.max(filas.length * 8.6, imgH);
-    const cardH = estBodyH + pad * 2;
-
+    // El bloque título+tarjeta ya se reservó junto en addSubsectionTitle;
+    // este checkPage es un resguardo, no debería disparar en la práctica.
     checkPage(cardH + 6);
     const startY = y;
 
@@ -908,23 +913,6 @@ export async function generarPreInforme(
   ];
 
   renderTablaEquipo("Características del Generador", datosGenerador, { subtabla: "generador" });
-
-  // Especificaciones del Tubo — cantidad de tubos del equipo, en texto
-  {
-    const n = datos.tubos.length;
-    checkPage(8);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...COLOR_BLACK);
-    doc.text(
-      n === 0
-        ? "El equipo no tiene tubos registrados."
-        : `El equipo cuenta con ${n} tubo${n > 1 ? "s" : ""}.`,
-      MARGIN,
-      y
-    );
-    y += 6;
-  }
 
   datos.tubos.forEach((tuboItem, i) => {
     const titulo =

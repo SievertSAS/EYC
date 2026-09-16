@@ -29,7 +29,7 @@ import {
   ITEMS_CONDICIONES_OPERACION,
 } from "@/lib/equipos/convencional/inspeccion-items";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
-import { detalle213 } from "@/lib/equipos/convencional/evaluacion";
+import { detalle213, tolerancia211Default } from "@/lib/equipos/convencional/evaluacion";
 import {
   convertirDap,
   convertirKerma,
@@ -2330,11 +2330,10 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
       "y cátodo–ánodo (CA, rotación de 180°). En cada imagen se evaluaron cinco regiones de interés (ROI) distribuidas sobre el detector."
   );
 
-  const roiLabels = ["ROIc (central)", "ROI 1", "ROI 2", "ROI 3", "ROI 4"];
+  const roiLabels = ["ROI 1 (central)", "ROI 2", "ROI 3", "ROI 4", "ROI 5"];
 
   for (const [detIdx, det] of dets.entries()) {
     const detLabel = det.serie_detector ? ` — ${det.serie_detector}` : ` ${detIdx + 1}`;
-    const tolerancia = det.tolerancia_pct ?? 15;
 
     for (const orient of ["ac", "ca"] as const) {
       const orientLabel = orient === "ac" ? "Orientación AC 0°" : "Orientación CA 180°";
@@ -2376,7 +2375,7 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
   ctx.addSubsectionTitle("2.11.5.", "Análisis");
 
   for (const det of dets) {
-    const tolerancia = det.tolerancia_pct ?? 15;
+    const tolerancia = det.tolerancia_pct ?? tolerancia211Default(conv.sistema_adquisicion);
 
     const calcMax = (orient: "ac" | "ca") => {
       const center = det[`roi_0_vmp_${orient}` as keyof typeof det] as number | undefined;

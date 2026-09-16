@@ -571,9 +571,7 @@ describe("#122 — 'Análisis' de 2.3/2.4/2.5 cita la desviación/CV real, no re
 
     const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
     const desvEsperada = (Math.abs(prom - 0.8) / 0.8) * 100;
-    const std = Math.sqrt(
-      medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / (medidos.length - 1)
-    );
+    const std = Math.sqrt(medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / (medidos.length - 1));
     const cvEsperado = (std / prom) * 100;
 
     const matchDv = texto.match(/desviaciones máximas de hasta ([\d,.]+) %/);

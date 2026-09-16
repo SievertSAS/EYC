@@ -16,6 +16,7 @@ import {
   calcularPrecarga,
   extraerValoresBaseParaEquipo,
 } from "@/lib/equipos/convencional/valores-base-equipo";
+import { tolerancia211Default } from "@/lib/equipos/convencional/evaluacion";
 import {
   ArrowLeft,
   Check,
@@ -222,6 +223,44 @@ function ConceptoBadge({ concepto }: { concepto: "Conforme" | "No_conforme" | nu
   );
 }
 
+/**
+ * Diagrama de posiciones de los ROI de uniformidad (2.11): ROI1 en el centro
+ * de la imagen, ROI2-5 en las cuatro esquinas — misma numeración que la
+ * plantilla de referencia del área técnica. Puramente visual (sin estado de
+ * React, se resalta por CSS `:hover`): vive dentro de un `.map()` por
+ * detector, así que no puede usar hooks.
+ */
+function RoiDiagrama() {
+  const posiciones: { n: number; className: string }[] = [
+    { n: 2, className: "top-1 left-1" },
+    { n: 3, className: "top-1 right-1" },
+    { n: 1, className: "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" },
+    { n: 4, className: "bottom-1 left-1" },
+    { n: 5, className: "bottom-1 right-1" },
+  ];
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="relative w-20 h-20 shrink-0 border-2 border-slate-200 rounded-lg bg-white">
+        {posiciones.map(({ n, className }) => (
+          <span
+            key={n}
+            className={`absolute w-7 h-7 flex items-center justify-center rounded-md text-xs font-black text-white transition-all hover:scale-110 hover:bg-primary cursor-default ${
+              n === 1 ? "bg-primary" : "bg-primary/60"
+            } ${className}`}
+          >
+            {n}
+          </span>
+        ))}
+      </div>
+      <p className="text-[10px] text-slate-400 leading-snug">
+        ROI1 = centro de la imagen.
+        <br />
+        ROI2-5 = esquinas (sup. izq., sup. der., inf. izq., inf. der.).
+      </p>
+    </div>
+  );
+}
+
 // ─── Constants ───
 
 const DIRECCIONES = [
@@ -278,24 +317,33 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias, equipoBase] =
-      await Promise.all([
-        db.conv_colimacion.where("visita_id").equals(visitaId).first(),
-        db.conv_uniformidad_detector
-          .where("visita_id")
-          .equals(visitaId)
-          .filter((r) => !r.deleted_at)
-          .sortBy("item_numero"),
-        db.conv_resolucion.where("visita_id").equals(visitaId).first(),
-        db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
-        db.conv_mtf.where("visita_id").equals(visitaId).first(),
-        db.conv_evidencias
-          .where("visita_id")
-          .equals(visitaId)
-          .filter((r) => !r.deleted_at)
-          .toArray(),
-        obtenerValoresBaseEquipo(visita.equipo_id),
-      ]);
+    const [
+      colimacion,
+      uniformidadDet,
+      resolucion,
+      bajoContraste,
+      mtf,
+      evidencias,
+      equipoBase,
+      equipo,
+    ] = await Promise.all([
+      db.conv_colimacion.where("visita_id").equals(visitaId).first(),
+      db.conv_uniformidad_detector
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .sortBy("item_numero"),
+      db.conv_resolucion.where("visita_id").equals(visitaId).first(),
+      db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
+      db.conv_mtf.where("visita_id").equals(visitaId).first(),
+      db.conv_evidencias
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .toArray(),
+      obtenerValoresBaseEquipo(visita.equipo_id),
+      visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
+    ]);
 
     return {
       visita,
@@ -306,6 +354,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       mtf,
       evidencias,
       equipoBase,
+      equipo,
     };
   }, [isReady, visitaId]);
 
@@ -835,25 +884,20 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   />
                 </div>
 
-                {/* Tolerancia */}
+                {/* Tolerancia — solo lectura: la define el sistema de adquisicion del
+                    equipo (tolerancia211Default), no el tecnico. */}
                 <div className="flex items-center gap-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">
                     Tolerancia (%)
                   </label>
-                  <Input
-                    type="number"
-                    step="1"
-                    className="rounded-lg h-7 text-xs font-medium w-20"
-                    defaultValue={ur.det.tolerancia_pct ?? 15}
-                    onBlur={(e) => {
-                      if (!ur.det.id) return;
-                      updateUniformidadDet(ur.det.id, {
-                        tolerancia_pct: e.target.value ? parseDecimal(e.target.value) : 15,
-                      });
-                      flash(ur.det.id);
-                    }}
-                  />
+                  <span className="rounded-lg h-7 px-2.5 inline-flex items-center text-xs font-bold text-slate-600 bg-slate-100">
+                    {ur.det.tolerancia_pct ??
+                      tolerancia211Default(data?.equipo?.sistema_adquisicion)}
+                    %
+                  </span>
                 </div>
+
+                <RoiDiagrama />
 
                 {(["ac", "ca"] as const).map((orient) => (
                   <div key={orient} className="space-y-2">
@@ -867,7 +911,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                         return (
                           <div key={i} className="space-y-1">
                             <label className="text-[9px] font-black text-slate-400 uppercase">
-                              {i === 0 ? "ROIc" : `ROI${i}`}
+                              {`ROI${i + 1}`}
                             </label>
                             <Input
                               type="number"
@@ -946,7 +990,9 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
 
                 {ur.maxGlobal !== null &&
                   (() => {
-                    const tolerancia = ur.det.tolerancia_pct ?? 15;
+                    const tolerancia =
+                      ur.det.tolerancia_pct ??
+                      tolerancia211Default(data?.equipo?.sistema_adquisicion);
                     const conforme =
                       ur.maxGlobal <= tolerancia &&
                       !ur.det.pixeles_defectuosos &&

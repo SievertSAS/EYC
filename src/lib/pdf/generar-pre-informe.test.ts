@@ -18,6 +18,7 @@ import {
   generarPreInforme,
   getLogoBase64,
   resetLogoCache,
+  resolverAccionesTexto,
   textoCampo,
   textoFecha,
 } from "./generar-pre-informe";
@@ -523,8 +524,7 @@ describe("concepto general y acciones correctivas", () => {
         prueba_codigo: `2.${i + 1}`,
         orden: i + 1,
         incluida: true,
-        acciones_correctivas:
-          i + 1 === 3 ? "OBSERVACION-PUNTUAL-MARCADOR-2-3" : undefined,
+        acciones_correctivas: i + 1 === 3 ? "OBSERVACION-PUNTUAL-MARCADOR-2-3" : undefined,
         sync_status: "synced" as const,
         last_modified: new Date().toISOString(),
       }))
@@ -573,6 +573,24 @@ describe("#60 — formateo de campos de licencia", () => {
 
   it("textoFecha: string no reconocible se devuelve tal cual", () => {
     expect(textoFecha("no sé")).toBe("no sé");
+  });
+});
+
+describe("resolverAccionesTexto — fuente única del texto de Acciones Correctivas", () => {
+  it("prioriza lo guardado por el usuario, recortado, sobre catálogo y fallback", () => {
+    expect(resolverAccionesTexto("  Texto del usuario  ", "Del catálogo", "Fallback")).toBe(
+      "Texto del usuario"
+    );
+  });
+
+  it("sin lo guardado (undefined o solo espacios), usa el default del catálogo", () => {
+    expect(resolverAccionesTexto(undefined, "Del catálogo", "Fallback")).toBe("Del catálogo");
+    expect(resolverAccionesTexto("   ", "Del catálogo", "Fallback")).toBe("Del catálogo");
+  });
+
+  it("sin guardado ni catálogo, cae al fallback fijo", () => {
+    expect(resolverAccionesTexto(undefined, undefined, "Fallback")).toBe("Fallback");
+    expect(resolverAccionesTexto("", undefined, "Fallback")).toBe("Fallback");
   });
 });
 

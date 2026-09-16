@@ -23,12 +23,11 @@
 - Imports con alias `@/` desde `src/`
 - Componentes UI de shadcn/ui en `src/components/ui/`
 - Variables de entorno: importar desde `@/lib/env` (nunca `process.env` directo)
-- Formulas de pruebas: usar `helpers.*` en vez de IIFEs en strings evaluados
 - Sync engine: loguear errores con `@/lib/logger`, nunca catch vacios
 
 ## Estructura clave
 
-- `src/lib/equipos/` — paquetes de equipo, engine de formulas, definiciones de pruebas por tipo
+- `src/lib/equipos/` — paquetes de equipo, definiciones de pruebas por tipo, evaluadores de conformidad (`convencional/evaluacion.ts`, `convencional/estadistica.ts`)
 - `src/lib/workflow/` — state machine de visitas, completitud de modulos
 - `src/lib/supabase/sync-engine.ts` — sync bidireccional offline/online
 - `src/lib/pdf/generar-pre-informe.ts` — generacion PDF (dynamic import de jsPDF)
@@ -36,7 +35,6 @@
 
 ## Seguridad
 
-- `src/lib/equipos/engine.ts` valida expresiones con BLOCKED_PATTERNS antes de `new Function()`
 - API de usuarios tiene rate limiting (`@/lib/rate-limit`)
 - `proxy.ts` protege rutas `/dashboard/*` server-side
 - Paginas con restriccion de rol usan `hasPermission()` de `useRole()`

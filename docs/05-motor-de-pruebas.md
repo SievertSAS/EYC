@@ -59,6 +59,34 @@ cada prueba lleva `numero_tecdoc`, `formulas`, `criterios_aceptacion`, `textos_i
 - **2.9 DDI/EI:** desviación vs base `≤ 20 %`
 - **2.10 Repetibilidad:** CV de 3 repeticiones `≤ 20 %`
 
+**Grupo E — 2.16 MTF:** desde el PR de curvas MTF (#138), la prueba captura **3 evidencias**
+fotográficas en vez de una: curva MTF horizontal, imagen DICOM del objeto borde y curva MTF
+vertical, en ese orden. Los slots (`curva_mtf_horizontal`, `dicom_mtf`, `curva_mtf_vertical`) se
+resuelven en el generador de PDF
+([`src/lib/pdf/secciones-convencional.ts:389-408`](../src/lib/pdf/secciones-convencional.ts)); el
+`slots_imagen` de 2.16 en `grupos.ts` queda vacío porque la definición de sección aún no modela
+slots múltiples por prueba.
+
+### Veredicto real: evaluadores manuales (`evaluacion.ts`)
+
+El concepto Conforme/No conforme de cada una de las 21 pruebas lo produce un evaluador
+TypeScript puro por código TECDOC en
+[`convencional/evaluacion.ts`](../src/lib/equipos/convencional/evaluacion.ts) (mapa
+`EVALUADORES`), **no** el motor de fórmulas de abajo (retirado). Todos comparten el cálculo
+estadístico centralizado en
+[`convencional/estadistica.ts`](../src/lib/equipos/convencional/estadistica.ts) —
+`promedio`, `desviacion` (muestral, n−1) y `cvPct` — que antes se reimplementaba de forma
+independiente en 7 lugares (el propio `evaluacion.ts`, el generador de PDF y las secciones del
+informe); un ajuste a la fórmula ahora se propaga desde una única fuente (fix `8657ba9`, #121).
+
+`Concepto` admite cuatro valores: `"Conforme"`, `"No_conforme"`, `"No_aplica"` y
+`"No_favorable_no_ejecutada"` — este último para una prueba que aplica pero no se pudo ejecutar
+(p. ej. por falla de un componente del sensor; feat `ad580c7`, #120). La precedencia entre el
+override manual del editor de pre-informe y el veredicto automático la resuelve
+`conceptoEfectivoSeccion()` (`evaluacion.ts:531-539`): 1) `!incluida` → `"No_aplica"`; 2)
+concepto ya marcado `"No_favorable_no_ejecutada"` → se respeta tal cual; 3) sin override, se usa
+`evaluarConceptoPrueba()` (`undefined` = pendiente, sin datos suficientes).
+
 ## 5.3 Motor de fórmulas y criterios — ⛔ RETIRADO (#45)
 
 > `engine.ts` / `engine.test.ts` se **borraron** (2026-09-01). Nunca se usaron: cero
@@ -120,11 +148,13 @@ Más detalle en [Seguridad §7.4](07-seguridad.md#74-sandbox-de-fórmulas).
 
 ## 5.4 Integración con instrumentos: RaySafe X2
 
-El Grupo B se alimenta del **sensor multiparamétrico RaySafe X2**. El flujo previsto es
-importar el archivo exportado por el instrumento (`.csv`/`.xlsx`) y volcar los valores medidos en
-`conv_raysafe_mediciones` (parser en `convencional/raysafe-parser.ts`, dependencia `xlsx`). El
-botón "Cargar archivo RaySafe" y el parseo están **pendientes** (ver [`../TODO.md`](../TODO.md));
-mientras tanto los valores se capturan manualmente.
+El Grupo B se alimenta del **sensor multiparamétrico RaySafe X2**. La importación está
+**implementada**: `src/lib/equipos/convencional/raysafe-parser.ts` parsea tanto `.xlsx`/`.xls`
+(`parseRaysafeXlsx`, formato "plantilla" estructurado) como `.tsv`/`.txt`/`.csv`
+(`parseRaysafeTsv`), y `RaysafeUploadCard` en
+[`grupo-b-modulo.tsx`](../src/components/visita-modulos/grupo-b-modulo.tsx) ofrece el botón
+"Cargar archivo RaySafe" con una plantilla `.xlsx` descargable, volcando los valores en
+`conv_raysafe_mediciones`. La captura manual sigue disponible como alternativa.
 
 ## 5.5 Generación del pre-informe PDF
 

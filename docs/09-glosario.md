@@ -24,7 +24,7 @@
 | **Cassette / CR** | Radiografía computarizada (Computed Radiography): placas de fósforo reutilizables. |
 | **RaySafe X2** | Instrumento multiparamétrico que mide kVp, tiempo, dosis, CHR, etc. Fuente de datos del Grupo B. |
 | **Blindaje** | Barreras (plomo, concreto) que protegen zonas colindantes; se describe por zonas A/B/C/D. |
-| **Concepto / conformidad** | Resultado de una prueba: `FAVORABLE`, `NO_FAVORABLE` o `NO_APLICA`. |
+| **Concepto / conformidad** | Resultado de una prueba: `Favorable`, `No_favorable`, `No_aplica` o `No_favorable_no_ejecutada` (prueba aplicable que no pudo ejecutarse por falla de un componente; distinto de "no aplica"). |
 | **OPR** | Oficial/encargado de protección radiológica del cliente. |
 | **DIVIPOLA / DANE** | Codificación oficial colombiana de departamentos y municipios. |
 | **NIT** | Número de identificación tributaria del cliente. |
@@ -43,7 +43,7 @@
 | **Criterio (`CriterioAceptacion`)** | Límite normativo que decide si una prueba cumple. |
 | **EquipmentPackage** | Paquete que encapsula módulos, grupos y generación de PDF de un tipo de equipo. |
 | **Registry** | Mapa `TipoEquipo → EquipmentPackage`; único punto de acceso. |
-| **Engine** | Evaluador puro de fórmulas y criterios (`lib/equipos/engine.ts`). |
+| **Evaluador de conformidad** | Función pura que decide el concepto de cada prueba (`lib/equipos/convencional/evaluacion.ts`); el motor de fórmulas genérico (`engine.ts`) que existió hasta 2026-09-01 fue eliminado por no usarse en producción. |
 | **Gate** | Validación bloqueante en una transición de estado (solo "completar visita"). |
 | **Completitud (`getVisitCompleteness`)** | % de avance de los módulos de una visita. |
 | **Informe / InformeVersion** | Documento final versionado, con número consecutivo y QR. |

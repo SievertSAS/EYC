@@ -28,6 +28,20 @@ Consumido por: `informes/[id]` (descarga), `pre-informe-modulo` (preview),
 - **Marca de agua**: se omite si la visita está `aprobada` o `enviada` (versión final).
 - **Logo**: `fetch("/logo-informe.png")` cacheado en módulo — **sin manejo de
   error si el fetch falla** (finding menor).
+- **Veredicto por prueba** (línea 1123): delega en `evaluarConceptoPrueba` /
+  `tieneCriterio` de `evaluacion.ts` — nunca se recalcula en el PDF,
+  garantizando paridad con el editor.
+- **CV/desviación** (#121): usa `promedio`/`desviacion` de
+  `src/lib/equipos/convencional/estadistica.ts` en vez de fórmulas locales
+  duplicadas (ver Módulo 7, §2.1).
+- **Estado "No ejecutada"** (#120): `seccion.concepto === "No_favorable_no_ejecutada"`
+  produce el label "NO EJECUTADA" con párrafo propio
+  (`generar-pre-informe.ts:1122,1137-1143`) y cuenta como **pendiente**
+  (no `No_conforme`) para el concepto general del informe.
+- **Grupo E / prueba 2.16**: ahora renderiza **3 evidencias gráficas** en
+  orden fijo — curva MTF horizontal, objeto borde (la imagen DICOM), curva
+  MTF vertical — en vez de la única imagen DICOM anterior
+  (`secciones-convencional.ts:389-408`, `renderFotos216`).
 
 ## 3. Hallazgos
 

@@ -9,11 +9,20 @@ La seguridad se aborda en varias capas.
 - El **`proxy.ts`** (equivalente al middleware en Next.js 16) protege todo `/dashboard/*`
   server-side: si no hay usuario válido, redirige a `/login?redirect=...`. Si ya hay sesión y se
   visita `/login`, redirige a `/dashboard`.
-- **Tolerancia offline:** si Supabase es inalcanzable (error de red), el proxy no cierra la
-  sesión de golpe; valida localmente la cookie decodificando el JWT y comprobando `exp` con un
-  **margen de 60 s** (`hasValidSessionCookie`). La firma del JWT la valida Supabase server-side;
-  aquí solo se lee `exp` para no expulsar a un técnico que perdió conexión en campo.
-- El proxy reconstruye tokens **fragmentados** por Supabase SSR (cookies `.0`, `.1`, …).
+- **Clasificación en tres** de la respuesta de `supabase.auth.getUser()`: autenticado (Supabase
+  confirmó al usuario), rechazado (401/403 o patrón de error conocido: JWT inválido/expirado,
+  sesión revocada → `isAuthRejection`, `session.ts`) o indeterminado (5xx/429/timeout/excepción de
+  red — no se asume que el usuario perdió su sesión).
+- **Tolerancia offline (gracia de 7 días):** si la respuesta es indeterminada, el proxy verifica
+  la sesión localmente (`hasAcceptableLocalSession`, `proxy.ts:30`). Con `SUPABASE_JWT_SECRET`
+  configurado, valida la **firma HS256** del access token (`verifyHS256`, Web Crypto —
+  edge-compatible) y solo lo acepta si expiró hace menos de `SESSION_GRACE_MS` = **7 días**
+  (`session.ts:10`) y trae `refresh_token`; un `alg: "none"` o firma incorrecta nunca pasa. Sin el
+  secreto configurado, cae a una **barrera blanda**: JWT bien formado y no expirado con un margen
+  de 60 s, sin verificar la firma (loguea un warning una sola vez); en ese caso RLS de Supabase
+  queda como la barrera real de datos.
+- El proxy reconstruye tokens **fragmentados** por Supabase SSR (cookies `.0`, `.1`, …) y el
+  prefijo `base64-` que usa `@supabase/ssr` (`readSupabaseSession`, `session.ts:94`).
 
 ## 7.2 Autorización (permisos)
 
@@ -33,7 +42,12 @@ Puntos de seguridad relevantes:
 Única API route ([`src/app/api/usuarios/route.ts`](../src/app/api/usuarios/route.ts)); es la
 superficie más sensible porque usa el **service role**. Controles apilados:
 
-1. **Rate limiting**: 5 peticiones/minuto por clave (`rateLimit`, `getRateLimitKey`) → `429`.
+1. **Rate limiting**: 5 peticiones/minuto por clave (`rateLimit`, `getRateLimitKey`) → `429`. Es
+   un `Map` en memoria de proceso (`src/lib/rate-limit.ts`) — **limitación conocida**: en
+   serverless cada instancia tiene su propio `Map`, así que el límite es *per-instance*, no
+   distribuido. Igual protege ráfagas dentro de una instancia caliente y se complementa con el
+   rate limiting nativo de Supabase Auth (GoTrue) sobre signups/logins. Migrar a Redis
+   (`@upstash/ratelimit`) es el camino documentado para un límite realmente distribuido.
 2. **Autenticación**: exige sesión válida → `401` si no.
 3. **Autorización server-side**: consulta el `cargo` del llamante en la DB y exige
    `coordinador` → `403` en caso contrario. (No confía en nada que venga del cliente.)
@@ -69,9 +83,14 @@ Centralizadas y **validadas con Zod** en [`src/lib/env.ts`](../src/lib/env.ts). 
 | `NEXT_PUBLIC_SUPABASE_URL` | cliente | URL del proyecto |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | cliente | Clave anónima (RLS aplica) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **solo server** | Cliente admin en la API de usuarios |
+| `SUPABASE_JWT_SECRET` | **solo server**, opcional | Verifica la firma HS256 del JWT en el fallback offline del proxy (§7.1). Sin ella, ese fallback usa la barrera blanda. |
 
 `clientEnv` se valida al importar; `getServerEnv()` valida el service role solo cuando se usa
 (por request), de modo que el frontend nunca requiere esa clave.
+`SUPABASE_JWT_SECRET` está declarada en el schema de `env.ts` pero `proxy.ts` la lee directo de
+`process.env` (excepción documentada a la convención de CLAUDE.md): `proxy.ts` corre en el Edge
+runtime y no puede importar `@/lib/env`, que lanza si faltan variables — el proxy debe seguir
+funcionando aunque el secreto no esté configurado.
 
 ## 7.6 Auditoría
 

@@ -36,6 +36,20 @@ divergencia; no hay). Fijado en `grupos.test.ts` / `catalogos.test.ts`:
 
 `2.8` es el único código sin criterio (`tieneCriterio("2.8") === false`).
 
+## 2.1 Grupo E — evidencia MTF (2.16)
+
+`feat/grupo-e-mtf-curvas` (PR #138): la evidencia gráfica de la prueba 2.16
+(MTF, dentro de `GRUPO_E` — "Colimación, Resolución, Contraste y MTF",
+`grupos.ts:255`) pasó de una sola imagen DICOM a **tres evidencias
+ordenadas**: curva MTF horizontal, objeto borde (la imagen DICOM que ya
+existía) y curva MTF vertical. Slots `curva_mtf_horizontal` / `dicom_mtf` /
+`curva_mtf_vertical`, capturados en `grupo-e-modulo.tsx` y ensamblados en ese
+orden por `recopilarDatosConv` (`src/lib/pdf/secciones-convencional.ts:389-408`,
+ver Módulo 9). El registro de `GRUPO_E` en `grupos.ts` no lista estos slots en
+`slots_imagen` (ese arreglo sigue vacío, igual que `formulas`/
+`criterios_aceptacion`) — los slots viven del lado del componente y del
+recopilador del PDF, no en la definición declarativa del grupo.
+
 ## 3. Hallazgo #7 — guard
 
 `module-completeness.getModuleStatuses` solo produce estados para los ids del

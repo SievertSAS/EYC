@@ -876,29 +876,17 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   />
                 </div>
 
-                {/* Tolerancia */}
+                {/* Tolerancia — solo lectura: la define el sistema de adquisicion del
+                    equipo (tolerancia211Default), no el tecnico. */}
                 <div className="flex items-center gap-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">
                     Tolerancia (%)
                   </label>
-                  <Input
-                    type="number"
-                    step="1"
-                    className="rounded-lg h-7 text-xs font-medium w-20"
-                    defaultValue={
-                      ur.det.tolerancia_pct ??
-                      tolerancia211Default(data?.equipo?.sistema_adquisicion)
-                    }
-                    onBlur={(e) => {
-                      if (!ur.det.id) return;
-                      updateUniformidadDet(ur.det.id, {
-                        tolerancia_pct: e.target.value
-                          ? parseDecimal(e.target.value)
-                          : tolerancia211Default(data?.equipo?.sistema_adquisicion),
-                      });
-                      flash(ur.det.id);
-                    }}
-                  />
+                  <span className="rounded-lg h-7 px-2.5 inline-flex items-center text-xs font-bold text-slate-600 bg-slate-100">
+                    {ur.det.tolerancia_pct ??
+                      tolerancia211Default(data?.equipo?.sistema_adquisicion)}
+                    %
+                  </span>
                 </div>
 
                 <RoiDiagrama />

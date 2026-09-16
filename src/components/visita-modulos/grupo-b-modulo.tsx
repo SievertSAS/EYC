@@ -13,6 +13,10 @@ import {
 } from "@/lib/equipos/convencional/equipo-valores-base-sync";
 import { campoDosisBasePorPrograma } from "@/lib/equipos/convencional/valores-base-equipo";
 import {
+  LABEL_UNIDAD_KERMA,
+  LABEL_UNIDAD_DAP,
+} from "@/lib/equipos/convencional/unidades-raysafe";
+import {
   ArrowLeft,
   Check,
   Zap,
@@ -797,9 +801,9 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     ["mAs nom.", "w-16"],
                     ["kV med.", "w-16"],
                     ["t med. (s)", "w-20"],
-                    ["Dosis (mGy)", "w-20"],
+                    [`Dosis (${LABEL_UNIDAD_KERMA[setup?.unidad_kerma ?? "mgy"]})`, "w-20"],
                     ["CHR (mmAl)", "w-20"],
-                    ["DAP", "w-16"],
+                    [`DAP (${LABEL_UNIDAD_DAP[setup?.unidad_dap ?? "mgy_cm2"]})`, "w-16"],
                     ["Para pruebas", "min-w-[120px]"],
                   ].map(([label, cls]) => (
                     <th
@@ -1186,12 +1190,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     "Programa",
                     "kV",
                     "mAs",
-                    "DAP nom.",
+                    `DAP nom. (${LABEL_UNIDAD_DAP[setup?.unidad_dap ?? "mgy_cm2"]})`,
                     "Foco-sensor (cm)",
                     "Foco-detector (cm)",
                     "Ancho (cm)",
                     "Largo (cm)",
-                    "Kerma (mGy)",
+                    `Kerma (${LABEL_UNIDAD_KERMA[setup?.unidad_kerma ?? "mgy"]})`,
                   ].map((label) => (
                     <th
                       key={label}

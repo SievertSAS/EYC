@@ -1725,6 +1725,33 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
   ctx.y = finalY(doc) + 8;
 }
 
+/** Tabla de valores base de referencia MTF (solo 2.16) */
+export function renderTablaBaseRef216(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc, autoTable } = ctx;
+  const m = conv.mtf;
+  ctx.checkPage(30);
+  addCaption(ctx, "Valores base de referencia");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Dirección", "MTF50 (lp/mm)", "MTF20 (lp/mm)"]],
+    body: [
+      [
+        "Horizontal",
+        m?.mtf50_base_horizontal != null ? formatDecimal(m.mtf50_base_horizontal, 2) : "—",
+        m?.mtf20_base_horizontal != null ? formatDecimal(m.mtf20_base_horizontal, 2) : "—",
+      ],
+      [
+        "Vertical",
+        m?.mtf50_base_vertical != null ? formatDecimal(m.mtf50_base_vertical, 2) : "—",
+        m?.mtf20_base_vertical != null ? formatDecimal(m.mtf20_base_vertical, 2) : "—",
+      ],
+    ],
+    columnStyles: { 0: { halign: "left" as const } },
+  });
+  ctx.y = finalY(doc) + 8;
+}
+
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
   const unidadKerma = conv.raysafeSetup?.unidad_kerma;
@@ -2580,42 +2607,15 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
 
   addSubsectionTitle("2.16.5.", "Análisis");
 
-  const tieneBase = m.mtf50_base_horizontal != null || m.mtf50_base_vertical != null;
-
-  if (!tieneBase) {
-    addParagraph(
-      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital. Los valores de MTF50 y MTF20 permiten caracterizar la capacidad del detector para reproducir detalles espaciales en las direcciones horizontal y vertical. No se dispone de valores de referencia previos para comparación, por lo que los resultados obtenidos se establecen como valores base para futuras evaluaciones."
-    );
-    return 6;
-  }
-
-  // Calcular desviaciones vs base
-  const desv50H =
-    m.mtf50_horizontal != null && m.mtf50_base_horizontal != null
-      ? Math.abs((m.mtf50_horizontal - m.mtf50_base_horizontal) / m.mtf50_base_horizontal) * 100
-      : null;
-  const desv50V =
-    m.mtf50_vertical != null && m.mtf50_base_vertical != null
-      ? Math.abs((m.mtf50_vertical - m.mtf50_base_vertical) / m.mtf50_base_vertical) * 100
-      : null;
-
-  const desvMax = [desv50H, desv50V].filter((v): v is number => v != null);
-  const maxDesv = desvMax.length > 0 ? Math.max(...desvMax) : null;
-  const conforme = maxDesv != null ? maxDesv <= 10 : null;
-
-  if (conforme === true) {
-    addParagraph(
-      `Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, consistente con el desempeño esperado para detectores digitales de radiografía. La variación máxima respecto a los valores de referencia fue de ${formatDecimal(maxDesv!, 1)} %, dentro del criterio de aceptación del 10 %. Los valores obtenidos no evidencian degradaciones significativas del sistema.`
-    );
-  } else if (conforme === false) {
-    addParagraph(
-      `Las curvas de MTF obtenidas presentan variaciones respecto a los valores de referencia que superan el criterio de aceptación del 10 % (variación máxima: ${formatDecimal(maxDesv!, 1)} %). Esto podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales, requiriendo verificación adicional del detector.`
-    );
-  } else {
-    addParagraph(
-      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital."
-    );
-  }
+  addParagraph(
+    "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital."
+  );
+  addParagraph(
+    "Las frecuencias espaciales correspondientes a MTF50 y MTF20 permiten caracterizar la capacidad del detector para reproducir detalles espaciales en las direcciones horizontal y vertical."
+  );
+  addParagraph(
+    "Los valores obtenidos son consistentes con el desempeño esperado para detectores digitales de radiografía general."
+  );
 
   return 6;
 }

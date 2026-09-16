@@ -51,6 +51,7 @@ import {
   renderEvidenciaGrafica,
   renderTablaChrRef,
   renderTablaBaseRef29,
+  renderTablaBaseRef216,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -1107,6 +1108,11 @@ export async function generarPreInforme(
       // Tabla de valores base de referencia DDI/EI (solo 2.9)
       if (codigo === "2.9" && aplica) {
         renderTablaBaseRef29(ctx, conv);
+        y = ctx.y;
+      }
+      // Tabla de valores base de referencia MTF (solo 2.16)
+      if (codigo === "2.16" && aplica) {
+        renderTablaBaseRef216(ctx, conv);
         y = ctx.y;
       }
       nextSub++;

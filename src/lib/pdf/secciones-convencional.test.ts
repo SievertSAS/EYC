@@ -4,6 +4,7 @@ import { resetTestDb } from "@/test/db-reset";
 import {
   recopilarDatosConv,
   renderResultadosSeccion,
+  renderTablaBaseRef216,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -541,6 +542,104 @@ describe("recopilarDatosConv — fotos216 (curvas MTF + objeto borde) (#118)", (
   it("sin ninguna evidencia → fotos216 queda vacío", async () => {
     const d = await recopilarDatosConv(V);
     expect(d.fotos216).toEqual([]);
+  });
+});
+
+describe("2.16 — Análisis (texto fijo) y tabla de valores base de referencia MTF", () => {
+  const mtfBase = {
+    sid_cm: 100,
+    kv_referencia: 70,
+    pixel_size_mm: 0.14,
+    nyquist_lpmm: 3.57,
+    mtf50_horizontal: 1.2,
+    mtf20_horizontal: 2.1,
+    mtf50_vertical: 1.15,
+    mtf20_vertical: 2.05,
+  };
+
+  it("el 'Análisis' es texto fijo, igual con o sin valores base de referencia", async () => {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({ ...mtfBase });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    const textoSinBase = parrafos.join(" ");
+
+    parrafos.length = 0;
+    conv.mtf = row({
+      ...mtfBase,
+      mtf50_base_horizontal: 1.3,
+      mtf20_base_horizontal: 2.2,
+      mtf50_base_vertical: 1.25,
+      mtf20_base_vertical: 2.15,
+    });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    const textoConBase = parrafos.join(" ");
+
+    const textoEsperado =
+      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital. " +
+      "Las frecuencias espaciales correspondientes a MTF50 y MTF20 permiten caracterizar la capacidad del detector para reproducir detalles espaciales en las direcciones horizontal y vertical. " +
+      "Los valores obtenidos son consistentes con el desempeño esperado para detectores digitales de radiografía general.";
+
+    expect(textoSinBase).toContain(textoEsperado);
+    expect(textoConBase).toContain(textoEsperado);
+    expect(textoConBase).not.toMatch(/variación máxima/);
+  });
+
+  it("renderTablaBaseRef216 muestra los valores base reales cuando existen", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({
+      ...mtfBase,
+      mtf50_base_horizontal: 1.3,
+      mtf20_base_horizontal: 2.2,
+      mtf50_base_vertical: 1.25,
+      mtf20_base_vertical: 2.15,
+    });
+    renderTablaBaseRef216(ctx, conv);
+
+    const tablaBase = tablas.find((t) => t.head.includes("MTF50 (lp/mm)"));
+    expect(tablaBase).toBeDefined();
+    expect(tablaBase!.body).toEqual([
+      ["Horizontal", "1,30", "2,20"],
+      ["Vertical", "1,25", "2,15"],
+    ]);
+  });
+
+  it("renderTablaBaseRef216 muestra '—' cuando no hay valores base", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({ ...mtfBase });
+    renderTablaBaseRef216(ctx, conv);
+
+    const tablaBase = tablas.find((t) => t.head.includes("MTF50 (lp/mm)"));
+    expect(tablaBase!.body).toEqual([
+      ["Horizontal", "—", "—"],
+      ["Vertical", "—", "—"],
+    ]);
   });
 });
 

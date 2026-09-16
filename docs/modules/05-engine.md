@@ -20,18 +20,21 @@ Evaluador puro de **fórmulas** (`evaluateFormula`) y **criterios de aceptación
 `EquipmentPackage`. `stats.*` (media/desvío/CV/…) y `formulaHelpers.*` son el
 "stdlib" que se inyecta en el sandbox.
 
-### ⚠️ El módulo está DORMIDO
+### ⚠️ Por qué el módulo estaba DORMIDO (antes de borrarlo)
 
 - **Todos los `formulas: []` y `criterios_aceptacion: []` en `grupos.ts` están
-  vacíos.** No hay ni una fórmula real en el proyecto.
-- Fuera de tests, **nada llama** `evaluateFormula` / `evaluateGroup`. La lógica
-  de conformidad real vive en `evaluacion.ts` (evaluadores a mano — Módulo 7).
-- `engine.ts` es un sandbox endurecido esperando fórmulas que todavía no
-  existen. Esta pasada es "dejarlo correcto antes de que se use", no arreglar
-  un bug de producción activo.
-- **Decisión pendiente: `engine.ts` (genérico) vs `evaluacion.ts` (a mano) —
-  issue #45.** Hay dos sistemas para lo mismo; hay que elegir uno (activar /
-  borrar / híbrido). El redesign #41 solo aplica si se decide mantenerlo.
+  vacíos** (sigue siendo así hoy). Nunca hubo ni una fórmula real en el
+  proyecto.
+- Fuera de tests, **nadie llamaba** `evaluateFormula` / `evaluateGroup`. La
+  lógica de conformidad real siempre vivió en `evaluacion.ts` (evaluadores a
+  mano — Módulo 7).
+- `engine.ts` era un sandbox endurecido esperando fórmulas que nunca llegaron
+  a existir. Esa pasada fue "dejarlo correcto antes de que se use", no
+  arreglar un bug de producción activo.
+- **Decisión tomada — issue #45, opción B: borrar.** Había dos sistemas para
+  lo mismo (`engine.ts` genérico vs. `evaluacion.ts` a mano); en vez de
+  activar uno o hibridarlos, se eliminó `engine.ts` directamente. El redesign
+  de #41 solo hubiera aplicado si se decidía mantener el motor.
 
 ## 2. API pública
 

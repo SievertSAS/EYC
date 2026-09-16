@@ -23,6 +23,28 @@ Contrato de cada evaluador:
 `getEstadoPruebasPorGrupo(visitaId)` cuenta `undefined` como "pendiente" →
 alimenta el contador del editor y el gate de completitud (Tier 4).
 
+### 1.1 Estado "No ejecutada" (#120)
+
+`Concepto` (`evaluacion.ts:37`) tiene un cuarto valor:
+`"No_favorable_no_ejecutada"`, para una prueba que sí aplica al equipo pero
+no pudo ejecutarse por falla de un componente durante la visita (antes solo
+existía el switch "No aplica", semánticamente incorrecto para este caso —
+"no aplica" es distinto de "aplicaba y no se pudo hacer"). Reutiliza el campo
+`ConvInformeSeccion.concepto` como override manual, igual que el mecanismo ya
+existente.
+
+La función pura `conceptoEfectivoSeccion(seccion, datos)` (`evaluacion.ts:531-539`)
+centraliza la precedencia entre overrides manuales y el veredicto automático:
+
+1. `!seccion.incluida` → `"No_aplica"` (switch "no aplica" gana).
+2. `seccion.concepto === "No_favorable_no_ejecutada"` → ese valor.
+3. Si no hay override, el veredicto automático de `evaluarConceptoPrueba`
+   (`undefined` = pendiente, sin datos suficientes).
+
+La usan tanto el editor del pre-informe como el generador de PDF (Módulo 9),
+para que nunca diverjan. Para el gate de completitud de módulos, una prueba
+en este estado cuenta como **resuelta** (no queda pendiente).
+
 ### 2. Hallazgo #13 — datos faltantes que se leen como "Conforme"
 
 Patrón: `variación != null ? variación <= umbral : true`. El `: true` = "si no
@@ -37,6 +59,23 @@ se pudo calcular → Conforme".
 
 Los PIN en `evaluacion.test.ts` fijan el comportamiento que queda pendiente
 de revisión.
+
+### 2.1 CV/desviación consolidados en `estadistica.ts` (#121)
+
+Bug real reportado: el CV mostrado en el PDF (1%) no coincidía con el cálculo
+manual (1.6%). La fórmula en sí era correcta, pero estaba **reimplementada 7
+veces** en sitios distintos (`evaluacion.ts`, un helper "central" de
+`secciones-convencional.ts`, 3 renders locales de las pruebas 2.10/2.15/2.19,
+y 2 cálculos inline dentro de 2.15) — cada copia con su propio riesgo de
+divergencia.
+
+Se creó `src/lib/equipos/convencional/estadistica.ts` como fuente única:
+`promedio` / `desviacion` (muestral, `n-1`) / `cvPct`. La consumen ahora
+también `generar-pre-informe.ts` (Módulo 9) y este módulo. Se agregó un test
+de contrato cruzado en `secciones-convencional.test.ts` (`#121`) que compara
+el concepto de `evaluarConceptoPrueba` contra el porcentaje de CV renderizado
+en el PDF para el dataset de 2.15, para que evaluación y PDF no puedan volver
+a divergir en silencio.
 
 ### 3. Cobertura nueva (`evaluacion.test.ts`, 32 tests)
 

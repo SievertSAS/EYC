@@ -11,7 +11,7 @@
 | Base de datos offline | **Dexie** (IndexedDB) | 40+ tablas, sync bidireccional |
 | Validación | **Zod v4** (`zod/v4`) | Schemas de entrada y de variables de entorno |
 | PDF | **jsPDF** + **jspdf-autotable** | Import dinámico (no entra en el bundle inicial) |
-| Import de datos | **xlsx** | Para el archivo del sensor RaySafe (pendiente) |
+| Import de datos | **xlsx** | Parseo del archivo exportado del sensor RaySafe X2 (`convencional/raysafe-parser.ts`), usado en `conv/grupo-b` |
 | Tests | **Vitest** + Testing Library + fake-indexeddb | |
 
 ## 2.2 Principio rector: *offline-first, local-first*
@@ -69,10 +69,11 @@ src/
 │
 └── lib/                      # Lógica de dominio (sin JSX)
     ├── db/                   # Schema Dexie, tipos del dominio, seeders, reset
-    ├── equipos/              # Paquetes por equipo, motor de fórmulas, definiciones
-    │   ├── engine.ts         # Evaluador de fórmulas y criterios (sandbox)
+    ├── equipos/              # Paquetes por equipo, definiciones, evaluadores
     │   ├── registry.ts       # Registro central de paquetes por tipo de equipo
     │   └── convencional/     # Paquete CONVENCIONAL (módulos, grupos, tablas conv_*)
+    │       ├── evaluacion.ts     # Evaluadores TypeScript del veredicto Conforme/No conforme
+    │       └── estadistica.ts    # Fuente única de promedio/desviación/CV%
     ├── workflow/             # Máquina de estados, completitud, servicios de visita/informe
     ├── supabase/             # Clientes (browser/server), sync-engine, tipos generados
     ├── pdf/                  # Generación de pre-informes PDF
@@ -86,8 +87,12 @@ src/
 
 - `app/` (UI) → depende de `components/`, `hooks/`, `lib/`.
 - `lib/workflow/` y `lib/equipos/` → dependen de `lib/db/` (tipos y acceso Dexie).
-- `lib/equipos/engine.ts` es **puro** (sin Dexie ni React): entra y sale con datos. Esto lo hace
-  fácil de testear y es lo que se ejecuta contra las mediciones crudas.
+- `lib/equipos/convencional/evaluacion.ts` concentra los evaluadores del veredicto
+  Conforme/No conforme; son funciones TypeScript escritas a mano (una por prueba), no un motor
+  de fórmulas genérico. Existió un `engine.ts` que evaluaba fórmulas-string con `new Function()`
+  detrás de un denylist de patrones, pero nunca se usó en producción (las 21 pruebas siempre
+  tuvieron `formulas: []`) y se eliminó en septiembre de 2026 (issue #45) — ver
+  [Motor de pruebas §5.3](05-motor-de-pruebas.md) y [Seguridad §7.4](07-seguridad.md).
 - `lib/db/types.ts` es el vocabulario compartido: define todas las entidades y enums del dominio.
 
 ## 2.4 Patrón "Equipment Package"

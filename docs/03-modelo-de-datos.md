@@ -8,7 +8,7 @@ La definición canónica de todas las entidades está en
 
 ## 3.1 Base Dexie: `SievertEyC`
 
-Una sola base de datos IndexedDB con **versionado incremental** (v1 → v13). Dexie exige que
+Una sola base de datos IndexedDB con **versionado incremental** (v1 → v17). Dexie exige que
 **todas las versiones anteriores permanezcan declaradas** para poder migrar bases existentes; por
 eso el constructor conserva el historial completo. **Nunca se modifica una versión ya publicada:
 para cambiar el esquema se añade una `this.version(n)` nueva.**
@@ -23,6 +23,10 @@ Hitos del historial:
 - **v13:** **migración de claves primarias numéricas a UUID string** (ver
   [Arquitectura §2.2](02-arquitectura.md#23-identidad-por-uuid-generado-en-cliente)). Requiere DB
   vacía; hay scripts de reset en `src/lib/db/reset.ts` y `supabase/scripts/reset_all_data.sql`.
+- **v14–v17:** adiciones incrementales (aditivas, sin migrar datos existentes): sync de
+  `equipo_movimientos` (v14), tabla `sync_retry` para reintentos con backoff exponencial (v15),
+  `equipo_identificaciones` para fotos rotuladas del equipo (v16), `conv_equipo_valores_base`
+  para valores base de las pruebas 2.x a nivel de equipo, 1 fila por `equipo_id` (v17).
 
 ## 3.2 Campos de sincronización
 
@@ -110,10 +114,11 @@ Definidas en `convencional/db/types.ts`. Cada una guarda una faceta de la captur
 | `conv_uniformidad_cr` | D | Uniformidad CR |
 | `conv_colimacion` | E | Colimación |
 | `conv_uniformidad_detector` | E | Uniformidad del detector |
-| `conv_resolucion`, `conv_bajo_contraste`, `conv_mtf` | E | Resolución espacial, bajo contraste, MTF |
+| `conv_resolucion`, `conv_bajo_contraste`, `conv_mtf` | E | Resolución espacial, bajo contraste, MTF — la evidencia de 2.16 (MTF) usa 3 slots de imagen: `curva_mtf_horizontal`, `dicom_mtf` (objeto borde), `curva_mtf_vertical` (`secciones-convencional.ts`) |
 | `conv_resultados_prueba` | — | Resultado/concepto consolidado por prueba |
-| `conv_informe_secciones` | — | Selección/orden/textos de secciones para el PDF |
+| `conv_informe_secciones` | — | Selección/orden/textos/concepto manual por sección del pre-informe |
 | `conv_evidencias` | — | Imágenes por prueba (Blob local) |
+| `conv_equipo_valores_base` | — | Valores base de las pruebas 2.x a nivel de **equipo** (v17): 1 fila por `equipo_id`, a diferencia de las demás `conv_*` que son por visita |
 
 ### Informes y auditoría
 
@@ -127,32 +132,51 @@ Definidas en `convencional/db/types.ts`. Cada una guarda una faceta de la captur
 ## 3.4 Enums importantes
 
 - **`TipoEquipo`** (17 valores): `CONVENCIONAL`, `CT`, `CT_DENTAL`, `MAMOGRAFO`, `PANORAMICO`,
-  `PERIAPICAL`, `RX_PORTATIL`, `ARCOENC`, `FLUOROSCOPIOS`, `DENSITOMETRO`, `ANGIOGRAFO`,
-  `INDUSTRIAL`, `VETERINARIO`, `MULTIPROPOSITO`, `LITOTRIPTOR`, `VARIOS_RX`, …
-- **`EstadoVisita`**: `asignada → en_progreso → completada → pre_informe → en_revision → aprobada`.
+  `PERIAPICAL`, `PERIAPICAL_PORTATIL`, `RX_PORTATIL`, `ARCOENC`, `FLUOROSCOPIOS`, `DENSITOMETRO`,
+  `ANGIOGRAFO`, `INDUSTRIAL`, `VETERINARIO`, `MULTIPROPOSITO`, `LITOTRIPTOR`, `VARIOS_RX`.
+- **`EstadoVisita`**: `asignada → en_progreso → en_revision → aprobada → enviada`, con retorno a
+  `en_progreso` desde `en_revision` (`devolver`) o desde `enviada` (`solicitar_ajustes_cliente`,
+  a solicitud del cliente). Detalle en [Workflow y roles §4.1](04-workflow-y-roles.md#41-máquina-de-estados-de-la-visita).
 - **`EstadoInforme`**: `borrador`, `pre_informe`, `en_revision`, `correccion_fisica`,
   `correccion_cliente`, `aprobado`, `vigente`, `vencido`.
 - **`RolUsuario`**: `coordinador`, `programador`, `tecnico`, `comercial`.
 - **`ModuloApp`**: `dashboard`, `clientes`, `solicitudes`, `visitas`, `revision`, `equipos`,
   `informes`, `sync`, `configuracion`.
-- **Concepto de conformidad**: `FAVORABLE` | `NO_FAVORABLE` | `NO_APLICA`.
+- **Concepto de conformidad**: a nivel de informe (`Informe.concepto_general`), `FAVORABLE` |
+  `NO_FAVORABLE`. A nivel de cada prueba, el paquete CONVENCIONAL usa su propio tipo `Concepto`
+  (`Conforme` | `No_conforme` | `No_aplica` | `No_favorable_no_ejecutada`) definido en
+  [`evaluacion.ts`](../src/lib/equipos/convencional/evaluacion.ts) — el cuarto valor es un
+  override manual para una prueba que sí aplica pero no pudo ejecutarse por falla de un
+  componente del equipo; **cuenta como pendiente** (no como resuelta) hasta que se repita. Ver
+  [Workflow y roles §4.2](04-workflow-y-roles.md#42-completitud-de-módulos).
 
 ## 3.5 Estructuras flexibles de pruebas
 
-El sistema de pruebas es **configurable por datos**, no hardcodeado. Las claves:
+Parte del catálogo de pruebas sigue siendo **configurable por datos**; el veredicto en sí ya no
+lo es (ver nota al final). Las claves:
 
 - `MedicionSchema` / `ColumnaDef`: definen las columnas de la tabla de captura de un grupo.
-- `FormulaDefinicion`: un cálculo auto-evaluado (`campo_resultado`, `expresion` JS, `dependencias`).
-- `CriterioAceptacion`: un límite normativo (`operador` lt/lte/gt/gte/between/eq, `valor`,
-  `referencia_normativa`).
 - `TextosPrueba`: `objetivo` / `instrumentacion` / `metodologia` / `criterio` para el informe.
 - `SlotImagen` / `ImagenEmbebida`: espacios y almacenamiento de imágenes (Blob local + URL de storage).
 
-Cómo se evalúan estas estructuras se explica en [Motor de pruebas](05-motor-de-pruebas.md).
+> **Nota histórica:** `FormulaDefinicion` (cálculo por `expresion` JS) y `CriterioAceptacion`
+> (límite `operador`/`valor`/`referencia_normativa`) siguen declarados en `db/types.ts`, pero
+> están **inertes**: las 21 pruebas del paquete convencional declaran `formulas: []` en
+> `grupos.ts` y ningún criterio se evalúa dinámicamente. El motor genérico que los interpretaba
+> (`engine.ts`, con `new Function()` sobre un denylist de patrones) nunca se usó en producción y
+> se eliminó en septiembre de 2026 (issue #45). El veredicto Conforme/No conforme real lo dan los
+> evaluadores TypeScript escritos a mano en
+> [`evaluacion.ts`](../src/lib/equipos/convencional/evaluacion.ts), y el cálculo estadístico
+> (promedio, desviación, CV%) está centralizado en
+> [`estadistica.ts`](../src/lib/equipos/convencional/estadistica.ts) — antes se reimplementaba de
+> forma independiente en 7 lugares, lo que llegó a producir un CV mostrado (1%) distinto del
+> calculado a mano (1.6%). Detalle en [Motor de pruebas](05-motor-de-pruebas.md).
 
 ## 3.6 Correspondencia con Supabase
 
-El esquema PostgreSQL vive en [`supabase/migrations/`](../supabase/migrations/) (001 → 009). Los
+El esquema PostgreSQL vive en [`supabase/migrations/`](../supabase/migrations/) (001 → 038). Los
 tipos generados están en `src/lib/supabase/types.ts`. Las políticas **RLS** (Row Level Security)
 se definen en `002_row_level_security.sql` y `005_rls_fix_and_new_tables.sql`. La migración
-`009_migrate_pks_to_uuid.sql` es el espejo server-side de la migración Dexie v13.
+`009_migrate_pks_to_uuid.sql` es el espejo server-side de la migración Dexie v13; las migraciones
+posteriores (010–038) son en su mayoría aditivas y acompañan las tablas `conv_*` y los campos
+nuevos de Dexie v14–v17.

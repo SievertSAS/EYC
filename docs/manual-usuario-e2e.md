@@ -138,7 +138,7 @@ Pipeline de la **solicitud**: `solicitudes (por programar) → programacion → 
 > - 🟡 **Backlog — #14 (parcial):** `conv_inspeccion_items` se **lista sin filtrar `deleted_at`** en los módulos de grupo (el cálculo de conformidad sí lo filtra desde Tier 3).
 > - 🟡 **Backlog — #43:** el import RaySafe X2 (3.6) **no valida el layout** — un archivo con columnas inesperadas puede pasar en silencio y meter números mal ubicados.
 > - 🟡 **Backlog — #13 → issue #42:** varios evaluadores de `evaluacion.ts` marcaban **datos faltantes como "Conforme"** (baseline ausente, CV con n<2). Interino aplicado (Tier 3): ahora devuelven `undefined` = _pendiente_. La revisión prueba-por-prueba de cada regla se hace al recrear el flujo desde la app (**#42**).
-> - 🟡 **Backlog — #12 → #41 / #45:** el evaluador **genérico** de fórmulas (`engine.ts`) está **dormido** — no lo llama nada en producción; la conformidad real la calcula `evaluacion.ts` (a mano). Interino: `engine.ts` ya no devuelve `null` en silencio ante expresiones legítimas. Falta decidir la arquitectura (un sistema u otro) — **#45**, bloquea el rediseño técnico **#41**.
+> - ✅ **Resuelto (2026-09-01) — #12 / #41 / #45:** el evaluador **genérico** de fórmulas (`engine.ts`) nunca llegó a usarse en producción; la conformidad real siempre la calculó `evaluacion.ts` (a mano). La decisión de arquitectura (**#45**) se resolvió **eliminando `engine.ts`/`engine.test.ts`** en vez de mantener los dos sistemas, lo que deja sin objeto el rediseño técnico **#41** (no hay nada que rediseñar a allowlist).
 >
 > **Gate de completitud (3.11)**
 >
@@ -224,8 +224,8 @@ Leyenda: ✅ corregido · 🟡 interino aplicado / backlog contenido · 🔴 bac
 | #14       | Soft-delete no filtrado en listas (`conv_inspeccion_items`, maestras)           | 3.5 grupo A (+ transversal)      | 🟡 conv path Tier 3; maestras → #34     |
 | #43       | Import RaySafe X2 sin validación de layout                                      | 3.6 grupo B                      | 🟡 backlog                              |
 | #13       | Evaluadores marcaban datos faltantes como "Conforme"                            | 3.4–3.10 (conformidad)           | 🟡 interino Tier 3; deep review → #42   |
-| #12 / #41 | `engine.ts`: falso positivo de regex + `null` silencioso                        | 3.4–3.10 (conformidad)           | 🟡 interino Tier 3; rediseño → #41      |
-| #45       | Decisión de arquitectura: `engine.ts` vs `evaluacion.ts`                        | 3.4–3.10 (conformidad)           | 🔴 bloquea #41                          |
+| #12 / #41 | `engine.ts`: falso positivo de regex + `null` silencioso                        | 3.4–3.10 (conformidad)           | ✅ resuelto: `engine.ts` eliminado (2026-09-01) |
+| #45       | Decisión de arquitectura: `engine.ts` vs `evaluacion.ts`                        | 3.4–3.10 (conformidad)           | ✅ resuelto: se eliminó `engine.ts`      |
 | #15 / #47 | `getVisitCompletenessBulk` O(n·15) secuencial                                   | 3.11 gate / lista de visitas     | 🟡 backlog                              |
 | #5        | Watermark `last_modified` sufre clock skew                                      | 3.12 reconexión                  | 🟡 interino (migración `016`) → #38     |
 | #3 / #4   | Conflicto: local gana silencioso; pérdida de columnas concurrentes              | 3.12 reconexión                  | 🔴 interino Tier 2; rediseño → #38      |
@@ -256,9 +256,9 @@ No pertenecen a un paso del flujo; son deuda de código o infraestructura.
 | #36   | Código muerto: `resetAllLocalData`, `seedFromPackage` en `src/lib/db/`                                                | 🟡 limpieza                               |
 | #38   | **Rediseño del modelo de conflicto** (#3 completo + #4 + #5 completo)                                                 | 🔴 proyecto aparte                        |
 | #39   | Guard de columnas locales vs Supabase (#20)                                                                           | 🟡 backlog                                |
-| #41   | `engine.ts`: rediseño a allowlist real + deep-freeze + retorno `{value,error}`                                        | 🔴 bloqueado por #45                      |
+| #41   | `engine.ts`: rediseño a allowlist real + deep-freeze + retorno `{value,error}`                                        | ✅ sin objeto: `engine.ts` fue eliminado en vez de rediseñado |
 | #42   | `evaluacion.ts`: revisión a fondo **prueba por prueba** de las reglas de conformidad                                  | 🔴 hacer al recrear el flujo desde la app |
-| #45   | Decisión de arquitectura: `engine.ts` (genérico) vs `evaluacion.ts` (a mano)                                          | 🔴 decisión pendiente                     |
+| #45   | Decisión de arquitectura: `engine.ts` (genérico) vs `evaluacion.ts` (a mano)                                          | ✅ resuelto (2026-09-01): se eliminó `engine.ts`, queda `evaluacion.ts` como única fuente |
 | #46   | `executeTransition` al aprobar: transaccionalidad + publicación reintentable                                          | 🔴 proyecto aparte                        |
 | #47   | `getVisitCompletenessBulk`: memoizar / batch-load / indexar                                                           | 🟡 backlog                                |
 | #48   | Unificar IDs de módulo entre `getModuleStatuses` y `getDefaultModules` — **prerrequisito del 2º tipo de equipo** (#7) | 🔴 al arrancar el 2º equipo               |

@@ -21,6 +21,7 @@ radiación ionizante, con soporte **offline-first** para trabajo de campo.
 | 7 | [Seguridad](07-seguridad.md) | Desarrolladores / Seguridad | Auth, permisos, sandbox de fórmulas, API |
 | 8 | [Guía de desarrollo](08-guia-desarrollo.md) | Desarrolladores | Setup, comandos, convenciones, testing, migraciones |
 | 9 | [Glosario](09-glosario.md) | Todos | Términos de dominio, radioprotección y del código |
+| 10 | [Runbook — prueba end-to-end](10-runbook-prueba-e2e.md) | Todos | Ejecutar el flujo completo en la app real, con la arquitectura explicada paso a paso |
 
 ## Resumen en 60 segundos
 
@@ -38,6 +39,8 @@ radiación ionizante, con soporte **offline-first** para trabajo de campo.
 
 ## Estado del proyecto
 
-Consulta [`../TODO.md`](../TODO.md) para el roadmap detallado. En una frase: el flujo de captura
-de las 21 pruebas del equipo convencional está construido; están pendientes la conexión final
-del **generador PDF**, la **importación RaySafe**, y añadir las tablas `conv_*` al **sync**.
+Consulta [`../TODO.md`](../TODO.md) para el roadmap detallado (parcialmente desactualizado). En
+una frase: el flujo de captura de las 21 pruebas del equipo convencional está construido, el
+**generador de PDF** ya está conectado a las tablas `conv_*` (portada, QR, 21 secciones,
+veredictos y evidencia gráfica), la **importación RaySafe** funciona (parseo de TSV/XLSX en
+`conv/grupo-b`) y las tablas `conv_*` ya están en el **sync** bidireccional.

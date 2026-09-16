@@ -45,7 +45,6 @@ Fuente: [CLAUDE.md](../CLAUDE.md). Resumen:
 - **Imports** con alias `@/` desde `src/`.
 - Componentes UI de shadcn/ui en `src/components/ui/`.
 - **Variables de entorno**: importar de `@/lib/env`, nunca `process.env` directo.
-- **Fórmulas de pruebas**: usar `helpers.*` en vez de IIFEs dentro de strings evaluados.
 - **Sync engine**: loguear errores con `@/lib/logger`; nunca `catch` vacíos.
 - ⚠️ **Next.js 16 tiene breaking changes** respecto a versiones anteriores. Antes de escribir
   código de framework, consultar las guías en `node_modules/next/dist/docs/` y respetar los avisos
@@ -56,16 +55,24 @@ Fuente: [CLAUDE.md](../CLAUDE.md). Resumen:
 
 Vitest + Testing Library + `fake-indexeddb` + `happy-dom`. Áreas con cobertura crítica:
 
-- [`lib/equipos/engine.test.ts`](../src/lib/equipos/engine.test.ts) — motor de fórmulas, criterios
-  y **sandbox de seguridad** (correr siempre tras tocar la blocklist).
+- [`lib/equipos/convencional/evaluacion.test.ts`](../src/lib/equipos/convencional/evaluacion.test.ts) —
+  evaluadores de conformidad por prueba, incluida la precedencia de `conceptoEfectivoSeccion()`
+  (Favorable / No favorable / No aplica / No ejecutada).
+- [`lib/equipos/convencional/estadistica.test.ts`](../src/lib/equipos/convencional/estadistica.test.ts) —
+  fuente única de cálculo de CV/desviación, con test de contrato cruzado contra el render del PDF.
 - [`lib/workflow/visit-state-machine.test.ts`](../src/lib/workflow/visit-state-machine.test.ts) —
   transiciones de estado y roles.
 - [`lib/validation/schemas.test.ts`](../src/lib/validation/schemas.test.ts) — validación Zod.
 - [`lib/db/permisos.test.ts`](../src/lib/db/permisos.test.ts) — resolución de permisos.
 
-Diseño testeable: `engine.ts` y las funciones de permisos/estado son **puras** (sin Dexie/React),
-por eso se prueban directo. El código que toca Supabase se importa dinámicamente para no
-arrastrarlo en tests.
+Diseño testeable: los evaluadores de conformidad y las funciones de permisos/estado son **puras**
+(sin Dexie/React), por eso se prueban directo. El código que toca Supabase se importa
+dinámicamente para no arrastrarlo en tests.
+
+> Nota histórica: hasta 2026-09-01 existía un motor de fórmulas genérico
+> (`lib/equipos/engine.ts`) evaluado con `new Function()` sobre una blocklist de patrones
+> (`BLOCKED_PATTERNS`). Nunca se usó en producción y fue eliminado (issue #45); el veredicto real
+> siempre pasó por evaluadores escritos a mano. Ver [Motor de pruebas](05-motor-de-pruebas.md).
 
 ## 8.6 Migraciones
 
@@ -81,7 +88,8 @@ arrastrarlo en tests.
 
 ### Supabase (PostgreSQL, servidor)
 
-- Archivos numerados en [`supabase/migrations/`](../supabase/migrations/) (001 → 009).
+- Archivos numerados en [`supabase/migrations/`](../supabase/migrations/) (001 → 038, más
+  `COMBINED_RUN_IN_SQL_EDITOR.sql` para aplicar todo de una vez en el editor SQL de Supabase).
 - Mantener el **espejo** entre Dexie y PostgreSQL (nombres de tabla/columna, tipos, UUID).
 - Al crear tablas nuevas: añadir **RLS**, regenerar `src/lib/supabase/types.ts`, e incluir la
   tabla en `SYNC_TABLES`/`MASTER_TABLES` del sync engine si debe sincronizarse.
@@ -125,6 +133,9 @@ paquete a través del registro.
 
 ## 8.10 Roadmap
 
-Ver [`../TODO.md`](../TODO.md). Prioridades abiertas: conectar el **generador PDF** con las tablas
-`conv_*`, **importación RaySafe**, incluir `conv_*` en el **sync** (+ tablas Supabase), activar
-**`trackChange`** para auditoría, y completar la **completitud** de los grupos B–E.
+Ver [`../TODO.md`](../TODO.md) para el detalle vivo. Ya resuelto (verificado en código, aunque
+`TODO.md` puede no estar al día): el **generador PDF** consume las 21 tablas `conv_*` completas,
+la **importación RaySafe** (`.xlsx`/`.tsv`, con parser dedicado en
+`lib/equipos/convencional/raysafe-parser.ts`) está implementada en el Grupo B, y las tablas
+`conv_*` ya están en `SYNC_TABLES` del motor de sincronización. Pendiente real: activar
+**`trackChange`** para auditoría campo a campo.

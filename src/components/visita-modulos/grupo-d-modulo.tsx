@@ -309,7 +309,10 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     return { visita, ddiMediciones, cassettes, uniformidad, evidencias, equipoBase, equipo };
   }, [isReady, visitaId]);
 
-  // ─── Initialize default DDI rows (6 tomas: grupo 1 ×3, grupos 2-4 ×1) ───
+  // ─── Initialize default DDI rows: solo Grupo 1 (3 tomas) ───
+  // Grupo 1 es el unico obligatorio (prueba 2.9 + repetibilidad 2.10). Los
+  // grupos 2-4 son para cassettes/detectores adicionales, que normalmente
+  // no aplican -- se agregan a demanda con `addGrupoDdi`, no se precargan.
   // Guard síncrono contra reinvocaciones del efecto (misma consulta
   // combinada reejecutándose) antes de que el bulkAdd previo se refleje.
   const ddiInsertadoRef = useRef<string | null>(null);
@@ -322,9 +325,6 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       { grupo: 1, toma_numero: 1 },
       { grupo: 1, toma_numero: 2 },
       { grupo: 1, toma_numero: 3 },
-      { grupo: 2, toma_numero: 4 },
-      { grupo: 3, toma_numero: 5 },
-      { grupo: 4, toma_numero: 6 },
     ].map((r) => ({
       id: randomUUID(),
       visita_id: visitaId,
@@ -337,6 +337,47 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
     }));
     db.conv_ddi_mediciones.bulkAdd(rows);
   }, [data, visitaId]);
+
+  // ─── Grupos 2-4 (cassettes/detectores adicionales) — a demanda ───
+  const MAX_GRUPOS_DDI = 4;
+  const addGrupoDdiLock = useRef(false);
+  async function addGrupoDdi() {
+    if (addGrupoDdiLock.current) return;
+    addGrupoDdiLock.current = true;
+    try {
+      const gruposExistentes = new Set((data?.ddiMediciones ?? []).map((m) => m.grupo));
+      let siguienteGrupo: number | null = null;
+      for (let g = 1; g <= MAX_GRUPOS_DDI; g++) {
+        if (!gruposExistentes.has(g)) {
+          siguienteGrupo = g;
+          break;
+        }
+      }
+      if (siguienteGrupo == null) return;
+      const maxToma = Math.max(0, ...(data?.ddiMediciones ?? []).map((m) => m.toma_numero));
+      const now = new Date().toISOString();
+      const newId = await db.conv_ddi_mediciones.add({
+        id: randomUUID(),
+        visita_id: visitaId,
+        grupo: siguienteGrupo,
+        toma_numero: maxToma + 1,
+        kv_nominal: 70,
+        creado_en: now,
+        sync_status: "pending" as const,
+        last_modified: now,
+      });
+      pushSingle("conv_ddi_mediciones", newId as string);
+    } finally {
+      addGrupoDdiLock.current = false;
+    }
+  }
+
+  async function removeGrupoDdi(grupo: number) {
+    const filas = (data?.ddiMediciones ?? []).filter((m) => m.grupo === grupo);
+    for (const fila of filas) {
+      if (fila.id) await deleteAndSync("conv_ddi_mediciones", fila.id);
+    }
+  }
 
   // ─── Valores base (precarga) para 2.9 ───
   const [baseEi29, setBaseEi29] = useState("");
@@ -681,12 +722,32 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                       }`}
                     >
                       <td className="py-1.5 px-1.5 font-black text-primary">
-                        {isFirstInGroup ? m.grupo : ""}
+                        {isFirstInGroup ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            {m.grupo}
+                            {m.grupo !== 1 && (
+                              <button
+                                type="button"
+                                title="Quitar este grupo (cassette adicional)"
+                                onClick={() => removeGrupoDdi(m.grupo)}
+                                className="text-slate-300 hover:text-red-500"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        ) : (
+                          ""
+                        )}
                       </td>
                       <td className="py-1.5 px-1.5 text-slate-500 font-mono">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
-                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                          <Check
+                            className={`w-3 h-3 text-emerald-500 ${
+                              m.id && isSaved(m.id) ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
                         </span>
                       </td>
                       <td className="py-1.5 px-1.5">
@@ -726,6 +787,16 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
               </tbody>
             </table>
           </div>
+
+          {new Set(ddiMediciones.map((m) => m.grupo)).size < MAX_GRUPOS_DDI && (
+            <Button
+              variant="outline"
+              className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+              onClick={addGrupoDdi}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Agregar cassette adicional
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -887,7 +958,11 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     Serie del detector
-                    {c.id && isSaved(c.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                    <Check
+                      className={`w-3 h-3 text-emerald-500 ${
+                        c.id && isSaved(c.id) ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
                   </label>
                   <Input
                     className="rounded-xl h-8 text-xs font-medium"
@@ -998,7 +1073,11 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                     <td className="py-1.5 px-1.5 font-black text-primary">
                       <span className="inline-flex items-center gap-1">
                         {u.item_numero}
-                        {u.id && isSaved(u.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        <Check
+                          className={`w-3 h-3 text-emerald-500 ${
+                            u.id && isSaved(u.id) ? "opacity-100" : "opacity-0"
+                          }`}
+                        />
                       </span>
                     </td>
                     <td className="py-1.5 px-1.5">

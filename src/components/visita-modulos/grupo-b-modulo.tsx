@@ -861,7 +861,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1 text-slate-500 font-mono">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
-                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                          <Check
+                            className={`w-3 h-3 text-emerald-500 ${
+                              m.id && isSaved(m.id) ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
                         </span>
                       </td>
                       <td className="py-1.5 px-1">{celdaNominal("kv_nominal", "w-16")}</td>
@@ -960,7 +964,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     <td className="py-1.5 px-1.5 font-black text-primary">
                       <span className="inline-flex items-center gap-1">
                         {m.toma_numero}
-                        {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                        <Check
+                          className={`w-3 h-3 text-emerald-500 ${
+                            m.id && isSaved(m.id) ? "opacity-100" : "opacity-0"
+                          }`}
+                        />
                       </span>
                     </td>
                     <td className="py-1.5 px-1.5 font-medium text-slate-700">
@@ -1090,7 +1098,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1.5 font-black text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
-                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                          <Check
+                            className={`w-3 h-3 text-emerald-500 ${
+                              m.id && isSaved(m.id) ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
                         </span>
                       </td>
                       <td className="py-1.5 px-1.5 font-medium text-slate-700">
@@ -1213,7 +1225,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1 font-black text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
-                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                          <Check
+                            className={`w-3 h-3 text-emerald-500 ${
+                              m.id && isSaved(m.id) ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
                         </span>
                       </td>
                       <td className="py-1.5 px-1 font-medium text-slate-700">

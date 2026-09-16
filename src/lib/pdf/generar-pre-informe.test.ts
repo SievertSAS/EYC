@@ -509,11 +509,11 @@ describe("concepto general y acciones correctivas", () => {
 });
 
 describe("#60 — formateo de campos de licencia", () => {
-  it("textoCampo: null / undefined / '' / solo espacios → 'No aplica'", () => {
-    expect(textoCampo(null)).toBe("No aplica");
-    expect(textoCampo(undefined)).toBe("No aplica");
-    expect(textoCampo("")).toBe("No aplica");
-    expect(textoCampo("   ")).toBe("No aplica");
+  it("textoCampo: null / undefined / '' / solo espacios → 'No reporta' por defecto", () => {
+    expect(textoCampo(null)).toBe("No reporta");
+    expect(textoCampo(undefined)).toBe("No reporta");
+    expect(textoCampo("")).toBe("No reporta");
+    expect(textoCampo("   ")).toBe("No reporta");
   });
 
   it("textoCampo: con contenido devuelve el valor recortado", () => {
@@ -521,10 +521,20 @@ describe("#60 — formateo de campos de licencia", () => {
     expect(textoCampo("  L-99 ")).toBe("L-99");
   });
 
-  it("textoFecha: vacío → 'No aplica'", () => {
+  it("textoCampo: acepta un fallback explícito (excepción de energía fotones → 'No aplica')", () => {
+    expect(textoCampo(null, "No aplica")).toBe("No aplica");
+    expect(textoCampo("", "No aplica")).toBe("No aplica");
+  });
+
+  it("textoFecha: vacío → 'No aplica' por defecto", () => {
     expect(textoFecha(null)).toBe("No aplica");
     expect(textoFecha(undefined)).toBe("No aplica");
     expect(textoFecha("")).toBe("No aplica");
+  });
+
+  it("textoFecha: acepta un fallback explícito ('No reporta' para licencia sin fecha marcada)", () => {
+    expect(textoFecha(null, "No reporta")).toBe("No reporta");
+    expect(textoFecha("", "No reporta")).toBe("No reporta");
   });
 
   it("textoFecha: ISO de solo día → dd/mm/aaaa sin correr el día por zona horaria", () => {
@@ -534,5 +544,33 @@ describe("#60 — formateo de campos de licencia", () => {
 
   it("textoFecha: string no reconocible se devuelve tal cual", () => {
     expect(textoFecha("no sé")).toBe("no sé");
+  });
+});
+
+describe("#60 — 'No aplica' vs 'No reporta' en información de la práctica", () => {
+  it("energía fotones/electrones vacía siempre muestra 'No aplica'", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("No aplica");
+  });
+
+  it("fecha de expiración de licencia: sin marcar 'sin fecha' y vacía → 'No reporta'", async () => {
+    const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.ubicaciones_rx.update(ubicacion.id!, {
+      fecha_expiracion_licencia: undefined,
+      sin_fecha_expiracion_licencia: false,
+    });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("No reporta");
+  });
+
+  it("fecha de expiración de licencia: con 'sin fecha' marcado → 'No aplica'", async () => {
+    const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.ubicaciones_rx.update(ubicacion.id!, {
+      fecha_expiracion_licencia: undefined,
+      sin_fecha_expiracion_licencia: true,
+    });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("No aplica");
   });
 });

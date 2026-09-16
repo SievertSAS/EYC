@@ -86,14 +86,15 @@ const TOKENS_VACIOS = new Set(["", "na", "n/a", "n/d", "no aplica", "no reporta"
 
 /**
  * Normaliza un valor de celda: `null` / `undefined` / string vacío o cualquiera
- * de los tokens "vacíos" heredados ("NA", "N/A", "No reporta"…) → `DASH`.
- * Números y strings con contenido se devuelven como string tal cual.
+ * de los tokens "vacíos" heredados ("NA", "N/A", "No reporta"…) → `fallback`
+ * (por defecto `DASH`). Números y strings con contenido se devuelven como
+ * string tal cual.
  */
-export function dato(v: unknown): string {
-  if (v == null) return DASH;
-  if (typeof v === "number") return Number.isFinite(v) ? String(v) : DASH;
+export function dato(v: unknown, fallback: string = DASH): string {
+  if (v == null) return fallback;
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : fallback;
   const s = String(v).trim();
-  return TOKENS_VACIOS.has(s.toLowerCase()) ? DASH : s;
+  return TOKENS_VACIOS.has(s.toLowerCase()) ? fallback : s;
 }
 
 // ─── Veredicto: etiqueta y color ───

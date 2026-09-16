@@ -517,3 +517,148 @@ describe("recopilarDatosConv — fotos216 (curvas MTF + objeto borde) (#118)", (
     expect(d.fotos216).toEqual([]);
   });
 });
+
+describe("#122 — 'Análisis' de 2.3/2.4/2.5 cita la desviación/CV real, no re-parsea texto formateado", () => {
+  async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+    return { ctx, parrafos };
+  }
+
+  // `formatDecimal` usa coma decimal ("0,67 %"); `parseFloat` corta ahí y
+  // siempre devuelve 0 — por eso el informe mostraba "0,00 %" sin importar
+  // los datos reales. Este test reproduce exactamente ese escenario.
+  it("2.4: cita la desviación y CV reales (no 0,00 %) cuando es Conforme", async () => {
+    const medidos = [0.79, 0.795, 0.8]; // nominal 0,8 s, promedio 0,795 -> desviación y CV > 0
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = medidos.map((tiempo_medido_s, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        tipo_medicion: "principal",
+        grupo_numero: 1,
+        toma_numero: i + 1,
+        tiempo_nominal_s: 0.8,
+        tiempo_medido_s,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.4", visitaFixture, conv, undefined);
+
+    const texto = parrafos.join(" ");
+    expect(texto).not.toContain("0,00 %");
+
+    const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
+    const desvEsperada = (Math.abs(prom - 0.8) / 0.8) * 100;
+    const std = Math.sqrt(
+      medidos.reduce((s, v) => s + (v - prom) ** 2, 0) / (medidos.length - 1)
+    );
+    const cvEsperado = (std / prom) * 100;
+
+    const matchDv = texto.match(/desviaciones máximas de hasta ([\d,.]+) %/);
+    const matchCv = texto.match(/coeficientes de variación máximos de ([\d,.]+) %/);
+    expect(matchDv).not.toBeNull();
+    expect(matchCv).not.toBeNull();
+    expect(parseFloat(matchDv![1].replace(",", "."))).toBeCloseTo(desvEsperada, 1);
+    expect(parseFloat(matchCv![1].replace(",", "."))).toBeCloseTo(cvEsperado, 1);
+  });
+
+  it("2.4: cuando es No conforme, el párrafo también cita la desviación/CV real que hizo fallar la prueba", async () => {
+    const medidos = [0.4, 0.42, 0.44]; // nominal 0,8 s — desviación ~47 %, muy por encima del 10 %
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = medidos.map((tiempo_medido_s, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        tipo_medicion: "principal",
+        grupo_numero: 1,
+        toma_numero: i + 1,
+        tiempo_nominal_s: 0.8,
+        tiempo_medido_s,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.4", visitaFixture, conv, undefined);
+
+    const texto = parrafos.join(" ");
+    expect(texto).not.toContain("0,00 %");
+    expect(texto).toMatch(/desviaciones de hasta \d+,\d+ %/);
+    expect(texto).toMatch(/coeficientes de variación de hasta \d+,\d+ %/);
+  });
+
+  it("2.5: cita la desviación y CV reales (no 0,00 %) cuando es Conforme", async () => {
+    const medidos = [79, 79.5, 80]; // nominal 80 kV, promedio 79,5 -> desviación y CV > 0
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = medidos.map((kv_medido, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        tipo_medicion: "principal",
+        grupo_numero: 1,
+        toma_numero: i + 1,
+        kv_nominal: 80,
+        kv_medido,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.5", visitaFixture, conv, undefined);
+
+    const texto = parrafos.join(" ");
+    expect(texto).not.toContain("0,00 %");
+    expect(texto).toMatch(/desviaciones máximas de hasta \d+,\d+ %/);
+  });
+
+  it("2.3: la desviación total citada en el análisis es la suma real, no la truncada por parseFloat", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    // 4 bordes con 0,5 % de desviación cada uno: individualmente Conforme
+    // (< 2 %) y la suma real (2,0 %) también es Conforme (< 4 %). Con el
+    // bug, cada "0,5 %" se truncaba a 0 en `parseFloat` y la suma total
+    // citada en el texto daba 0 en vez de 2.
+    conv.colimacion = row({
+      id: "c1",
+      visita_id: V,
+      sid_cm: 100,
+      anodo_nominal: 10,
+      anodo_medido: 10.5,
+      catodo_nominal: 10,
+      catodo_medido: 10.5,
+      izquierda_nominal: 10,
+      izquierda_medido: 10.5,
+      derecha_nominal: 10,
+      derecha_medido: 10.5,
+      posicion_esfera: "Centro",
+    });
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+
+    const texto = parrafos.join(" ");
+    expect(texto).toContain("cumple con los criterios de aceptación establecidos");
+    const match = texto.match(/desviación total fue de ([\d,.]+) %/);
+    expect(match).not.toBeNull();
+    expect(parseFloat(match![1].replace(",", "."))).toBeCloseTo(2, 0);
+  });
+});

@@ -76,17 +76,16 @@ describe("SyncStatusBar", () => {
     expect(status.textContent).not.toMatch(/cambio/i);
   });
 
-  it("estado sincronizando muestra el conteo bajando entre renders", () => {
+  it("no muestra nada solo por cambios pendientes, sin importar cuántos (online, sin errores)", () => {
     mockState({ isOnline: true, pendingCount: 5, errorCount: 0 });
-    const { rerender } = render(<SyncStatusBar />);
+    const { container, rerender } = render(<SyncStatusBar />);
 
-    expect(screen.getByText(/quedan 5/i)).toBeTruthy();
+    expect(container.firstChild).toBeNull();
 
-    mockState({ isOnline: true, pendingCount: 2, errorCount: 0 });
+    mockState({ isOnline: true, pendingCount: 40, errorCount: 0 });
     rerender(<SyncStatusBar />);
 
-    expect(screen.getByText(/quedan 2/i)).toBeTruthy();
-    expect(screen.queryByText(/quedan 5/i)).toBeNull();
+    expect(container.firstChild).toBeNull();
   });
 
   it("no muestra nada en el camino feliz (online, 0 pendientes, sin errores)", () => {
@@ -105,12 +104,12 @@ describe("SyncStatusBar", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("sí se muestra online con más de un pendiente", () => {
-    mockState({ isOnline: true, pendingCount: 2, errorCount: 0 });
+  it("se muestra si hay errores aunque no haya pendientes", () => {
+    mockState({ isOnline: true, pendingCount: 0, errorCount: 1 });
 
     render(<SyncStatusBar />);
 
-    expect(screen.getByText(/quedan 2/i)).toBeTruthy();
+    expect(screen.getByText(/1 con error/i)).toBeTruthy();
   });
 
   it("se muestra igual si hay un solo pendiente pero también hay errores", () => {
@@ -121,12 +120,12 @@ describe("SyncStatusBar", () => {
     expect(screen.getByText(/1 con error/i)).toBeTruthy();
   });
 
-  it("el chip de error aparece en paralelo en estado sincronizando cuando errorCount > 0", () => {
+  it("el chip de error aparece en paralelo al estado sincronizado (base) cuando errorCount > 0", () => {
     mockState({ isOnline: true, pendingCount: 4, errorCount: 2 });
 
     render(<SyncStatusBar />);
 
-    expect(screen.getByText(/quedan 4/i)).toBeTruthy();
+    expect(screen.getByText(/sincronizado/i)).toBeTruthy();
     expect(screen.getByText(/2 con error/i)).toBeTruthy();
   });
 
@@ -143,6 +142,16 @@ describe("SyncStatusBar", () => {
 
     expect(screen.queryByText(/sincronizado/i)).toBeNull();
     expect(screen.getByText(/error db/i)).toBeTruthy();
+  });
+
+  it("es 'fixed' (superpuesta), no 'sticky' — no debe reservar espacio en el flujo del documento", () => {
+    mockState({ isOnline: false, pendingCount: 0, errorCount: 0 });
+
+    const { container } = render(<SyncStatusBar />);
+
+    const bar = container.firstChild as HTMLElement;
+    expect(bar.className).toContain("fixed");
+    expect(bar.className).not.toContain("sticky");
   });
 
   it("persiste el timestamp de última sync exitosa en localStorage al llegar a sincronizado", async () => {

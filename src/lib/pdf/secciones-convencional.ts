@@ -1289,24 +1289,30 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
     { label: "Derecha", nom: c.derecha_nominal, med: c.derecha_medido },
   ];
 
-  const rows = DIRS.map(({ label, nom, med }) => {
+  // Se guardan los números crudos (varPct) junto a las celdas ya formateadas
+  // con coma decimal ("1,5 %"): `totalVar`/`conceptoTotal` deben calcularse a
+  // partir de los números, nunca re-parseando el texto formateado — un
+  // `parseFloat("1,5 %")` corta en la coma y siempre da 0 (#bug real).
+  const items = DIRS.map(({ label, nom, med }) => {
     const diff = Math.abs(num(med) - num(nom));
     const varPct = (diff * 100) / sid;
     const concepto = varPct < 2 ? "Conforme" : "No conforme";
-    return [
-      label,
-      fmt(nom, 0),
-      fmt(med, 0),
-      formatDecimal(diff, 1),
-      formatDecimal(varPct, 1) + " %",
-      "< 2 %",
-      concepto,
-    ];
+    return { label, nom, med, diff, varPct, concepto };
   });
 
-  const totalVar = rows.reduce((s, r) => s + parseFloat(r[4]), 0);
+  const rows = items.map(({ label, nom, med, diff, varPct, concepto }) => [
+    label,
+    fmt(nom, 0),
+    fmt(med, 0),
+    formatDecimal(diff, 1),
+    formatDecimal(varPct, 1) + " %",
+    "< 2 %",
+    concepto,
+  ]);
+
+  const totalVar = items.reduce((s, it) => s + it.varPct, 0);
   const conceptoTotal =
-    rows.every((r) => parseFloat(r[4]) < 2) && totalVar < 4 ? "Conforme" : "No conforme";
+    items.every((it) => it.varPct < 2) && totalVar < 4 ? "Conforme" : "No conforme";
 
   ctx.checkPage(40);
   addCaption(
@@ -1445,7 +1451,11 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
 
   if (grupos.size === 0) return SIN_DATOS(ctx);
 
-  const rows = [...grupos.entries()]
+  // Números crudos por grupo, separados de las celdas ya formateadas con
+  // coma decimal: el análisis más abajo (maxDv/maxCv) debe usar estos
+  // valores, nunca re-parsear el texto de la tabla con `parseFloat` (corta
+  // en la coma de "0,67 %" y da 0 — #bug real, informe mostraba 0,00 %).
+  const statsPorGrupo = [...grupos.entries()]
     .sort(([a], [b]) => b - a)
     .map(([nom, ms]) => {
       const medidos = ms.map((m) => m.tiempo_medido_s!);
@@ -1453,15 +1463,17 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
       const desv = desvNominal(medidos, nom);
       const std = stdDev(medidos);
       const cv = prom > 0 ? (std / prom) * 100 : 0;
-      return [
-        formatDecimal(nom),
-        formatDecimal(prom, 3),
-        formatDecimal(desv, 2) + " %",
-        formatDecimal(std, 5),
-        formatDecimal(cv, 2) + " %",
-        desv <= 10 && cv <= 10 ? "Conforme" : "No conforme",
-      ];
+      return { nom, prom, desv, std, cv, conforme: desv <= 10 && cv <= 10 };
     });
+
+  const rows = statsPorGrupo.map(({ nom, prom, desv, std, cv, conforme }) => [
+    formatDecimal(nom),
+    formatDecimal(prom, 3),
+    formatDecimal(desv, 2) + " %",
+    formatDecimal(std, 5),
+    formatDecimal(cv, 2) + " %",
+    conforme ? "Conforme" : "No conforme",
+  ]);
 
   ctx.checkPage(40);
   addCaption(
@@ -1495,16 +1507,16 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   ctx.addSubsectionTitle("2.4.5.", "Análisis");
-  const todosConformes = rows.every((r) => r[5] === "Conforme");
-  const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
-  const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
+  const todosConformes = statsPorGrupo.every((s) => s.conforme);
+  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desv));
+  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cv));
   if (todosConformes) {
     ctx.addParagraph(
       `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
     );
   } else {
     ctx.addParagraph(
-      "Los resultados obtenidos evidencian que una o más combinaciones de tiempos de exposición evaluadas presentaron desviaciones o variabilidad superiores a los criterios de aceptación establecidos, lo que indica inestabilidad en el sistema de temporización del generador de rayos X."
+      `Los resultados obtenidos evidencian que una o más combinaciones de tiempos de exposición evaluadas presentaron desviaciones de hasta ${formatDecimal(maxDv, 2)} % y coeficientes de variación de hasta ${formatDecimal(maxCv, 2)} %, superiores a los criterios de aceptación establecidos (desviación ≤ 10 %, CV ≤ 10 %), lo que indica inestabilidad en el sistema de temporización del generador de rayos X.`
     );
   }
   return 6;
@@ -1529,7 +1541,8 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
 
   if (grupos.size === 0) return SIN_DATOS(ctx);
 
-  const rows = [...grupos.entries()]
+  // Ver comentario equivalente en render24: no re-parsear celdas formateadas.
+  const statsPorGrupo = [...grupos.entries()]
     .sort(([a], [b]) => a - b)
     .map(([nom, ms]) => {
       const medidos = ms.map((m) => m.kv_medido!);
@@ -1537,15 +1550,17 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
       const desv = desvNominal(medidos, nom);
       const std = stdDev(medidos);
       const cv = prom > 0 ? (std / prom) * 100 : 0;
-      return [
-        formatDecimal(nom, 0),
-        formatDecimal(prom, 1),
-        formatDecimal(desv, 2) + " %",
-        formatDecimal(std, 2),
-        formatDecimal(cv, 2) + " %",
-        desv <= 10 && cv <= 5 ? "Conforme" : "No conforme",
-      ];
+      return { nom, prom, desv, std, cv, conforme: desv <= 10 && cv <= 5 };
     });
+
+  const rows = statsPorGrupo.map(({ nom, prom, desv, std, cv, conforme }) => [
+    formatDecimal(nom, 0),
+    formatDecimal(prom, 1),
+    formatDecimal(desv, 2) + " %",
+    formatDecimal(std, 2),
+    formatDecimal(cv, 2) + " %",
+    conforme ? "Conforme" : "No conforme",
+  ]);
 
   ctx.checkPage(40);
   addCaption(
@@ -1579,16 +1594,16 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   ctx.addSubsectionTitle("2.5.5.", "Análisis");
-  const todosConformes = rows.every((r) => r[5] === "Conforme");
-  const maxDv = Math.max(...rows.map((r) => parseFloat(r[2])));
-  const maxCv = Math.max(...rows.map((r) => parseFloat(r[4])));
+  const todosConformes = statsPorGrupo.every((s) => s.conforme);
+  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desv));
+  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cv));
   if (todosConformes) {
     ctx.addParagraph(
       `Los resultados obtenidos evidencian que la tensión del tubo medida presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad en la respuesta del generador de rayos X para los valores de tensión evaluados.`
     );
   } else {
     ctx.addParagraph(
-      "Los resultados obtenidos evidencian que una o más tensiones evaluadas presentaron desviaciones o variabilidad superiores a los criterios de aceptación establecidos, indicando inestabilidad en el generador de alta tensión."
+      `Los resultados obtenidos evidencian que una o más tensiones evaluadas presentaron desviaciones de hasta ${formatDecimal(maxDv, 2)} % y coeficientes de variación de hasta ${formatDecimal(maxCv, 2)} %, superiores a los criterios de aceptación establecidos (desviación ≤ 10 %, CV ≤ 5 %), indicando inestabilidad en el generador de alta tensión.`
     );
   }
   return 6;

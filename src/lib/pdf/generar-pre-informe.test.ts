@@ -126,26 +126,15 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("TUBO-DOS-MARCA");
   });
 
-  it("#61: el informe indica la cantidad de tubos del equipo en texto", async () => {
+  it("el informe ya no imprime la leyenda de cantidad de tubos", async () => {
     const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
     await db.tubos.bulkAdd([
       { id: randomUUID(), equipo_id: equipo.id! },
       { id: randomUUID(), equipo_id: equipo.id! },
     ]);
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
-    expect(text).toContain("El equipo cuenta con 2 tubos.");
-  });
-
-  it("#61: un solo tubo → singular; sin tubos → 'no tiene tubos registrados'", async () => {
-    const g1 = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: true });
-    expect(await pdfText((await generarPreInforme(g1.visita!.id!))!)).toContain(
-      "El equipo cuenta con 1 tubo."
-    );
-
-    const g0 = await seedGraph({ tipoEquipo: "CONVENCIONAL", conTubo: false });
-    expect(await pdfText((await generarPreInforme(g0.visita!.id!))!)).toContain(
-      "El equipo no tiene tubos registrados."
-    );
+    expect(text).not.toContain("El equipo cuenta con");
+    expect(text).not.toContain("no tiene tubos registrados");
   });
 
   it("#61 (D2b): un tubo soft-borrado no sale en el informe", async () => {
@@ -505,6 +494,46 @@ describe("concepto general y acciones correctivas", () => {
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
     expect(text).toContain("Evidencia gr");
     expect(text).not.toContain("Fotograf");
+  });
+
+  it("el texto de acciones correctivas guardado por el usuario se imprime en el PDF para cualquier prueba (no solo 2.1/2.2/2.13)", async () => {
+    // 2.3 (colimación) con valores que evalúan Conforme: sin desviación entre
+    // nominal/medido y esfera de perpendicularidad en el centro.
+    const { visita } = await seedGraph({
+      tipoEquipo: "CONVENCIONAL",
+      estadoVisita: "en_progreso",
+    });
+    await db.conv_colimacion.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      anodo_nominal: 10,
+      anodo_medido: 10,
+      catodo_nominal: 10,
+      catodo_medido: 10,
+      izquierda_nominal: 10,
+      izquierda_medido: 10,
+      derecha_nominal: 10,
+      derecha_medido: 10,
+      posicion_esfera: "Centro",
+    });
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: true,
+        acciones_correctivas:
+          i + 1 === 3 ? "OBSERVACION-PUNTUAL-MARCADOR-2-3" : undefined,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("OBSERVACION-PUNTUAL-MARCADOR-2-3");
+    expect(text).not.toContain(
+      "Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+    );
   });
 });
 

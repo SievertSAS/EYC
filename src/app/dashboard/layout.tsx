@@ -21,11 +21,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <AppSidebar />
             <SidebarInset>
               {/* Estado de sincronización — solo visible si hay algo que atender
-                  (sin conexión, backlog, o error); no ocupa espacio si no. */}
+                  (sin conexión, DB no lista, o error). Es `fixed`: se superpone
+                  al contenido, no reserva espacio ni corre el resto de la UI. */}
               <SyncStatusBar />
 
               {/* Header móvil con trigger del sidebar */}
-              <header className="flex items-center gap-3 p-4 md:hidden border-b border-border bg-white/80 backdrop-blur-sm sticky top-9 z-10">
+              <header className="flex items-center gap-3 p-4 md:hidden border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-10">
                 <SidebarTrigger className="text-slate-600" />
                 <Image
                   src="/logo-sievert.png"

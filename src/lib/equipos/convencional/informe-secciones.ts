@@ -105,6 +105,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Colimación conforme si cada borde desvía < 2 % y la suma de los cuatro < 4 %. Perpendicularidad conforme si la esfera cae en el centro, el primer o el segundo círculo. La prueba es Conforme solo si ambas lo son. Sin bordes medidos ni posición de esfera → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda realizar ajuste técnico del sistema de colimación y de la alineación geométrica del haz de radiación, seguido de la repetición de la prueba para verificar el restablecimiento de las condiciones aceptables de funcionamiento.",
   },
   {
     codigo: "2.4",
@@ -126,6 +130,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Cada grupo nominal debe cumplir desviación ≤ 10 % y CV ≤ 10 %. Si un solo grupo falla, la prueba es No conforme. Sin disparos válidos → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda verificar el sistema de temporización del generador de rayos X y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación.",
   },
   {
     codigo: "2.5",
@@ -147,6 +155,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Cada grupo nominal debe cumplir desviación ≤ 10 % y CV ≤ 5 %. Si un solo grupo falla, la prueba es No conforme. Sin disparos válidos → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda verificar el sistema generador de alta tensión y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación.",
   },
   {
     codigo: "2.6",
@@ -167,6 +179,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Cada grupo de kV debe tener CHR promedio ≥ el mínimo de su kV. Si un grupo queda por debajo, la prueba es No conforme. Sin disparos con kV y CHR → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda verificar la filtración del haz de rayos X y revisar el estado del filtro inherente y adicional del tubo. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el cumplimiento de los valores mínimos de CHR establecidos.",
   },
   {
     codigo: "2.7",
@@ -188,6 +204,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Repetibilidad conforme con CV ≤ 5 %; linealidad conforme con desviación ≤ 10 %. Si alguna de las dos falla, la prueba es No conforme. Sin disparos a 80 kV con dosis → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda verificar el sistema de generación de rayos X y evaluar las posibles causas de inestabilidad en la radiación de salida. Posteriormente, deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.",
   },
   {
     codigo: "2.8",
@@ -224,6 +244,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Conforme si la desviación del EI ≤ 20 % y (cuando hay DI) la del DI ≤ 20 %. Sin EI o sin EI base → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda verificar las condiciones de exposición y los parámetros del sistema de imagen. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el restablecimiento de los valores dentro de las tolerancias.",
   },
   {
     codigo: "2.10",
@@ -241,6 +265,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       calculo: "Coeficiente de variación = desviación estándar (n−1) ÷ promedio de los EI.",
       criterio: "Conforme si el CV ≤ 20 %. Con menos de 2 tomas con EI → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.",
   },
   {
     codigo: "2.11",
@@ -263,6 +291,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Cada imagen es conforme si la mayor desviación ≤ la tolerancia (5 %/10 %/15 % según el sistema de adquisición, salvo que se cambie manualmente) y no se marcaron píxeles defectuosos ni artefactos. Si una imagen falla, la prueba es No conforme. Sin VMP central → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",
+    accionesNoConforme:
+      "Se recomienda realizar revisión técnica del detector, verificar la calibración del sistema y repetir la prueba. Si los problemas persisten, escalar al fabricante o servicio técnico autorizado.",
   },
   {
     codigo: "2.12",
@@ -282,6 +314,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       calculo: "Compara directamente el valor cargado con el mínimo de referencia.",
       criterio: "Conforme si la resolución ≥ 2,4 pl/mm. Sin valor cargado → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",
+    accionesNoConforme:
+      "Se recomienda repetir la prueba para descartar errores en la adquisición o visualización de la imagen. Si el resultado persiste fuera del criterio de aceptación, deberá notificarse al servicio de mantenimiento para la revisión del sistema.",
   },
   {
     codigo: "2.13",
@@ -326,6 +362,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Conforme si ninguno quedó como No conforme. Uno solo No conforme vuelve la prueba No conforme. Sin cassettes con concepto → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",
+    accionesNoConforme:
+      "Se recomienda realizar la limpieza o reemplazo de los cassettes o pantallas IP no conformes, y repetir la prueba una vez corregidas las condiciones identificadas.",
   },
   {
     codigo: "2.15",
@@ -343,6 +383,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       calculo: "Coeficiente de variación = desviación estándar (n−1) ÷ promedio × 100 de los EI.",
       criterio: "Conforme si el CV ≤ 10 %. Con menos de 2 pantallas con EI → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",
+    accionesNoConforme:
+      "Se recomienda verificar el estado y la limpieza de las pantallas IP, y repetir la prueba para confirmar el cumplimiento del criterio de uniformidad.",
   },
   {
     codigo: "2.16",
@@ -364,6 +408,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Sin línea base, la primera medición se registra como base y queda Conforme. Con base, conforme si la mayor desviación ≤ 10 %. Con base pero sin ejes comparables → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas. Se recomienda continuar con el seguimiento periódico dentro del programa de control de calidad.",
+    accionesNoConforme:
+      "Se recomienda verificar las condiciones del detector y del sistema de procesamiento de imagen, y repetir la prueba para confirmar los resultados obtenidos.",
   },
   {
     codigo: "2.17",
@@ -382,6 +430,10 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       calculo: "Variación relativa = |medido − base| ÷ |base| para mAs, EI y DI. Toma la mayor.",
       criterio: "Conforme si la mayor variación ≤ 50 %. Sin toma 9 o sin línea base → Pendiente.",
     },
+    accionesConforme:
+      "No se requieren acciones correctivas, dado que los parámetros evaluados presentan variaciones dentro del límite de aceptación establecido.",
+    accionesNoConforme:
+      "Se recomienda verificar la calibración y configuración del sistema CAE, revisar las condiciones de exposición empleadas y repetir la prueba para confirmar los resultados obtenidos.",
   },
   {
     codigo: "2.18",
@@ -401,6 +453,9 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
         "Rango relativo = (máximo − mínimo) ÷ promedio, calculado por separado para los mAs y para los EI. Toma el mayor.",
       criterio: "Conforme si el mayor rango ≤ 30 %. Sin tomas 2–8 con valores → Pendiente.",
     },
+    accionesConforme: "No se requieren acciones correctivas.",
+    accionesNoConforme:
+      "Se recomienda verificar el estado y la calibración de los sensores del CAE y repetir la prueba bajo las mismas condiciones de irradiación.",
   },
   {
     codigo: "2.19",
@@ -421,6 +476,9 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
         "Coeficiente de variación = desviación estándar (n−1) ÷ promedio, por separado para los mAs y para los EI. Toma el mayor.",
       criterio: "Conforme si el mayor CV ≤ 10 %. Con menos de 2 tomas repetidas → Pendiente.",
     },
+    accionesConforme: "No se requieren acciones correctivas.",
+    accionesNoConforme:
+      "Se recomienda verificar la estabilidad del generador y del sistema CAE, y repetir la prueba para confirmar los resultados.",
   },
   {
     codigo: "2.20",
@@ -441,6 +499,9 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
         "Variación relativa = |medido − base| ÷ |base| para el mAs y el EI de cada condición. Toma la mayor.",
       criterio: "Conforme si la mayor variación ≤ 30 %. Sin líneas base cargadas → Pendiente.",
     },
+    accionesConforme: "No se requieren acciones correctivas.",
+    accionesNoConforme:
+      "Se recomienda revisar la configuración del sistema CAE para las condiciones de kVp y/o espesor que presentan mayor variación, y repetir las mediciones correspondientes.",
   },
   {
     codigo: "2.21",
@@ -462,6 +523,9 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       criterio:
         "Conforme si la mayor diferencia corregida < 0,01 mGy. Sin línea base previa (se establece en esta visita) o sin dosis comparables → Pendiente.",
     },
+    accionesConforme: "No se requieren acciones correctivas.",
+    accionesNoConforme:
+      "Se recomienda verificar los parámetros técnicos de exposición, el estado del detector y el correcto funcionamiento del sistema, y repetir las mediciones para confirmar los resultados.",
   },
 ];
 

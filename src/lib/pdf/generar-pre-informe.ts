@@ -135,6 +135,23 @@ export function textoFecha(v: string | null | undefined, fallback = "No aplica")
   return d.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/**
+ * Texto de "Acciones Correctivas" de una sección: prioriza lo que el usuario
+ * guardó en el editor del pre-informe, luego el default del catálogo para
+ * ese concepto (Conforme/No conforme), y por último un texto fijo.
+ *
+ * Fuente única para las 21 pruebas — antes esta misma cadena `a || b || c`
+ * estaba repetida inline en cada prueba (~40 veces), lo que diluía la
+ * cobertura de ramas del archivo cada vez que se agregaba una prueba nueva.
+ */
+export function resolverAccionesTexto(
+  guardado: string | undefined,
+  delCatalogo: string | undefined,
+  fallback: string
+): string {
+  return guardado?.trim() || delCatalogo || fallback;
+}
+
 // ─── Tipos internos ───
 
 interface DatosInforme {
@@ -1130,17 +1147,21 @@ export async function generarPreInforme(
       let conceptoLabel: string;
       let conceptoParrafo: string | undefined;
       let esNoConforme = veredicto === "No_conforme";
-      let accionesTexto = seccion.acciones_correctivas?.trim()
-        ? seccion.acciones_correctivas
-        : "No se requieren acciones correctivas.";
+      let accionesTexto = resolverAccionesTexto(
+        seccion.acciones_correctivas,
+        undefined,
+        "No se requieren acciones correctivas."
+      );
 
       if (noEjecutada) {
         conceptoLabel = "NO EJECUTADA";
         conceptoParrafo =
           "La prueba aplica al equipo evaluado, pero no pudo ejecutarse durante la visita debido a la falla de un componente. Se documenta como pendiente de repetición una vez subsanada la falla.";
-        accionesTexto = seccion.acciones_correctivas?.trim()
-          ? seccion.acciones_correctivas
-          : "Corregir la falla del componente que impidió la ejecución de la prueba y reprogramar su realización en una visita posterior.";
+        accionesTexto = resolverAccionesTexto(
+          seccion.acciones_correctivas,
+          undefined,
+          "Corregir la falla del componente que impidió la ejecución de la prueba y reprogramar su realización en una visita posterior."
+        );
       } else if (esAuto23) {
         if (esPendiente) {
           conceptoLabel = "PENDIENTE";
@@ -1148,18 +1169,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La prueba del sistema de colimación del haz y perpendicularidad del rayo central se considera conforme, debido a que la coincidencia entre el campo luminoso y el campo de radiación se encontró dentro de las tolerancias establecidas y la perpendicularidad del rayo central presentó una desviación angular aceptable.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La prueba del sistema de colimación del haz y perpendicularidad del rayo central se considera no conforme, debido a que uno o más de los criterios de aceptación evaluados no cumplieron con los valores establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda realizar ajuste técnico del sistema de colimación y de la alineación geométrica del haz de radiación, seguido de la repetición de la prueba para verificar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda realizar ajuste técnico del sistema de colimación y de la alineación geométrica del haz de radiación, seguido de la repetición de la prueba para verificar el restablecimiento de las condiciones aceptables de funcionamiento."
+          );
         }
       } else if (esAuto22) {
         if (esPendiente) {
@@ -1168,18 +1191,20 @@ export async function generarPreInforme(
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La inspección visual evidenció condiciones que requieren corrección, al identificarse elementos que no cumplen con los criterios de aceptación establecidos para el estado físico del equipo, las condiciones de operación o los elementos de protección radiológica.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda corregir las condiciones no conformes identificadas durante la inspección visual y verificar nuevamente el cumplimiento de los criterios establecidos antes de continuar con la operación del equipo.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda corregir las condiciones no conformes identificadas durante la inspección visual y verificar nuevamente el cumplimiento de los criterios establecidos antes de continuar con la operación del equipo."
+          );
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La inspección visual evidenció que el estado físico del equipo, las condiciones de operación de la instalación y los elementos de protección radiológica cumplen con los criterios establecidos para la operación segura del equipo evaluado.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas."
+          );
         }
       } else if (esAuto21) {
         if (esPendiente) {
@@ -1188,18 +1213,20 @@ export async function generarPreInforme(
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Las dosis equivalentes anuales estimadas en algunas áreas evaluadas superan los niveles de restricción de dosis establecidos para áreas supervisadas, por lo que las condiciones radiológicas de la instalación requieren evaluación y adopción de medidas correctivas.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda evaluar las condiciones de blindaje de la instalación, revisar la carga de trabajo del equipo y adoptar las medidas de protección radiológica necesarias para garantizar el cumplimiento de los niveles de restricción de dosis establecidos. Una vez subsanada la condición identificada, se deberá repetir el estudio radiométrico para verificar el cumplimiento de los criterios establecidos.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda evaluar las condiciones de blindaje de la instalación, revisar la carga de trabajo del equipo y adoptar las medidas de protección radiológica necesarias para garantizar el cumplimiento de los niveles de restricción de dosis establecidos. Una vez subsanada la condición identificada, se deberá repetir el estudio radiométrico para verificar el cumplimiento de los criterios establecidos."
+          );
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "Las dosis equivalentes anuales estimadas en las áreas evaluadas se encuentran por debajo de los niveles de restricción de dosis establecidos para áreas controladas y supervisadas, por lo que las condiciones radiológicas de la instalación se consideran aceptables para la operación del equipo evaluado.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas."
+          );
         }
       } else if (codigo === "2.4" && aplica) {
         if (esPendiente) {
@@ -1208,18 +1235,20 @@ export async function generarPreInforme(
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La prueba de exactitud y repetibilidad del tiempo de exposición se considera no conforme, ya que una o más combinaciones evaluadas presentaron desviaciones o variabilidad fuera de los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar el sistema de temporización del generador de rayos X y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar el sistema de temporización del generador de rayos X y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación."
+          );
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La prueba de exactitud y repetibilidad del tiempo de exposición se considera conforme, ya que las desviaciones y la variabilidad observadas se encuentran dentro de los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         }
       } else if (codigo === "2.5" && aplica) {
         if (esPendiente) {
@@ -1228,18 +1257,20 @@ export async function generarPreInforme(
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La prueba de exactitud y repetibilidad de la tensión del tubo de rayos X se considera no conforme, ya que una o más tensiones evaluadas presentaron desviaciones o variabilidad fuera de los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar el sistema generador de alta tensión y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar el sistema generador de alta tensión y realizar los ajustes necesarios. Posteriormente, deberá repetirse la prueba para confirmar el cumplimiento de los criterios de aceptación."
+          );
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La prueba de exactitud y repetibilidad de la tensión del tubo de rayos X se considera conforme, ya que las desviaciones y la variabilidad observadas se encuentran dentro de los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         }
       } else if (codigo === "2.6" && aplica) {
         if (esPendiente) {
@@ -1248,18 +1279,20 @@ export async function generarPreInforme(
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La prueba de capa hemirreductora (CHR) se considera no conforme, ya que uno o más niveles de tensión evaluados presentan valores de CHR inferiores al mínimo de referencia establecido para radiodiagnóstico.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar la filtración del haz de rayos X y revisar el estado del filtro inherente y adicional del tubo. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el cumplimiento de los valores mínimos de CHR establecidos.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar la filtración del haz de rayos X y revisar el estado del filtro inherente y adicional del tubo. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el cumplimiento de los valores mínimos de CHR establecidos."
+          );
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La prueba de capa hemirreductora (CHR) se considera conforme, ya que los valores medidos para los niveles de tensión evaluados son iguales o superiores a los valores mínimos de referencia establecidos para radiodiagnóstico.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         }
       } else if (codigo === "2.7" && aplica) {
         if (esPendiente) {
@@ -1268,18 +1301,20 @@ export async function generarPreInforme(
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La prueba de rendimiento del tubo de rayos X, repetibilidad y linealidad se considera no conforme, ya que el coeficiente de variación o las desviaciones de linealidad observadas superan los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar el sistema de generación de rayos X y evaluar las posibles causas de inestabilidad en la radiación de salida. Posteriormente, deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar el sistema de generación de rayos X y evaluar las posibles causas de inestabilidad en la radiación de salida. Posteriormente, deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento."
+          );
         } else {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La prueba de rendimiento del tubo de rayos X, repetibilidad y linealidad se considera conforme, ya que el coeficiente de variación obtenido para las exposiciones repetidas y las desviaciones observadas en la linealidad del rendimiento se encuentran dentro de los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         }
       } else if (codigo === "2.8" && aplica) {
         conceptoLabel = "NO APLICA";
@@ -1294,18 +1329,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "Los indicadores de exposición evaluados cumplen con el criterio de aceptación establecido, presentando desviaciones dentro del límite del ± 20 % respecto a los valores base.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Uno o más indicadores de exposición evaluados presentan desviaciones superiores al ± 20 % respecto a los valores base establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar las condiciones de exposición y los parámetros del sistema de imagen. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el restablecimiento de los valores dentro de las tolerancias.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar las condiciones de exposición y los parámetros del sistema de imagen. Deberá repetirse la prueba tras cualquier intervención técnica para confirmar el restablecimiento de los valores dentro de las tolerancias."
+          );
         }
       } else if (codigo === "2.10" && aplica) {
         if (esPendiente) {
@@ -1314,18 +1351,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "El sistema presenta adecuada repetibilidad del indicador de exposición bajo condiciones de irradiación reproducibles, con un coeficiente de variación dentro del límite del 20 %.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda mantener las condiciones actuales de operación del equipo y continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "El coeficiente de variación del indicador de exposición supera el límite establecido del 20 %, indicando variabilidad inaceptable en la respuesta del sistema de imagen.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda revisar el sistema de adquisición de imágenes y verificar la estabilidad de las condiciones de exposición. Deberá repetirse la prueba para confirmar el restablecimiento de las condiciones aceptables de funcionamiento."
+          );
         }
       } else if (codigo === "2.17" && aplica) {
         if (esPendiente) {
@@ -1334,18 +1373,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La sensibilidad del control automático de exposición se conserva dentro de la tolerancia establecida respecto a los valores de referencia.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas, dado que los parámetros evaluados presentan variaciones dentro del límite de aceptación establecido.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas, dado que los parámetros evaluados presentan variaciones dentro del límite de aceptación establecido."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Los parámetros evaluados en la prueba de sensibilidad del CAE presentan variaciones superiores al 50 % respecto a los valores de referencia, lo que indica una posible modificación en la respuesta del sistema de control automático de exposición.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar la calibración y configuración del sistema CAE, revisar las condiciones de exposición empleadas y repetir la prueba para confirmar los resultados obtenidos.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar la calibración y configuración del sistema CAE, revisar las condiciones de exposición empleadas y repetir la prueba para confirmar los resultados obtenidos."
+          );
         }
       } else if (codigo === "2.18" && aplica) {
         if (esPendiente) {
@@ -1354,18 +1395,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "Las diferentes configuraciones de sensores del control automático de exposición presentan una respuesta consistente bajo las condiciones de prueba evaluadas.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Se evidencian diferencias superiores al 30 % entre las configuraciones de sensores del CAE evaluadas, lo que indica inconsistencia en la respuesta del sistema.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar el estado y la calibración de los sensores del CAE y repetir la prueba bajo las mismas condiciones de irradiación.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar el estado y la calibración de los sensores del CAE y repetir la prueba bajo las mismas condiciones de irradiación."
+          );
         }
       } else if (codigo === "2.19" && aplica) {
         if (esPendiente) {
@@ -1374,18 +1417,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "El sistema de control automático de exposición presenta una respuesta repetible bajo las condiciones de prueba evaluadas.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "El coeficiente de variación de los parámetros evaluados supera el límite del 10 %, indicando variabilidad en la respuesta del sistema CAE bajo condiciones equivalentes de irradiación.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar la estabilidad del generador y del sistema CAE, y repetir la prueba para confirmar los resultados.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar la estabilidad del generador y del sistema CAE, y repetir la prueba para confirmar los resultados."
+          );
         }
       } else if (codigo === "2.20" && aplica) {
         if (esPendiente) {
@@ -1394,43 +1439,49 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "El sistema de control automático de exposición presenta una adecuada compensación frente a variaciones de kilovoltaje y espesor, manteniendo los parámetros evaluados dentro de la tolerancia establecida respecto a los valores base.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Se evidencian variaciones superiores al 30 % en uno o más de los parámetros evaluados, indicando deficiencias en la capacidad de compensación del sistema CAE.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda revisar la configuración del sistema CAE para las condiciones de kVp y/o espesor que presentan mayor variación, y repetir las mediciones correspondientes.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda revisar la configuración del sistema CAE para las condiciones de kVp y/o espesor que presentan mayor variación, y repetir las mediciones correspondientes."
+          );
         }
       } else if (codigo === "2.21" && aplica) {
         if (esPendiente) {
           conceptoLabel = "PENDIENTE";
           conceptoParrafo =
             "No se dispone de valores de referencia previos de dosis al receptor. Los valores medidos en esta visita se establecen como línea base para evaluaciones futuras.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            "Registrar los valores de dosis al receptor como referencia base para la próxima evaluación periódica.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            undefined,
+            "Registrar los valores de dosis al receptor como referencia base para la próxima evaluación periódica."
+          );
         } else if (!esNoConforme) {
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "Los valores de dosis al receptor de imagen obtenidos presentan diferencias con respecto a los valores de referencia inferiores al criterio de aceptación establecido (< 0,01 mGy), lo que indica que la dosis al receptor es consistente con el desempeño histórico del sistema.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Se evidencian diferencias en la dosis al receptor de imagen iguales o superiores a 0,01 mGy con respecto a los valores de referencia, indicando posibles cambios en el rendimiento del sistema.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar los parámetros técnicos de exposición, el estado del detector y el correcto funcionamiento del sistema, y repetir las mediciones para confirmar los resultados.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar los parámetros técnicos de exposición, el estado del detector y el correcto funcionamiento del sistema, y repetir las mediciones para confirmar los resultados."
+          );
         }
       } else if (codigo === "2.16" && aplica) {
         if (esPendiente) {
@@ -1442,18 +1493,20 @@ export async function generarPreInforme(
           conceptoParrafo = tieneBase
             ? "Los valores de MTF obtenidos son consistentes con el desempeño esperado del detector digital evaluado y no evidencian degradaciones significativas respecto a los valores de referencia."
             : "Los valores de MTF obtenidos son consistentes con el desempeño esperado del detector digital evaluado. Se establecen como valores de referencia para futuras evaluaciones.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda continuar con el seguimiento periódico dentro del programa de control de calidad.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda continuar con el seguimiento periódico dentro del programa de control de calidad."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Los valores de MTF obtenidos presentan variaciones superiores al 10 % respecto a los valores de referencia, lo que podría indicar una degradación en la capacidad del sistema para reproducir detalles espaciales.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda verificar las condiciones del detector y del sistema de procesamiento de imagen, y repetir la prueba para confirmar los resultados obtenidos.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda verificar las condiciones del detector y del sistema de procesamiento de imagen, y repetir la prueba para confirmar los resultados obtenidos."
+          );
         }
       } else if (codigo === "2.15" && aplica && sistemaEsDR(datos.equipo?.sistema_adquisicion)) {
         conceptoLabel = "NO APLICA";
@@ -1475,17 +1528,19 @@ export async function generarPreInforme(
           if (conforme) {
             conceptoLabel = "FAVORABLE";
             conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${formatDecimal(cv, 1)} %, dentro del criterio de aceptación establecido.`;
-            accionesTexto =
-              seccion.acciones_correctivas?.trim() ||
-              cat?.accionesConforme ||
-              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+            accionesTexto = resolverAccionesTexto(
+              seccion.acciones_correctivas,
+              cat?.accionesConforme,
+              "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido."
+            );
           } else {
             conceptoLabel = "NO FAVORABLE";
             conceptoParrafo = `El coeficiente de variación del índice de exposición entre pantallas IP fue de ${formatDecimal(cv, 1)} %, superando el criterio de aceptación del 10 %.`;
-            accionesTexto =
-              seccion.acciones_correctivas?.trim() ||
-              cat?.accionesNoConforme ||
-              "Se recomienda verificar el estado y la limpieza de las pantallas IP, y repetir la prueba para confirmar el cumplimiento del criterio de uniformidad.";
+            accionesTexto = resolverAccionesTexto(
+              seccion.acciones_correctivas,
+              cat?.accionesNoConforme,
+              "Se recomienda verificar el estado y la limpieza de las pantallas IP, y repetir la prueba para confirmar el cumplimiento del criterio de uniformidad."
+            );
           }
         }
       } else if (codigo === "2.14" && aplica && sistemaEsDR(datos.equipo?.sistema_adquisicion)) {
@@ -1501,18 +1556,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "La inspección de cassettes y pantallas IP no evidenció defectos externos, presencia de polvo ni rayaduras. Todos los elementos inspeccionados se encuentran en condiciones adecuadas para la práctica clínica.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "La inspección evidenció defectos o condiciones no conformes en uno o más cassettes. Las condiciones identificadas pueden generar artefactos en la imagen radiográfica.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda realizar la limpieza o reemplazo de los cassettes o pantallas IP no conformes, y repetir la prueba una vez corregidas las condiciones identificadas.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda realizar la limpieza o reemplazo de los cassettes o pantallas IP no conformes, y repetir la prueba una vez corregidas las condiciones identificadas."
+          );
         }
       } else if (codigo === "2.13" && aplica) {
         if (esPendiente) {
@@ -1521,18 +1578,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "El sistema cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "El sistema no cuenta con el umbral de sensibilidad suficiente para el contexto de la práctica clínica.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se deberá verificar el detector, el sistema de procesamiento de imagen y las condiciones de exposición, y repetir la prueba para confirmar el cumplimiento de los criterios establecidos.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se deberá verificar el detector, el sistema de procesamiento de imagen y las condiciones de exposición, y repetir la prueba para confirmar el cumplimiento de los criterios establecidos."
+          );
         }
       } else if (codigo === "2.12" && aplica) {
         if (esPendiente) {
@@ -1541,18 +1600,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "El valor medido de la resolución espacial cumple con el criterio de aceptación establecido.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "El valor medido de la resolución espacial no cumple con el criterio de aceptación establecido.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda repetir la prueba para descartar errores en la adquisición o visualización de la imagen. Si el resultado persiste fuera del criterio de aceptación, deberá notificarse al servicio de mantenimiento para la revisión del sistema.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda repetir la prueba para descartar errores en la adquisición o visualización de la imagen. Si el resultado persiste fuera del criterio de aceptación, deberá notificarse al servicio de mantenimiento para la revisión del sistema."
+          );
         }
       } else if (codigo === "2.11" && aplica) {
         if (esPendiente) {
@@ -1561,18 +1622,20 @@ export async function generarPreInforme(
           conceptoLabel = "FAVORABLE";
           conceptoParrafo =
             "El detector no presenta píxeles defectuosos ni artefactos y el valor de uniformidad se encuentra dentro de la tolerancia establecida.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesConforme ||
-            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesConforme,
+            "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido."
+          );
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
             "Se identificaron inconformidades en la evaluación de uniformidad y/o artefactos del detector, que exceden los criterios de aceptación establecidos.";
-          accionesTexto =
-            seccion.acciones_correctivas?.trim() ||
-            cat?.accionesNoConforme ||
-            "Se recomienda realizar revisión técnica del detector, verificar la calibración del sistema y repetir la prueba. Si los problemas persisten, escalar al fabricante o servicio técnico autorizado.";
+          accionesTexto = resolverAccionesTexto(
+            seccion.acciones_correctivas,
+            cat?.accionesNoConforme,
+            "Se recomienda realizar revisión técnica del detector, verificar la calibración del sistema y repetir la prueba. Si los problemas persisten, escalar al fabricante o servicio técnico autorizado."
+          );
         }
       } else if (!aplica) {
         conceptoLabel = "NO APLICA";

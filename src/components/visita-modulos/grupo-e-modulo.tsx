@@ -317,25 +317,33 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [colimacion, uniformidadDet, resolucion, bajoContraste, mtf, evidencias, equipoBase, equipo] =
-      await Promise.all([
-        db.conv_colimacion.where("visita_id").equals(visitaId).first(),
-        db.conv_uniformidad_detector
-          .where("visita_id")
-          .equals(visitaId)
-          .filter((r) => !r.deleted_at)
-          .sortBy("item_numero"),
-        db.conv_resolucion.where("visita_id").equals(visitaId).first(),
-        db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
-        db.conv_mtf.where("visita_id").equals(visitaId).first(),
-        db.conv_evidencias
-          .where("visita_id")
-          .equals(visitaId)
-          .filter((r) => !r.deleted_at)
-          .toArray(),
-        obtenerValoresBaseEquipo(visita.equipo_id),
-        visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
-      ]);
+    const [
+      colimacion,
+      uniformidadDet,
+      resolucion,
+      bajoContraste,
+      mtf,
+      evidencias,
+      equipoBase,
+      equipo,
+    ] = await Promise.all([
+      db.conv_colimacion.where("visita_id").equals(visitaId).first(),
+      db.conv_uniformidad_detector
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .sortBy("item_numero"),
+      db.conv_resolucion.where("visita_id").equals(visitaId).first(),
+      db.conv_bajo_contraste.where("visita_id").equals(visitaId).first(),
+      db.conv_mtf.where("visita_id").equals(visitaId).first(),
+      db.conv_evidencias
+        .where("visita_id")
+        .equals(visitaId)
+        .filter((r) => !r.deleted_at)
+        .toArray(),
+      obtenerValoresBaseEquipo(visita.equipo_id),
+      visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
+    ]);
 
     return {
       visita,

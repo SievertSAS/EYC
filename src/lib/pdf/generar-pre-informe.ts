@@ -762,10 +762,7 @@ export async function generarPreInforme(
 
   const infoInstalacion = [
     ["Razón social:", datos.cliente?.nombre_cliente ?? "No reporta"],
-    [
-      "NIT:",
-      `${datos.cliente?.nit ?? "No reporta"}-${datos.cliente?.digito_verificacion ?? ""}`,
-    ],
+    ["NIT:", `${datos.cliente?.nit ?? "No reporta"}-${datos.cliente?.digito_verificacion ?? ""}`],
     ["Sede:", datos.sede?.nombre_sede ?? "No reporta"],
     ["Área - servicio:", datos.ubicacion?.nombre_servicio ?? "No reporta"],
     ["Dirección:", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "No reporta"],
@@ -938,10 +935,7 @@ export async function generarPreInforme(
     ["Distancia Foco / Paciente (cm)", dato(datos.equipo?.distancia_foco_paciente, "No reporta")],
     ["Bucky", dato(datos.equipo?.bucky?.replace(/_/g, " "), "No reporta")],
     ["Sistema de Adquisición de Imágenes", dato(datos.equipo?.sistema_adquisicion, "No reporta")],
-    [
-      "Filtración Inherente (mm Al)",
-      dato(datos.equipo?.filtracion_inherente_mmal, "No reporta"),
-    ],
+    ["Filtración Inherente (mm Al)", dato(datos.equipo?.filtracion_inherente_mmal, "No reporta")],
     ["Filtración Añadida (mm Al)", dato(datos.equipo?.filtracion_anadida_mmal, "No reporta")],
   ];
 
@@ -1361,7 +1355,9 @@ export async function generarPreInforme(
           conceptoParrafo =
             "Las diferentes configuraciones de sensores del control automático de exposición presentan una respuesta consistente bajo las condiciones de prueba evaluadas.";
           accionesTexto =
-            seccion.acciones_correctivas?.trim() || cat?.accionesConforme || "No se requieren acciones correctivas.";
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
+            "No se requieren acciones correctivas.";
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
@@ -1379,7 +1375,9 @@ export async function generarPreInforme(
           conceptoParrafo =
             "El sistema de control automático de exposición presenta una respuesta repetible bajo las condiciones de prueba evaluadas.";
           accionesTexto =
-            seccion.acciones_correctivas?.trim() || cat?.accionesConforme || "No se requieren acciones correctivas.";
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
+            "No se requieren acciones correctivas.";
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
@@ -1397,7 +1395,9 @@ export async function generarPreInforme(
           conceptoParrafo =
             "El sistema de control automático de exposición presenta una adecuada compensación frente a variaciones de kilovoltaje y espesor, manteniendo los parámetros evaluados dentro de la tolerancia establecida respecto a los valores base.";
           accionesTexto =
-            seccion.acciones_correctivas?.trim() || cat?.accionesConforme || "No se requieren acciones correctivas.";
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
+            "No se requieren acciones correctivas.";
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =
@@ -1420,7 +1420,9 @@ export async function generarPreInforme(
           conceptoParrafo =
             "Los valores de dosis al receptor de imagen obtenidos presentan diferencias con respecto a los valores de referencia inferiores al criterio de aceptación establecido (< 0,01 mGy), lo que indica que la dosis al receptor es consistente con el desempeño histórico del sistema.";
           accionesTexto =
-            seccion.acciones_correctivas?.trim() || cat?.accionesConforme || "No se requieren acciones correctivas.";
+            seccion.acciones_correctivas?.trim() ||
+            cat?.accionesConforme ||
+            "No se requieren acciones correctivas.";
         } else {
           conceptoLabel = "NO FAVORABLE";
           conceptoParrafo =

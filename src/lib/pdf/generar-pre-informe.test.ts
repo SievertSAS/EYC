@@ -523,8 +523,7 @@ describe("concepto general y acciones correctivas", () => {
         prueba_codigo: `2.${i + 1}`,
         orden: i + 1,
         incluida: true,
-        acciones_correctivas:
-          i + 1 === 3 ? "OBSERVACION-PUNTUAL-MARCADOR-2-3" : undefined,
+        acciones_correctivas: i + 1 === 3 ? "OBSERVACION-PUNTUAL-MARCADOR-2-3" : undefined,
         sync_status: "synced" as const,
         last_modified: new Date().toISOString(),
       }))

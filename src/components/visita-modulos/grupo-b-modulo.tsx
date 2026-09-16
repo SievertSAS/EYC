@@ -12,10 +12,7 @@ import {
   upsertValoresBaseEquipo,
 } from "@/lib/equipos/convencional/equipo-valores-base-sync";
 import { campoDosisBasePorPrograma } from "@/lib/equipos/convencional/valores-base-equipo";
-import {
-  LABEL_UNIDAD_KERMA,
-  LABEL_UNIDAD_DAP,
-} from "@/lib/equipos/convencional/unidades-raysafe";
+import { LABEL_UNIDAD_KERMA, LABEL_UNIDAD_DAP } from "@/lib/equipos/convencional/unidades-raysafe";
 import {
   ArrowLeft,
   Check,

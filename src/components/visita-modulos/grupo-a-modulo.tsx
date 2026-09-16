@@ -1092,7 +1092,11 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1.5 font-black text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.punto_numero}
-                          {m.id && isSaved(m.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                          <Check
+                            className={`w-3 h-3 text-emerald-500 ${
+                              m.id && isSaved(m.id) ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
                         </span>
                       </td>
                       <td className="py-1.5 px-1.5">

@@ -4,6 +4,7 @@ import { resetTestDb } from "@/test/db-reset";
 import {
   recopilarDatosConv,
   renderResultadosSeccion,
+  renderTablaBaseRef216,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -363,6 +364,32 @@ describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 
     expect(d.fotos213?.some((f) => f.label === "Patrón de bajo contraste")).toBe(true);
   });
 
+  it("montaje_colimacion de 2.3 también aparece en fotos213, antes del patrón (igual que en fotos212)", async () => {
+    await db.conv_evidencias.bulkAdd([
+      row({
+        id: "ev-montaje-213",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "montaje_colimacion",
+        url_storage: "https://example.com/montaje.jpg",
+        ...ok,
+      }),
+      row({
+        id: "ev-patron-213",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "patron_colimacion",
+        url_storage: "https://example.com/patron.jpg",
+        ...ok,
+      }),
+    ]);
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos213?.map((f) => f.label)).toEqual([
+      "Foto montaje experimental",
+      "Patrón de bajo contraste",
+    ]);
+  });
+
   it("sin foto en 2.3 → fotos212/fotos213 quedan vacías (no hay fallback a slots viejos)", async () => {
     const d = await recopilarDatosConv(V);
     expect(d.fotos212).toEqual([]);
@@ -515,6 +542,219 @@ describe("recopilarDatosConv — fotos216 (curvas MTF + objeto borde) (#118)", (
   it("sin ninguna evidencia → fotos216 queda vacío", async () => {
     const d = await recopilarDatosConv(V);
     expect(d.fotos216).toEqual([]);
+  });
+});
+
+describe("2.16 — Análisis (texto fijo) y tabla de valores base de referencia MTF", () => {
+  const mtfBase = {
+    sid_cm: 100,
+    kv_referencia: 70,
+    pixel_size_mm: 0.14,
+    nyquist_lpmm: 3.57,
+    mtf50_horizontal: 1.2,
+    mtf20_horizontal: 2.1,
+    mtf50_vertical: 1.15,
+    mtf20_vertical: 2.05,
+  };
+
+  it("el 'Análisis' es texto fijo, igual con o sin valores base de referencia", async () => {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({ ...mtfBase });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    const textoSinBase = parrafos.join(" ");
+
+    parrafos.length = 0;
+    conv.mtf = row({
+      ...mtfBase,
+      mtf50_base_horizontal: 1.3,
+      mtf20_base_horizontal: 2.2,
+      mtf50_base_vertical: 1.25,
+      mtf20_base_vertical: 2.15,
+    });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    const textoConBase = parrafos.join(" ");
+
+    const textoEsperado =
+      "Las curvas de MTF obtenidas presentan un comportamiento decreciente con el aumento de la frecuencia espacial, lo cual es característico de los sistemas de radiografía digital. " +
+      "Las frecuencias espaciales correspondientes a MTF50 y MTF20 permiten caracterizar la capacidad del detector para reproducir detalles espaciales en las direcciones horizontal y vertical. " +
+      "Los valores obtenidos son consistentes con el desempeño esperado para detectores digitales de radiografía general.";
+
+    expect(textoSinBase).toContain(textoEsperado);
+    expect(textoConBase).toContain(textoEsperado);
+    expect(textoConBase).not.toMatch(/variación máxima/);
+  });
+
+  it("renderTablaBaseRef216 muestra los valores base reales cuando existen", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({
+      ...mtfBase,
+      mtf50_base_horizontal: 1.3,
+      mtf20_base_horizontal: 2.2,
+      mtf50_base_vertical: 1.25,
+      mtf20_base_vertical: 2.15,
+    });
+    renderTablaBaseRef216(ctx, conv);
+
+    const tablaBase = tablas.find((t) => t.head.includes("MTF50 (lp/mm)"));
+    expect(tablaBase).toBeDefined();
+    expect(tablaBase!.body).toEqual([
+      ["Horizontal", "1,30", "2,20"],
+      ["Vertical", "1,25", "2,15"],
+    ]);
+  });
+
+  it("renderTablaBaseRef216 muestra '—' cuando no hay valores base", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({ ...mtfBase });
+    renderTablaBaseRef216(ctx, conv);
+
+    const tablaBase = tablas.find((t) => t.head.includes("MTF50 (lp/mm)"));
+    expect(tablaBase!.body).toEqual([
+      ["Horizontal", "—", "—"],
+      ["Vertical", "—", "—"],
+    ]);
+  });
+});
+
+describe("2.17-2.21 — 'Análisis' del CAE cita el veredicto real, no un texto fijo de 'conforme'", () => {
+  async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+    return { ctx, parrafos };
+  }
+
+  it("2.17: variación > 50 % vs base → el párrafo dice 'No conforme', no 'respuesta estable'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeSetup = row({ id: "s1", visita_id: V, mas_base_217: 4, ei_base_217: 100 });
+    conv.caeMediciones = [row({ id: "m9", visita_id: V, toma_numero: 9, carga_mas: 10, ei: 100 })];
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.17", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("superan la tolerancia del 50 %");
+    expect(texto).not.toContain("respuesta estable");
+  });
+
+  it("2.18: rango > 30 % entre sensores → el párrafo dice inconsistencia, no 'consistencia'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [2, 3, 4, 5, 6, 7, 8].map((toma_numero, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        toma_numero,
+        carga_mas: toma_numero === 8 ? 20 : 4,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.18", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("evidencia inconsistencia");
+    expect(texto).not.toContain("Lo anterior evidencia consistencia");
+  });
+
+  it("2.19: CV > 10 % entre repeticiones → el párrafo dice 'poco repetible', no 'repetible'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [3, 9, 10, 11, 12].map((toma_numero, i) =>
+      row({
+        id: `m${i}`,
+        visita_id: V,
+        toma_numero,
+        carga_mas: toma_numero === 12 ? 20 : 4,
+      })
+    );
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.19", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("una respuesta poco repetible");
+    expect(texto).not.toContain("una respuesta repetible del sistema");
+  });
+
+  it("2.20: variación > 30 % vs base (kVp/espesor) → el párrafo dice compensación inadecuada", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeSetup = row({ id: "s1", visita_id: V, mas_base_60kv: 4 });
+    conv.caeMediciones = [row({ id: "m1", visita_id: V, toma_numero: 1, carga_mas: 10 })];
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.20", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("compensación inadecuada");
+    expect(texto).not.toContain("adecuada compensación");
+  });
+
+  it("2.21: diferencia ≥ 0,01 mGy vs base → el párrafo dice variación significativa, no estabilidad", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = [
+      row({
+        id: "m1",
+        visita_id: V,
+        tipo_medicion: "sin_rejilla",
+        programa_clinico: "Tórax",
+        kv_nominal: 70,
+        mas_nominal: 4,
+        dosis_medida_mgy: 0.5,
+        dosis_base_mgy: 0.1,
+      }),
+    ];
+
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+
+    expect(texto).toContain("variación significativa");
+    expect(texto).not.toContain("evidenciando estabilidad");
   });
 });
 

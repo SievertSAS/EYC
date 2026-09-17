@@ -469,8 +469,11 @@ export interface ConvInformeSeccion extends Partial<SyncFields> {
    * Concepto: Conforme / No conforme / No aplica, o el override manual
    * "No_favorable_no_ejecutada" (#120) -- la prueba aplica pero no se pudo
    * ejecutar por falla de un componente del equipo.
+   * `null` (no `undefined`) para desmarcar el override: `undefined` se pierde
+   * en el `JSON.stringify` del push a Supabase y el valor viejo nunca se
+   * limpia en el servidor -- vuelve al pull siguiente (bug reportado en QA).
    */
-  concepto?: "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
+  concepto?: "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada" | null;
   /** Texto de acciones correctivas (editable inline) */
   acciones_correctivas?: string;
   /** Observaciones adicionales del físico */

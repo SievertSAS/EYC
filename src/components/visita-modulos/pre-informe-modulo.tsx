@@ -848,9 +848,13 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
               onToggleNoEjecutada={() =>
                 seccion.id &&
                 updateSeccion(seccion.id, {
+                  // `null`, no `undefined`: un `undefined` no sobrevive el
+                  // JSON.stringify del push a Supabase, así que el valor
+                  // viejo nunca se limpia server-side y vuelve en el
+                  // siguiente pull (bug reportado en QA).
                   concepto:
                     seccion.concepto === "No_favorable_no_ejecutada"
-                      ? undefined
+                      ? null
                       : "No_favorable_no_ejecutada",
                 })
               }

@@ -529,7 +529,7 @@ export function evaluarConceptoPrueba(codigo: string, d: DatosEvalConv): Concept
  * que nunca diverjan.
  */
 export function conceptoEfectivoSeccion(
-  seccion: { incluida: boolean; concepto?: Concepto; prueba_codigo: string },
+  seccion: { incluida: boolean; concepto?: Concepto | null; prueba_codigo: string },
   datos: DatosEvalConv | undefined
 ): Concepto | undefined {
   if (!seccion.incluida) return "No_aplica";

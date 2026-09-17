@@ -2141,7 +2141,7 @@ export async function generarPreInforme(
   if (esFinal && marcaAguaBase64) {
     try {
       const props = doc.getImageProperties(marcaAguaBase64);
-      const w = 110;
+      const w = CONTENT_WIDTH;
       const h = (props.height / props.width) * w;
       const x = (PAGE_WIDTH - w) / 2;
       const yImg = (PAGE_HEIGHT - h) / 2;

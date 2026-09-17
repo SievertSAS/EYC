@@ -472,6 +472,10 @@ export async function generarPreInforme(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let y = MARGIN;
   let pageCount = 0;
+  // Títulos de sección en orden de aparición, para la página de "CONTENIDO"
+  // insertada al final (una vez que se conocen todos). Sin números de
+  // página: cada título ya trae su propio código ("2.4 ...", "FIRMAS").
+  const toc: string[] = [];
 
   // ─── Helpers ───
 
@@ -874,6 +878,7 @@ export async function generarPreInforme(
   addHeader(doc, datos, logoBase64);
 
   y = addSectionTitle(doc, "INFORMACIÓN DE LA PRÁCTICA", y);
+  toc.push("INFORMACIÓN DE LA PRÁCTICA");
 
   // Datos Generales
   addSubsectionTitle("", "Datos Generales");
@@ -1053,6 +1058,7 @@ export async function generarPreInforme(
   addHeader(doc, datos, logoBase64);
 
   y = addSectionTitle(doc, "INTRODUCCIÓN", y);
+  toc.push("INTRODUCCIÓN");
 
   addParagraph(
     "El presente informe técnico documenta los resultados del control de calidad efectuado al equipo generador de radiación ionizante destinado a la práctica de radiología general y emite el correspondiente concepto técnico, en cumplimiento de la Resolución 1811 de 2025 del Ministerio de Salud y Protección Social y demás disposiciones vigentes en materia de protección radiológica."
@@ -1075,6 +1081,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   y += 4;
   y = addSectionTitle(doc, "2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL", y);
+  toc.push("2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL");
 
   // ─── Acumuladores para el resumen final (ambos flujos) ───
   const resumenRows: [string, string][] = [];
@@ -1111,6 +1118,7 @@ export async function generarPreInforme(
       checkPage(60);
       y += 2;
       y = addSectionTitle(doc, `${codigo} ${cat.nombre}`, y, 2);
+      toc.push(`${codigo} ${cat.nombre}`);
 
       addSubsectionTitle(`${codigo}.1.`, "Objetivo");
       addParagraph(cat.objetivo);
@@ -1751,6 +1759,7 @@ export async function generarPreInforme(
     checkPage(60);
     y += 2;
     y = addSectionTitle(doc, `${numPrueba} ${nombre}`, y, 2);
+    toc.push(`${numPrueba} ${nombre}`);
 
     // Objetivo
     addSubsectionTitle(`${numPrueba}.1.`, "Objetivo");
@@ -1954,6 +1963,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   checkPage(60);
   y = addSectionTitle(doc, "RESUMEN DE RESULTADOS", y);
+  toc.push("RESUMEN DE RESULTADOS");
 
   autoTable(doc, {
     startY: y,
@@ -1981,6 +1991,7 @@ export async function generarPreInforme(
   // CONCEPTO GENERAL
   checkPage(30);
   y = addSectionTitle(doc, "CONCEPTO", y);
+  toc.push("CONCEPTO");
 
   // FAVORABLE solo si todas las pruebas están Conformes o No aplica. Cualquier
   // prueba No conforme → NO FAVORABLE; si no hay No conformes pero quedan
@@ -2017,6 +2028,7 @@ export async function generarPreInforme(
     y += 4;
     checkPage(25);
     y = addSectionTitle(doc, "OBSERVACIONES GENERALES", y);
+    toc.push("OBSERVACIONES GENERALES");
     addParagraph(datos.visita.observaciones);
   }
 
@@ -2026,6 +2038,7 @@ export async function generarPreInforme(
   checkPage(90);
   y += 10;
   y = addSectionTitle(doc, "FIRMAS", y);
+  toc.push("FIRMAS");
   y += 5;
 
   // Responsable Sievert
@@ -2087,6 +2100,22 @@ export async function generarPreInforme(
     MARGIN,
     y
   );
+
+  // ─── Página de contenido (se inserta como página 2, justo tras la portada) ───
+  // Va al final, una vez recorrido todo el documento y con `toc` ya completo.
+  // `insertPage` corre las páginas existentes desde la 2 en adelante; deja la
+  // nueva página 2 como la activa (no hace falta un setPage adicional).
+  doc.insertPage(2);
+  addHeader(doc, datos, logoBase64, 2);
+  let tocY = MARGIN + HEADER_HEIGHT;
+  tocY = addSectionTitle(doc, "CONTENIDO", tocY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...COLOR_BLACK);
+  for (const titulo of toc) {
+    doc.text(titulo, MARGIN, tocY);
+    tocY += 5.5;
+  }
 
   // ─── Banner de cierre Sievert (solo en la última página) ───
   // Va antes de las marcas de agua para que estas cubran también la página
@@ -2203,8 +2232,8 @@ function addSectionTitle(doc: jsPDF, title: string, y: number, level: 1 | 2 = 1)
   return y + 7;
 }
 
-function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string) {
-  const pageNum = doc.getNumberOfPages();
+function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string, targetPage?: number) {
+  const pageNum = targetPage ?? doc.getNumberOfPages();
   doc.setPage(pageNum);
 
   // Logo pequeño en header

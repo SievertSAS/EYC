@@ -668,3 +668,48 @@ describe("#60 — 'No aplica' vs 'No reporta' en información de la práctica", 
     expect(text).toContain("No aplica");
   });
 });
+
+// ============================================================
+//  Página "CONTENIDO" (se inserta como página 2, tras la portada) — pedido
+//  de negocio: la plantilla de referencia trae un índice ahí. Se construye
+//  con los mismos títulos ya renderizados (no una lista aparte hardcodeada),
+//  así que cada título real aparece DOS VECES en el PDF: una en el índice,
+//  otra en su propia sección.
+// ============================================================
+describe("Página de contenido (índice)", () => {
+  it("lista los títulos de sección — cada uno aparece 2 veces en el PDF (índice + sección real)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+
+    expect(text).toContain("CONTENIDO");
+
+    const contar = (s: string) => (text.match(new RegExp(s, "g")) ?? []).length;
+    expect(contar("INFORMACIÓN DE LA PRÁCTICA")).toBe(2);
+    expect(contar("2\\. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL")).toBe(2);
+    expect(contar("RESUMEN DE RESULTADOS")).toBe(2);
+    expect(contar("FIRMAS")).toBe(2);
+  });
+
+  it("incluye cada prueba (2.1–2.21) con su código y nombre del catálogo", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+
+    // 3, no 2: además del índice y el título de la sección, el nombre de la
+    // prueba también aparece como fila en la tabla "RESUMEN DE RESULTADOS".
+    const contar = (s: string) => (text.match(new RegExp(s, "g")) ?? []).length;
+    expect(contar("2\\.4 Exactitud y repetibilidad del tiempo de exposición")).toBe(3);
+    expect(contar("2\\.21 Dosis al receptor de imagen")).toBe(3);
+  });
+
+  it("'OBSERVACIONES GENERALES' solo entra al índice cuando la visita tiene observaciones", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const sinObs = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(sinObs).not.toContain("OBSERVACIONES GENERALES");
+
+    await db.visitas.update(visita!.id!, { observaciones: "Nota de campo." });
+    const conObs = await pdfText((await generarPreInforme(visita!.id!))!);
+    const contar = (s: string) => (conObs.match(new RegExp(s, "g")) ?? []).length;
+    expect(contar("OBSERVACIONES GENERALES")).toBe(2);
+  });
+});

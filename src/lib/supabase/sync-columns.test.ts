@@ -123,3 +123,26 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
     expect(EXTRA_LOCAL_FIELDS.solicitudes).toContain("suitecrm_id");
   });
 });
+
+// ============================================================
+//  Bug QA: desmarcar "No favorable - no se pudo ejecutar" (#120) volvía a
+//  aparecer tras navegar. Causa: el toggle limpiaba el campo con `undefined`,
+//  y `JSON.stringify` (usado por el cliente de Supabase al armar el body del
+//  upsert) DESCARTA las claves en `undefined` — el push nunca llegaba a
+//  limpiar la columna en el servidor, así que el siguiente pull traía de
+//  vuelta el valor viejo. `null` sí sobrevive el JSON y limpia la columna.
+// ============================================================
+describe("prepareForRemote — undefined se pierde en el push, null no (bug #120)", () => {
+  it("un campo en null se preserva en el objeto y en el JSON enviado a Supabase", () => {
+    const row = { id: "s1", visita_id: "v1", concepto: null, sync_status: "pending" };
+    const data = prepareForRemote(row, "conv_informe_secciones");
+    expect(data.concepto).toBeNull();
+    expect(JSON.stringify(data)).toContain('"concepto":null');
+  });
+
+  it("un campo en undefined desaparece del JSON enviado a Supabase (por eso el toggle usa null)", () => {
+    const row = { id: "s1", visita_id: "v1", concepto: undefined, sync_status: "pending" };
+    const data = prepareForRemote(row, "conv_informe_secciones");
+    expect(JSON.stringify(data)).not.toContain("concepto");
+  });
+});

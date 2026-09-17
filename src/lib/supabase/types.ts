@@ -1753,6 +1753,7 @@ export type Database = {
           last_modified: string;
           motivo_cambio: string | null;
           numero_version: number;
+          pdf_hash: string | null;
           pdf_url: string | null;
           revisado_por_id: string | null;
           sync_status: string;
@@ -1770,6 +1771,7 @@ export type Database = {
           last_modified?: string;
           motivo_cambio?: string | null;
           numero_version: number;
+          pdf_hash?: string | null;
           pdf_url?: string | null;
           revisado_por_id?: string | null;
           sync_status?: string;
@@ -1787,6 +1789,7 @@ export type Database = {
           last_modified?: string;
           motivo_cambio?: string | null;
           numero_version?: number;
+          pdf_hash?: string | null;
           pdf_url?: string | null;
           revisado_por_id?: string | null;
           sync_status?: string;

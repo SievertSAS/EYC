@@ -64,7 +64,7 @@ describe("resetAndReopen", () => {
     await resetAndReopen();
 
     expect(db.isOpen()).toBe(true);
-    expect(db.verno).toBe(17);
+    expect(db.verno).toBe(18);
     expect(await db.clientes.count()).toBe(0);
   });
 });

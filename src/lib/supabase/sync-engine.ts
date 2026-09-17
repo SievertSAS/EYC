@@ -242,6 +242,9 @@ export const SYNC_TABLES = [
   { local: "solicitudes", remote: "solicitudes" },
   // ─── Datos de campo ───
   { local: "visitas", remote: "visitas" },
+  // Orden importa: informe_versiones.informe_id referencia informes.id (FK).
+  { local: "informes", remote: "informes" },
+  { local: "informe_versiones", remote: "informe_versiones" },
   { local: "grupo_resultados", remote: "grupo_resultados" },
   { local: "prueba_resultados", remote: "prueba_resultados" },
   { local: "mediciones_radiometricas", remote: "mediciones_radiometricas" },
@@ -280,8 +283,6 @@ export const MASTER_TABLES = [
   "cotizaciones",
   "prueba_definiciones",
   "grupo_pruebas",
-  "informes",
-  "informe_versiones",
   "rol_permisos",
 ] as const;
 

@@ -345,6 +345,20 @@ class EyCDatabase extends Dexie {
     this.version(17).stores({
       conv_equipo_valores_base: "id, &equipo_id, sync_status",
     });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v18 — habilitar sync bidireccional de informes/informe_versiones
+    //  (#154). Antes eran MASTER_TABLES (solo pull); el motor de sync
+    //  nunca subía el informe creado/publicado localmente, así que la
+    //  página pública /verificar/[token] (que consulta Supabase directo)
+    //  nunca lo encontraba. Solo agrega el índice sync_status para que
+    //  el motor pueda seleccionar filas pendientes de push.
+    // ─────────────────────────────────────────────────────────────
+    this.version(18).stores({
+      informes:
+        "id, visita_id, equipo_id, ubicacion_id, numero_informe, &qr_token, estado, sync_status",
+      informe_versiones: "id, informe_id, numero_version, sync_status",
+    });
   }
 }
 

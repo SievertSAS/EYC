@@ -65,6 +65,8 @@ const SEEDED = [
   "tubos",
   "solicitudes",
   "visitas",
+  "informes",
+  "informe_versiones",
 ] as const;
 
 describe("sync — parseo de columnas Supabase (sanity)", () => {
@@ -81,6 +83,41 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
     await resetTestDb();
     const g = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
 
+    // #154: informes/informe_versiones pasaron de MASTER_TABLES (solo pull)
+    // a SYNC_TABLES — filas representativas para que el guard también las
+    // cubra (en particular pdf_hash, agregado en la migración 013).
+    await db.informes.add({
+      id: "inf-guard",
+      visita_id: g.visita!.id!,
+      equipo_id: g.equipo.id!,
+      ubicacion_id: g.ubicacion.id!,
+      numero_informe: "EYC-2026-999",
+      version_actual: 1,
+      concepto_general: "FAVORABLE",
+      qr_token: "guard-token",
+      fecha_emision: "2026-01-01",
+      fecha_vencimiento: "2028-01-01",
+      estado: "aprobado",
+      creado_en: "2026-01-01",
+      sync_status: "pending",
+      last_modified: "2026-01-01",
+    });
+    await db.informe_versiones.add({
+      id: "inf-v-guard",
+      informe_id: "inf-guard",
+      numero_version: 1,
+      motivo_cambio: "emision_inicial",
+      generado_por_id: undefined,
+      revisado_por_id: undefined,
+      pdf_url: "inf-guard/v1.pdf",
+      pdf_hash: "abc123",
+      fecha_generacion: "2026-01-01",
+      estado: "aprobado",
+      creado_en: "2026-01-01",
+      sync_status: "pending",
+      last_modified: "2026-01-01",
+    });
+
     const asRow = (o: unknown) => o as Record<string, unknown> | undefined;
     const rows: Record<string, Record<string, unknown> | undefined> = {
       clientes: asRow(g.cliente),
@@ -93,6 +130,8 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
       contactos: asRow(
         (await db.contactos.where("cliente_id").equals(g.cliente.id!).first()) ?? undefined
       ),
+      informes: asRow(await db.informes.get("inf-guard")),
+      informe_versiones: asRow(await db.informe_versiones.get("inf-v-guard")),
     };
 
     const problemas: string[] = [];

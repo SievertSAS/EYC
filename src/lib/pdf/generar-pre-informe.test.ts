@@ -17,7 +17,11 @@ import { seedGraph } from "@/test/seed";
 import {
   generarPreInforme,
   getLogoBase64,
+  getMarcaAguaBase64,
+  getPieFooterBase64,
   resetLogoCache,
+  resetMarcaAguaCache,
+  resetPieFooterCache,
   resolverAccionesTexto,
   textoCampo,
   textoFecha,
@@ -48,6 +52,8 @@ function tinyPngBlob(): Blob {
 beforeEach(async () => {
   await resetTestDb();
   resetLogoCache();
+  resetMarcaAguaCache();
+  resetPieFooterCache();
   vi.stubGlobal("fetch", okPngFetch());
 });
 
@@ -273,6 +279,47 @@ describe("generarPreInforme — contrato de datos", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
     resetLogoCache();
     await expect(getLogoBase64()).resolves.toBe("");
+  });
+
+  it("getMarcaAguaBase64/getPieFooterBase64 resuelven a data URL cuando el asset existe", async () => {
+    resetMarcaAguaCache();
+    resetPieFooterCache();
+    await expect(getMarcaAguaBase64()).resolves.toMatch(/^data:/);
+    await expect(getPieFooterBase64()).resolves.toMatch(/^data:/);
+  });
+
+  it("getMarcaAguaBase64/getPieFooterBase64 resuelven a '' cuando el asset responde 404, sin lanzar", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    resetMarcaAguaCache();
+    resetPieFooterCache();
+    await expect(getMarcaAguaBase64()).resolves.toBe("");
+    await expect(getPieFooterBase64()).resolves.toBe("");
+  });
+
+  it("visita NO final: pide el pie de cierre pero NO la marca de agua oficial (queda 'PRE-INFORME')", async () => {
+    resetMarcaAguaCache();
+    resetPieFooterCache();
+    const fetchMock = okPngFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const blob = await generarPreInforme(visita!.id!);
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/pie-pagina-sievert.png");
+    expect(urls).not.toContain("/marca-agua-sievert.png");
+    expect(await pdfText(blob!)).toContain("PRE-INFORME");
+  });
+
+  it("visita FINAL (flujo sin paquete dedicado, sin pruebas pendientes): pide la marca de agua oficial y ya no lleva 'PRE-INFORME'", async () => {
+    resetMarcaAguaCache();
+    resetPieFooterCache();
+    const fetchMock = okPngFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const { visita } = await seedGraph({ tipoEquipo: "CT", estadoVisita: "aprobada" });
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).toBeInstanceOf(Blob);
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/marca-agua-sievert.png");
+    expect(await pdfText(blob!)).not.toContain("PRE-INFORME");
   });
 
   it("#60: la fecha de expiración de la licencia sale dd/mm/aaaa en el informe", async () => {

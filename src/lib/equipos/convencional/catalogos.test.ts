@@ -68,6 +68,21 @@ describe("CATALOGO_SECCIONES", () => {
       }
     }
   });
+
+  // La "μ" griega (U+03BC) no está en WinAnsiEncoding, la codificación de las
+  // fuentes estándar de jsPDF: al dibujarla, jsPDF cae a un render letra por
+  // letra con espaciado enorme (visto en 2.21.6 "µGy"). El signo micro "µ"
+  // (U+00B5) sí está soportado y se ve idéntico — es la única forma correcta
+  // de escribir microgray/microsievert en estos textos.
+  it("ningún texto usa la 'μ' griega (U+03BC) — jsPDF no la soporta y rompe el render (usar 'µ' U+00B5)", () => {
+    for (const s of CATALOGO_SECCIONES) {
+      for (const [campo, valor] of Object.entries(s)) {
+        if (typeof valor === "string") {
+          expect(valor.includes("μ"), `${s.codigo}.${campo}`).toBe(false);
+        }
+      }
+    }
+  });
 });
 
 describe("inspeccion-items", () => {

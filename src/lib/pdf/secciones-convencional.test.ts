@@ -545,6 +545,52 @@ describe("recopilarDatosConv — fotos216 (curvas MTF + objeto borde) (#118)", (
   });
 });
 
+describe("recopilarDatosConv — fotos221 (montaje RaySafe, no el montaje CAE de 2.17)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue({ width: 10, height: 10, close: () => {} })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(["x"], { type: "image/jpeg" }),
+      })
+    );
+  });
+
+  it("2.21.7 usa la foto de montaje_raysafe de 2.4, no la de montaje_cae de 2.17", async () => {
+    await db.conv_evidencias.bulkAdd([
+      row({
+        id: "ev-raysafe",
+        visita_id: V,
+        prueba_codigo: "2.4",
+        slot: "montaje_raysafe",
+        url_storage: "https://example.com/raysafe.jpg",
+        ...ok,
+      }),
+      row({
+        id: "ev-cae",
+        visita_id: V,
+        prueba_codigo: "2.17",
+        slot: "montaje_cae",
+        url_storage: "https://example.com/cae.jpg",
+        ...ok,
+      }),
+    ]);
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos221).toHaveLength(1);
+    expect(d.fotos221?.[0].label).toBe("Implementación de instrumentación en la prueba");
+    expect(d.fotos221?.[0].label).not.toContain("CAE");
+  });
+
+  it("sin evidencia de montaje_raysafe → fotos221 queda vacío", async () => {
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos221).toEqual([]);
+  });
+});
+
 describe("2.16 — Análisis (texto fijo) y tabla de valores base de referencia MTF", () => {
   const mtfBase = {
     sid_cm: 100,

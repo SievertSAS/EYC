@@ -137,6 +137,8 @@ export interface DatosConvencional {
   caeMediciones: ConvCaeMedicion[];
   /** Foto montaje CAE (2.17.7) */
   fotos217?: { label: string; dataUrl: string; width: number; height: number }[];
+  /** Fotografía de montaje RaySafe para la sección 2.21.7 (misma imagen que 2.4) */
+  fotos221?: { label: string; dataUrl: string; width: number; height: number }[];
 }
 
 async function blobADataUrl(blob: Blob): Promise<string> {
@@ -353,6 +355,8 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   if (img24) fotos27.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
   const fotos28: NonNullable<DatosConvencional["fotos28"]> = [];
   if (img24) fotos28.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
+  const fotos221: NonNullable<DatosConvencional["fotos221"]> = [];
+  if (img24) fotos221.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
 
   // Fotografía de montaje DDI (secciones 2.9.7 y 2.10.7)
   const ev29 = evidencias.find((e) => e.prueba_codigo === "2.9" && e.slot === "montaje_ddi");
@@ -466,6 +470,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     caeSetup,
     caeMediciones: caeMediciones ?? [],
     fotos217,
+    fotos221,
   };
 }
 
@@ -1002,6 +1007,38 @@ export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional, codigo 
 export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.7") {
   const { doc } = ctx;
   const fotos = conv.fotos27 ?? [];
+  if (fotos.length === 0) {
+    ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
+    return;
+  }
+  const CWIDTH = 170;
+  let nFig = 0;
+  for (const f of fotos) {
+    const maxW = CWIDTH * 0.5;
+    const maxH = 80;
+    const scale = Math.min(maxW / f.width, maxH / f.height, 1);
+    const w = f.width * scale;
+    const h = f.height * scale;
+    ctx.checkPage(h + 14);
+    const x = MARGIN + (CWIDTH - w) / 2;
+    try {
+      doc.addImage(f.dataUrl, x, ctx.y, w, h);
+    } catch {
+      // imagen no renderizable
+    }
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR_GRAY);
+    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
+    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
+    ctx.y += h + 12;
+  }
+}
+
+/** Subsección 2.21.7: fotografía del montaje con sensor RaySafe (misma imagen que 2.4) */
+export function renderFotos221(ctx: InformeCtx, conv: DatosConvencional, codigo = "2.21") {
+  const { doc } = ctx;
+  const fotos = conv.fotos221 ?? [];
   if (fotos.length === 0) {
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
@@ -3421,7 +3458,7 @@ const RENDER_FOTOS: Record<string, RenderFotos> = {
   "2.18": renderFotos217,
   "2.19": renderFotos217,
   "2.20": renderFotos217,
-  "2.21": renderFotos217,
+  "2.21": renderFotos221,
 };
 
 /** ¿La prueba `codigo` lleva subsección "Evidencia gráfica"? */

@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { createClient } from "@/lib/supabase/client";
 import { generarPreInforme } from "@/lib/pdf/generar-pre-informe";
+import { updateAndSync } from "@/lib/supabase/sync-engine";
 import { logger } from "@/lib/logger";
 
 // ============================================================
@@ -59,10 +60,10 @@ export async function publicarVersionOficial(
       .and((v) => v.numero_version === informe.version_actual)
       .first();
     if (version?.id) {
-      await db.informe_versiones.update(version.id, { pdf_url: path, pdf_hash: hash });
+      await updateAndSync("informe_versiones", version.id, { pdf_url: path, pdf_hash: hash });
     }
     if (!informe.qr_url) {
-      await db.informes.update(informeId, { qr_url: qrUrl });
+      await updateAndSync("informes", informeId, { qr_url: qrUrl });
     }
 
     return { success: true };

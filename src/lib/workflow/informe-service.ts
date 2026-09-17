@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { Informe, InformeVersion } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
+import { pushSingle } from "@/lib/supabase/sync-engine";
 
 // ============================================================
 //  Servicio de creación de informes
@@ -77,6 +78,8 @@ export async function crearInformeDesdeVisita(
       fecha_emision: fechaEmision,
       fecha_vencimiento: fechaVencimiento,
       estado: "aprobado",
+      sync_status: "pending",
+      last_modified: now.toISOString(),
     });
 
     const version: InformeVersion = {
@@ -92,8 +95,15 @@ export async function crearInformeDesdeVisita(
       fecha_aprobacion: now.toISOString(),
       estado: "aprobado",
       creado_en: now.toISOString(),
+      sync_status: "pending",
+      last_modified: now.toISOString(),
     };
     await db.informe_versiones.add(version);
+
+    // Orden importa: informe_versiones.informe_id referencia informes.id (FK) —
+    // el informe (padre) tiene que existir en el servidor antes que su versión.
+    await pushSingle("informes", existente.id);
+    await pushSingle("informe_versiones", version.id!);
 
     return { ...existente, version_actual: nuevaVersionNum, concepto_general: conceptoGeneral };
   }
@@ -113,6 +123,8 @@ export async function crearInformeDesdeVisita(
     fecha_vencimiento: fechaVencimiento,
     estado: "aprobado",
     creado_en: now.toISOString(),
+    sync_status: "pending",
+    last_modified: now.toISOString(),
   };
 
   const informeId = await db.informes.add(informe);
@@ -131,9 +143,16 @@ export async function crearInformeDesdeVisita(
     fecha_aprobacion: now.toISOString(),
     estado: "aprobado",
     creado_en: now.toISOString(),
+    sync_status: "pending",
+    last_modified: now.toISOString(),
   };
 
   await db.informe_versiones.add(version);
+
+  // Orden importa: informe_versiones.informe_id referencia informes.id (FK) —
+  // el informe (padre) tiene que existir en el servidor antes que su versión.
+  await pushSingle("informes", informeId as string);
+  await pushSingle("informe_versiones", version.id!);
 
   return { ...informe, id: informeId as string };
 }

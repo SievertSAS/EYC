@@ -855,7 +855,7 @@ export type EstadoInforme =
   | "vigente"
   | "vencido";
 
-export interface Informe {
+export interface Informe extends Partial<SyncFields> {
   id?: string;
   visita_id: string;
   equipo_id: string;
@@ -876,7 +876,7 @@ export interface Informe {
   creado_en?: string;
 }
 
-export interface InformeVersion {
+export interface InformeVersion extends Partial<SyncFields> {
   id?: string;
   informe_id: string;
   numero_version: number;

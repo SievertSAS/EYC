@@ -99,6 +99,38 @@ describe("crearInformeDesdeVisita", () => {
   it("visita inexistente → lanza", async () => {
     await expect(crearInformeDesdeVisita("no-existe", "i", "t")).rejects.toThrow();
   });
+
+  // #154: informes/informe_versiones eran MASTER_TABLES (solo pull) — el
+  // informe creado/publicado localmente nunca llegaba a Supabase, así que
+  // /verificar/[token] (que consulta Supabase directo) nunca lo encontraba.
+  it("#154: sube el informe y luego su versión, en ese orden (FK informe_versiones -> informes)", async () => {
+    const { visita } = await seedGraph();
+    const inf = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+
+    expect(pushSingle).toHaveBeenCalledWith("informes", inf.id);
+    expect(pushSingle).toHaveBeenCalledWith("informe_versiones", expect.any(String));
+    const ordenInformes = pushSingle.mock.calls.findIndex((c) => c[0] === "informes");
+    const ordenVersiones = pushSingle.mock.calls.findIndex((c) => c[0] === "informe_versiones");
+    expect(ordenInformes).toBeLessThan(ordenVersiones);
+
+    const informeLocal = await db.informes.get(inf.id!);
+    expect(informeLocal?.sync_status).toBe("pending");
+  });
+
+  it("#154: re-aprobación también sube el informe (actualizado) y la nueva versión", async () => {
+    const { visita } = await seedGraph();
+    const inf1 = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+    pushSingle.mockClear();
+
+    const inf2 = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+
+    expect(pushSingle).toHaveBeenCalledWith("informes", inf1.id);
+    expect(pushSingle).toHaveBeenCalledWith("informe_versiones", expect.any(String));
+    const ordenInformes = pushSingle.mock.calls.findIndex((c) => c[0] === "informes");
+    const ordenVersiones = pushSingle.mock.calls.findIndex((c) => c[0] === "informe_versiones");
+    expect(ordenInformes).toBeLessThan(ordenVersiones);
+    expect(inf2.version_actual).toBe(2);
+  });
 });
 
 // ─── equipo-service ───

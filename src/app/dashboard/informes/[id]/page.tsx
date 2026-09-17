@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   ArrowLeft,
   FileText,
@@ -296,6 +296,20 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
               <RefreshCw className="w-4 h-4 mr-2" />
               Regenerar PDF (vista rápida)
             </Button>
+            {versionActual?.pdf_hash && (
+              <a
+                href={`/verificar/${informe.qr_token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({
+                  variant: "outline",
+                  className: "rounded-xl font-black border-slate-200",
+                })}
+              >
+                <QrCode className="w-4 h-4 mr-2" />
+                Ver página de verificación
+              </a>
+            )}
           </div>
         </CardContent>
       </Card>

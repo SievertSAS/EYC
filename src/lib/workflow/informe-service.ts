@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import type { Informe, InformeVersion } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
+import { hasPackage } from "@/lib/equipos/registry";
+import { cargarTablasConv, conceptoEfectivoSeccion } from "@/lib/equipos/convencional/evaluacion";
 
 // ============================================================
 //  Servicio de creación de informes
@@ -32,10 +34,32 @@ async function generarNumeroInforme(): Promise<string> {
 /**
  * Determina el concepto general basado en los resultados de las pruebas.
  * Si CUALQUIER prueba es NO_FAVORABLE, el concepto general es NO_FAVORABLE.
+ *
+ * #153: un equipo con paquete dedicado (CONVENCIONAL) evalúa sus 21 pruebas
+ * con `conv_informe_secciones` + `evaluarConceptoPrueba()`/
+ * `conceptoEfectivoSeccion()` (fuente única, la misma que usa el editor del
+ * pre-informe y el generador de PDF) -- NO con `prueba_resultados`, que es
+ * del flujo legacy y para estos equipos siempre está vacía. Sin esta rama,
+ * el concepto general de cualquier equipo CONVENCIONAL salía FAVORABLE sin
+ * importar el resultado real de las pruebas.
  */
 async function determinarConceptoGeneral(visitaId: string): Promise<"FAVORABLE" | "NO_FAVORABLE"> {
-  const pruebas = await db.prueba_resultados.where("visita_id").equals(visitaId).toArray();
+  const visita = await db.visitas.get(visitaId);
+  const equipo = visita?.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
 
+  if (equipo?.tipo_equipo && hasPackage(equipo.tipo_equipo)) {
+    const [secciones, datos] = await Promise.all([
+      db.conv_informe_secciones.where("visita_id").equals(visitaId).toArray(),
+      cargarTablasConv(visitaId),
+    ]);
+    const hayNoFavorable = secciones.some((s) => {
+      const efectivo = conceptoEfectivoSeccion(s, datos);
+      return efectivo === "No_conforme" || efectivo === "No_favorable_no_ejecutada";
+    });
+    return hayNoFavorable ? "NO_FAVORABLE" : "FAVORABLE";
+  }
+
+  const pruebas = await db.prueba_resultados.where("visita_id").equals(visitaId).toArray();
   const hayNoFavorable = pruebas.some((p) => p.concepto === "NO_FAVORABLE");
   return hayNoFavorable ? "NO_FAVORABLE" : "FAVORABLE";
 }

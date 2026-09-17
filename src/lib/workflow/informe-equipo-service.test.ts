@@ -49,8 +49,8 @@ describe("crearInformeDesdeVisita", () => {
     expect(inf.numero_informe).toBe(`EYC-${year}-008`);
   });
 
-  it("concepto NO_FAVORABLE si alguna prueba lo es", async () => {
-    const { visita } = await seedGraph();
+  it("concepto NO_FAVORABLE si alguna prueba lo es (equipo sin paquete dedicado, flujo legacy)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CT" });
     await db.prueba_resultados.bulkAdd([
       {
         id: "p1",
@@ -98,6 +98,81 @@ describe("crearInformeDesdeVisita", () => {
 
   it("visita inexistente → lanza", async () => {
     await expect(crearInformeDesdeVisita("no-existe", "i", "t")).rejects.toThrow();
+  });
+
+  // #153: un equipo CONVENCIONAL evalúa sus pruebas con conv_informe_secciones
+  // + evaluarConceptoPrueba()/conceptoEfectivoSeccion() -- NO con
+  // prueba_resultados (flujo legacy, siempre vacía para estos equipos). Sin
+  // esta rama, el concepto general salía FAVORABLE sin importar el resultado
+  // real de las 21 pruebas.
+  describe("#153 — equipo CONVENCIONAL usa conv_informe_secciones, no prueba_resultados", () => {
+    it("una prueba No_conforme (evaluada por evaluarConceptoPrueba) → concepto general NO_FAVORABLE", async () => {
+      const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+      await db.conv_informe_secciones.add({
+        id: "s21",
+        visita_id: visita!.id!,
+        prueba_codigo: "2.1",
+        orden: 1,
+        incluida: true,
+      });
+      await db.conv_mediciones.add({
+        id: "m1",
+        visita_id: visita!.id!,
+        punto_numero: 1,
+        ubicacion_descripcion: "Consola",
+        concepto: "No_conforme",
+      });
+
+      const inf = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+      expect(inf.concepto_general).toBe("NO_FAVORABLE");
+    });
+
+    it("todas las pruebas Conforme → concepto general FAVORABLE, aunque haya basura en prueba_resultados", async () => {
+      const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+      await db.conv_informe_secciones.add({
+        id: "s21",
+        visita_id: visita!.id!,
+        prueba_codigo: "2.1",
+        orden: 1,
+        incluida: true,
+      });
+      await db.conv_mediciones.add({
+        id: "m1",
+        visita_id: visita!.id!,
+        punto_numero: 1,
+        ubicacion_descripcion: "Consola",
+        concepto: "Conforme",
+      });
+      // Fila legacy que NO debe influir en un equipo con paquete dedicado.
+      await db.prueba_resultados.add({
+        id: "p-legacy",
+        visita_id: visita!.id!,
+        prueba_definicion_id: "d1",
+        equipo_id: "e",
+        completado: true,
+        concepto: "NO_FAVORABLE",
+        sync_status: "synced",
+        last_modified: "x",
+      });
+
+      const inf = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+      expect(inf.concepto_general).toBe("FAVORABLE");
+    });
+
+    it("una sección marcada 'No_favorable_no_ejecutada' (#120) también vuelve el concepto general NO_FAVORABLE", async () => {
+      const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+      await db.conv_informe_secciones.add({
+        id: "s211",
+        visita_id: visita!.id!,
+        prueba_codigo: "2.11",
+        orden: 1,
+        incluida: true,
+        concepto: "No_favorable_no_ejecutada",
+      });
+
+      const inf = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+      expect(inf.concepto_general).toBe("NO_FAVORABLE");
+    });
   });
 
   // #154: informes/informe_versiones eran MASTER_TABLES (solo pull) — el

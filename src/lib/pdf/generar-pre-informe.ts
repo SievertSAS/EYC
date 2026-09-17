@@ -29,6 +29,7 @@ import {
   COLOR_ALT_ROW,
   MARGIN,
   PAGE_WIDTH,
+  PAGE_HEIGHT,
   CONTENT_WIDTH,
   HEADER_HEIGHT,
   veredictoColor,
@@ -56,10 +57,44 @@ import {
 } from "./secciones-convencional";
 
 let _logoCache: string | null = null;
+let _marcaAguaCache: string | null = null;
+let _pieFooterCache: string | null = null;
 
 /** Vacía el cache del logo. Solo para tests (forzar la ruta de recarga). */
 export function resetLogoCache(): void {
   _logoCache = null;
+}
+
+/** Vacía el cache de la marca de agua. Solo para tests. */
+export function resetMarcaAguaCache(): void {
+  _marcaAguaCache = null;
+}
+
+/** Vacía el cache del pie de página de cierre. Solo para tests. */
+export function resetPieFooterCache(): void {
+  _pieFooterCache = null;
+}
+
+/**
+ * Descarga un asset estático de `public/` como data URL. Si no está
+ * disponible (404, sin red, contexto sin `fetch`), devuelve "" — un asset
+ * faltante nunca debe impedir generar el PDF, solo omitirse.
+ */
+async function cargarAssetPublico(url: string, nombre: string): Promise<string> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error ?? new Error("FileReader"));
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    logger.warn("pdf", `No se pudo cargar ${nombre}; se omite`, err);
+    return "";
+  }
 }
 
 /**
@@ -70,21 +105,31 @@ export function resetLogoCache(): void {
  */
 export async function getLogoBase64(): Promise<string> {
   if (_logoCache !== null) return _logoCache;
-  try {
-    const res = await fetch("/logo-informe.png");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    _logoCache = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error ?? new Error("FileReader"));
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    logger.warn("pdf", "No se pudo cargar el logo del informe; se usa el texto de reemplazo", err);
-    _logoCache = "";
-  }
+  _logoCache = await cargarAssetPublico("/logo-informe.png", "el logo del informe");
   return _logoCache;
+}
+
+/**
+ * Sello Sievert de marca de agua, solo para la versión oficial (no
+ * pre-informe) — ver `esFinal` en `generarPreInforme`.
+ */
+export async function getMarcaAguaBase64(): Promise<string> {
+  if (_marcaAguaCache !== null) return _marcaAguaCache;
+  _marcaAguaCache = await cargarAssetPublico(
+    "/marca-agua-sievert.png",
+    "la marca de agua del informe"
+  );
+  return _marcaAguaCache;
+}
+
+/** Banner de contacto Sievert que cierra la última página del informe. */
+export async function getPieFooterBase64(): Promise<string> {
+  if (_pieFooterCache !== null) return _pieFooterCache;
+  _pieFooterCache = await cargarAssetPublico(
+    "/pie-pagina-sievert.png",
+    "el pie de página de cierre del informe"
+  );
+  return _pieFooterCache;
 }
 
 // ─── Formateo de campos del informe ───
@@ -402,9 +447,14 @@ export async function generarPreInforme(
     undefined,
     datos.responsableGeneracion?.firma_url
   );
-  // Versión oficial (sin marca de agua): la visita ya fue aprobada o entregada
+  // Versión oficial: la visita ya fue aprobada o entregada. Cambia la marca
+  // de agua de "PRE-INFORME" al sello Sievert (ver más abajo).
   const esFinal =
     datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
+  const [marcaAguaBase64, pieFooterBase64] = await Promise.all([
+    esFinal ? getMarcaAguaBase64() : Promise.resolve(""),
+    getPieFooterBase64(),
+  ]);
 
   // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
   const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
@@ -2038,6 +2088,26 @@ export async function generarPreInforme(
     y
   );
 
+  // ─── Banner de cierre Sievert (solo en la última página) ───
+  // Va antes de las marcas de agua para que estas cubran también la página
+  // nueva si el banner no cupo en la última página de contenido.
+  try {
+    if (pieFooterBase64) {
+      const propsBanner = doc.getImageProperties(pieFooterBase64);
+      const wBanner = CONTENT_WIDTH;
+      const hBanner = (propsBanner.height / propsBanner.width) * wBanner;
+      const yBanner = 289 - hBanner;
+      if (y > yBanner - 6) {
+        doc.addPage();
+        addHeader(doc, datos, logoBase64);
+      }
+      doc.setPage(doc.getNumberOfPages());
+      doc.addImage(pieFooterBase64, MARGIN, yBanner, wBanner, hBanner);
+    }
+  } catch {
+    // banner no utilizable (asset corrupto o no decodificable): se omite
+  }
+
   // ─── Marca de agua PRE-INFORME (solo mientras no sea la versión oficial) ───
   if (!esFinal) {
     pageCount = doc.getNumberOfPages();
@@ -2064,6 +2134,38 @@ export async function generarPreInforme(
           }
         ).GState({ opacity: 1 })
       );
+    }
+  }
+
+  // ─── Marca de agua sello Sievert (solo en la versión oficial) ───
+  if (esFinal && marcaAguaBase64) {
+    try {
+      const props = doc.getImageProperties(marcaAguaBase64);
+      const w = 110;
+      const h = (props.height / props.width) * w;
+      const x = (PAGE_WIDTH - w) / 2;
+      const yImg = (PAGE_HEIGHT - h) / 2;
+      pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setGState(
+          new (
+            doc as unknown as {
+              GState: new (opts: { opacity: number }) => unknown;
+            }
+          ).GState({ opacity: 0.08 })
+        );
+        doc.addImage(marcaAguaBase64, x, yImg, w, h);
+        doc.setGState(
+          new (
+            doc as unknown as {
+              GState: new (opts: { opacity: number }) => unknown;
+            }
+          ).GState({ opacity: 1 })
+        );
+      }
+    } catch {
+      // marca de agua no utilizable (asset corrupto o no decodificable): se omite
     }
   }
 

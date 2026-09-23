@@ -3254,7 +3254,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   const setup = conv.raysafeSetup;
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
   const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
-  const corrGeom = (d2 / d1) ** 2;
+  const corrGeom = (d1 / d2) ** 2;
   // #113: `dosis_base_mgy` se asume ya en mGy (así se guardó siempre, antes
   // de que existiera esta conversión) — solo la medición actual se normaliza.
   const unidadKerma = setup?.unidad_kerma;

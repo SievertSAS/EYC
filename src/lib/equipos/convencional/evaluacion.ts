@@ -459,7 +459,7 @@ function evaluar221(d: DatosEvalConv): Concepto | undefined {
   const setup = d.raysafeSetup;
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
   const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
-  const corrGeom = (d2 / d1) ** 2;
+  const corrGeom = (d1 / d2) ** 2;
   const unidadKerma = setup?.unidad_kerma;
   const sinRejilla = d.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
   const hayBase = sinRejilla.some((m) => m.dosis_base_mgy != null);

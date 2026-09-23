@@ -481,6 +481,40 @@ describe("2.21 — normaliza dosis_medida_mgy con unidad_kerma antes de comparar
   });
 });
 
+// ─── corrección geométrica (d1/d2)² — no (d2/d1)² (regresión) ───
+// Datos reales de la plantilla de referencia (SURA São Paulo, 2.21 Columna
+// AP): d1=99cm (foco-sensor), d2=100cm (foco-detector), dosis medida
+// 0,6865 mGy, base 0,673 mGy. Con (d1/d2)² la dosis al receptor da 0,6728 —
+// diff 0,0002, Conforme. Con (d2/d1)² (bug) daba 0,7004 — diff 0,0274,
+// No_conforme: la fórmula invertida cambiaba el veredicto.
+describe("2.21 — corrección geométrica es (d1/d2)², no (d2/d1)²", () => {
+  it("d1 < d2 (sensor más cerca del foco que el receptor) → dosis al receptor MENOR que la medida", () => {
+    expect(
+      ev(
+        "2.21",
+        datos({
+          raysafeSetup: rs({
+            distancia_foco_sensor_d1_cm: 99,
+            distancia_foco_detector_d2_cm: 100,
+          }),
+          raysafeMediciones: [
+            rs({ tipo_medicion: "sin_rejilla", dosis_medida_mgy: 0.6865, dosis_base_mgy: 0.673 }),
+          ],
+        })
+      )
+    ).toBe("Conforme");
+  });
+
+  it("con (d2/d1)² (bug) el mismo caso daría No_conforme — confirma que la dirección importa", () => {
+    const corrGeomBuggy = (100 / 99) ** 2;
+    const corrGeomCorrecta = (99 / 100) ** 2;
+    const dosisConBug = 0.6865 * corrGeomBuggy;
+    const dosisCorrecta = 0.6865 * corrGeomCorrecta;
+    expect(Math.abs(dosisConBug - 0.673)).toBeGreaterThan(0.01);
+    expect(Math.abs(dosisCorrecta - 0.673)).toBeLessThan(0.01);
+  });
+});
+
 describe("conceptoEfectivoSeccion — precedencia de overrides manuales (#120)", () => {
   it("incluida=false → 'No_aplica' sin importar el resto (precedencia máxima)", () => {
     const seccion = { incluida: false, concepto: undefined, prueba_codigo: "2.1" };

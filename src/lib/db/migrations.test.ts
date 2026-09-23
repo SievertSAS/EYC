@@ -19,8 +19,8 @@ describe("esquema — instalación nueva", () => {
     await resetTestDb();
   });
 
-  it("abre en la versión 18", () => {
-    expect(db.verno).toBe(18);
+  it("abre en la versión 20", () => {
+    expect(db.verno).toBe(20);
   });
 
   it("las tablas de dominio tienen PK string 'id' (migración v13 a UUID)", () => {
@@ -100,6 +100,107 @@ describe("esquema — migración v13 (cambio de PK) con datos", () => {
     expect(d.table("foo").schema.primKey.auto).toBe(false);
 
     d.close();
+    await Dexie.delete(name);
+  });
+});
+
+describe("esquema — v19 deduplica conv_informe_secciones antes de v20 (índice único)", () => {
+  it("conserva la fila editada por el usuario, borra la sobrante, y v20 rechaza nuevos duplicados", async () => {
+    const name = "mig-v19-" + Math.random().toString(36).slice(2);
+    const storeV18 = {
+      conv_informe_secciones:
+        "id, visita_id, prueba_codigo, [visita_id+prueba_codigo], sync_status",
+    };
+
+    // Estado previo: bug reproducido -- dos filas para el mismo
+    // (visita_id, prueba_codigo), una sin tocar y otra editada a mano.
+    const dbOld = new Dexie(name);
+    dbOld.version(18).stores(storeV18);
+    await dbOld.open();
+    await dbOld.table("conv_informe_secciones").bulkAdd([
+      {
+        id: "sobrante",
+        visita_id: "v1",
+        prueba_codigo: "2.2",
+        orden: 2,
+        incluida: true,
+        creado_en: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "editada",
+        visita_id: "v1",
+        prueba_codigo: "2.2",
+        orden: 2,
+        incluida: true,
+        creado_en: "2026-01-01T00:05:00Z",
+        observaciones: "Nota del coordinador",
+      },
+      {
+        id: "unica",
+        visita_id: "v1",
+        prueba_codigo: "2.3",
+        orden: 3,
+        incluida: true,
+        creado_en: "2026-01-01T00:00:00Z",
+      },
+    ]);
+    dbOld.close();
+
+    // Mismo camino de migración que EyCDatabase (v19 dedupe + v20 índice único).
+    const dbNew = new Dexie(name);
+    dbNew.version(18).stores(storeV18);
+    dbNew
+      .version(19)
+      .stores({})
+      .upgrade(async (tx) => {
+        const tabla = tx.table("conv_informe_secciones");
+        const filas = await tabla.toArray();
+        const porClave = new Map<string, typeof filas>();
+        for (const fila of filas) {
+          const clave = `${fila.visita_id}|${fila.prueba_codigo}`;
+          const grupo = porClave.get(clave) ?? [];
+          grupo.push(fila);
+          porClave.set(clave, grupo);
+        }
+        for (const grupo of porClave.values()) {
+          if (grupo.length <= 1) continue;
+          grupo.sort((a, b) => {
+            const editadaA =
+              a.concepto != null || a.observaciones || a.acciones_correctivas ? 1 : 0;
+            const editadaB =
+              b.concepto != null || b.observaciones || b.acciones_correctivas ? 1 : 0;
+            if (editadaA !== editadaB) return editadaB - editadaA;
+            return (a.creado_en ?? "").localeCompare(b.creado_en ?? "");
+          });
+          await tabla.bulkDelete(grupo.slice(1).map((f) => f.id));
+        }
+      });
+    dbNew.version(20).stores({
+      conv_informe_secciones:
+        "id, visita_id, prueba_codigo, &[visita_id+prueba_codigo], sync_status",
+    });
+
+    await expect(dbNew.open()).resolves.toBeDefined();
+
+    const restantes = await dbNew.table("conv_informe_secciones").toArray();
+    expect(restantes).toHaveLength(2);
+    expect(restantes.find((r) => r.prueba_codigo === "2.2")?.id).toBe("editada");
+    expect(restantes.find((r) => r.prueba_codigo === "2.3")?.id).toBe("unica");
+
+    // El índice único ya está operativo: un intento nuevo de duplicar
+    // (visita_id, prueba_codigo) debe fallar, no crear otra fila.
+    await expect(
+      dbNew.table("conv_informe_secciones").add({
+        id: "nueva-duplicada",
+        visita_id: "v1",
+        prueba_codigo: "2.3",
+        orden: 3,
+        incluida: true,
+        creado_en: "2026-01-01T00:10:00Z",
+      })
+    ).rejects.toThrow();
+
+    dbNew.close();
     await Dexie.delete(name);
   });
 });

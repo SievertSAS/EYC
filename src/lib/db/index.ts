@@ -359,6 +359,54 @@ class EyCDatabase extends Dexie {
         "id, visita_id, equipo_id, ubicacion_id, numero_informe, &qr_token, estado, sync_status",
       informe_versiones: "id, informe_id, numero_version, sync_status",
     });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v19 — dedupe de conv_informe_secciones antes de v20.
+    //  Bug: el auto-seed local (pre-informe-modulo.tsx) y el pull de sync
+    //  podían insertar el mismo (visita_id, prueba_codigo) con dos `id`
+    //  distintos -- el índice [visita_id+prueba_codigo] no era único, así
+    //  que Dexie los dejaba convivir (informe con pruebas repetidas). Acá
+    //  se limpia lo que ya exista para que v20 pueda volver ese índice
+    //  único sin que la migración falle por datos en conflicto.
+    // ─────────────────────────────────────────────────────────────
+    this.version(19)
+      .stores({})
+      .upgrade(async (tx) => {
+        const tabla = tx.table("conv_informe_secciones");
+        const filas = await tabla.toArray();
+        const porClave = new Map<string, typeof filas>();
+        for (const fila of filas) {
+          const clave = `${fila.visita_id}|${fila.prueba_codigo}`;
+          const grupo = porClave.get(clave) ?? [];
+          grupo.push(fila);
+          porClave.set(clave, grupo);
+        }
+        for (const grupo of porClave.values()) {
+          if (grupo.length <= 1) continue;
+          // Se conserva la fila con datos editados por el usuario (concepto/
+          // observaciones/acciones correctivas); si ninguna tiene edición,
+          // la más vieja. El resto son sobrantes del auto-seed duplicado.
+          grupo.sort((a, b) => {
+            const editadaA =
+              a.concepto != null || a.observaciones || a.acciones_correctivas ? 1 : 0;
+            const editadaB =
+              b.concepto != null || b.observaciones || b.acciones_correctivas ? 1 : 0;
+            if (editadaA !== editadaB) return editadaB - editadaA;
+            return (a.creado_en ?? "").localeCompare(b.creado_en ?? "");
+          });
+          await tabla.bulkDelete(grupo.slice(1).map((f) => f.id));
+        }
+      });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v20 — [visita_id+prueba_codigo] pasa a ser único en
+    //  conv_informe_secciones. Con v19 ya deduplicado, un `.add()` sobre
+    //  una prueba que ya existe ahora lanza en vez de crear un duplicado.
+    // ─────────────────────────────────────────────────────────────
+    this.version(20).stores({
+      conv_informe_secciones:
+        "id, visita_id, prueba_codigo, &[visita_id+prueba_codigo], sync_status",
+    });
   }
 }
 

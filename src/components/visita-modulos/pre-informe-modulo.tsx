@@ -522,11 +522,19 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       sync_status: "pending" as SyncStatus,
       last_modified: now,
     }));
-    db.conv_informe_secciones.bulkAdd(rows).then(() => {
+    // Una por una (no bulkAdd): [visita_id+prueba_codigo] es único desde
+    // v20 del schema, así que si el sync ya trajo esta prueba, `.add()`
+    // lanza y se ignora en vez de crear un duplicado local.
+    (async () => {
       for (const row of rows) {
-        pushSingle("conv_informe_secciones", row.id);
+        try {
+          await db.conv_informe_secciones.add(row);
+          pushSingle("conv_informe_secciones", row.id);
+        } catch {
+          // Ya existe -- llegó por sync mientras tanto.
+        }
       }
-    });
+    })();
   }, [data, visitaId]);
 
   // ─── Sorted secciones ───

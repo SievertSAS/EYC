@@ -16,6 +16,7 @@ import type {
   MedicionRadiometrica,
   ElementoProteccion,
   ParteEquipo,
+  Informe,
 } from "@/lib/db/types";
 import { ROL_LABELS } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos/registry";
@@ -35,6 +36,7 @@ import {
   veredictoColor,
   didParseVeredictoCell,
   dato,
+  type RGB,
 } from "./estilo-informe";
 import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones";
 import {
@@ -50,6 +52,7 @@ import {
   renderDiagramaRadiometrico,
   tieneEvidenciaGrafica,
   renderEvidenciaGrafica,
+  contarFotosEvidencia,
   renderTablaChrRef,
   renderTablaBaseRef29,
   renderTablaBaseRef216,
@@ -217,6 +220,7 @@ interface DatosInforme {
   mediciones: MedicionRadiometrica[];
   elementos: ElementoProteccion[];
   partes: ParteEquipo[];
+  informe?: Informe;
 }
 
 // ─── Constantes de estilo ───
@@ -232,6 +236,7 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
   if (!visita) return null;
 
   const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
+  const informe = await db.informes.where("visita_id").equals(visitaId).first();
   const ubicacion = visita.ubicacion_id
     ? await db.ubicaciones_rx.get(visita.ubicacion_id)
     : undefined;
@@ -315,6 +320,7 @@ async function recopilarDatos(visitaId: string): Promise<DatosInforme | null> {
     mediciones,
     elementos,
     partes,
+    informe,
   };
 }
 
@@ -473,9 +479,19 @@ export async function generarPreInforme(
   let y = MARGIN;
   let pageCount = 0;
   // Títulos de sección en orden de aparición, para la página de "CONTENIDO"
-  // insertada al final (una vez que se conocen todos). Sin números de
-  // página: cada título ya trae su propio código ("2.4 ...", "FIRMAS").
-  const toc: string[] = [];
+  // insertada al final (una vez que se conocen todos). `pagina` se registra
+  // como el número de página ANTES de insertar la(s) página(s) de contenido
+  // — se corrige sumando la cantidad de páginas de TOC insertadas, una vez
+  // que esa cantidad se conoce (ver bloque de inserción más abajo).
+  interface TocEntry {
+    titulo: string;
+    nivel: 1 | 2;
+    pagina: number;
+  }
+  const toc: TocEntry[] = [];
+  function registrarToc(titulo: string, nivel: 1 | 2 = 1) {
+    toc.push({ titulo, nivel, pagina: doc.getNumberOfPages() });
+  }
 
   // ─── Helpers ───
 
@@ -487,7 +503,7 @@ export async function generarPreInforme(
     }
   }
 
-  function addParagraph(text: string, fontSize = 9, indent = 0) {
+  function addParagraph(text: string, fontSize = 9, indent = 0, color: RGB = COLOR_BLACK) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     const width = CONTENT_WIDTH - indent;
@@ -496,7 +512,7 @@ export async function generarPreInforme(
     // Re-aplicar estilos: checkPage puede agregar página nueva y addHeader cambia font/color
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
-    doc.setTextColor(...COLOR_BLACK);
+    doc.setTextColor(...color);
     const x0 = MARGIN + indent;
     const spaceWidth = doc.getTextWidth(" ");
     // Tope al ensanchado por hueco: si repartir el sobrante deja huecos mayores
@@ -563,6 +579,30 @@ export async function generarPreInforme(
     doc.setTextColor(...COLOR_BLACK);
     doc.text(`${number} ${title}`, MARGIN, y);
     y += 5;
+  }
+
+  /**
+   * Título de subsección + su párrafo, reservados como un solo bloque: mide
+   * el párrafo ANTES de dibujar el título (misma altura que calculará
+   * `addParagraph` al dibujarlo) y se lo pasa a `addSubsectionTitle` como
+   * `keepWithMm`. Sin esto, un párrafo más largo que el keepWithMm genérico
+   * (14mm) puede no entrar donde el título sí entró — título huérfano al pie
+   * de una página, párrafo solo al inicio de la siguiente.
+   */
+  function addSubsectionParagraph(
+    number: string,
+    title: string,
+    text: string,
+    fontSize = 9,
+    indent = 0,
+    color: RGB = COLOR_BLACK
+  ) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    const lines: string[] = doc.splitTextToSize(text, CONTENT_WIDTH - indent);
+    const alturaParrafo = lines.length * 4.2 + 2;
+    addSubsectionTitle(number, title, alturaParrafo);
+    addParagraph(text, fontSize, indent, color);
   }
 
   /**
@@ -724,9 +764,12 @@ export async function generarPreInforme(
   const contactoProgramar = datos.contactos.find((c) => c.para_programar);
   const responsableVisita = datos.contactos.find((c) => c.cargo === "responsable_visita");
 
-  // Formato fecha
-  const fechaInforme = datos.visita.fecha_visita
-    ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO", {
+  // Formato fecha — fecha_emision del Informe (se actualiza con cada versión
+  // por re-aprobación); si aún no existe el Informe (pre-informe), se usa la
+  // fecha de la visita como respaldo.
+  const fechaInformeRaw = datos.informe?.fecha_emision ?? datos.visita.fecha_visita;
+  const fechaInforme = fechaInformeRaw
+    ? new Date(fechaInformeRaw).toLocaleDateString("es-CO", {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -770,9 +813,16 @@ export async function generarPreInforme(
   doc.text("UNIDADES DE RADIOGRAFÍA GENERAL", MARGIN, y);
   y += 8;
 
-  // Número y fecha
+  // Número, fecha y versión
   doc.setFontSize(10);
   doc.setTextColor(...COLOR_BLACK);
+  if (datos.informe?.numero_informe) {
+    doc.setFont("helvetica", "bold");
+    doc.text("N° de Informe:", MARGIN, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(datos.informe.numero_informe, MARGIN + 40, y);
+    y += 6;
+  }
   doc.setFont("helvetica", "bold");
   doc.text("Fecha de Informe:", MARGIN, y);
   doc.setFont("helvetica", "normal");
@@ -781,7 +831,13 @@ export async function generarPreInforme(
   doc.setFont("helvetica", "bold");
   doc.text("Versión:", MARGIN, y);
   doc.setFont("helvetica", "normal");
-  doc.text(esFinal ? "OFICIAL" : "PRE-INFORME", MARGIN + 40, y);
+  const estadoVersion = esFinal ? "OFICIAL" : "PRE-INFORME";
+  const numeroVersion = datos.informe?.version_actual;
+  doc.text(
+    numeroVersion != null ? `${estadoVersion} — v${numeroVersion}` : estadoVersion,
+    MARGIN + 40,
+    y
+  );
 
   // QR de verificación (solo en la versión oficial, si se proveyó)
   if (opts?.qrDataUrl) {
@@ -799,30 +855,8 @@ export async function generarPreInforme(
     }
   }
 
-  // Recuadro: Identificación de la unidad
-  y += 12;
-  drawCardBg(MARGIN, y, CONTENT_WIDTH, 30);
-
-  y += 7;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...COLOR_PRIMARY);
-  doc.text("Identificación de la Unidad evaluada", MARGIN + 5, y);
-  y += 6;
-
-  doc.setFontSize(9);
-  doc.setTextColor(...COLOR_BLACK);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN + 5, y);
-  y += 5;
-  doc.text(
-    `Marca: ${datos.equipo?.gen_marca ?? "No reporta"}    Modelo: ${datos.equipo?.gen_modelo ?? "No reporta"}    Serie: ${datos.equipo?.gen_numero_serie ?? "No reporta"}`,
-    MARGIN + 5,
-    y
-  );
-
   // Recuadro: Identificación de la instalación
-  y += 14;
+  y += 12;
   drawCardBg(MARGIN, y, CONTENT_WIDTH, 50);
 
   y += 7;
@@ -854,6 +888,28 @@ export async function generarPreInforme(
     y += 5;
   }
 
+  // Recuadro: Identificación de la unidad evaluada
+  y += 14;
+  drawCardBg(MARGIN, y, CONTENT_WIDTH, 30);
+
+  y += 7;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...COLOR_PRIMARY);
+  doc.text("Identificación de la Unidad evaluada", MARGIN + 5, y);
+  y += 6;
+
+  doc.setFontSize(9);
+  doc.setTextColor(...COLOR_BLACK);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN + 5, y);
+  y += 5;
+  doc.text(
+    `Marca: ${datos.equipo?.gen_marca ?? "No reporta"}    Modelo: ${datos.equipo?.gen_modelo ?? "No reporta"}    Serie: ${datos.equipo?.gen_numero_serie ?? "No reporta"}`,
+    MARGIN + 5,
+    y
+  );
+
   // Vigencia
   y += 8;
   doc.setFillColor(255, 251, 235);
@@ -878,7 +934,7 @@ export async function generarPreInforme(
   addHeader(doc, datos, logoBase64);
 
   y = addSectionTitle(doc, "INFORMACIÓN DE LA PRÁCTICA", y);
-  toc.push("INFORMACIÓN DE LA PRÁCTICA");
+  registrarToc("INFORMACIÓN DE LA PRÁCTICA");
 
   // Datos Generales
   addSubsectionTitle("", "Datos Generales");
@@ -1058,7 +1114,7 @@ export async function generarPreInforme(
   addHeader(doc, datos, logoBase64);
 
   y = addSectionTitle(doc, "INTRODUCCIÓN", y);
-  toc.push("INTRODUCCIÓN");
+  registrarToc("INTRODUCCIÓN");
 
   addParagraph(
     "El presente informe técnico documenta los resultados del control de calidad efectuado al equipo generador de radiación ionizante destinado a la práctica de radiología general y emite el correspondiente concepto técnico, en cumplimiento de la Resolución 1811 de 2025 del Ministerio de Salud y Protección Social y demás disposiciones vigentes en materia de protección radiológica."
@@ -1081,7 +1137,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   y += 4;
   y = addSectionTitle(doc, "2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL", y);
-  toc.push("2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL");
+  registrarToc("2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL");
 
   // ─── Acumuladores para el resumen final (ambos flujos) ───
   const resumenRows: [string, string][] = [];
@@ -1118,20 +1174,16 @@ export async function generarPreInforme(
       checkPage(60);
       y += 2;
       y = addSectionTitle(doc, `${codigo} ${cat.nombre}`, y, 2);
-      toc.push(`${codigo} ${cat.nombre}`);
+      registrarToc(`${codigo} ${cat.nombre}`, 2);
 
-      addSubsectionTitle(`${codigo}.1.`, "Objetivo");
-      addParagraph(cat.objetivo);
-      addSubsectionTitle(`${codigo}.2.`, "Instrumentación");
-      addParagraph(cat.instrumentacion);
-      addSubsectionTitle(`${codigo}.3.`, "Metodología");
-      addParagraph(cat.metodologia);
+      addSubsectionParagraph(`${codigo}.1.`, "Objetivo", cat.objetivo);
+      addSubsectionParagraph(`${codigo}.2.`, "Instrumentación", cat.instrumentacion);
+      addSubsectionParagraph(`${codigo}.3.`, "Metodología", cat.metodologia);
 
       // Resultados (+ análisis en 2.1, descripción en 2.2)
       let nextSub: number;
       if (!aplica) {
-        addSubsectionTitle(`${codigo}.4.`, "Resultados");
-        addParagraph("NO APLICA.");
+        addSubsectionParagraph(`${codigo}.4.`, "Resultados", "NO APLICA.", 9, 0, COLOR_GRAY);
         nextSub = 5;
       } else {
         nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.ubicacion);
@@ -1140,13 +1192,12 @@ export async function generarPreInforme(
       // Análisis (solo 2.2) — usa el campo observaciones como texto editable,
       // con el texto por defecto del catálogo si el físico no lo modificó.
       if (codigo === "2.2" && aplica) {
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Análisis");
-        addParagraph(seccion.observaciones?.trim() || cat.analisis || "");
+        const textoAnalisis = seccion.observaciones?.trim() || cat.analisis || "";
+        addSubsectionParagraph(`${codigo}.${nextSub}.`, "Análisis", textoAnalisis);
         nextSub++;
       }
 
       // Criterio de aceptación
-      addSubsectionTitle(`${codigo}.${nextSub}.`, "Criterio de aceptación");
       const criterioTexto =
         codigo === "2.11"
           ? cat.criterio.replace(
@@ -1157,7 +1208,7 @@ export async function generarPreInforme(
               )
             )
           : cat.criterio;
-      addParagraph(criterioTexto);
+      addSubsectionParagraph(`${codigo}.${nextSub}.`, "Criterio de aceptación", criterioTexto);
       // Tabla de valores mínimos de referencia CHR (solo 2.6)
       if (codigo === "2.6" && aplica) {
         renderTablaChrRef(ctx);
@@ -1185,16 +1236,20 @@ export async function generarPreInforme(
       // dispatcher sabe qué pruebas la llevan y con qué layout. La 2.1 tiene
       // diagrama radiométrico en su lugar; 2.14 / 2.15 no llevan evidencia.
       if (aplica && tieneEvidenciaGrafica(codigo)) {
-        checkPage(20);
-        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica");
+        // Con foto: el mayor bloque posible es una imagen a maxH=80mm + pie
+        // (14mm) — cota fija, la usan todos los `renderFotosXX`. Sin foto:
+        // solo el texto "No se adjuntó...", que entra en el keepWithMm base.
+        const keepWithMm = contarFotosEvidencia(conv, codigo) > 0 ? 94 : 14;
+        addSubsectionTitle(`${codigo}.${nextSub}.`, "Evidencia gráfica", keepWithMm);
         renderEvidenciaGrafica(ctx, conv, codigo);
         nextSub++;
       }
 
       // Concepto — veredicto (Conforme/No conforme/pendiente) desde el módulo
-      // compartido de evaluación (misma lógica que usa el editor).
-      checkPage(15);
-      addSubsectionTitle(`${codigo}.${nextSub}.`, "Concepto");
+      // compartido de evaluación (misma lógica que usa el editor). El título
+      // se dibuja más abajo, una vez que se conoce `conceptoParrafo`: solo
+      // así se puede reservar título+veredicto+párrafo como un bloque único.
+      const numConcepto = `${codigo}.${nextSub}.`;
       nextSub++;
       // #120: override manual -- "aplica pero no se pudo ejecutar por falla
       // de un componente". Gana sobre el veredicto automático, igual que el
@@ -1713,13 +1768,22 @@ export async function generarPreInforme(
               : "PENDIENTE";
       }
 
+      const noAplica = conceptoLabel === "NO APLICA";
+      // Título + veredicto + párrafo, reservados como un solo bloque — la
+      // altura real (con o sin conceptoParrafo) recién se conoce acá.
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const alturaConcepto = conceptoParrafo
+        ? doc.splitTextToSize(conceptoParrafo, CONTENT_WIDTH).length * 4.2 + 2
+        : 0;
+      addSubsectionTitle(numConcepto, "Concepto", 6 + alturaConcepto);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(...veredictoColor(conceptoLabel));
       doc.text(conceptoLabel, MARGIN, y);
       y += 6;
       if (conceptoParrafo) {
-        addParagraph(conceptoParrafo);
+        addParagraph(conceptoParrafo, 9, 0, noAplica ? COLOR_GRAY : COLOR_BLACK);
       }
       // Las secciones 2.1, 2.2 y 2.3 tienen concepto automático; no usan observaciones manuales aquí.
       if (
@@ -1732,8 +1796,14 @@ export async function generarPreInforme(
       }
 
       // Acciones correctivas
-      addSubsectionTitle(`${codigo}.${nextSub}.`, "Acciones Correctivas");
-      addParagraph(accionesTexto);
+      addSubsectionParagraph(
+        `${codigo}.${nextSub}.`,
+        "Acciones Correctivas",
+        accionesTexto,
+        9,
+        0,
+        noAplica ? COLOR_GRAY : COLOR_BLACK
+      );
       y += 4;
 
       resumenRows.push([`${codigo} ${cat.nombre}`, conceptoLabel]);
@@ -1759,31 +1829,49 @@ export async function generarPreInforme(
     checkPage(60);
     y += 2;
     y = addSectionTitle(doc, `${numPrueba} ${nombre}`, y, 2);
-    toc.push(`${numPrueba} ${nombre}`);
+    registrarToc(`${numPrueba} ${nombre}`, 2);
 
     // Objetivo
-    addSubsectionTitle(`${numPrueba}.1.`, "Objetivo");
-    addParagraph(textos.objetivo);
+    addSubsectionParagraph(`${numPrueba}.1.`, "Objetivo", textos.objetivo);
 
     // Instrumentación
-    addSubsectionTitle(`${numPrueba}.2.`, "Instrumentación");
-    addParagraph(textos.instrumentacion);
+    addSubsectionParagraph(`${numPrueba}.2.`, "Instrumentación", textos.instrumentacion);
 
     // Metodología
-    addSubsectionTitle(`${numPrueba}.3.`, "Metodología");
-    addParagraph(textos.metodologia);
+    addSubsectionParagraph(`${numPrueba}.3.`, "Metodología", textos.metodologia);
 
     // Resultados
-    addSubsectionTitle(`${numPrueba}.4.`, "Resultados");
-
-    // Tabla de datos de la prueba
     const mediciones = prueba.datos_json?.mediciones as Record<string, string>[] | undefined;
-
-    if (prueba.concepto === "NO_APLICA" || !mediciones || mediciones.length === 0) {
+    const resultadosEsTexto =
+      prueba.concepto === "NO_APLICA" || !mediciones || mediciones.length === 0;
+    // Cuando el resultado es texto (no tabla) se conoce su altura real de
+    // antemano — se reserva junto con el título para que no quede huérfano.
+    // Las tablas (rama `else`) manejan su propio salto de página vía
+    // autoTable, que repite el encabezado: no necesitan esta reserva.
+    let keepWithMmResultados = 14;
+    if (resultadosEsTexto) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
       if (prueba.concepto === "NO_APLICA") {
-        addParagraph("NO APLICA.");
+        let h = doc.splitTextToSize("NO APLICA.", CONTENT_WIDTH).length * 4.2 + 2;
         if (prueba.acciones_correctivas) {
-          addParagraph(prueba.acciones_correctivas);
+          h += doc.splitTextToSize(prueba.acciones_correctivas, CONTENT_WIDTH).length * 4.2 + 2;
+        }
+        keepWithMmResultados = h;
+      } else {
+        keepWithMmResultados =
+          doc.splitTextToSize("Sin datos registrados para esta prueba.", CONTENT_WIDTH).length *
+            4.2 +
+          2;
+      }
+    }
+    addSubsectionTitle(`${numPrueba}.4.`, "Resultados", keepWithMmResultados);
+
+    if (resultadosEsTexto) {
+      if (prueba.concepto === "NO_APLICA") {
+        addParagraph("NO APLICA.", 9, 0, COLOR_GRAY);
+        if (prueba.acciones_correctivas) {
+          addParagraph(prueba.acciones_correctivas, 9, 0, COLOR_GRAY);
         }
       } else {
         addParagraph("Sin datos registrados para esta prueba.");
@@ -1914,8 +2002,7 @@ export async function generarPreInforme(
 
     // Criterio de aceptación
     if (prueba.concepto !== "NO_APLICA") {
-      addSubsectionTitle(`${numPrueba}.5.`, "Criterio de aceptación");
-      addParagraph(textos.criterio);
+      addSubsectionParagraph(`${numPrueba}.5.`, "Criterio de aceptación", textos.criterio);
     }
 
     // Concepto
@@ -1935,11 +2022,15 @@ export async function generarPreInforme(
     y += 6;
 
     // Acciones correctivas
-    addSubsectionTitle(`${numPrueba}.7.`, "Acciones Correctivas");
-    addParagraph(
+    addSubsectionParagraph(
+      `${numPrueba}.7.`,
+      "Acciones Correctivas",
       prueba.acciones_correctivas && prueba.acciones_correctivas.trim()
         ? prueba.acciones_correctivas
-        : "No se requieren acciones correctivas."
+        : "No se requieren acciones correctivas.",
+      9,
+      0,
+      conceptoText === "NO APLICA" ? COLOR_GRAY : COLOR_BLACK
     );
 
     y += 4;
@@ -1963,7 +2054,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   checkPage(60);
   y = addSectionTitle(doc, "RESUMEN DE RESULTADOS", y);
-  toc.push("RESUMEN DE RESULTADOS");
+  registrarToc("RESUMEN DE RESULTADOS");
 
   autoTable(doc, {
     startY: y,
@@ -1991,7 +2082,7 @@ export async function generarPreInforme(
   // CONCEPTO GENERAL
   checkPage(30);
   y = addSectionTitle(doc, "CONCEPTO", y);
-  toc.push("CONCEPTO");
+  registrarToc("CONCEPTO");
 
   // FAVORABLE solo si todas las pruebas están Conformes o No aplica. Cualquier
   // prueba No conforme → NO FAVORABLE; si no hay No conformes pero quedan
@@ -2028,7 +2119,7 @@ export async function generarPreInforme(
     y += 4;
     checkPage(25);
     y = addSectionTitle(doc, "OBSERVACIONES GENERALES", y);
-    toc.push("OBSERVACIONES GENERALES");
+    registrarToc("OBSERVACIONES GENERALES");
     addParagraph(datos.visita.observaciones);
   }
 
@@ -2038,7 +2129,7 @@ export async function generarPreInforme(
   checkPage(90);
   y += 10;
   y = addSectionTitle(doc, "FIRMAS", y);
-  toc.push("FIRMAS");
+  registrarToc("FIRMAS");
   y += 5;
 
   // Responsable Sievert
@@ -2101,21 +2192,73 @@ export async function generarPreInforme(
     y
   );
 
-  // ─── Página de contenido (se inserta como página 2, justo tras la portada) ───
-  // Va al final, una vez recorrido todo el documento y con `toc` ya completo.
-  // `insertPage` corre las páginas existentes desde la 2 en adelante; deja la
-  // nueva página 2 como la activa (no hace falta un setPage adicional).
-  doc.insertPage(2);
-  addHeader(doc, datos, logoBase64, 2);
-  let tocY = MARGIN + HEADER_HEIGHT;
-  tocY = addSectionTitle(doc, "CONTENIDO", tocY);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...COLOR_BLACK);
-  for (const titulo of toc) {
-    doc.text(titulo, MARGIN, tocY);
-    tocY += 5.5;
+  // ─── Página(s) de CONTENIDO (se insertan tras la portada, una vez recorrido
+  // todo el documento y con `toc` ya completo) ───
+  // Nivel 1 = secciones ("CONCEPTO", "FIRMAS"...), nivel 2 = cada prueba
+  // ("2.8 ..."). Sin Objetivo/Instrumentación/Metodología/Resultados: esos
+  // nunca llaman a `registrarToc`, así que quedan fuera por diseño.
+  const TOC_FONT_L1 = 10;
+  const TOC_FONT_L2 = 9;
+  const TOC_LINEH_L1 = 6;
+  const TOC_LINEH_L2 = 5.2;
+  const TOC_INDENT_L2 = 6;
+  const TOC_PAGE_NUM_W = 14;
+  const TOC_TOP = MARGIN + HEADER_HEIGHT + 16; // debajo del título "CONTENIDO"
+  const TOC_BOTTOM = 275;
+
+  interface TocRow {
+    lines: string[];
+    nivel: 1 | 2;
+    pagina: number;
+    lineH: number;
   }
+  const tocRows: TocRow[] = toc.map(({ titulo, nivel, pagina }) => {
+    doc.setFontSize(nivel === 1 ? TOC_FONT_L1 : TOC_FONT_L2);
+    const indent = nivel === 2 ? TOC_INDENT_L2 : 0;
+    const lines: string[] = doc.splitTextToSize(titulo, CONTENT_WIDTH - indent - TOC_PAGE_NUM_W);
+    return { lines, nivel, pagina, lineH: nivel === 1 ? TOC_LINEH_L1 : TOC_LINEH_L2 };
+  });
+
+  // Distribuye las filas en tantas páginas como hagan falta — "CONTENIDO" se
+  // repite como título en cada una para que ninguna quede huérfana.
+  const tocPages: TocRow[][] = [[]];
+  let tocCursor = TOC_TOP;
+  for (const row of tocRows) {
+    const alto = row.lines.length * row.lineH;
+    if (tocCursor + alto > TOC_BOTTOM) {
+      tocPages.push([]);
+      tocCursor = TOC_TOP;
+    }
+    tocPages[tocPages.length - 1].push(row);
+    tocCursor += alto;
+  }
+
+  // `insertPage` corre las páginas existentes; insertando en orden
+  // ascendente (2, 3, 4…) las páginas de CONTENIDO quedan consecutivas justo
+  // tras la portada. Cada entrada del toc había registrado su número de
+  // página ANTES de esta inserción — se corrige sumando la cantidad de
+  // páginas de CONTENIDO insertadas.
+  const numPaginasToc = tocPages.length;
+  for (let i = 0; i < numPaginasToc; i++) {
+    doc.insertPage(2 + i);
+  }
+
+  tocPages.forEach((filas, i) => {
+    addHeader(doc, datos, logoBase64, 2 + i);
+    let tocY = addSectionTitle(doc, "CONTENIDO", MARGIN + HEADER_HEIGHT);
+    for (const fila of filas) {
+      doc.setFont("helvetica", fila.nivel === 1 ? "bold" : "normal");
+      doc.setFontSize(fila.nivel === 1 ? TOC_FONT_L1 : TOC_FONT_L2);
+      doc.setTextColor(...COLOR_BLACK);
+      doc.text(fila.lines, MARGIN + (fila.nivel === 2 ? TOC_INDENT_L2 : 0), tocY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COLOR_PRIMARY);
+      doc.text(String(fila.pagina + numPaginasToc), MARGIN + CONTENT_WIDTH, tocY, {
+        align: "right",
+      });
+      tocY += fila.lines.length * fila.lineH;
+    }
+  });
 
   // ─── Banner de cierre Sievert (solo en la última página) ───
   // Va antes de las marcas de agua para que estas cubran también la página
@@ -2262,21 +2405,28 @@ function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string, targetPa
 }
 
 function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPages: number) {
+  // Línea separadora superior
+  doc.setDrawColor(...COLOR_GRAY);
+  doc.setLineWidth(0.1);
+  doc.line(MARGIN, 287, PAGE_WIDTH - MARGIN, 287);
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...COLOR_GRAY);
 
-  // Fecha y página
-  const fechaCorta = datos.visita.fecha_visita
-    ? new Date(datos.visita.fecha_visita).toLocaleDateString("es-CO")
-    : "";
   const esFinal =
     datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
-  doc.text(
-    `${fechaCorta}${esFinal ? " — Informe oficial" : " — Pre-informe sujeto a revisión"}`,
-    MARGIN,
-    292
-  );
+  const numeroVersion = datos.informe?.version_actual;
+  const versionTexto =
+    numeroVersion != null
+      ? `Versión ${numeroVersion}${esFinal ? "" : " (PRE-INFORME)"}`
+      : esFinal
+        ? "OFICIAL"
+        : "PRE-INFORME";
+  const fechaGeneracion = new Date().toLocaleDateString("es-CO");
+
+  doc.text(`FT-LEC-6c | ${versionTexto} | Generado: ${fechaGeneracion}`, MARGIN, 292);
+  doc.text("www.sievert.com.co", PAGE_WIDTH / 2, 292, { align: "center" });
   doc.text(`Página ${currentPage} de ${totalPages}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
 
   // Línea inferior púrpura

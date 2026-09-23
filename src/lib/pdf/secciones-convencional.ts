@@ -3474,3 +3474,49 @@ export function renderEvidenciaGrafica(
 ): void {
   RENDER_FOTOS[codigo]?.(ctx, conv, codigo);
 }
+
+/**
+ * Cantidad de fotos de evidencia gráfica disponibles para `codigo` — se usa
+ * para reservar, ANTES de dibujar el título "Evidencia gráfica", la altura
+ * real que va a necesitar (una foto vs. el texto "No se adjuntó..."). No
+ * duplica el escalado de cada `renderFotosXX`: solo cuenta cuántas hay.
+ */
+export function contarFotosEvidencia(conv: DatosConvencional, codigo: string): number {
+  switch (codigo) {
+    case "2.2":
+      return (conv.fotos22 ?? []).length;
+    case "2.3":
+      return (conv.fotos23 ?? []).length;
+    case "2.4":
+      return (conv.fotos24 ?? []).length;
+    case "2.5":
+      return (conv.fotos25 ?? []).length;
+    case "2.6":
+      return (conv.fotos26 ?? []).length;
+    case "2.7":
+      return (conv.fotos27 ?? []).length;
+    case "2.8":
+      return (conv.fotos28 ?? []).length;
+    case "2.9":
+      return (conv.fotos29 ?? []).length;
+    case "2.10":
+      return (conv.fotos210 ?? []).length;
+    case "2.11":
+      return (conv.fotos211 ?? []).length;
+    case "2.12":
+      return (conv.fotos212 ?? []).length;
+    case "2.13":
+      return (conv.fotos213 ?? []).length;
+    case "2.16":
+      return (conv.fotos216 ?? []).length;
+    case "2.17":
+    case "2.18":
+    case "2.19":
+    case "2.20":
+      return (conv.fotos217 ?? []).length;
+    case "2.21":
+      return (conv.fotos221 ?? []).length;
+    default:
+      return 0;
+  }
+}

@@ -856,16 +856,6 @@ export async function generarPreInforme(
   }
 
   // Recuadro: Identificación de la instalación
-  y += 12;
-  drawCardBg(MARGIN, y, CONTENT_WIDTH, 50);
-
-  y += 7;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...COLOR_PRIMARY);
-  doc.text("Identificación de la Instalación", MARGIN + 5, y);
-  y += 6;
-
   const infoInstalacion = [
     ["Razón social:", datos.cliente?.nombre_cliente ?? "No reporta"],
     ["NIT:", `${datos.cliente?.nit ?? "No reporta"}-${datos.cliente?.digito_verificacion ?? ""}`],
@@ -877,15 +867,39 @@ export async function generarPreInforme(
       `${datos.sede?.ciudad ?? "No reporta"} - ${datos.sede?.departamento ?? "No reporta"}`,
     ],
   ];
+  // Valores largos (direcciones sobre todo) se parten en varias líneas en vez
+  // de desbordar el recuadro — la altura de la tarjeta se calcula recién acá,
+  // una vez medidas.
+  const valueX = MARGIN + 50;
+  const valueMaxWidth = MARGIN + CONTENT_WIDTH - 5 - valueX;
+  doc.setFontSize(9);
+  const infoInstalacionLineas = infoInstalacion.map(([label, value]) => ({
+    label,
+    lineas: doc.splitTextToSize(value, valueMaxWidth) as string[],
+  }));
+  const infoInstalacionAltura = infoInstalacionLineas.reduce(
+    (acc, fila) => acc + fila.lineas.length * 5,
+    0
+  );
+
+  y += 12;
+  drawCardBg(MARGIN, y, CONTENT_WIDTH, 20 + infoInstalacionAltura);
+
+  y += 7;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...COLOR_PRIMARY);
+  doc.text("Identificación de la Instalación", MARGIN + 5, y);
+  y += 6;
 
   doc.setFontSize(9);
-  for (const [label, value] of infoInstalacion) {
+  for (const { label, lineas } of infoInstalacionLineas) {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...COLOR_BLACK);
     doc.text(label, MARGIN + 5, y);
     doc.setFont("helvetica", "normal");
-    doc.text(value, MARGIN + 50, y);
-    y += 5;
+    doc.text(lineas, valueX, y);
+    y += lineas.length * 5;
   }
 
   // Recuadro: Identificación de la unidad evaluada
@@ -909,9 +923,10 @@ export async function generarPreInforme(
     MARGIN + 5,
     y
   );
+  y += 5;
 
-  // Vigencia
-  y += 8;
+  // Vigencia — mismo gap (14) que separa las dos tarjetas de arriba.
+  y += 14;
   doc.setFillColor(255, 251, 235);
   doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 12, 2, 2, "F");
   doc.setDrawColor(245, 158, 11);
@@ -927,14 +942,40 @@ export async function generarPreInforme(
   );
 
   // ═══════════════════════════════════════════════════════════
-  //  PÁGINA 2 — INFORMACIÓN DE LA PRÁCTICA
+  //  PÁGINA 2 — INTRODUCCIÓN (primera sección, sin numerar)
   // ═══════════════════════════════════════════════════════════
   doc.addPage();
   y = MARGIN + HEADER_HEIGHT;
   addHeader(doc, datos, logoBase64);
 
-  y = addSectionTitle(doc, "INFORMACIÓN DE LA PRÁCTICA", y);
-  registrarToc("INFORMACIÓN DE LA PRÁCTICA");
+  y = addSectionTitle(doc, "INTRODUCCIÓN", y);
+  registrarToc("INTRODUCCIÓN");
+
+  addParagraph(
+    "El presente informe técnico documenta los resultados del control de calidad efectuado al equipo generador de radiación ionizante destinado a la práctica de radiología general y emite el correspondiente concepto técnico, en cumplimiento de la Resolución 1811 de 2025 del Ministerio de Salud y Protección Social y demás disposiciones vigentes en materia de protección radiológica."
+  );
+
+  addParagraph(
+    "Las pruebas fueron realizadas conforme a los lineamientos establecidos en el documento IAEA-TECDOC-1958: Protocolos de Control de Calidad para Radiodiagnóstico en América Latina y el Caribe, específicamente en el capítulo correspondiente a Radiología General, aplicando la estructura metodológica definida para cada ensayo técnico."
+  );
+
+  addParagraph(
+    "El control de calidad se ejecutó mediante un procedimiento técnico no invasivo, desarrollado bajo condiciones normales de operación del equipo y sin intervención física sobre sus componentes internos, con el fin de verificar que los parámetros físicos y operacionales del sistema radiográfico se encuentren dentro de los criterios de aceptación establecidos."
+  );
+
+  addParagraph(
+    "El presente informe tendrá una vigencia máxima de dos (2) años, contados a partir de la fecha de su emisión, siempre que no se presenten modificaciones técnicas, estructurales u operativas que alteren las condiciones evaluadas."
+  );
+
+  // ═══════════════════════════════════════════════════════════
+  //  PÁGINA — 1. INFORMACIÓN DE LA PRÁCTICA
+  // ═══════════════════════════════════════════════════════════
+  doc.addPage();
+  y = MARGIN + HEADER_HEIGHT;
+  addHeader(doc, datos, logoBase64);
+
+  y = addSectionTitle(doc, "1. INFORMACIÓN DE LA PRÁCTICA", y);
+  registrarToc("1. INFORMACIÓN DE LA PRÁCTICA");
 
   // Datos Generales
   addSubsectionTitle("", "Datos Generales");
@@ -1105,32 +1146,6 @@ export async function generarPreInforme(
       y += 2;
     }
   }
-
-  // ═══════════════════════════════════════════════════════════
-  //  PÁGINA — INTRODUCCIÓN
-  // ═══════════════════════════════════════════════════════════
-  doc.addPage();
-  y = MARGIN + HEADER_HEIGHT;
-  addHeader(doc, datos, logoBase64);
-
-  y = addSectionTitle(doc, "INTRODUCCIÓN", y);
-  registrarToc("INTRODUCCIÓN");
-
-  addParagraph(
-    "El presente informe técnico documenta los resultados del control de calidad efectuado al equipo generador de radiación ionizante destinado a la práctica de radiología general y emite el correspondiente concepto técnico, en cumplimiento de la Resolución 1811 de 2025 del Ministerio de Salud y Protección Social y demás disposiciones vigentes en materia de protección radiológica."
-  );
-
-  addParagraph(
-    "Las pruebas fueron realizadas conforme a los lineamientos establecidos en el documento IAEA-TECDOC-1958: Protocolos de Control de Calidad para Radiodiagnóstico en América Latina y el Caribe, específicamente en el capítulo correspondiente a Radiología General, aplicando la estructura metodológica definida para cada ensayo técnico."
-  );
-
-  addParagraph(
-    "El control de calidad se ejecutó mediante un procedimiento técnico no invasivo, desarrollado bajo condiciones normales de operación del equipo y sin intervención física sobre sus componentes internos, con el fin de verificar que los parámetros físicos y operacionales del sistema radiográfico se encuentren dentro de los criterios de aceptación establecidos."
-  );
-
-  addParagraph(
-    "El presente informe tendrá una vigencia máxima de dos (2) años, contados a partir de la fecha de su emisión, siempre que no se presenten modificaciones técnicas, estructurales u operativas que alteren las condiciones evaluadas."
-  );
 
   // ═══════════════════════════════════════════════════════════
   //  SECCIÓN — PRUEBAS DE CONTROL DE CALIDAD
@@ -2053,8 +2068,8 @@ export async function generarPreInforme(
   //  RESUMEN DE RESULTADOS
   // ═══════════════════════════════════════════════════════════
   checkPage(60);
-  y = addSectionTitle(doc, "RESUMEN DE RESULTADOS", y);
-  registrarToc("RESUMEN DE RESULTADOS");
+  y = addSectionTitle(doc, "3. RESUMEN DE RESULTADOS", y);
+  registrarToc("3. RESUMEN DE RESULTADOS");
 
   autoTable(doc, {
     startY: y,
@@ -2081,8 +2096,8 @@ export async function generarPreInforme(
 
   // CONCEPTO GENERAL
   checkPage(30);
-  y = addSectionTitle(doc, "CONCEPTO", y);
-  registrarToc("CONCEPTO");
+  y = addSectionTitle(doc, "4. CONCEPTO", y);
+  registrarToc("4. CONCEPTO");
 
   // FAVORABLE solo si todas las pruebas están Conformes o No aplica. Cualquier
   // prueba No conforme → NO FAVORABLE; si no hay No conformes pero quedan
@@ -2113,9 +2128,11 @@ export async function generarPreInforme(
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  OBSERVACIONES
+  //  OBSERVACIONES — deshabilitada temporalmente a pedido (aunque la visita
+  //  tenga observaciones cargadas, no se imprime esta sección).
   // ═══════════════════════════════════════════════════════════
-  if (datos.visita.observaciones) {
+  const OBSERVACIONES_GENERALES_HABILITADA = false;
+  if (OBSERVACIONES_GENERALES_HABILITADA && datos.visita.observaciones) {
     y += 4;
     checkPage(25);
     y = addSectionTitle(doc, "OBSERVACIONES GENERALES", y);
@@ -2128,8 +2145,8 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   checkPage(90);
   y += 10;
-  y = addSectionTitle(doc, "FIRMAS", y);
-  registrarToc("FIRMAS");
+  y = addSectionTitle(doc, "5. FIRMAS", y);
+  registrarToc("5. FIRMAS");
   y += 5;
 
   // Responsable Sievert

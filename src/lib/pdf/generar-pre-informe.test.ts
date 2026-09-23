@@ -701,7 +701,7 @@ describe("Página de contenido (índice)", () => {
     expect(contar("2\\.21 Dosis al receptor de imagen")).toBe(3);
   });
 
-  it("'OBSERVACIONES GENERALES' solo entra al índice cuando la visita tiene observaciones", async () => {
+  it("'OBSERVACIONES GENERALES' no se imprime aunque la visita tenga observaciones (deshabilitada a pedido)", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
 
     const sinObs = await pdfText((await generarPreInforme(visita!.id!))!);
@@ -709,7 +709,6 @@ describe("Página de contenido (índice)", () => {
 
     await db.visitas.update(visita!.id!, { observaciones: "Nota de campo." });
     const conObs = await pdfText((await generarPreInforme(visita!.id!))!);
-    const contar = (s: string) => (conObs.match(new RegExp(s, "g")) ?? []).length;
-    expect(contar("OBSERVACIONES GENERALES")).toBe(2);
+    expect(conObs).not.toContain("OBSERVACIONES GENERALES");
   });
 });

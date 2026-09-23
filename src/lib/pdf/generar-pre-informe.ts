@@ -831,13 +831,15 @@ export async function generarPreInforme(
   doc.setFont("helvetica", "bold");
   doc.text("Versión:", MARGIN, y);
   doc.setFont("helvetica", "normal");
-  const estadoVersion = esFinal ? "OFICIAL" : "PRE-INFORME";
   const numeroVersion = datos.informe?.version_actual;
-  doc.text(
-    numeroVersion != null ? `${estadoVersion} — v${numeroVersion}` : estadoVersion,
-    MARGIN + 40,
-    y
-  );
+  const textoVersion = esFinal
+    ? numeroVersion != null
+      ? String(numeroVersion)
+      : "OFICIAL"
+    : numeroVersion != null
+      ? `PRE-INFORME — ${numeroVersion}`
+      : "PRE-INFORME";
+  doc.text(textoVersion, MARGIN + 40, y);
 
   // QR de verificación (solo en la versión oficial, si se proveyó)
   if (opts?.qrDataUrl) {

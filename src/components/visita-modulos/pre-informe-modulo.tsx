@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
-import { updateAndSync } from "@/lib/supabase/sync-engine";
+import { updateAndSync, pushSingle } from "@/lib/supabase/sync-engine";
+import type { SyncStatus } from "@/lib/db/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -515,8 +516,17 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       orden: cat.orden,
       incluida: true,
       creado_en: now,
+      // Sin esto la fila queda invisible para pushAllPending/fullSync (filtran
+      // por sync_status="pending") -- nunca sale del dispositivo salvo que
+      // alguien la edite a mano después vía updateAndSync (issue reportado).
+      sync_status: "pending" as SyncStatus,
+      last_modified: now,
     }));
-    db.conv_informe_secciones.bulkAdd(rows);
+    db.conv_informe_secciones.bulkAdd(rows).then(() => {
+      for (const row of rows) {
+        pushSingle("conv_informe_secciones", row.id);
+      }
+    });
   }, [data, visitaId]);
 
   // ─── Sorted secciones ───

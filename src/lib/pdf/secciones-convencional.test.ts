@@ -46,14 +46,17 @@ describe("recopilarDatosConv — carga de tablas", () => {
     expect(d.secciones.find((s) => s.prueba_codigo === "2.2")?.incluida).toBe(false);
   });
 
-  it("dedupe de conv_inspeccion_items por (seccion, item_numero) — gana la que tiene concepto", async () => {
-    await db.conv_inspeccion_items.bulkAdd([
-      row({ id: "i1", visita_id: V, seccion: "equipo", item_numero: 1 }),
-      row({ id: "i2", visita_id: V, seccion: "equipo", item_numero: 1, concepto: "Conforme" }),
-    ]);
+  it("[visita_id+seccion+item_numero] es único desde v22 — el segundo insert con la misma clave se rechaza, el PDF no ve duplicados", async () => {
+    await db.conv_inspeccion_items.add(
+      row({ id: "i1", visita_id: V, seccion: "equipo", item_numero: 1 })
+    );
+    await expect(
+      db.conv_inspeccion_items.add(
+        row({ id: "i2", visita_id: V, seccion: "equipo", item_numero: 1, concepto: "Conforme" })
+      )
+    ).rejects.toThrow();
     const d = await recopilarDatosConv(V);
     expect(d.inspeccion).toHaveLength(1);
-    expect(d.inspeccion[0].concepto).toBe("Conforme");
   });
 });
 

@@ -335,7 +335,19 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       sync_status: "pending" as const,
       last_modified: now,
     }));
-    db.conv_ddi_mediciones.bulkAdd(rows);
+    // Una por una (no bulkAdd): [visita_id+grupo+toma_numero] es único
+    // desde v22 del schema, así que si el sync ya trajo esta toma, `.add()`
+    // lanza y se ignora en vez de crear un duplicado local.
+    (async () => {
+      for (const row of rows) {
+        try {
+          await db.conv_ddi_mediciones.add(row);
+          pushSingle("conv_ddi_mediciones", row.id);
+        } catch {
+          // Ya existe -- llegó por sync mientras tanto.
+        }
+      }
+    })();
   }, [data, visitaId]);
 
   // ─── Grupos 2-4 (cassettes/detectores adicionales) — a demanda ───
@@ -356,17 +368,22 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       if (siguienteGrupo == null) return;
       const maxToma = Math.max(0, ...(data?.ddiMediciones ?? []).map((m) => m.toma_numero));
       const now = new Date().toISOString();
-      const newId = await db.conv_ddi_mediciones.add({
-        id: randomUUID(),
-        visita_id: visitaId,
-        grupo: siguienteGrupo,
-        toma_numero: maxToma + 1,
-        kv_nominal: 70,
-        creado_en: now,
-        sync_status: "pending" as const,
-        last_modified: now,
-      });
-      pushSingle("conv_ddi_mediciones", newId as string);
+      try {
+        const newId = await db.conv_ddi_mediciones.add({
+          id: randomUUID(),
+          visita_id: visitaId,
+          grupo: siguienteGrupo,
+          toma_numero: maxToma + 1,
+          kv_nominal: 70,
+          creado_en: now,
+          sync_status: "pending" as const,
+          last_modified: now,
+        });
+        pushSingle("conv_ddi_mediciones", newId as string);
+      } catch {
+        // [visita_id+grupo+toma_numero] ya existe -- otro dispositivo agregó
+        // el mismo grupo/toma justo antes; el próximo useLiveQuery lo refleja.
+      }
     } finally {
       addGrupoDdiLock.current = false;
     }

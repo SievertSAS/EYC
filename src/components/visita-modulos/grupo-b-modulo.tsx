@@ -429,9 +429,20 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       });
     }
 
-    db.conv_raysafe_mediciones.bulkAdd(
-      rows.map((r) => ({ ...r, sync_status: "pending" as const, last_modified: now }))
-    );
+    // Una por una (no bulkAdd): [visita_id+toma_numero] es único desde v22
+    // del schema, así que si el sync ya trajo esta toma, `.add()` lanza y
+    // se ignora en vez de crear un duplicado local.
+    (async () => {
+      for (const r of rows) {
+        const row = { ...r, sync_status: "pending" as const, last_modified: now };
+        try {
+          await db.conv_raysafe_mediciones.add(row);
+          pushSingle("conv_raysafe_mediciones", row.id!);
+        } catch {
+          // Ya existe -- llegó por sync mientras tanto.
+        }
+      }
+    })();
   }, [data, visitaId]);
 
   // ─── Backfill: rellenar sin_rejilla/kerma vacíos con la técnica ya

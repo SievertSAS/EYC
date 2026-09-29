@@ -529,9 +529,20 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
         creado_en: now,
       })),
     ];
-    db.conv_inspeccion_items.bulkAdd(
-      items.map((i) => ({ ...i, sync_status: "pending" as const, last_modified: now }))
-    );
+    // Una por una (no bulkAdd): [visita_id+seccion+item_numero] es único
+    // desde v22 del schema, así que si el sync ya trajo este ítem, `.add()`
+    // lanza y se ignora en vez de crear un duplicado local.
+    (async () => {
+      for (const i of items) {
+        const row = { ...i, sync_status: "pending" as const, last_modified: now };
+        try {
+          await db.conv_inspeccion_items.add(row);
+          pushSingle("conv_inspeccion_items", row.id!);
+        } catch {
+          // Ya existe -- llegó por sync mientras tanto.
+        }
+      }
+    })();
   }, [data, visitaId]);
 
   // ─── Save helpers ───

@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import Dexie from "dexie";
-import { db } from "./index";
+import { db, dedupeFilasPorClave, especsDedupeV21 } from "./index";
 import { resetTestDb } from "@/test/db-reset";
 
 describe("esquema — instalación nueva", () => {
@@ -202,5 +202,100 @@ describe("esquema — v19 deduplica conv_informe_secciones antes de v20 (índice
 
     dbNew.close();
     await Dexie.delete(name);
+  });
+});
+
+describe("especsDedupeV21 — clave/editada de cada tabla", () => {
+  const fixtures: Record<
+    string,
+    { base: Record<string, unknown>; editada: Record<string, unknown> }
+  > = {
+    conv_inspeccion_items: {
+      base: { visita_id: "v1", seccion: "equipo", item_numero: 1 },
+      editada: { visita_id: "v1", seccion: "equipo", item_numero: 1, observacion: "nota" },
+    },
+    conv_raysafe_mediciones: {
+      base: { visita_id: "v1", toma_numero: 1 },
+      editada: { visita_id: "v1", toma_numero: 1, kv_medido: 60 },
+    },
+    conv_cae_mediciones: {
+      base: { visita_id: "v1", toma_numero: 1 },
+      editada: { visita_id: "v1", toma_numero: 1, ei: 400 },
+    },
+    conv_ddi_mediciones: {
+      base: { visita_id: "v1", grupo: 1, toma_numero: 1 },
+      editada: { visita_id: "v1", grupo: 1, toma_numero: 1, serie_detector: "ABC123" },
+    },
+  };
+
+  it.each(especsDedupeV21.map((e) => [e.tabla, e] as const))(
+    "%s: clave estable y editada distingue fila tocada vs. default del seed",
+    (tabla, espec) => {
+      const { base, editada } = fixtures[tabla];
+      expect(espec.clave(base)).toBe(espec.clave(editada));
+      expect(espec.editada(base)).toBe(false);
+      expect(espec.editada(editada)).toBe(true);
+    }
+  );
+});
+
+describe("dedupeFilasPorClave — motor genérico de v21 (inspección/RaySafe/CAE/DDI)", () => {
+  interface Fila extends Record<string, unknown> {
+    id: string;
+    grupo: string;
+    editada?: boolean;
+    creado_en: string;
+  }
+
+  async function conTabla(fn: (tabla: Dexie.Table<Fila, unknown>) => Promise<void>) {
+    const name = "dedupe-clave-" + Math.random().toString(36).slice(2);
+    const d = new Dexie(name);
+    d.version(1).stores({ filas: "id, grupo" });
+    await d.open();
+    try {
+      await fn(d.table("filas"));
+    } finally {
+      d.close();
+      await Dexie.delete(name);
+    }
+  }
+
+  const clave = (f: Fila) => f.grupo;
+  const editada = (f: Fila) => !!f.editada;
+
+  it("conserva la fila editada de un grupo duplicado y borra el resto", async () => {
+    await conTabla(async (tabla) => {
+      await tabla.bulkAdd([
+        { id: "plana", grupo: "g1", creado_en: "2026-01-01T00:00:00Z" },
+        { id: "editada", grupo: "g1", editada: true, creado_en: "2026-01-01T00:05:00Z" },
+      ]);
+      await dedupeFilasPorClave(tabla, clave, editada);
+      const restantes = await tabla.toArray();
+      expect(restantes.map((f) => f.id)).toEqual(["editada"]);
+    });
+  });
+
+  it("sin ninguna fila editada, conserva la más antigua por creado_en", async () => {
+    await conTabla(async (tabla) => {
+      await tabla.bulkAdd([
+        { id: "nueva", grupo: "g1", creado_en: "2026-01-02T00:00:00Z" },
+        { id: "vieja", grupo: "g1", creado_en: "2026-01-01T00:00:00Z" },
+      ]);
+      await dedupeFilasPorClave(tabla, clave, editada);
+      const restantes = await tabla.toArray();
+      expect(restantes.map((f) => f.id)).toEqual(["vieja"]);
+    });
+  });
+
+  it("no toca grupos sin duplicados", async () => {
+    await conTabla(async (tabla) => {
+      await tabla.bulkAdd([
+        { id: "unica-a", grupo: "g1", creado_en: "2026-01-01T00:00:00Z" },
+        { id: "unica-b", grupo: "g2", creado_en: "2026-01-01T00:00:00Z" },
+      ]);
+      await dedupeFilasPorClave(tabla, clave, editada);
+      const restantes = await tabla.toArray();
+      expect(restantes.map((f) => f.id).sort()).toEqual(["unica-a", "unica-b"]);
+    });
   });
 });

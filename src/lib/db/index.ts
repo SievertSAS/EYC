@@ -56,6 +56,88 @@ import type {
   ConvEvidencia,
 } from "@/lib/equipos/convencional/db/types";
 
+/**
+ * Motor genérico de dedupe usado por las migraciones que vuelven única una
+ * clave lógica (ver v19 y v21). Agrupa `filas` por `clave`, y en cada grupo
+ * con más de un elemento conserva la fila `editada` (o la más antigua si
+ * ninguna lo está) y borra el resto. Extraído a función de módulo (en vez de
+ * quedar anidado dentro del `.upgrade()`) para poder testearlo llamándolo
+ * directo, sin tener que disparar una migración real de Dexie.
+ */
+export async function dedupeFilasPorClave<T extends Record<string, unknown>>(
+  tabla: Dexie.Table<T, unknown>,
+  clave: (fila: T) => string,
+  editada: (fila: T) => boolean
+): Promise<void> {
+  const filas: T[] = await tabla.toArray();
+  const porClave = new Map<string, T[]>();
+  for (const fila of filas) {
+    const grupo = porClave.get(clave(fila)) ?? [];
+    grupo.push(fila);
+    porClave.set(clave(fila), grupo);
+  }
+  for (const grupo of porClave.values()) {
+    if (grupo.length <= 1) continue;
+    grupo.sort((a, b) => {
+      const editadaA = editada(a) ? 1 : 0;
+      const editadaB = editada(b) ? 1 : 0;
+      if (editadaA !== editadaB) return editadaB - editadaA;
+      return String(a.creado_en ?? "").localeCompare(String(b.creado_en ?? ""));
+    });
+    await tabla.bulkDelete(grupo.slice(1).map((f) => f.id));
+  }
+}
+
+interface EspecDedupeV21 {
+  tabla: string;
+  clave: (fila: Record<string, unknown>) => string;
+  editada: (fila: Record<string, unknown>) => boolean;
+}
+
+/**
+ * Claves lógicas + criterio de "fila editada" para el dedupe de v21, una
+ * por tabla. Separado del `.upgrade()` (que solo itera esta lista) para
+ * poder testear cada `clave`/`editada` llamándolas directo.
+ */
+export const especsDedupeV21: EspecDedupeV21[] = [
+  {
+    tabla: "conv_inspeccion_items",
+    clave: (f) => `${f.visita_id}|${f.seccion}|${f.item_numero}`,
+    // concepto no sirve para distinguir "editada": el seed siempre lo
+    // deja en "Conforme".
+    editada: (f) => !!f.observacion,
+  },
+  {
+    tabla: "conv_raysafe_mediciones",
+    clave: (f) => `${f.visita_id}|${f.toma_numero}`,
+    editada: (f) =>
+      f.kv_medido != null ||
+      f.dosis_medida_mgy != null ||
+      f.tiempo_medido_s != null ||
+      f.chr_medido_mmal != null ||
+      f.ma_nominal != null ||
+      f.tiempo_nominal_s != null,
+  },
+  {
+    tabla: "conv_cae_mediciones",
+    clave: (f) => `${f.visita_id}|${f.toma_numero}`,
+    editada: (f) =>
+      f.carga_mas != null || f.ei != null || f.di != null || f.tei != null || f.dap != null,
+  },
+  {
+    tabla: "conv_ddi_mediciones",
+    clave: (f) => `${f.visita_id}|${f.grupo}|${f.toma_numero}`,
+    editada: (f) =>
+      f.serie_detector != null ||
+      f.carga_mas != null ||
+      f.ei != null ||
+      f.di != null ||
+      f.tei != null ||
+      f.ei_base != null ||
+      f.di_base != null,
+  },
+];
+
 class EyCDatabase extends Dexie {
   clientes!: EntityTable<Cliente, "id">;
   contactos!: EntityTable<Contacto, "id">;
@@ -406,6 +488,38 @@ class EyCDatabase extends Dexie {
     this.version(20).stores({
       conv_informe_secciones:
         "id, visita_id, prueba_codigo, &[visita_id+prueba_codigo], sync_status",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v21 — dedupe de las tablas de disparos/ítems por defecto antes de
+    //  v22. Mismo bug que v19: el auto-seed local de cada módulo (grupo A/B/
+    //  C/D) corre por dispositivo, así que dos técnicos con la misma visita
+    //  abierta a la vez podían sembrar cada uno su propio set de filas antes
+    //  de sincronizar. Acá se limpia lo que ya exista para que v22 pueda
+    //  volver únicas las claves lógicas sin que la migración falle.
+    // ─────────────────────────────────────────────────────────────
+    this.version(21)
+      .stores({})
+      .upgrade(async (tx) => {
+        for (const espec of especsDedupeV21) {
+          await dedupeFilasPorClave(tx.table(espec.tabla), espec.clave, espec.editada);
+        }
+      });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v22 — las claves lógicas de disparos/ítems por defecto pasan a ser
+    //  únicas. Con v21 ya deduplicado, un `.add()` sobre una toma/ítem que
+    //  ya existe ahora lanza en vez de crear un duplicado (ver
+    //  inspeccionInsertadaRef / disparosInsertadosRef / ddiInsertadoRef).
+    // ─────────────────────────────────────────────────────────────
+    this.version(22).stores({
+      conv_inspeccion_items:
+        "id, visita_id, [visita_id+seccion], &[visita_id+seccion+item_numero], sync_status",
+      conv_raysafe_mediciones:
+        "id, visita_id, tipo_medicion, [visita_id+tipo_medicion], &[visita_id+toma_numero], sync_status",
+      conv_cae_mediciones: "id, visita_id, toma_numero, &[visita_id+toma_numero], sync_status",
+      conv_ddi_mediciones:
+        "id, visita_id, grupo, toma_numero, &[visita_id+grupo+toma_numero], sync_status",
     });
   }
 }

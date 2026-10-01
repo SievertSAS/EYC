@@ -5,6 +5,7 @@ import {
   recopilarDatosConv,
   renderResultadosSeccion,
   renderTablaBaseRef216,
+  renderTablaChrRef,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -403,6 +404,59 @@ describe("2.7 — kV nominal distinto de 80 (consola de campo sin paso exacto) y
     );
 
     expect(rend90 / rend100).toBeCloseTo((90 / 100) ** 2, 2);
+  });
+});
+
+describe("2.6 — tabla de referencia CHR completa (60-130kV) y escalón por kV de campo", () => {
+  const shots = () => [
+    row({
+      id: "c1",
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 2,
+      kv_nominal: 81,
+      toma_numero: 1,
+      chr_medido_mmal: 3.2,
+    }),
+    row({
+      id: "c2",
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 6,
+      kv_nominal: 120,
+      toma_numero: 2,
+      chr_medido_mmal: 3.3,
+    }),
+  ];
+
+  it("kv_nominal=81/120 (sin paso exacto en la tabla) resuelven al escalón inferior más cercano → Conforme", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = shots();
+    renderResultadosSeccion(ctx, "2.6", visitaFixture, conv, undefined);
+    const tabla261 = tablas.find((t) => t.head.includes("CHR mínima (mm Al)"));
+    expect(tabla261).toBeDefined();
+    const filaKv81 = tabla261!.body.find((r) => r[0] === "81");
+    const filaKv120 = tabla261!.body.find((r) => r[0] === "120");
+    expect(filaKv81).toEqual(["81", "3,2", "2,3", "Conforme"]);
+    expect(filaKv120).toEqual(["120", "3,3", "3,2", "Conforme"]);
+  });
+
+  it("renderTablaChrRef incluye los 8 escalones (60 a 130kV), no solo 60-90", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    renderTablaChrRef(ctx);
+    const tabla = tablas[0];
+    expect(tabla.body.map((r) => r[0])).toEqual([
+      "60",
+      "70",
+      "80",
+      "90",
+      "100",
+      "110",
+      "120",
+      "130",
+    ]);
+    expect(tabla.body[tabla.body.length - 1]).toEqual(["130", "3,5"]);
   });
 });
 

@@ -33,6 +33,8 @@ import {
   detalle213,
   tolerancia211Default,
   rendimiento27,
+  CHR_MIN,
+  chrMinimaParaKv,
 } from "@/lib/equipos/convencional/evaluacion";
 import {
   convertirDap,
@@ -1450,8 +1452,6 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
 
 // ─── Helpers estadísticos ───
 
-const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
-
 // Alias locales sobre la fuente única de verdad (#121) — evita reescribir
 // todos los usos ya existentes de `mean`/`stdDev` en este archivo.
 const mean = promedio;
@@ -1676,9 +1676,14 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
     .sort(([a], [b]) => a - b)
     .map(([kv, ms]) => {
       const chrProm = mean(ms.map((m) => m.chr_medido_mmal!));
-      const chrMin = CHR_MIN[kv] ?? "—";
-      const concepto = typeof chrMin === "number" && chrProm >= chrMin ? "Conforme" : "No conforme";
-      return [formatDecimal(kv, 0), formatDecimal(chrProm, 1), String(chrMin), concepto];
+      const chrMin = chrMinimaParaKv(kv);
+      const concepto = chrMin != null && chrProm >= chrMin ? "Conforme" : "No conforme";
+      return [
+        formatDecimal(kv, 0),
+        formatDecimal(chrProm, 1),
+        chrMin != null ? formatDecimal(chrMin, 1) : "—",
+        concepto,
+      ];
     });
 
   ctx.checkPage(36);
@@ -1725,12 +1730,10 @@ export function renderTablaChrRef(ctx: InformeCtx) {
     ...TABLE_STYLE,
     startY: ctx.y,
     head: [["Tensión (kV)", "CHR mínima (mm Al)"]],
-    body: [
-      ["60", "1,8"],
-      ["70", "2,1"],
-      ["80", "2,3"],
-      ["90", "2,5"],
-    ],
+    body: Object.entries(CHR_MIN)
+      .map(([kv, min]) => [Number(kv), min] as const)
+      .sort(([a], [b]) => a - b)
+      .map(([kv, min]) => [String(kv), formatDecimal(min, 1)]),
     columnStyles: {
       0: { halign: "center" as const, cellWidth: 45 },
       1: { halign: "center" as const, cellWidth: 45 },

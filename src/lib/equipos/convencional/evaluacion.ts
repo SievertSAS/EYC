@@ -246,9 +246,13 @@ function evaluar27(d: DatosEvalConv): Concepto | undefined {
     gruposLin.get(m.grupo_numero)!.push(m);
   }
   const entradasLin = [...gruposLin.entries()].sort(([a], [b]) => a - b);
-  const rendimientos = entradasLin.map(
-    ([, ms]) =>
-      rendimiento27(promedio(ms.map((m) => m.dosis_medida_mgy!)), ms[0].mas_nominal!, distancia, ms[0].kv_nominal!)
+  const rendimientos = entradasLin.map(([, ms]) =>
+    rendimiento27(
+      promedio(ms.map((m) => m.dosis_medida_mgy!)),
+      ms[0].mas_nominal!,
+      distancia,
+      ms[0].kv_nominal!
+    )
   );
   let linMax = 0;
   for (let i = 1; i < rendimientos.length; i++) {

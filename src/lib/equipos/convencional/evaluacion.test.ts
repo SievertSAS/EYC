@@ -201,7 +201,13 @@ describe("2.6 — capa hemirreductora", () => {
 // por distancia y kV) fue verificado contra la hoja de cálculo del físico.
 
 const shotRend27 = (grupo: number, mas: number, dosis: number) =>
-  rs({ tipo_medicion: "principal", grupo_numero: grupo, kv_nominal: 81, mas_nominal: mas, dosis_medida_mgy: dosis });
+  rs({
+    tipo_medicion: "principal",
+    grupo_numero: grupo,
+    kv_nominal: 81,
+    mas_nominal: mas,
+    dosis_medida_mgy: dosis,
+  });
 
 describe("2.7 — rendimiento, repetibilidad y linealidad", () => {
   it("sin ninguna medición principal → Pendiente (undefined)", () => {

@@ -1825,11 +1825,14 @@ export async function generarPreInforme(
       if (conceptoParrafo) {
         addParagraph(conceptoParrafo, 9, 0, noAplica ? COLOR_GRAY : COLOR_BLACK);
       }
-      // Las secciones 2.1, 2.2 y 2.3 tienen concepto automático; no usan observaciones manuales aquí.
+      // Las secciones 2.1, 2.2 y 2.3 tienen concepto automático; la 2.21 ya
+      // usa `observaciones` dentro de su propia subsección "Análisis"
+      // (render221, vía textoAnalisisCustom) — reimprimirlo aquí lo duplica.
       if (
         codigo !== "2.1" &&
         codigo !== "2.2" &&
         codigo !== "2.3" &&
+        codigo !== "2.21" &&
         seccion.observaciones?.trim()
       ) {
         addParagraph(seccion.observaciones);

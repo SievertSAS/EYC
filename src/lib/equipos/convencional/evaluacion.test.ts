@@ -192,6 +192,30 @@ describe("2.6 — capa hemirreductora", () => {
       ev("2.6", datos({ raysafeMediciones: [shot({ kv_nominal: 80, chr_medido_mmal: 1.0 })] }))
     ).toBe("No_conforme");
   });
+
+  // La consola de campo rara vez programa un múltiplo exacto de 10kV (ver
+  // retroalimentación física, visita CONV 1365): la tabla de referencia debe
+  // aplicarse por el escalón inferior más cercano, no por coincidencia exacta.
+  it("kv_nominal=81 (sin escalón exacto) usa el mínimo del escalón 80 → Conforme", () => {
+    expect(
+      ev("2.6", datos({ raysafeMediciones: [shot({ kv_nominal: 81, chr_medido_mmal: 3.2 })] }))
+    ).toBe("Conforme");
+  });
+  it("kv_nominal=99 usa el mínimo del escalón 90, CHR insuficiente → No_conforme", () => {
+    expect(
+      ev("2.6", datos({ raysafeMediciones: [shot({ kv_nominal: 99, chr_medido_mmal: 2.4 })] }))
+    ).toBe("No_conforme");
+  });
+  it("kv_nominal=120 (escalón agregado tras retroalimentación física) → Conforme", () => {
+    expect(
+      ev("2.6", datos({ raysafeMediciones: [shot({ kv_nominal: 120, chr_medido_mmal: 3.3 })] }))
+    ).toBe("Conforme");
+  });
+  it("kv_nominal por debajo del escalón más bajo (sin referencia) → Pendiente", () => {
+    expect(
+      ev("2.6", datos({ raysafeMediciones: [shot({ kv_nominal: 50, chr_medido_mmal: 1.5 })] }))
+    ).toBeUndefined();
+  });
 });
 
 // ─── 2.7 Rendimiento, repetibilidad y linealidad ───

@@ -37,7 +37,34 @@ import { promedio, desviacion, cvPct } from "@/lib/equipos/convencional/estadist
 export type Concepto = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
 
 /** CHR mínima (mm Al) por kV — tabla de referencia TECDOC (fuente única). */
-export const CHR_MIN: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
+export const CHR_MIN: Record<number, number> = {
+  60: 1.8,
+  70: 2.1,
+  80: 2.3,
+  90: 2.5,
+  100: 2.7,
+  110: 3.0,
+  120: 3.2,
+  130: 3.5,
+};
+
+/**
+ * CHR mínima aplicable a un kV nominal de campo (ej. 81, 99), que rara vez
+ * calza exacto con un escalón de la tabla. Toma el escalón más alto que no
+ * supere el kV dado (igual que el VLOOKUP aproximado de la plantilla de
+ * referencia); undefined si el kV está por debajo del escalón más bajo.
+ */
+export function chrMinimaParaKv(kv: number): number | undefined {
+  const escalones = Object.keys(CHR_MIN)
+    .map(Number)
+    .sort((a, b) => a - b);
+  let resultado: number | undefined;
+  for (const escalon of escalones) {
+    if (escalon > kv) break;
+    resultado = CHR_MIN[escalon];
+  }
+  return resultado;
+}
 
 /** Subconjunto de tablas conv_* que necesitan los evaluadores (sin fotos). */
 export interface DatosEvalConv {
@@ -186,7 +213,9 @@ function evaluar26(d: DatosEvalConv): Concepto | undefined {
     grupos.get(m.kv_nominal)!.push(m.chr_medido_mmal);
   }
   if (grupos.size === 0) return undefined;
-  const conformes = [...grupos.entries()].map(([kv, chrs]) => promedio(chrs) >= (CHR_MIN[kv] ?? 0));
+  const evaluables = [...grupos.entries()].filter(([kv]) => chrMinimaParaKv(kv) != null);
+  if (evaluables.length === 0) return undefined;
+  const conformes = evaluables.map(([kv, chrs]) => promedio(chrs) >= chrMinimaParaKv(kv)!);
   return conformes.some((ok) => !ok) ? "No_conforme" : "Conforme";
 }
 

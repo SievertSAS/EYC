@@ -1796,6 +1796,34 @@ export function renderTablaBaseRef216(ctx: InformeCtx, conv: DatosConvencional) 
   ctx.y = finalY(doc) + 8;
 }
 
+/**
+ * Tabla de valores base de referencia de dosis al receptor (solo 2.21). No
+ * existe un campo separado de "kV/mAs base" — se reutiliza el kV/mAs de la
+ * propia medición "sin_rejilla" del programa clínico, dado que la técnica es
+ * fija por protocolo (verificado contra la plantilla real: coinciden).
+ */
+export function renderTablaBaseRef221(ctx: InformeCtx, conv: DatosConvencional) {
+  const { doc, autoTable } = ctx;
+  const filas = conv.raysafeMediciones
+    .filter((m) => m.tipo_medicion === "sin_rejilla" && m.dosis_base_mgy != null)
+    .map((m) => [
+      m.programa_clinico ?? "—",
+      fmt(m.kv_nominal, 0),
+      fmt(m.mas_nominal),
+      formatDecimal(m.dosis_base_mgy!, 5),
+    ]);
+  ctx.checkPage(30);
+  addCaption(ctx, "Valores base de referencia");
+  autoTable(doc, {
+    ...TABLE_STYLE,
+    startY: ctx.y,
+    head: [["Programa", "Tensión (kV)", "Carga (mAs)", "Dosis al receptor base (mGy)"]],
+    body: filas.length > 0 ? filas : [["—", "—", "—", "—"]],
+    columnStyles: { 0: { halign: "left" as const } },
+  });
+  ctx.y = finalY(doc) + 8;
+}
+
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
   const unidadKerma = conv.raysafeSetup?.unidad_kerma;
@@ -3264,7 +3292,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
-function render221(ctx: InformeCtx, conv: DatosConvencional): number {
+function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom?: string): number {
   const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
   const setup = conv.raysafeSetup;
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
@@ -3282,7 +3310,8 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   addParagraph(
     `La dosis al receptor de imagen se calculó a partir de la dosis medida, aplicando la corrección geométrica por distancia de acuerdo con la ecuación 19 del IAEA-TECDOC-1958.`
   );
-  addParagraph(`Distancia foco-sensor d1: ${d1} cm. Distancia foco-detector d2: ${d2} cm.`);
+  addParagraph(`Distancia foco-sensor d1 (cm): ${d1}`);
+  addParagraph(`Distancia foco-detector de imagen d2 (cm): ${d2}`);
 
   const filas221 = sinRejilla.map((m) => {
     const dosisMedida =
@@ -3353,7 +3382,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
           `Dosis receptor (${labelKerma})`,
           `Dosis base (${labelKerma})`,
           `Diferencia (${labelKerma})`,
-          "Concepto",
+          "Cumple",
         ],
       ],
       body: filas221Analisis,
@@ -3378,9 +3407,10 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
     const conforme221 = diffs221.length === 0 || Math.max(...diffs221) < 0.01;
 
     addParagraph(
-      conforme221
-        ? "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se encuentran dentro del criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), evidenciando estabilidad en la dosis entregada al receptor de imagen."
-        : "Una o más diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia superan el criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), lo que indica una variación significativa en la dosis entregada al receptor de imagen."
+      textoAnalisisCustom?.trim() ||
+        (conforme221
+          ? "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se encuentran dentro del criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), evidenciando estabilidad en la dosis entregada al receptor de imagen."
+          : "Una o más diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia superan el criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), lo que indica una variación significativa en la dosis entregada al receptor de imagen.")
     );
   }
 
@@ -3396,7 +3426,8 @@ export function renderResultadosSeccion(
   codigo: string,
   visita: VisitaEjecucion,
   conv: DatosConvencional,
-  ubicacion: UbicacionRx | undefined
+  ubicacion: UbicacionRx | undefined,
+  textoAnalisisCustom?: string
 ): number {
   switch (codigo) {
     case "2.1":
@@ -3440,7 +3471,7 @@ export function renderResultadosSeccion(
     case "2.20":
       return render220(ctx, conv);
     case "2.21":
-      return render221(ctx, conv);
+      return render221(ctx, conv, textoAnalisisCustom);
     default:
       return renderGenerico(ctx, codigo, conv);
   }

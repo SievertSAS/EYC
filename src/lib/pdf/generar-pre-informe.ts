@@ -56,6 +56,7 @@ import {
   renderTablaChrRef,
   renderTablaBaseRef29,
   renderTablaBaseRef216,
+  renderTablaBaseRef221,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -1203,7 +1204,18 @@ export async function generarPreInforme(
         addSubsectionParagraph(`${codigo}.4.`, "Resultados", "NO APLICA.", 9, 0, COLOR_GRAY);
         nextSub = 5;
       } else {
-        nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.ubicacion);
+        // 2.21: el físico puede sobreescribir el párrafo de conclusión del
+        // Análisis (2.21.5) sin perder las tablas auto-generadas.
+        const textoAnalisisCustom221 =
+          codigo === "2.21" ? seccion.observaciones?.trim() || undefined : undefined;
+        nextSub = renderResultadosSeccion(
+          ctx,
+          codigo,
+          datos.visita,
+          conv,
+          datos.ubicacion,
+          textoAnalisisCustom221
+        );
       }
 
       // Análisis (solo 2.2) — usa el campo observaciones como texto editable,
@@ -1239,6 +1251,17 @@ export async function generarPreInforme(
       // Tabla de valores base de referencia MTF (solo 2.16)
       if (codigo === "2.16" && aplica) {
         renderTablaBaseRef216(ctx, conv);
+        y = ctx.y;
+      }
+      // Tabla de valores base de referencia de dosis al receptor (solo 2.21)
+      if (
+        codigo === "2.21" &&
+        aplica &&
+        conv.raysafeMediciones.some(
+          (m) => m.tipo_medicion === "sin_rejilla" && m.dosis_base_mgy != null
+        )
+      ) {
+        renderTablaBaseRef221(ctx, conv);
         y = ctx.y;
       }
       nextSub++;

@@ -5,6 +5,7 @@ import {
   recopilarDatosConv,
   renderResultadosSeccion,
   renderTablaBaseRef216,
+  renderTablaBaseRef221,
   renderTablaChrRef,
   type DatosConvencional,
   type InformeCtx,
@@ -457,6 +458,97 @@ describe("2.6 — tabla de referencia CHR completa (60-130kV) y escalón por kV 
       "130",
     ]);
     expect(tabla.body[tabla.body.length - 1]).toEqual(["130", "3,5"]);
+  });
+});
+
+describe("2.21 — encabezado 'Cumple', tabla de valores base y 'Análisis' editable", () => {
+  const shots = () => [
+    row({
+      id: "r1",
+      visita_id: V,
+      tipo_medicion: "sin_rejilla",
+      programa_clinico: "Tórax AP",
+      kv_nominal: 90,
+      mas_nominal: 5,
+      dosis_medida_mgy: 0.3258,
+      dosis_base_mgy: 0.319,
+    }),
+  ];
+
+  it("Tabla 2.21.2 usa el encabezado 'Cumple', no 'Concepto'", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = shots();
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    const tabla2212 = tablas.find((t) => t.head.includes("Diferencia (mGy)"));
+    expect(tabla2212).toBeDefined();
+    expect(tabla2212!.head).toContain("Cumple");
+    expect(tabla2212!.head).not.toContain("Concepto");
+  });
+
+  it("renderTablaBaseRef221 arma Programa/Tensión/Carga/Dosis base a partir de la medición sin_rejilla", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = shots();
+    renderTablaBaseRef221(ctx, conv);
+    const tabla = tablas[0];
+    expect(tabla.head).toEqual([
+      "Programa",
+      "Tensión (kV)",
+      "Carga (mAs)",
+      "Dosis al receptor base (mGy)",
+    ]);
+    expect(tabla.body).toEqual([["Tórax AP", "90", "5,0", "0,31900"]]);
+  });
+
+  async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc,
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+    return { ctx, parrafos };
+  }
+
+  it("textoAnalisisCustom reemplaza el párrafo de conclusión de 2.21.5", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = shots();
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(
+      ctx,
+      "2.21",
+      visitaFixture,
+      conv,
+      undefined,
+      "Texto de análisis editado a mano por el físico."
+    );
+    expect(parrafos).toContain("Texto de análisis editado a mano por el físico.");
+    expect(parrafos.join(" ")).not.toContain("evidenciando estabilidad");
+  });
+
+  it("sin textoAnalisisCustom mantiene el párrafo calculado automático (regresión)", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = shots();
+    const { ctx, parrafos } = await ctxConTextoCapturado();
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    expect(parrafos.join(" ")).toContain("evidenciando estabilidad");
   });
 });
 

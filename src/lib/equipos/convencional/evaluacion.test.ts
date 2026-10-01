@@ -4,6 +4,7 @@ import {
   tieneCriterio,
   detalle213,
   conceptoEfectivoSeccion,
+  rendimiento27,
 } from "./evaluacion";
 import type { DatosEvalConv } from "./evaluacion";
 
@@ -190,6 +191,106 @@ describe("2.6 — capa hemirreductora", () => {
     expect(
       ev("2.6", datos({ raysafeMediciones: [shot({ kv_nominal: 80, chr_medido_mmal: 1.0 })] }))
     ).toBe("No_conforme");
+  });
+});
+
+// ─── 2.7 Rendimiento, repetibilidad y linealidad ───
+// Datos reales de la plantilla de referencia del físico (visita CONV 1365,
+// CLIN SOMER RIONEGRO): la consola de campo no permite programar 80kV
+// exacto, el valor más cercano fue 81kV. El rendimiento esperado (corregido
+// por distancia y kV) fue verificado contra la hoja de cálculo del físico.
+
+const shotRend27 = (grupo: number, mas: number, dosis: number) =>
+  rs({ tipo_medicion: "principal", grupo_numero: grupo, kv_nominal: 81, mas_nominal: mas, dosis_medida_mgy: dosis });
+
+describe("2.7 — rendimiento, repetibilidad y linealidad", () => {
+  it("sin ninguna medición principal → Pendiente (undefined)", () => {
+    expect(ev("2.7", datos({ raysafeMediciones: [] }))).toBeUndefined();
+  });
+
+  it("kV nominal 81 (no 80 exacto) con distancia 100cm → sí evalúa y da Conforme", () => {
+    // Grupo 2 (mAs=5), grupo 3 (mAs=10, x3 tomas = repetibilidad), grupo 4
+    // (mAs=12.5), grupo 5 (mAs=16) — valores de dosis promedio tomados de la
+    // plantilla real del físico.
+    expect(
+      ev(
+        "2.7",
+        datos({
+          raysafeSetup: rs({ distancia_foco_sensor_cm: 100 }),
+          raysafeMediciones: [
+            shotRend27(2, 5, 0.2638666667),
+            shotRend27(3, 10, 0.53),
+            shotRend27(3, 10, 0.5296),
+            shotRend27(3, 10, 0.5299),
+            shotRend27(4, 12.5, 0.6627333333),
+            shotRend27(5, 16, 0.8477333333),
+          ],
+        })
+      )
+    ).toBe("Conforme");
+  });
+
+  it("filtro viejo (kv_nominal === 80 exacto) dejaba este mismo caso en Pendiente — regresión", () => {
+    // Antes del fix, evaluar27 exigía kv_nominal === 80 exacto; con 81kV
+    // (lo único que la consola permitía) el array quedaba vacío y la
+    // prueba nunca se evaluaba, aunque hubiera datos válidos.
+    const datosReales = datos({
+      raysafeSetup: rs({ distancia_foco_sensor_cm: 100 }),
+      raysafeMediciones: [
+        shotRend27(2, 5, 0.2638666667),
+        shotRend27(3, 10, 0.53),
+        shotRend27(3, 10, 0.5296),
+        shotRend27(3, 10, 0.5299),
+      ],
+    });
+    expect(ev("2.7", datosReales)).not.toBeUndefined();
+  });
+
+  it("repetibilidad CV > 5% → No_conforme", () => {
+    expect(
+      ev(
+        "2.7",
+        datos({
+          raysafeMediciones: [
+            shotRend27(3, 10, 0.4),
+            shotRend27(3, 10, 0.5),
+            shotRend27(3, 10, 0.6),
+          ],
+        })
+      )
+    ).toBe("No_conforme");
+  });
+
+  it("linealidad entre grupos > 10% → No_conforme", () => {
+    expect(
+      ev(
+        "2.7",
+        datos({
+          raysafeMediciones: [
+            shotRend27(2, 5, 0.25),
+            shotRend27(4, 12.5, 0.8), // rendimiento muy distinto al de grupo 2
+          ],
+        })
+      )
+    ).toBe("No_conforme");
+  });
+});
+
+describe("rendimiento27 — corrección por distancia y kV", () => {
+  it("distancia distinta de 100cm escala el rendimiento por (distancia/100)²", () => {
+    const a100 = rendimiento27(0.5, 10, 100, 80);
+    const a90 = rendimiento27(0.5, 10, 90, 80);
+    expect(a90 / a100).toBeCloseTo((90 / 100) ** 2, 6);
+  });
+
+  it("kV nominal distinto de 80 escala el rendimiento por (80/kV)²", () => {
+    const a80 = rendimiento27(0.5, 10, 100, 80);
+    const a60 = rendimiento27(0.5, 10, 100, 60);
+    expect(a60 / a80).toBeCloseTo((80 / 60) ** 2, 6);
+  });
+
+  it("reproduce el valor de referencia de la plantilla del físico (grupo 2: mAs=5, kV=81)", () => {
+    expect(rendimiento27(0.2638666667, 5, 100, 81)).toBeCloseTo(51.47833156, 2);
   });
 });
 

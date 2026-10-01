@@ -191,37 +191,74 @@ function evaluar26(d: DatosEvalConv): Concepto | undefined {
 }
 
 /**
- * 2.7 — Rendimiento: repetibilidad (CV ≤5%) y linealidad (≤10%). No necesita
- * `convertirKerma` (#113): CV y linealidad son razones entre mediciones del
- * mismo instrumento/visita, el factor de unidad se cancela en la división.
+ * Grupos de disparos principales que alimentan la 2.7 (ver protocolo TECDOC):
+ * variación de mAs a ~80kV para linealidad; el grupo 3 además sirve de
+ * repetibilidad (3 tomas en idénticas condiciones).
+ */
+const GRUPOS_LINEALIDAD_27 = new Set([2, 3, 4, 5]);
+
+/**
+ * Rendimiento normalizado a 100cm y 80kVp (ver retroalimentación física):
+ * la consola en campo rara vez permite programar exactamente 80kV (suele
+ * quedar en 81, 79, etc.), por lo que el rendimiento medido debe corregirse
+ * por distancia (ley del cuadrado inverso, normalizado a 100cm) y por kV
+ * (corrección cuadrática respecto a la referencia de 80kV) antes de evaluar
+ * linealidad o compararlo entre visitas.
+ */
+export function rendimiento27(
+  kermaPromMgy: number,
+  masNominal: number,
+  distanciaCm: number,
+  kvNominal: number
+): number {
+  return (kermaPromMgy / masNominal) * (distanciaCm / 100) ** 2 * 1000 * (80 / kvNominal) ** 2;
+}
+
+/**
+ * 2.7 — Rendimiento: repetibilidad (CV ≤5%) y linealidad (≤10%). La
+ * repetibilidad no necesita `convertirKerma` ni corrección de distancia/kV
+ * (#113): es una razón entre mediciones del mismo grupo (misma distancia,
+ * mismo kV nominal), esos factores se cancelan en la división. La linealidad
+ * sí requiere la corrección, porque compara grupos que pueden diferir en kV
+ * nominal real (consolas sin paso exacto de 80kV).
  */
 function evaluar27(d: DatosEvalConv): Concepto | undefined {
-  const shots80 = d.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
+  const principales = d.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && m.dosis_medida_mgy != null
   );
-  if (shots80.length === 0) return undefined;
-  const repShots = shots80.filter((m) => m.grupo_numero === 3);
+  if (principales.length === 0) return undefined;
+
+  const repShots = principales.filter((m) => m.grupo_numero === 3);
   const hayRep = repShots.length > 0;
   const cv = hayRep ? cvPct(repShots.map((m) => m.dosis_medida_mgy!)) : 0;
 
-  const gruposMas = new Map<number, ConvRaysafeMedicion[]>();
-  for (const m of shots80) {
-    if (m.mas_nominal == null) continue;
-    if (!gruposMas.has(m.mas_nominal)) gruposMas.set(m.mas_nominal, []);
-    gruposMas.get(m.mas_nominal)!.push(m);
+  const distancia = d.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
+  const gruposLin = new Map<number, ConvRaysafeMedicion[]>();
+  for (const m of principales) {
+    if (
+      m.grupo_numero == null ||
+      !GRUPOS_LINEALIDAD_27.has(m.grupo_numero) ||
+      m.mas_nominal == null ||
+      m.kv_nominal == null
+    )
+      continue;
+    if (!gruposLin.has(m.grupo_numero)) gruposLin.set(m.grupo_numero, []);
+    gruposLin.get(m.grupo_numero)!.push(m);
   }
-  const entradasLin = [...gruposMas.entries()].sort(([a], [b]) => a - b);
+  const entradasLin = [...gruposLin.entries()].sort(([a], [b]) => a - b);
+  const rendimientos = entradasLin.map(
+    ([, ms]) =>
+      rendimiento27(promedio(ms.map((m) => m.dosis_medida_mgy!)), ms[0].mas_nominal!, distancia, ms[0].kv_nominal!)
+  );
   let linMax = 0;
-  if (entradasLin.length > 1) {
-    const [mas0, ms0] = entradasLin[0];
-    const ref = (promedio(ms0.map((m) => m.dosis_medida_mgy!)) / mas0) * 1000;
-    for (const [mas, ms] of entradasLin.slice(1)) {
-      const r = (promedio(ms.map((m) => m.dosis_medida_mgy!)) / mas) * 1000;
-      if (ref > 0) linMax = Math.max(linMax, Math.abs((r - ref) / ref) * 100);
-    }
+  for (let i = 1; i < rendimientos.length; i++) {
+    const prev = rendimientos[i - 1];
+    const cur = rendimientos[i];
+    if (prev + cur > 0) linMax = Math.max(linMax, (Math.abs(cur - prev) / (cur + prev)) * 100);
   }
+
   const conformeRep = !hayRep || cv <= 5;
-  const conformeLin = entradasLin.length <= 1 || linMax <= 10;
+  const conformeLin = rendimientos.length <= 1 || linMax <= 10;
   return !conformeRep || !conformeLin ? "No_conforme" : "Conforme";
 }
 

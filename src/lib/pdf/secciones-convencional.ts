@@ -29,7 +29,11 @@ import {
   ITEMS_CONDICIONES_OPERACION,
 } from "@/lib/equipos/convencional/inspeccion-items";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
-import { detalle213, tolerancia211Default } from "@/lib/equipos/convencional/evaluacion";
+import {
+  detalle213,
+  tolerancia211Default,
+  rendimiento27,
+} from "@/lib/equipos/convencional/evaluacion";
 import {
   convertirDap,
   convertirKerma,
@@ -1796,8 +1800,8 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   // asumen mGy, sin importar en qué unidad reporta el instrumento RaySafe.
   const kerma = (m: { dosis_medida_mgy?: number }) =>
     convertirKerma(m.dosis_medida_mgy!, unidadKerma);
-  const shots80 = conv.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && m.kv_nominal === 80 && m.dosis_medida_mgy != null
+  const disparosPrincipales = conv.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && m.dosis_medida_mgy != null
   );
 
   ctx.addSubsectionTitle("2.7.4.", "Resultados");
@@ -1814,14 +1818,19 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       "la repetibilidad de la radiación de salida y la linealidad del rendimiento con respecto al mAs."
   );
 
-  if (shots80.length === 0) return SIN_DATOS(ctx);
+  if (disparosPrincipales.length === 0) return SIN_DATOS(ctx);
 
-  // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5 a 80 kV) ──
-  // Solo grupos 2–5 (variación de mAs a 80 kV); grupos 7–8 van a repetibilidad
+  // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5, variación de mAs) ──
+  // Solo grupos 2–5; grupos 7–8 van a repetibilidad
   const GRUPOS_LIN = new Set([2, 3, 4, 5]);
-  const gruposNum = new Map<number, typeof shots80>();
-  for (const m of shots80) {
-    if (m.grupo_numero == null || !GRUPOS_LIN.has(m.grupo_numero) || m.mas_nominal == null)
+  const gruposNum = new Map<number, typeof disparosPrincipales>();
+  for (const m of disparosPrincipales) {
+    if (
+      m.grupo_numero == null ||
+      !GRUPOS_LIN.has(m.grupo_numero) ||
+      m.mas_nominal == null ||
+      m.kv_nominal == null
+    )
       continue;
     if (!gruposNum.has(m.grupo_numero)) gruposNum.set(m.grupo_numero, []);
     gruposNum.get(m.grupo_numero)!.push(m);
@@ -1842,7 +1851,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
     const rowsLin = gruposArr.map(([, ms]) => {
       const mas = ms[0].mas_nominal!;
       const kermaProm = mean(ms.map(kerma));
-      const rend = mas > 0 ? (kermaProm / mas) * 1000 : 0;
+      const rend = mas > 0 ? rendimiento27(kermaProm, mas, distancia, ms[0].kv_nominal!) : 0;
       // Linealidad: comparación con el grupo anterior (fórmula |a-b|/(a+b)*100)
       const linPct =
         prevRend != null && prevRend > 0
@@ -1884,7 +1893,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/200mA/0.05s) ──
-  const repShots = shots80
+  const repShots = disparosPrincipales
     .filter((m) => m.grupo_numero === 3)
     .sort((a, b) => a.toma_numero - b.toma_numero);
 
@@ -1942,7 +1951,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const allRends = gruposArr.map(([, ms]) => {
     const mas = ms[0].mas_nominal!;
-    return mas > 0 ? (mean(ms.map(kerma)) / mas) * 1000 : 0;
+    return mas > 0 ? rendimiento27(mean(ms.map(kerma)), mas, distancia, ms[0].kv_nominal!) : 0;
   });
   const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
   const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;

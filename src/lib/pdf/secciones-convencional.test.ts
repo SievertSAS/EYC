@@ -320,6 +320,92 @@ describe("2.7/2.8/2.21 — conversión de unidad según unidad_dap/unidad_kerma 
   });
 });
 
+// ─── 2.7: corrección por distancia y kV (retroalimentación física) ───
+
+describe("2.7 — kV nominal distinto de 80 (consola de campo sin paso exacto) y corrección por distancia", () => {
+  const shots = () => [
+    row({
+      id: "g2",
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 2,
+      kv_nominal: 81,
+      mas_nominal: 5,
+      toma_numero: 1,
+      dosis_medida_mgy: 0.2638666667,
+    }),
+    row({
+      id: "g3a",
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 3,
+      kv_nominal: 81,
+      mas_nominal: 10,
+      toma_numero: 1,
+      dosis_medida_mgy: 0.53,
+    }),
+    row({
+      id: "g3b",
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 3,
+      kv_nominal: 81,
+      mas_nominal: 10,
+      toma_numero: 2,
+      dosis_medida_mgy: 0.5296,
+    }),
+    row({
+      id: "g3c",
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 3,
+      kv_nominal: 81,
+      mas_nominal: 10,
+      toma_numero: 3,
+      dosis_medida_mgy: 0.5299,
+    }),
+  ];
+
+  it("kv_nominal=81 (no 80 exacto) → antes quedaba 'sin datos'; ahora sí muestra Tabla 2.7.1 y 2.7.2", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeSetup = row({ id: "s1", visita_id: V, distancia_foco_sensor_cm: 100 });
+    conv.raysafeMediciones = shots();
+    renderResultadosSeccion(ctx, "2.7", visitaFixture, conv, undefined);
+    const tabla271 = tablas.find((t) => t.head.includes("Rendimiento (µGy/mAs)"));
+    const tabla272 = tablas.find((t) => t.head.includes("Medición"));
+    expect(tabla271).toBeDefined();
+    expect(tabla272).toBeDefined();
+    // Rendimiento del grupo 2 (mAs=5), corregido por kV 81→80: ≈51,5 µGy/mAs
+    // (valor de referencia de la plantilla real del físico).
+    expect(tabla271!.body[0][2]).toBe("51,5");
+  });
+
+  const parseDecimalEs = (s: unknown) => Number(String(s).replace(",", "."));
+
+  it("distancia_foco_sensor_cm=90 (en vez de 100) cambia el rendimiento mostrado, proporcional a (90/100)²", async () => {
+    const { ctx: ctx100, tablas: tablas100 } = await ctxConTablasCapturadas();
+    const conv100: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv100.raysafeSetup = row({ id: "s1", visita_id: V, distancia_foco_sensor_cm: 100 });
+    conv100.raysafeMediciones = shots();
+    renderResultadosSeccion(ctx100, "2.7", visitaFixture, conv100, undefined);
+    const rend100 = parseDecimalEs(
+      tablas100.find((t) => t.head.includes("Rendimiento (µGy/mAs)"))!.body[0][2]
+    );
+
+    const { ctx: ctx90, tablas: tablas90 } = await ctxConTablasCapturadas();
+    const conv90: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv90.raysafeSetup = row({ id: "s1", visita_id: V, distancia_foco_sensor_cm: 90 });
+    conv90.raysafeMediciones = shots();
+    renderResultadosSeccion(ctx90, "2.7", visitaFixture, conv90, undefined);
+    const rend90 = parseDecimalEs(
+      tablas90.find((t) => t.head.includes("Rendimiento (µGy/mAs)"))!.body[0][2]
+    );
+
+    expect(rend90 / rend100).toBeCloseTo((90 / 100) ** 2, 2);
+  });
+});
+
 // ─── #117: montaje/patrón de 2.3 reutilizados en 2.12/2.13 ───
 
 describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 (#117)", () => {

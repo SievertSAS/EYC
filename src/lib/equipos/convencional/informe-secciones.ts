@@ -515,6 +515,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "La determinación de la dosis al receptor se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958. El tubo de rayos X se centró con el detector y el haz se colimó para cubrir completamente el área del receptor. Se colocó una lámina de cobre de 1 mm en la salida del haz de radiación y el dosímetro en la superficie del Bucky, alineado con el eje central del haz. Se registraron la distancia fuente–dosímetro (d1) y la distancia fuente–receptor de imagen (d2). Se seleccionaron parámetros clínicos representativos y se realizaron exposiciones, registrando el valor de dosis medida en cada condición. La dosis al receptor se calculó aplicando la corrección geométrica correspondiente.",
     criterio:
       "La diferencia entre el valor de la dosis calculada y la dosis base inicial debe ser menor a 0,01 mGy (10 µGy).",
+    analisis:
+      "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se encuentran dentro del criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), evidenciando estabilidad en la dosis entregada al receptor de imagen y consistencia en la respuesta del sistema bajo condiciones clínicas representativas.",
     comoSeEvalua: {
       datos:
         "Los disparos 'sin rejilla' del RaySafe: dosis medida y dosis de línea base, más las distancias foco-sensor (d1) y foco-detector (d2), por defecto 100 cm cada una.",

@@ -1806,11 +1806,16 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
 
   ctx.addSubsectionTitle("2.7.4.", "Resultados");
   const distancia = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
+  // Solo grupos 2–5 (variación de mAs); grupos 7–8 van a repetibilidad
+  const GRUPOS_LIN = new Set([2, 3, 4, 5]);
+  const kvProgramada =
+    disparosPrincipales.find((m) => m.grupo_numero != null && GRUPOS_LIN.has(m.grupo_numero))
+      ?.kv_nominal ?? 80;
   ctx.addParagraph(
     "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
-      `Tensión de referencia: 80 kVp\n` +
+      `Tensión programada: ${formatDecimal(kvProgramada, 0)} kVp\n` +
       `Distancia foco-detector: ${distancia} cm\n` +
-      "Estimación del rendimiento: normalizado a 100 centímetros\n" +
+      "Estimación del rendimiento: normalizado a 80 kVp y 100 centímetros\n" +
       "Factor de corrección por presión y temperatura del analizador: 1,0"
   );
   ctx.addParagraph(
@@ -1821,8 +1826,6 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   if (disparosPrincipales.length === 0) return SIN_DATOS(ctx);
 
   // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5, variación de mAs) ──
-  // Solo grupos 2–5; grupos 7–8 van a repetibilidad
-  const GRUPOS_LIN = new Set([2, 3, 4, 5]);
   const gruposNum = new Map<number, typeof disparosPrincipales>();
   for (const m of disparosPrincipales) {
     if (

@@ -711,4 +711,38 @@ describe("Página de contenido (índice)", () => {
     const conObs = await pdfText((await generarPreInforme(visita!.id!))!);
     expect(conObs).not.toContain("OBSERVACIONES GENERALES");
   });
+
+  it("2.21: el Análisis editado no se duplica después de Acciones correctivas", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    // render221 solo usa textoAnalisisCustom en el branch "hay línea base" —
+    // necesita al menos una medición sin_rejilla con dosis_base_mgy.
+    await db.conv_raysafe_mediciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      tipo_medicion: "sin_rejilla",
+      toma_numero: 1,
+      programa_clinico: "Tórax AP",
+      kv_nominal: 90,
+      mas_nominal: 5,
+      dosis_medida_mgy: 0.32,
+      dosis_base_mgy: 0.319,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    });
+    const textoCustom = "Texto de analisis editado a mano por el fisico XYZ123";
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: "2.21",
+      orden: 21,
+      incluida: true,
+      observaciones: textoCustom,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    const apariciones = text.split(textoCustom).length - 1;
+    expect(apariciones).toBe(1);
+  });
 });

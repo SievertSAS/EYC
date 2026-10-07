@@ -23,3 +23,10 @@ export function cvPct(arr: number[]): number {
   const m = promedio(arr);
   return m > 0 ? (desviacion(arr) / m) * 100 : 0;
 }
+
+/** Desviación según TECDOC: |promedio - nominal| / nominal × 100 */
+export function desvNominal(medidos: number[], nominal: number): number {
+  if (nominal === 0 || medidos.length === 0) return 0;
+  const prom = promedio(medidos);
+  return (Math.abs(prom - nominal) / nominal) * 100;
+}

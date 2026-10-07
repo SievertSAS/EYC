@@ -32,16 +32,16 @@ import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones
 import {
   detalle213,
   tolerancia211Default,
-  rendimiento27,
   CHR_MIN,
-  chrMinimaParaKv,
+  GRUPOS_LINEALIDAD_27,
+  calcularResultado24,
+  calcularResultado25,
+  calcularResultado26,
+  calcularResultado27,
+  calcularResultado221,
+  calcularResultado28,
 } from "@/lib/equipos/convencional/evaluacion";
-import {
-  convertirDap,
-  convertirKerma,
-  LABEL_UNIDAD_DAP,
-  LABEL_UNIDAD_KERMA,
-} from "@/lib/equipos/convencional/unidades-raysafe";
+import { LABEL_UNIDAD_DAP, LABEL_UNIDAD_KERMA } from "@/lib/equipos/convencional/unidades-raysafe";
 import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import {
@@ -1450,20 +1450,6 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
-// ─── Helpers estadísticos ───
-
-// Alias locales sobre la fuente única de verdad (#121) — evita reescribir
-// todos los usos ya existentes de `mean`/`stdDev` en este archivo.
-const mean = promedio;
-const stdDev = desviacion;
-
-// Desviación según TECDOC: |promedio - nominal| / nominal × 100
-function desvNominal(medidos: number[], nominal: number): number {
-  if (nominal === 0 || medidos.length === 0) return 0;
-  const prom = medidos.reduce((s, v) => s + v, 0) / medidos.length;
-  return (Math.abs(prom - nominal) / nominal) * 100;
-}
-
 // ─── Renderizadores 2.4–2.7 (pruebas RaySafe) ───
 
 const SIN_DATOS = (ctx: InformeCtx) => {
@@ -1473,49 +1459,27 @@ const SIN_DATOS = (ctx: InformeCtx) => {
   return 5;
 };
 
-// Grupos 1, 2, 6: los tres tiempos nominales distintos (60kV/80kV/90kV)
-const GRUPOS_TIEMPO_KV_CHR = new Set([1, 2, 6]);
-
 function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const principales = conv.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
-  );
 
   ctx.addSubsectionTitle("2.4.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  const grupos = new Map<number, typeof principales>();
-  for (const m of principales) {
-    if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
-    const key = m.tiempo_nominal_s;
-    if (!grupos.has(key)) grupos.set(key, []);
-    grupos.get(key)!.push(m);
-  }
+  const resultado = calcularResultado24(conv.raysafeMediciones);
+  if (resultado.length === 0) return SIN_DATOS(ctx);
 
-  if (grupos.size === 0) return SIN_DATOS(ctx);
+  // Orden descendente de tiempo nominal (igual que siempre mostró el PDF).
+  // El análisis más abajo (maxDv/maxCv) usa los números crudos devueltos por
+  // `calcularResultado24`, nunca re-parsea el texto ya formateado de la tabla
+  // con `parseFloat` (corta en la coma de "0,67 %" y da 0 — #bug real).
+  const statsPorGrupo = [...resultado].sort((a, b) => b.tiempoNominal - a.tiempoNominal);
 
-  // Números crudos por grupo, separados de las celdas ya formateadas con
-  // coma decimal: el análisis más abajo (maxDv/maxCv) debe usar estos
-  // valores, nunca re-parsear el texto de la tabla con `parseFloat` (corta
-  // en la coma de "0,67 %" y da 0 — #bug real, informe mostraba 0,00 %).
-  const statsPorGrupo = [...grupos.entries()]
-    .sort(([a], [b]) => b - a)
-    .map(([nom, ms]) => {
-      const medidos = ms.map((m) => m.tiempo_medido_s!);
-      const prom = mean(medidos);
-      const desv = desvNominal(medidos, nom);
-      const std = stdDev(medidos);
-      const cv = prom > 0 ? (std / prom) * 100 : 0;
-      return { nom, prom, desv, std, cv, conforme: desv <= 10 && cv <= 10 };
-    });
-
-  const rows = statsPorGrupo.map(({ nom, prom, desv, std, cv, conforme }) => [
-    formatDecimal(nom),
-    formatDecimal(prom, 3),
-    formatDecimal(desv, 2) + " %",
+  const rows = statsPorGrupo.map(({ tiempoNominal, tiempoProm, desvPct, std, cvPct, conforme }) => [
+    formatDecimal(tiempoNominal),
+    formatDecimal(tiempoProm, 3),
+    formatDecimal(desvPct, 2) + " %",
     formatDecimal(std, 5),
-    formatDecimal(cv, 2) + " %",
+    formatDecimal(cvPct, 2) + " %",
     conforme ? "Conforme" : "No conforme",
   ]);
 
@@ -1552,8 +1516,8 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
 
   ctx.addSubsectionTitle("2.4.5.", "Análisis");
   const todosConformes = statsPorGrupo.every((s) => s.conforme);
-  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desv));
-  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cv));
+  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desvPct));
+  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cvPct));
   if (todosConformes) {
     ctx.addParagraph(
       `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
@@ -1568,41 +1532,22 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render25(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const principales = conv.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
-  );
 
   ctx.addSubsectionTitle("2.5.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  const grupos = new Map<number, typeof principales>();
-  for (const m of principales) {
-    if (m.kv_nominal == null || m.kv_medido == null) continue;
-    const key = m.kv_nominal;
-    if (!grupos.has(key)) grupos.set(key, []);
-    grupos.get(key)!.push(m);
-  }
-
-  if (grupos.size === 0) return SIN_DATOS(ctx);
+  const resultado = calcularResultado25(conv.raysafeMediciones);
+  if (resultado.length === 0) return SIN_DATOS(ctx);
 
   // Ver comentario equivalente en render24: no re-parsear celdas formateadas.
-  const statsPorGrupo = [...grupos.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([nom, ms]) => {
-      const medidos = ms.map((m) => m.kv_medido!);
-      const prom = mean(medidos);
-      const desv = desvNominal(medidos, nom);
-      const std = stdDev(medidos);
-      const cv = prom > 0 ? (std / prom) * 100 : 0;
-      return { nom, prom, desv, std, cv, conforme: desv <= 10 && cv <= 5 };
-    });
+  const statsPorGrupo = [...resultado].sort((a, b) => a.kvNominal - b.kvNominal);
 
-  const rows = statsPorGrupo.map(({ nom, prom, desv, std, cv, conforme }) => [
-    formatDecimal(nom, 0),
-    formatDecimal(prom, 1),
-    formatDecimal(desv, 2) + " %",
+  const rows = statsPorGrupo.map(({ kvNominal, kvProm, desvPct, std, cvPct, conforme }) => [
+    formatDecimal(kvNominal, 0),
+    formatDecimal(kvProm, 1),
+    formatDecimal(desvPct, 2) + " %",
     formatDecimal(std, 2),
-    formatDecimal(cv, 2) + " %",
+    formatDecimal(cvPct, 2) + " %",
     conforme ? "Conforme" : "No conforme",
   ]);
 
@@ -1639,8 +1584,8 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
 
   ctx.addSubsectionTitle("2.5.5.", "Análisis");
   const todosConformes = statsPorGrupo.every((s) => s.conforme);
-  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desv));
-  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cv));
+  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desvPct));
+  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cvPct));
   if (todosConformes) {
     ctx.addParagraph(
       `Los resultados obtenidos evidencian que la tensión del tubo medida presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad en la respuesta del generador de rayos X para los valores de tensión evaluados.`
@@ -1655,36 +1600,19 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render26(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const principales = conv.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
-  );
 
   ctx.addSubsectionTitle("2.6.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  const grupos = new Map<number, typeof principales>();
-  for (const m of principales) {
-    if (m.kv_nominal == null || m.chr_medido_mmal == null) continue;
-    const key = m.kv_nominal;
-    if (!grupos.has(key)) grupos.set(key, []);
-    grupos.get(key)!.push(m);
-  }
+  const resultado = calcularResultado26(conv.raysafeMediciones);
+  if (resultado.length === 0) return SIN_DATOS(ctx);
 
-  if (grupos.size === 0) return SIN_DATOS(ctx);
-
-  const rows = [...grupos.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([kv, ms]) => {
-      const chrProm = mean(ms.map((m) => m.chr_medido_mmal!));
-      const chrMin = chrMinimaParaKv(kv);
-      const concepto = chrMin != null && chrProm >= chrMin ? "Conforme" : "No conforme";
-      return [
-        formatDecimal(kv, 0),
-        formatDecimal(chrProm, 1),
-        chrMin != null ? formatDecimal(chrMin, 1) : "—",
-        concepto,
-      ];
-    });
+  const rows = resultado.map(({ kvNominal, chrProm, chrMin, conforme }) => [
+    formatDecimal(kvNominal, 0),
+    formatDecimal(chrProm, 1),
+    chrMin != null ? formatDecimal(chrMin, 1) : "—",
+    conforme ? "Conforme" : "No conforme",
+  ]);
 
   ctx.checkPage(36);
   addCaption(
@@ -1826,22 +1754,17 @@ export function renderTablaBaseRef221(ctx: InformeCtx, conv: DatosConvencional) 
 
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const unidadKerma = conv.raysafeSetup?.unidad_kerma;
-  // #113: normalizado a mGy — los cálculos y las etiquetas de esta función
-  // asumen mGy, sin importar en qué unidad reporta el instrumento RaySafe.
-  const kerma = (m: { dosis_medida_mgy?: number }) =>
-    convertirKerma(m.dosis_medida_mgy!, unidadKerma);
-  const disparosPrincipales = conv.raysafeMediciones.filter(
-    (m) => m.tipo_medicion === "principal" && m.dosis_medida_mgy != null
-  );
 
   ctx.addSubsectionTitle("2.7.4.", "Resultados");
   const distancia = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
-  // Solo grupos 2–5 (variación de mAs); grupos 7–8 van a repetibilidad
-  const GRUPOS_LIN = new Set([2, 3, 4, 5]);
   const kvProgramada =
-    disparosPrincipales.find((m) => m.grupo_numero != null && GRUPOS_LIN.has(m.grupo_numero))
-      ?.kv_nominal ?? 80;
+    conv.raysafeMediciones.find(
+      (m) =>
+        m.tipo_medicion === "principal" &&
+        m.dosis_medida_mgy != null &&
+        m.grupo_numero != null &&
+        GRUPOS_LINEALIDAD_27.has(m.grupo_numero)
+    )?.kv_nominal ?? 80;
   ctx.addParagraph(
     "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
       `Tensión programada: ${formatDecimal(kvProgramada, 0)} kVp\n` +
@@ -1854,26 +1777,18 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       "la repetibilidad de la radiación de salida y la linealidad del rendimiento con respecto al mAs."
   );
 
-  if (disparosPrincipales.length === 0) return SIN_DATOS(ctx);
+  const hayPrincipales = conv.raysafeMediciones.some(
+    (m) => m.tipo_medicion === "principal" && m.dosis_medida_mgy != null
+  );
+  if (!hayPrincipales) return SIN_DATOS(ctx);
+
+  const resultado = calcularResultado27(
+    conv.raysafeMediciones,
+    distancia,
+    conv.raysafeSetup?.unidad_kerma
+  );
 
   // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5, variación de mAs) ──
-  const gruposNum = new Map<number, typeof disparosPrincipales>();
-  for (const m of disparosPrincipales) {
-    if (
-      m.grupo_numero == null ||
-      !GRUPOS_LIN.has(m.grupo_numero) ||
-      m.mas_nominal == null ||
-      m.kv_nominal == null
-    )
-      continue;
-    if (!gruposNum.has(m.grupo_numero)) gruposNum.set(m.grupo_numero, []);
-    gruposNum.get(m.grupo_numero)!.push(m);
-  }
-  const gruposArr = [...gruposNum.entries()].sort(([a], [b]) => a - b);
-
-  let linMaxPct = 0;
-  let prevRend: number | null = null;
-
   ctx.checkPage(8);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -1881,25 +1796,15 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   doc.text("a) Evaluación del rendimiento del tubo de rayos X y linealidad", MARGIN, ctx.y);
   ctx.y += 6;
 
-  if (gruposArr.length > 0) {
-    const rowsLin = gruposArr.map(([, ms]) => {
-      const mas = ms[0].mas_nominal!;
-      const kermaProm = mean(ms.map(kerma));
-      const rend = mas > 0 ? rendimiento27(kermaProm, mas, distancia, ms[0].kv_nominal!) : 0;
-      // Linealidad: comparación con el grupo anterior (fórmula |a-b|/(a+b)*100)
-      const linPct =
-        prevRend != null && prevRend > 0
-          ? (Math.abs(rend - prevRend) / (rend + prevRend)) * 100
-          : null;
-      if (linPct != null && linPct > linMaxPct) linMaxPct = linPct;
-      prevRend = rend;
-      return [
-        formatDecimal(mas, 1),
+  if (resultado.linealidad.length > 0) {
+    const rowsLin = resultado.linealidad.map(
+      ({ masNominal, kermaProm, rendimiento, linealidadPct }) => [
+        formatDecimal(masNominal, 1),
         formatDecimal(kermaProm, 3),
-        formatDecimal(rend, 1),
-        linPct != null ? formatDecimal(linPct, 2) + " %" : "-%",
-      ];
-    });
+        formatDecimal(rendimiento, 1),
+        linealidadPct != null ? formatDecimal(linealidadPct, 2) + " %" : "-%",
+      ]
+    );
 
     ctx.checkPage(40);
     addCaption(ctx, "Tabla 2.7.1. Rendimiento del tubo de rayos X y linealidad");
@@ -1927,16 +1832,10 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   // ── Tabla 2.7.2: Repetibilidad (grupo 3 — 80kV/200mA/0.05s) ──
-  const repShots = disparosPrincipales
-    .filter((m) => m.grupo_numero === 3)
-    .sort((a, b) => a.toma_numero - b.toma_numero);
-
-  const kermasRep = repShots.map(kerma);
-  const promRep = kermasRep.length > 0 ? mean(kermasRep) : 0;
-  const stdRep = kermasRep.length > 0 ? stdDev(kermasRep) : 0;
-  const cvRep = promRep > 0 ? (stdRep / promRep) * 100 : 0;
-  const conformeRep = kermasRep.length === 0 || cvRep <= 5;
-  const conformeLin = gruposArr.length <= 1 || linMaxPct <= 10;
+  const { kermasRep, promRep, stdRep, cvRep } = resultado.repetibilidad;
+  const conformeRep = resultado.conformeRep;
+  const conformeLin = resultado.conformeLin;
+  const linMaxPct = resultado.linealidadMaxPct;
 
   ctx.checkPage(8);
   doc.setFont("helvetica", "bold");
@@ -1950,11 +1849,8 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       "de irradiación (80 kV y aproximadamente 10 mAs)."
   );
 
-  if (repShots.length > 0) {
-    const rowsIndiv: string[][] = repShots.map((m, i) => [
-      String(i + 1),
-      formatDecimal(kerma(m), 4),
-    ]);
+  if (kermasRep.length > 0) {
+    const rowsIndiv: string[][] = kermasRep.map((v, i) => [String(i + 1), formatDecimal(v, 4)]);
 
     ctx.checkPage(40);
     addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
@@ -1978,15 +1874,12 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   // ── 2.7.5 Análisis ──
   ctx.addSubsectionTitle("2.7.5.", "Análisis");
 
-  if (kermasRep.length === 0 && gruposArr.length === 0) {
+  if (kermasRep.length === 0 && resultado.linealidad.length === 0) {
     ctx.addParagraph("Sin datos registrados para esta prueba.");
     return 6;
   }
 
-  const allRends = gruposArr.map(([, ms]) => {
-    const mas = ms[0].mas_nominal!;
-    return mas > 0 ? rendimiento27(mean(ms.map(kerma)), mas, distancia, ms[0].kv_nominal!) : 0;
-  });
+  const allRends = resultado.linealidad.map((l) => l.rendimiento);
   const rendMin = allRends.length > 0 ? Math.min(...allRends) : 0;
   const rendMax = allRends.length > 0 ? Math.max(...allRends) : 0;
 
@@ -2014,48 +1907,25 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
 
 function render28(ctx: InformeCtx, conv: DatosConvencional): number {
   const { doc, autoTable } = ctx;
-  const unidadKerma = conv.raysafeSetup?.unidad_kerma;
-  const unidadDap = conv.raysafeSetup?.unidad_dap;
 
-  const mediciones = conv.raysafeMediciones
-    .filter((m) => m.tipo_medicion === "kerma" && m.dosis_medida_mgy != null)
-    .sort((a, b) => a.toma_numero - b.toma_numero);
+  const hayMediciones = conv.raysafeMediciones.some(
+    (m) => m.tipo_medicion === "kerma" && m.dosis_medida_mgy != null
+  );
 
   ctx.addSubsectionTitle("2.8.4.", "Resultados");
 
-  if (mediciones.length === 0) return SIN_DATOS(ctx);
-
-  const d1Setup = conv.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
-  const d2Setup = conv.raysafeSetup?.distancia_foco_detector_d2_cm ?? d1Setup;
+  if (!hayMediciones) return SIN_DATOS(ctx);
 
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  // #113: kerma y DAP nominal vienen de fuentes distintas (instrumento
-  // RaySafe vs. panel del equipo del cliente), cada uno con su propia
-  // unidad configurada. Ambos se normalizan a mGy/mGy·cm² antes de calcular
-  // el factor de corrección -- sin esto, `fc` puede salir hasta 1000x mal.
-  const rows = mediciones.map((m) => {
-    const kvNom = m.kv_nominal;
-    const masNom = m.mas_nominal;
-    const kerma = convertirKerma(m.dosis_medida_mgy!, unidadKerma);
-    const ancho = m.ancho_irradiacion_cm ?? 0;
-    const largo = m.largo_irradiacion_cm ?? 0;
-    const d1 = m.distancia_foco_sensor_cm ?? d1Setup;
-    const d2 = m.distancia_foco_detector_cm ?? d2Setup;
-    const factorDist = (d2 / d1) ** 2;
-    const areaCorr = ancho * largo * factorDist;
-    const kermaCorr = kerma * factorDist;
-    const dapEst = kermaCorr * areaCorr;
-    const dapNom = m.dap_nominal != null ? convertirDap(m.dap_nominal, unidadDap) : null;
-    const fc = dapNom != null && dapNom > 0 ? dapEst / dapNom : null;
-    return {
-      kv: kvNom != null ? formatDecimal(kvNom, 1) : "—",
-      mas: masNom != null ? formatDecimal(masNom, 1) : "—",
-      dapNom: dapNom != null ? formatDecimal(dapNom, 2) : "—",
-      dapEst: dapEst > 0 ? formatDecimal(dapEst, 2) : "—",
-      fc: fc != null ? formatDecimal(fc, 1) : "—",
-    };
-  });
+  const resultado = calcularResultado28(conv.raysafeMediciones, conv.raysafeSetup);
+  const rows = resultado.map((r) => ({
+    kv: r.kvNominal != null ? formatDecimal(r.kvNominal, 1) : "—",
+    mas: r.masNominal != null ? formatDecimal(r.masNominal, 1) : "—",
+    dapNom: r.dapNominal != null ? formatDecimal(r.dapNominal, 2) : "—",
+    dapEst: r.dapEstimado > 0 ? formatDecimal(r.dapEstimado, 2) : "—",
+    fc: r.factorCorreccion != null ? formatDecimal(r.factorCorreccion, 1) : "—",
+  }));
 
   ctx.checkPage(40);
   addCaption(ctx, "Tabla 2.8.1. Determinación del factor de corrección del PKA");
@@ -3297,13 +3167,9 @@ function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom
   const setup = conv.raysafeSetup;
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
   const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
-  const corrGeom = (d1 / d2) ** 2;
-  // #113: `dosis_base_mgy` se asume ya en mGy (así se guardó siempre, antes
-  // de que existiera esta conversión) — solo la medición actual se normaliza.
-  const unidadKerma = setup?.unidad_kerma;
   const labelKerma = LABEL_UNIDAD_KERMA.mgy;
 
-  const sinRejilla = conv.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
+  const resultado = calcularResultado221(conv.raysafeMediciones, setup);
 
   checkPage(30);
   addSubsectionTitle("2.21.4.", "Resultados");
@@ -3313,19 +3179,14 @@ function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom
   addParagraph(`Distancia foco-sensor d1 (cm): ${d1}`);
   addParagraph(`Distancia foco-detector de imagen d2 (cm): ${d2}`);
 
-  const filas221 = sinRejilla.map((m) => {
-    const dosisMedida =
-      m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
-    const dosisR = dosisMedida != null ? dosisMedida * corrGeom : null;
-    return [
-      m.programa_clinico ?? "—",
-      fmt(m.kv_nominal, 0),
-      fmt(m.mas_nominal),
-      dosisMedida != null ? formatDecimal(dosisMedida, 5) : "—",
-      "1",
-      dosisR != null ? formatDecimal(dosisR, 5) : "—",
-    ];
-  });
+  const filas221 = resultado.filas.map((f) => [
+    f.programa,
+    fmt(f.kvNominal, 0),
+    fmt(f.masNominal),
+    f.dosisMedida != null ? formatDecimal(f.dosisMedida, 5) : "—",
+    "1",
+    f.dosisReceptor != null ? formatDecimal(f.dosisReceptor, 5) : "—",
+  ]);
 
   addCaption(ctx, "Tabla 2.21.1. Registro de mediciones de dosis al receptor de imagen");
   autoTable(doc, {
@@ -3350,27 +3211,18 @@ function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom
 
   addSubsectionTitle("2.21.5.", "Análisis");
 
-  const hayBase = sinRejilla.some((m) => m.dosis_base_mgy != null);
-
-  if (!hayBase) {
+  if (!resultado.hayBase) {
     addParagraph(
       "No se dispone de valores de referencia previos para la dosis al receptor. Los valores obtenidos en esta visita se establecen como valores de referencia base para futuras evaluaciones."
     );
   } else {
-    const filas221Analisis = sinRejilla.map((m) => {
-      const dosisMedida =
-        m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
-      const dosisR = dosisMedida != null ? dosisMedida * corrGeom : null;
-      const diff =
-        dosisR != null && m.dosis_base_mgy != null ? Math.abs(dosisR - m.dosis_base_mgy) : null;
-      return [
-        m.programa_clinico ?? "—",
-        dosisR != null ? formatDecimal(dosisR, 5) : "—",
-        m.dosis_base_mgy != null ? formatDecimal(m.dosis_base_mgy, 5) : "—",
-        diff != null ? formatDecimal(diff, 5) : "—",
-        diff == null ? "—" : diff < 0.01 ? "Conforme" : "No conforme",
-      ];
-    });
+    const filas221Analisis = resultado.filas.map((f) => [
+      f.programa,
+      f.dosisReceptor != null ? formatDecimal(f.dosisReceptor, 5) : "—",
+      f.dosisBase != null ? formatDecimal(f.dosisBase, 5) : "—",
+      f.diferencia != null ? formatDecimal(f.diferencia, 5) : "—",
+      f.conforme == null ? "—" : f.conforme ? "Conforme" : "No conforme",
+    ]);
 
     checkPage(30);
     addCaption(ctx, "Tabla 2.21.2. Análisis de dosis al receptor de imagen");
@@ -3394,16 +3246,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom
     });
     ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
-    const diffs221 = sinRejilla
-      .map((m) => {
-        const dosisMedida =
-          m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
-        const dosisR = dosisMedida != null ? dosisMedida * corrGeom : null;
-        return dosisR != null && m.dosis_base_mgy != null
-          ? Math.abs(dosisR - m.dosis_base_mgy)
-          : null;
-      })
-      .filter((v): v is number => v != null);
+    const diffs221 = resultado.filas.map((f) => f.diferencia).filter((v): v is number => v != null);
     const conforme221 = diffs221.length === 0 || Math.max(...diffs221) < 0.01;
 
     addParagraph(

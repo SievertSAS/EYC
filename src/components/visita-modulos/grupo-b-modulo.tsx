@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -13,6 +13,14 @@ import {
 } from "@/lib/equipos/convencional/equipo-valores-base-sync";
 import { campoDosisBasePorPrograma } from "@/lib/equipos/convencional/valores-base-equipo";
 import { LABEL_UNIDAD_KERMA, LABEL_UNIDAD_DAP } from "@/lib/equipos/convencional/unidades-raysafe";
+import {
+  calcularResultado24,
+  calcularResultado25,
+  calcularResultado26,
+  calcularResultado27,
+  calcularResultado221,
+  calcularResultado28,
+} from "@/lib/equipos/convencional/evaluacion";
 import {
   ArrowLeft,
   Check,
@@ -27,6 +35,7 @@ import {
   ChevronUp,
   BookOpen,
   CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   parseRaysafeFile,
@@ -75,9 +84,6 @@ const SLOTS_IMAGEN = [
   { slot: "montaje_rejilla", label: "Fotografía del montaje con rejilla" },
 ];
 
-/** CHR mínima según kV (tabla de referencia TECDOC) */
-const CHR_MINIMA: Record<number, number> = { 60: 1.8, 70: 2.1, 80: 2.3, 90: 2.5 };
-
 // ─── UI Components ───
 
 function Alert({ children }: { children: React.ReactNode }) {
@@ -108,6 +114,50 @@ function CeldaLectura({
       className={`h-7 flex items-center px-2 rounded-lg text-xs font-medium ${estilos} ${widthClass}`}
     >
       {value == null ? "—" : value.toLocaleString("es-CO", { maximumFractionDigits: 4 })}
+    </div>
+  );
+}
+
+/** Formatea un número con coma decimal (es-CO), o "—" si falta. */
+function fmtNum(value: number | null | undefined, decimales = 2): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return value.toLocaleString("es-CO", {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  });
+}
+
+/** Badge chico de concepto para los resultados auto-calculados en vivo. */
+function ConceptoBadgeChico({ conforme }: { conforme: boolean | null | undefined }) {
+  if (conforme == null) return <span className="text-[10px] text-slate-300 font-bold">—</span>;
+  return conforme ? (
+    <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+      <CheckCircle2 className="w-3 h-3" /> OK
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
+      <XCircle className="w-3 h-3" /> NC
+    </span>
+  );
+}
+
+/** Fila de resultado: etiqueta + valor calculado + badge de concepto. */
+function FilaResultado({
+  label,
+  valor,
+  conforme,
+}: {
+  label: string;
+  valor: string;
+  conforme: boolean | null | undefined;
+}) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-none gap-3">
+      <span className="text-xs font-medium text-slate-600">{label}</span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-xs font-mono font-bold text-slate-800 text-right">{valor}</span>
+        <ConceptoBadgeChico conforme={conforme} />
+      </div>
     </div>
   );
 }
@@ -615,6 +665,26 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
 
   // ─── Derived data ───
   const setup = data?.setup;
+
+  // Resultados auto-calculados en vivo (2.4/2.5/2.6/2.7/2.21/2.8): las mismas
+  // funciones puras que usan el badge del pre-informe y el PDF (evaluacion.ts),
+  // para que el físico vea en el editor exactamente lo que después firma.
+  const resultadosCalculados = useMemo(() => {
+    const mediciones = data?.mediciones ?? [];
+    return {
+      r24: calcularResultado24(mediciones),
+      r25: calcularResultado25(mediciones),
+      r26: calcularResultado26(mediciones),
+      r27: calcularResultado27(
+        mediciones,
+        setup?.distancia_foco_sensor_cm ?? 100,
+        setup?.unidad_kerma
+      ),
+      r221: calcularResultado221(mediciones, setup),
+      r28: calcularResultado28(mediciones, setup),
+    };
+  }, [data?.mediciones, setup]);
+
   const principales = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "principal");
   const conRejilla = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "con_rejilla");
   const sinRejilla = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "sin_rejilla");
@@ -1298,49 +1368,154 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      {/* ═══ TABLAS DE RESULTADOS (auto-calculadas) ═══ */}
+      {/* ═══ RESULTADOS AUTO-CALCULADOS EN VIVO ═══ */}
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-        <CardContent className="p-4 sm:p-5 space-y-5">
-          <StepHeader step="Resultados" title="Tablas de resultados auto-calculadas" icon={Zap}>
-            Estos valores se calculan automáticamente a partir de las mediciones anteriores.
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <StepHeader step="Resultados" title="2.4 Tiempo de exposición" icon={Zap}>
+            Desviación ≤ 10% respecto al nominal, CV ≤ 10% entre repeticiones.
           </StepHeader>
+          {resultadosCalculados.r24.length === 0 ? (
+            <ConceptoBadgeChico conforme={null} />
+          ) : (
+            resultadosCalculados.r24.map((r) => (
+              <FilaResultado
+                key={r.grupoNumero}
+                label={`Grupo ${r.grupoNumero} (${fmtNum(r.tiempoNominal, 3)}s nominal)`}
+                valor={`${fmtNum(r.tiempoProm, 3)}s · desv ${fmtNum(r.desvPct, 1)}% · CV ${fmtNum(r.cvPct, 1)}%`}
+                conforme={r.conforme}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
 
-          <Tip>
-            Las tablas de resultados (Tiempo, kVp, CHR, Rendimiento, Dosis al receptor, Factor PKA)
-            se calcularán automáticamente cuando se importen los datos del RaySafe. Los criterios de
-            aceptación están definidos en el TECDOC.
-          </Tip>
+      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <StepHeader step="Resultados" title="2.5 Tensión (kVp)" icon={Zap}>
+            Desviación ≤ 10% respecto al nominal, CV ≤ 5% entre repeticiones.
+          </StepHeader>
+          {resultadosCalculados.r25.length === 0 ? (
+            <ConceptoBadgeChico conforme={null} />
+          ) : (
+            resultadosCalculados.r25.map((r) => (
+              <FilaResultado
+                key={r.grupoNumero}
+                label={`Grupo ${r.grupoNumero} (${fmtNum(r.kvNominal, 0)} kV nominal)`}
+                valor={`${fmtNum(r.kvProm, 1)} kV · desv ${fmtNum(r.desvPct, 1)}% · CV ${fmtNum(r.cvPct, 1)}%`}
+                conforme={r.conforme}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              {
-                codigo: "2.4",
-                nombre: "Tiempo de exposición",
-                criterio: "Desviación ≤ 10%, CV ≤ 10%",
-              },
-              { codigo: "2.5", nombre: "Tensión (kVp)", criterio: "Desviación ≤ 10%, CV ≤ 5%" },
-              { codigo: "2.6", nombre: "CHR", criterio: "≥ mínimo según kV" },
-              { codigo: "2.7", nombre: "Rendimiento", criterio: "Linealidad ≤ 10%, CV ≤ 5%" },
-              { codigo: "2.21", nombre: "Dosis al receptor", criterio: "Diferencia ≤ 0.01 mGy" },
-              { codigo: "2.8", nombre: "Factor PKA", criterio: "Factor de corrección" },
-            ].map((prueba) => (
-              <div
-                key={prueba.codigo}
-                className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-primary uppercase">
-                    {prueba.codigo}
-                  </span>
-                  <span className="text-[10px] font-black text-slate-300 bg-slate-100 px-2 py-0.5 rounded-md">
-                    Pendiente
-                  </span>
-                </div>
-                <p className="text-xs font-bold text-slate-700">{prueba.nombre}</p>
-                <p className="text-[10px] text-slate-400">{prueba.criterio}</p>
-              </div>
-            ))}
-          </div>
+      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <StepHeader step="Resultados" title="2.6 Capa hemirreductora (CHR)" icon={Zap}>
+            CHR promedio ≥ mínimo de referencia TECDOC según el kV del grupo.
+          </StepHeader>
+          {resultadosCalculados.r26.length === 0 ? (
+            <ConceptoBadgeChico conforme={null} />
+          ) : (
+            resultadosCalculados.r26.map((r) => (
+              <FilaResultado
+                key={r.grupoNumero}
+                label={`Grupo ${r.grupoNumero} (${fmtNum(r.kvNominal, 0)} kV)`}
+                valor={`CHR ${fmtNum(r.chrProm, 2)} mmAl (mín ${r.chrMin != null ? fmtNum(r.chrMin, 1) : "—"})`}
+                conforme={r.chrMin != null ? r.conforme : null}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <StepHeader step="Resultados" title="2.7 Rendimiento del tubo" icon={Zap}>
+            Linealidad ≤ 10% entre grupos de mAs, repetibilidad (CV) ≤ 5%.
+          </StepHeader>
+          {resultadosCalculados.r27.linealidad.length === 0 &&
+          resultadosCalculados.r27.repetibilidad.kermasRep.length === 0 ? (
+            <ConceptoBadgeChico conforme={null} />
+          ) : (
+            <>
+              <FilaResultado
+                label="Linealidad (desviación máxima entre grupos)"
+                valor={`${fmtNum(resultadosCalculados.r27.linealidadMaxPct, 2)}%`}
+                conforme={
+                  resultadosCalculados.r27.linealidad.length > 0
+                    ? resultadosCalculados.r27.conformeLin
+                    : null
+                }
+              />
+              <FilaResultado
+                label="Repetibilidad (CV, grupo 3)"
+                valor={`${fmtNum(resultadosCalculados.r27.repetibilidad.cvRep, 2)}%`}
+                conforme={
+                  resultadosCalculados.r27.repetibilidad.kermasRep.length > 0
+                    ? resultadosCalculados.r27.conformeRep
+                    : null
+                }
+              />
+              {resultadosCalculados.r27.linealidad.length > 0 && (
+                <CollapsibleSection title="Rendimiento por grupo (µGy/mAs)" defaultOpen={false}>
+                  {resultadosCalculados.r27.linealidad.map((l) => (
+                    <FilaResultado
+                      key={l.grupoNumero}
+                      label={`Grupo ${l.grupoNumero} (${fmtNum(l.masNominal, 1)} mAs)`}
+                      valor={`${fmtNum(l.rendimiento, 1)} µGy/mAs`}
+                      conforme={null}
+                    />
+                  ))}
+                </CollapsibleSection>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <StepHeader step="Resultados" title="2.21 Dosis al receptor" icon={Zap}>
+            Diferencia vs. línea base &lt; 0,01 mGy, por programa clínico.
+          </StepHeader>
+          {resultadosCalculados.r221.filas.length === 0 ? (
+            <ConceptoBadgeChico conforme={null} />
+          ) : (
+            <>
+              {!resultadosCalculados.r221.hayBase && (
+                <Tip>Sin línea base previa: esta visita establece la referencia.</Tip>
+              )}
+              {resultadosCalculados.r221.filas.map((f, i) => (
+                <FilaResultado
+                  key={`${f.programa}-${i}`}
+                  label={f.programa}
+                  valor={`${f.dosisReceptor != null ? fmtNum(f.dosisReceptor, 5) : "—"} mGy (base ${f.dosisBase != null ? fmtNum(f.dosisBase, 5) : "—"}, Δ ${f.diferencia != null ? fmtNum(f.diferencia, 5) : "—"})`}
+                  conforme={f.conforme}
+                />
+              ))}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <StepHeader step="Resultados" title="2.8 Factor de corrección PKA" icon={Zap}>
+            Solo informativo — esta prueba no tiene criterio de aceptación.
+          </StepHeader>
+          {resultadosCalculados.r28.length === 0 ? (
+            <ConceptoBadgeChico conforme={null} />
+          ) : (
+            resultadosCalculados.r28.map((r, i) => (
+              <FilaResultado
+                key={i}
+                label={`${fmtNum(r.kvNominal, 0)} kV / ${fmtNum(r.masNominal, 1)} mAs`}
+                valor={`Factor ${r.factorCorreccion != null ? fmtNum(r.factorCorreccion, 2) : "—"}`}
+                conforme={null}
+              />
+            ))
+          )}
         </CardContent>
       </Card>
 

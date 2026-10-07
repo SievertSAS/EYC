@@ -5,6 +5,12 @@ import {
   detalle213,
   conceptoEfectivoSeccion,
   rendimiento27,
+  calcularResultado24,
+  calcularResultado25,
+  calcularResultado26,
+  calcularResultado27,
+  calcularResultado221,
+  calcularResultado28,
 } from "./evaluacion";
 import type { DatosEvalConv } from "./evaluacion";
 
@@ -306,6 +312,34 @@ describe("2.7 — rendimiento, repetibilidad y linealidad", () => {
   });
 });
 
+describe("calcularResultado24/25/26 — valores intermedios por grupo", () => {
+  it("calcularResultado24 expone prom/desv%/std/cv% por grupo, no solo el veredicto", () => {
+    const r = calcularResultado24([
+      shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.1 }),
+      shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.1 }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ tiempoNominal: 0.1, tiempoProm: 0.1, desvPct: 0, conforme: true });
+  });
+
+  it("calcularResultado25 ídem para kV, No_conforme si la desviación supera el 10%", () => {
+    const r = calcularResultado25([
+      shot({ kv_nominal: 80, kv_medido: 89 }),
+      shot({ kv_nominal: 80, kv_medido: 89 }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].desvPct).toBeCloseTo(11.25, 2);
+    expect(r[0].conforme).toBe(false);
+  });
+
+  it("calcularResultado26 usa chrMinimaParaKv por escalón, no coincidencia exacta", () => {
+    const r = calcularResultado26([shot({ kv_nominal: 81, chr_medido_mmal: 3.2 })]);
+    expect(r).toEqual([
+      { grupoNumero: 1, kvNominal: 81, chrProm: 3.2, chrMin: 2.3, conforme: true },
+    ]);
+  });
+});
+
 describe("rendimiento27 — corrección por distancia y kV", () => {
   it("distancia distinta de 100cm escala el rendimiento por (distancia/100)²", () => {
     const a100 = rendimiento27(0.5, 10, 100, 80);
@@ -321,6 +355,84 @@ describe("rendimiento27 — corrección por distancia y kV", () => {
 
   it("reproduce el valor de referencia de la plantilla del físico (grupo 2: mAs=5, kV=81)", () => {
     expect(rendimiento27(0.2638666667, 5, 100, 81)).toBeCloseTo(51.47833156, 2);
+  });
+});
+
+describe("calcularResultado27 — normaliza por unidad_kerma antes de calcular (#113)", () => {
+  // El instrumento puede reportar en una unidad distinta a mGy; si no se
+  // normaliza, el rendimiento (y por lo tanto el veredicto de linealidad)
+  // puede salir hasta 10x/1000x mal. cGy = 10x mGy.
+  it("mismos valores físicos en cGy dan el mismo rendimiento que en mGy", () => {
+    const enMgy = calcularResultado27(
+      [shotRend27(2, 5, 0.2638666667), shotRend27(4, 12.5, 0.6627333333)],
+      100,
+      "mgy"
+    );
+    const enCgy = calcularResultado27(
+      [shotRend27(2, 5, 0.02638666667), shotRend27(4, 12.5, 0.06627333333)],
+      100,
+      "cgy"
+    );
+    expect(enCgy.linealidad[0].rendimiento).toBeCloseTo(enMgy.linealidad[0].rendimiento, 6);
+    expect(enCgy.linealidadMaxPct).toBeCloseTo(enMgy.linealidadMaxPct, 6);
+  });
+
+  it("la repetibilidad (CV%) también se normaliza por unidad", () => {
+    const enMgy = calcularResultado27(
+      [shotRend27(3, 10, 0.4), shotRend27(3, 10, 0.5), shotRend27(3, 10, 0.6)],
+      100,
+      "mgy"
+    );
+    const enCgy = calcularResultado27(
+      [shotRend27(3, 10, 0.04), shotRend27(3, 10, 0.05), shotRend27(3, 10, 0.06)],
+      100,
+      "cgy"
+    );
+    expect(enCgy.repetibilidad.cvRep).toBeCloseTo(enMgy.repetibilidad.cvRep, 6);
+    expect(enCgy.conformeRep).toBe(enMgy.conformeRep);
+  });
+});
+
+describe("calcularResultado221/28 — valores intermedios", () => {
+  it("calcularResultado221 expone diferencia y conforme por programa clínico", () => {
+    const r = calcularResultado221(
+      [
+        rs({
+          tipo_medicion: "sin_rejilla",
+          programa_clinico: "Tórax AP",
+          kv_nominal: 90,
+          mas_nominal: 5,
+          dosis_medida_mgy: 0.319,
+          dosis_base_mgy: 0.319,
+        }),
+      ],
+      rs({})
+    );
+    expect(r.hayBase).toBe(true);
+    expect(r.filas).toEqual([
+      expect.objectContaining({ programa: "Tórax AP", diferencia: 0, conforme: true }),
+    ]);
+  });
+
+  it("calcularResultado28 no incluye campo conforme (2.8 no tiene criterio)", () => {
+    const r = calcularResultado28(
+      [
+        rs({
+          tipo_medicion: "kerma",
+          toma_numero: 1,
+          kv_nominal: 80,
+          mas_nominal: 10,
+          dosis_medida_mgy: 0.5,
+          dap_nominal: 100,
+          ancho_irradiacion_cm: 20,
+          largo_irradiacion_cm: 20,
+        }),
+      ],
+      rs({})
+    );
+    expect(r).toHaveLength(1);
+    expect(r[0]).not.toHaveProperty("conforme");
+    expect(r[0].factorCorreccion).not.toBeNull();
   });
 });
 

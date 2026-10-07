@@ -17,8 +17,12 @@ import type {
   ConvCaeMedicion,
 } from "@/lib/equipos/convencional/db/types";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
-import { convertirKerma } from "@/lib/equipos/convencional/unidades-raysafe";
-import { promedio, desviacion, cvPct } from "@/lib/equipos/convencional/estadistica";
+import {
+  convertirKerma,
+  convertirDap,
+  type UnidadKerma,
+} from "@/lib/equipos/convencional/unidades-raysafe";
+import { promedio, desviacion, cvPct, desvNominal } from "@/lib/equipos/convencional/estadistica";
 
 // ============================================================
 //  Evaluación automática de conformidad — informe convencional
@@ -148,75 +152,152 @@ function evaluar23(d: DatosEvalConv): Concepto | undefined {
   return colimConf && perpConf ? "Conforme" : "No_conforme";
 }
 
-/** Agrupa disparos principales por un valor nominal y evalúa desv/CV por grupo. */
-function evaluarPorGrupoNominal(
-  d: DatosEvalConv,
-  gruposValidos: Set<number> | null,
-  nominalDe: (m: ConvRaysafeMedicion) => number | undefined,
-  medidoDe: (m: ConvRaysafeMedicion) => number | undefined,
-  maxDesv: number,
-  maxCv: number
-): Concepto | undefined {
-  const principales = d.raysafeMediciones.filter(
-    (m) =>
-      m.tipo_medicion === "principal" &&
-      (gruposValidos == null || gruposValidos.has(m.grupo_numero ?? -1))
+/**
+ * Grupos 1, 2, 6: los tres tiempos/kV/CHR nominales distintos que alimentan
+ * las pruebas 2.4, 2.5 y 2.6 (ver protocolo TECDOC). Fuente única — antes
+ * `evaluar26` no filtraba por grupo mientras `render26` sí, lo que podía
+ * divergir si algún día se capturara CHR en otro grupo.
+ */
+export const GRUPOS_TIEMPO_KV_CHR = new Set([1, 2, 6]);
+
+export interface Resultado24Grupo {
+  grupoNumero: number;
+  tiempoNominal: number;
+  tiempoProm: number;
+  desvPct: number;
+  std: number;
+  cvPct: number;
+  conforme: boolean;
+}
+
+/** 2.4 — Exactitud/repetibilidad del tiempo, por grupo (desv ≤10%, CV ≤10%). */
+export function calcularResultado24(mediciones: ConvRaysafeMedicion[]): Resultado24Grupo[] {
+  const principales = mediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
   );
   const grupos = new Map<number, ConvRaysafeMedicion[]>();
   for (const m of principales) {
-    const nom = nominalDe(m);
-    if (nom == null || medidoDe(m) == null) continue;
-    if (!grupos.has(nom)) grupos.set(nom, []);
-    grupos.get(nom)!.push(m);
+    if (m.tiempo_nominal_s == null || m.tiempo_medido_s == null) continue;
+    if (!grupos.has(m.tiempo_nominal_s)) grupos.set(m.tiempo_nominal_s, []);
+    grupos.get(m.tiempo_nominal_s)!.push(m);
   }
-  if (grupos.size === 0) return undefined;
-  const conformes = [...grupos.entries()].map(([nom, ms]) => {
-    const medidos = ms.map((m) => medidoDe(m)!);
-    const prom = promedio(medidos);
-    const desv = nom > 0 ? (Math.abs(prom - nom) / nom) * 100 : 0;
-    return desv <= maxDesv && cvPct(medidos) <= maxCv;
-  });
-  return conformes.some((ok) => !ok) ? "No_conforme" : "Conforme";
+  return [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([nom, ms]) => {
+      const medidos = ms.map((m) => m.tiempo_medido_s!);
+      const tiempoProm = promedio(medidos);
+      const desvPct = desvNominal(medidos, nom);
+      const std = desviacion(medidos);
+      const cv = tiempoProm > 0 ? (std / tiempoProm) * 100 : 0;
+      return {
+        grupoNumero: ms[0].grupo_numero!,
+        tiempoNominal: nom,
+        tiempoProm,
+        desvPct,
+        std,
+        cvPct: cv,
+        conforme: desvPct <= 10 && cv <= 10,
+      };
+    });
 }
 
 /** 2.4 — Exactitud/repetibilidad del tiempo (desv ≤10%, CV ≤10%). */
 function evaluar24(d: DatosEvalConv): Concepto | undefined {
-  return evaluarPorGrupoNominal(
-    d,
-    new Set([1, 2, 6]),
-    (m) => m.tiempo_nominal_s,
-    (m) => m.tiempo_medido_s,
-    10,
-    10
+  const resultados = calcularResultado24(d.raysafeMediciones);
+  if (resultados.length === 0) return undefined;
+  return resultados.some((r) => !r.conforme) ? "No_conforme" : "Conforme";
+}
+
+export interface Resultado25Grupo {
+  grupoNumero: number;
+  kvNominal: number;
+  kvProm: number;
+  desvPct: number;
+  std: number;
+  cvPct: number;
+  conforme: boolean;
+}
+
+/** 2.5 — Exactitud/repetibilidad del kV, por grupo (desv ≤10%, CV ≤5%). */
+export function calcularResultado25(mediciones: ConvRaysafeMedicion[]): Resultado25Grupo[] {
+  const principales = mediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
   );
+  const grupos = new Map<number, ConvRaysafeMedicion[]>();
+  for (const m of principales) {
+    if (m.kv_nominal == null || m.kv_medido == null) continue;
+    if (!grupos.has(m.kv_nominal)) grupos.set(m.kv_nominal, []);
+    grupos.get(m.kv_nominal)!.push(m);
+  }
+  return [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([nom, ms]) => {
+      const medidos = ms.map((m) => m.kv_medido!);
+      const kvProm = promedio(medidos);
+      const desvPct = desvNominal(medidos, nom);
+      const std = desviacion(medidos);
+      const cv = kvProm > 0 ? (std / kvProm) * 100 : 0;
+      return {
+        grupoNumero: ms[0].grupo_numero!,
+        kvNominal: nom,
+        kvProm,
+        desvPct,
+        std,
+        cvPct: cv,
+        conforme: desvPct <= 10 && cv <= 5,
+      };
+    });
 }
 
 /** 2.5 — Exactitud/repetibilidad del kV (desv ≤10%, CV ≤5%). */
 function evaluar25(d: DatosEvalConv): Concepto | undefined {
-  return evaluarPorGrupoNominal(
-    d,
-    new Set([1, 2, 6]),
-    (m) => m.kv_nominal,
-    (m) => m.kv_medido,
-    10,
-    5
+  const resultados = calcularResultado25(d.raysafeMediciones);
+  if (resultados.length === 0) return undefined;
+  return resultados.some((r) => !r.conforme) ? "No_conforme" : "Conforme";
+}
+
+export interface Resultado26Grupo {
+  grupoNumero: number;
+  kvNominal: number;
+  chrProm: number;
+  chrMin: number | undefined;
+  conforme: boolean;
+}
+
+/** 2.6 — CHR promedio por grupo vs. mínimo de referencia según kV. */
+export function calcularResultado26(mediciones: ConvRaysafeMedicion[]): Resultado26Grupo[] {
+  const principales = mediciones.filter(
+    (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
   );
+  const grupos = new Map<number, ConvRaysafeMedicion[]>();
+  for (const m of principales) {
+    if (m.kv_nominal == null || m.chr_medido_mmal == null) continue;
+    if (!grupos.has(m.kv_nominal)) grupos.set(m.kv_nominal, []);
+    grupos.get(m.kv_nominal)!.push(m);
+  }
+  return [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([kv, ms]) => {
+      const chrProm = promedio(ms.map((m) => m.chr_medido_mmal!));
+      const chrMin = chrMinimaParaKv(kv);
+      return {
+        grupoNumero: ms[0].grupo_numero!,
+        kvNominal: kv,
+        chrProm,
+        chrMin,
+        conforme: chrMin != null && chrProm >= chrMin,
+      };
+    });
 }
 
 /** 2.6 — Capa hemirreductora (CHR promedio ≥ mínimo por kV). */
 function evaluar26(d: DatosEvalConv): Concepto | undefined {
-  const principales = d.raysafeMediciones.filter((m) => m.tipo_medicion === "principal");
-  const grupos = new Map<number, number[]>();
-  for (const m of principales) {
-    if (m.kv_nominal == null || m.chr_medido_mmal == null) continue;
-    if (!grupos.has(m.kv_nominal)) grupos.set(m.kv_nominal, []);
-    grupos.get(m.kv_nominal)!.push(m.chr_medido_mmal);
-  }
-  if (grupos.size === 0) return undefined;
-  const evaluables = [...grupos.entries()].filter(([kv]) => chrMinimaParaKv(kv) != null);
+  const resultados = calcularResultado26(d.raysafeMediciones);
+  // Un grupo sin escalón de referencia (kV fuera de rango) no cuenta para el
+  // veredicto — ni a favor ni en contra, igual que antes de este refactor.
+  const evaluables = resultados.filter((r) => r.chrMin != null);
   if (evaluables.length === 0) return undefined;
-  const conformes = evaluables.map(([kv, chrs]) => promedio(chrs) >= chrMinimaParaKv(kv)!);
-  return conformes.some((ok) => !ok) ? "No_conforme" : "Conforme";
+  return evaluables.some((r) => !r.conforme) ? "No_conforme" : "Conforme";
 }
 
 /**
@@ -224,7 +305,7 @@ function evaluar26(d: DatosEvalConv): Concepto | undefined {
  * variación de mAs a ~80kV para linealidad; el grupo 3 además sirve de
  * repetibilidad (3 tomas en idénticas condiciones).
  */
-const GRUPOS_LINEALIDAD_27 = new Set([2, 3, 4, 5]);
+export const GRUPOS_LINEALIDAD_27 = new Set([2, 3, 4, 5]);
 
 /**
  * Rendimiento normalizado a 100cm y 80kVp (ver retroalimentación física):
@@ -243,25 +324,53 @@ export function rendimiento27(
   return (kermaPromMgy / masNominal) * (distanciaCm / 100) ** 2 * 1000 * (80 / kvNominal) ** 2;
 }
 
+export interface Resultado27Linealidad {
+  grupoNumero: number;
+  masNominal: number;
+  kermaProm: number;
+  rendimiento: number;
+  /** % vs. el grupo anterior (orden por grupo); null para el primero. */
+  linealidadPct: number | null;
+}
+
+export interface Resultado27 {
+  linealidad: Resultado27Linealidad[];
+  linealidadMaxPct: number;
+  conformeLin: boolean;
+  repetibilidad: { kermasRep: number[]; promRep: number; stdRep: number; cvRep: number };
+  conformeRep: boolean;
+}
+
 /**
  * 2.7 — Rendimiento: repetibilidad (CV ≤5%) y linealidad (≤10%). La
- * repetibilidad no necesita `convertirKerma` ni corrección de distancia/kV
- * (#113): es una razón entre mediciones del mismo grupo (misma distancia,
- * mismo kV nominal), esos factores se cancelan en la división. La linealidad
- * sí requiere la corrección, porque compara grupos que pueden diferir en kV
- * nominal real (consolas sin paso exacto de 80kV).
+ * repetibilidad no necesita corrección de distancia/kV (#113): es una razón
+ * entre mediciones del mismo grupo (misma distancia, mismo kV nominal), esos
+ * factores se cancelan en la división — pero sí se normaliza por unidad
+ * (`convertirKerma`), igual que la linealidad, porque el instrumento puede
+ * reportar en una unidad distinta a mGy (#113). La linealidad además
+ * requiere la corrección geométrica/kV, porque compara grupos que pueden
+ * diferir en kV nominal real (consolas sin paso exacto de 80kV).
  */
-function evaluar27(d: DatosEvalConv): Concepto | undefined {
-  const principales = d.raysafeMediciones.filter(
+export function calcularResultado27(
+  mediciones: ConvRaysafeMedicion[],
+  distanciaCm: number,
+  unidadKerma: UnidadKerma | undefined
+): Resultado27 {
+  const kerma = (m: { dosis_medida_mgy?: number }) =>
+    convertirKerma(m.dosis_medida_mgy!, unidadKerma);
+  const principales = mediciones.filter(
     (m) => m.tipo_medicion === "principal" && m.dosis_medida_mgy != null
   );
-  if (principales.length === 0) return undefined;
 
-  const repShots = principales.filter((m) => m.grupo_numero === 3);
-  const hayRep = repShots.length > 0;
-  const cv = hayRep ? cvPct(repShots.map((m) => m.dosis_medida_mgy!)) : 0;
+  const repShots = principales
+    .filter((m) => m.grupo_numero === 3)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+  const kermasRep = repShots.map(kerma);
+  const hayRep = kermasRep.length > 0;
+  const promRep = hayRep ? promedio(kermasRep) : 0;
+  const stdRep = hayRep ? desviacion(kermasRep) : 0;
+  const cvRep = hayRep ? cvPct(kermasRep) : 0;
 
-  const distancia = d.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
   const gruposLin = new Map<number, ConvRaysafeMedicion[]>();
   for (const m of principales) {
     if (
@@ -275,24 +384,44 @@ function evaluar27(d: DatosEvalConv): Concepto | undefined {
     gruposLin.get(m.grupo_numero)!.push(m);
   }
   const entradasLin = [...gruposLin.entries()].sort(([a], [b]) => a - b);
-  const rendimientos = entradasLin.map(([, ms]) =>
-    rendimiento27(
-      promedio(ms.map((m) => m.dosis_medida_mgy!)),
-      ms[0].mas_nominal!,
-      distancia,
-      ms[0].kv_nominal!
-    )
-  );
-  let linMax = 0;
-  for (let i = 1; i < rendimientos.length; i++) {
-    const prev = rendimientos[i - 1];
-    const cur = rendimientos[i];
-    if (prev + cur > 0) linMax = Math.max(linMax, (Math.abs(cur - prev) / (cur + prev)) * 100);
-  }
 
-  const conformeRep = !hayRep || cv <= 5;
-  const conformeLin = rendimientos.length <= 1 || linMax <= 10;
-  return !conformeRep || !conformeLin ? "No_conforme" : "Conforme";
+  let linMax = 0;
+  let prevRend: number | null = null;
+  const linealidad: Resultado27Linealidad[] = entradasLin.map(([grupoNumero, ms]) => {
+    const kermaProm = promedio(ms.map(kerma));
+    const rendimiento = rendimiento27(
+      kermaProm,
+      ms[0].mas_nominal!,
+      distanciaCm,
+      ms[0].kv_nominal!
+    );
+    const linealidadPct =
+      prevRend != null && prevRend > 0
+        ? (Math.abs(rendimiento - prevRend) / (rendimiento + prevRend)) * 100
+        : null;
+    if (linealidadPct != null && linealidadPct > linMax) linMax = linealidadPct;
+    prevRend = rendimiento;
+    return { grupoNumero, masNominal: ms[0].mas_nominal!, kermaProm, rendimiento, linealidadPct };
+  });
+
+  return {
+    linealidad,
+    linealidadMaxPct: linMax,
+    conformeLin: linealidad.length <= 1 || linMax <= 10,
+    repetibilidad: { kermasRep, promRep, stdRep, cvRep },
+    conformeRep: !hayRep || cvRep <= 5,
+  };
+}
+
+/** 2.7 — Rendimiento: repetibilidad (CV ≤5%) y linealidad (≤10%). */
+function evaluar27(d: DatosEvalConv): Concepto | undefined {
+  const principales = d.raysafeMediciones.filter(
+    (m) => m.tipo_medicion === "principal" && m.dosis_medida_mgy != null
+  );
+  if (principales.length === 0) return undefined;
+  const distancia = d.raysafeSetup?.distancia_foco_sensor_cm ?? 100;
+  const r = calcularResultado27(d.raysafeMediciones, distancia, d.raysafeSetup?.unidad_kerma);
+  return !r.conformeRep || !r.conformeLin ? "No_conforme" : "Conforme";
 }
 
 /** 2.9 — DDI/EI: desviación vs base ≤ ±20%. */
@@ -524,30 +653,120 @@ function evaluar220(d: DatosEvalConv): Concepto | undefined {
   return Math.max(...vals) <= 0.3 ? "Conforme" : "No_conforme";
 }
 
-/** 2.21 — Dosis al receptor: |dosis·corrGeom - base| < 0.01 mGy. */
-function evaluar221(d: DatosEvalConv): Concepto | undefined {
-  const setup = d.raysafeSetup;
+export interface Resultado221Fila {
+  programa: string;
+  kvNominal: number | undefined;
+  masNominal: number | undefined;
+  /** Dosis medida, normalizada a mGy (#113). */
+  dosisMedida: number | null;
+  /** Dosis medida con corrección geométrica (d1/d2)². */
+  dosisReceptor: number | null;
+  dosisBase: number | null;
+  diferencia: number | null;
+  /** null cuando no hay dosis base para esta fila (no evaluable). */
+  conforme: boolean | null;
+}
+
+export interface Resultado221 {
+  filas: Resultado221Fila[];
+  /** Hay al menos una línea base previa — si no, esta visita la establece. */
+  hayBase: boolean;
+}
+
+/**
+ * 2.21 — Dosis al receptor: |dosis·corrGeom - base| < 0.01 mGy, por programa
+ * clínico. `dosis_base_mgy` se asume ya en mGy (#113), como siempre se
+ * guardó antes de que existiera la conversión de unidad del instrumento.
+ */
+export function calcularResultado221(
+  mediciones: ConvRaysafeMedicion[],
+  setup: ConvRaysafeSetup | undefined
+): Resultado221 {
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
   const d2 = setup?.distancia_foco_detector_d2_cm ?? 100;
   const corrGeom = (d1 / d2) ** 2;
   const unidadKerma = setup?.unidad_kerma;
-  const sinRejilla = d.raysafeMediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
+  const sinRejilla = mediciones.filter((m) => m.tipo_medicion === "sin_rejilla");
   const hayBase = sinRejilla.some((m) => m.dosis_base_mgy != null);
-  if (!hayBase) return undefined; // sin referencia previa → se establece base
-  // #113: `dosis_medida_mgy` se normaliza a mGy antes de comparar contra
-  // `dosis_base_mgy` (umbral absoluto, no una razón) -- `dosis_base_mgy` se
-  // asume ya en mGy, como siempre se guardó antes de que existiera esta
-  // conversión.
-  const diffs = sinRejilla
-    .map((m) =>
-      m.dosis_medida_mgy == null || m.dosis_base_mgy == null
-        ? null
-        : Math.abs(convertirKerma(m.dosis_medida_mgy, unidadKerma) * corrGeom - m.dosis_base_mgy)
-    )
-    .filter((v): v is number => v != null);
+
+  const filas = sinRejilla.map((m) => {
+    const dosisMedida =
+      m.dosis_medida_mgy != null ? convertirKerma(m.dosis_medida_mgy, unidadKerma) : null;
+    const dosisReceptor = dosisMedida != null ? dosisMedida * corrGeom : null;
+    const dosisBase = m.dosis_base_mgy ?? null;
+    const diferencia =
+      dosisReceptor != null && dosisBase != null ? Math.abs(dosisReceptor - dosisBase) : null;
+    return {
+      programa: m.programa_clinico ?? "—",
+      kvNominal: m.kv_nominal,
+      masNominal: m.mas_nominal,
+      dosisMedida,
+      dosisReceptor,
+      dosisBase,
+      diferencia,
+      conforme: diferencia == null ? null : diferencia < 0.01,
+    };
+  });
+
+  return { filas, hayBase };
+}
+
+/** 2.21 — Dosis al receptor: |dosis·corrGeom - base| < 0.01 mGy. */
+function evaluar221(d: DatosEvalConv): Concepto | undefined {
+  const r = calcularResultado221(d.raysafeMediciones, d.raysafeSetup);
+  if (!r.hayBase) return undefined; // sin referencia previa → se establece base
+  const diffs = r.filas.map((f) => f.diferencia).filter((v): v is number => v != null);
   // #13: hay base pero ninguna dosis comparable → pendiente, no "Conforme".
   if (diffs.length === 0) return undefined;
   return Math.max(...diffs) < 0.01 ? "Conforme" : "No_conforme";
+}
+
+export interface Resultado28Fila {
+  kvNominal: number | undefined;
+  masNominal: number | undefined;
+  dapNominal: number | null;
+  /** Siempre un número (puede ser 0 si faltan ancho/largo); sin veredicto. */
+  dapEstimado: number;
+  factorCorreccion: number | null;
+}
+
+/**
+ * 2.8 — Factor de corrección del PKA: solo informativo, no tiene criterio de
+ * aceptación (ver `tieneCriterio`). DAP y kerma vienen de fuentes distintas
+ * (panel del equipo vs. instrumento RaySafe) con su propia unidad (#113);
+ * ambos se normalizan antes de calcular el factor.
+ */
+export function calcularResultado28(
+  mediciones: ConvRaysafeMedicion[],
+  setup: ConvRaysafeSetup | undefined
+): Resultado28Fila[] {
+  const unidadKerma = setup?.unidad_kerma;
+  const unidadDap = setup?.unidad_dap;
+  const d1Setup = setup?.distancia_foco_sensor_cm ?? 100;
+  const d2Setup = setup?.distancia_foco_detector_d2_cm ?? d1Setup;
+  const kerma = mediciones
+    .filter((m) => m.tipo_medicion === "kerma" && m.dosis_medida_mgy != null)
+    .sort((a, b) => a.toma_numero - b.toma_numero);
+  return kerma.map((m) => {
+    const kermaVal = convertirKerma(m.dosis_medida_mgy!, unidadKerma);
+    const ancho = m.ancho_irradiacion_cm ?? 0;
+    const largo = m.largo_irradiacion_cm ?? 0;
+    const d1 = m.distancia_foco_sensor_cm ?? d1Setup;
+    const d2 = m.distancia_foco_detector_cm ?? d2Setup;
+    const factorDist = (d2 / d1) ** 2;
+    const areaCorr = ancho * largo * factorDist;
+    const kermaCorr = kermaVal * factorDist;
+    const dapEstimado = kermaCorr * areaCorr;
+    const dapNominal = m.dap_nominal != null ? convertirDap(m.dap_nominal, unidadDap) : null;
+    const factorCorreccion = dapNominal != null && dapNominal > 0 ? dapEstimado / dapNominal : null;
+    return {
+      kvNominal: m.kv_nominal,
+      masNominal: m.mas_nominal,
+      dapNominal,
+      dapEstimado,
+      factorCorreccion,
+    };
+  });
 }
 
 const EVALUADORES: Record<string, (d: DatosEvalConv) => Concepto | undefined> = {

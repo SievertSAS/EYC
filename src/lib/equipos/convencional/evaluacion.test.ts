@@ -4,6 +4,9 @@ import {
   tieneCriterio,
   detalle213,
   conceptoEfectivoSeccion,
+  motivoNoAplicaAutomatico,
+  reglaNoAplicaAutomatica,
+  seccionAplica,
   rendimiento27,
   calcularResultado24,
   calcularResultado25,
@@ -790,5 +793,83 @@ describe("conceptoEfectivoSeccion — precedencia de overrides manuales (#120)",
   it("incluida=true sin override y sin datos → undefined (pendiente)", () => {
     const seccion = { incluida: true, concepto: undefined, prueba_codigo: "2.1" };
     expect(conceptoEfectivoSeccion(seccion, undefined)).toBeUndefined();
+  });
+});
+
+describe("motivoNoAplicaAutomatico — reglas automáticas de 'no aplica' (#116)", () => {
+  const MOTIVO_DR =
+    "NO APLICA, toda vez que la prueba solo aplica a sistemas CR (cassettes y pantallas de fósforo fotoestimulable) y el equipo evaluado es un sistema DR (flat panel).";
+
+  it("2.14 y 2.15 con sistema 'Digital' (DR) → motivo de no aplica", () => {
+    for (const codigo of ["2.14", "2.15"]) {
+      expect(motivoNoAplicaAutomatico(codigo, { sistema_adquisicion: "Digital" })).toBe(MOTIVO_DR);
+    }
+  });
+
+  it("2.14 y 2.15 con sistema 'Digitalizado' (CR) → undefined", () => {
+    for (const codigo of ["2.14", "2.15"]) {
+      expect(
+        motivoNoAplicaAutomatico(codigo, { sistema_adquisicion: "Digitalizado" })
+      ).toBeUndefined();
+    }
+  });
+
+  it("2.14 y 2.15 sin sistema de adquisición (vacío o sin datos) → undefined", () => {
+    for (const codigo of ["2.14", "2.15"]) {
+      expect(motivoNoAplicaAutomatico(codigo, { sistema_adquisicion: "" })).toBeUndefined();
+      expect(motivoNoAplicaAutomatico(codigo, {})).toBeUndefined();
+      expect(motivoNoAplicaAutomatico(codigo, undefined)).toBeUndefined();
+    }
+  });
+
+  it("cualquier otra prueba con sistema 'Digital' → undefined", () => {
+    for (let i = 1; i <= 21; i++) {
+      const codigo = `2.${i}`;
+      if (codigo === "2.14" || codigo === "2.15") continue;
+      expect(
+        motivoNoAplicaAutomatico(codigo, { sistema_adquisicion: "Digital" }),
+        codigo
+      ).toBeUndefined();
+    }
+  });
+
+  it("reglaNoAplicaAutomatica entrega el mismo motivo y la leyenda para el editor", () => {
+    const regla = reglaNoAplicaAutomatica("2.14", { sistema_adquisicion: "Digital" });
+    expect(regla?.motivo).toBe(MOTIVO_DR);
+    expect(regla?.nota).toBe(
+      "No aplica automáticamente: el equipo es un sistema Digital (DR). Se cambia en la información del equipo."
+    );
+    expect(
+      reglaNoAplicaAutomatica("2.14", { sistema_adquisicion: "Digitalizado" })
+    ).toBeUndefined();
+  });
+});
+
+describe("seccionAplica — switch del pre-informe + reglas automáticas", () => {
+  const DR = { sistema_adquisicion: "Digital" };
+  const CR = { sistema_adquisicion: "Digitalizado" };
+
+  it("switch apagado → no aplica, con o sin regla automática", () => {
+    expect(seccionAplica({ incluida: false, prueba_codigo: "2.1" }, CR)).toBe(false);
+    expect(seccionAplica({ incluida: false, prueba_codigo: "2.14" }, DR)).toBe(false);
+    expect(seccionAplica({ incluida: false, prueba_codigo: "2.14" }, undefined)).toBe(false);
+  });
+
+  it("switch encendido + regla automática → no aplica", () => {
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.14" }, DR)).toBe(false);
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.15" }, DR)).toBe(false);
+  });
+
+  it("switch encendido sin regla automática → aplica", () => {
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.14" }, CR)).toBe(true);
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.15" }, {})).toBe(true);
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.14" }, undefined)).toBe(true);
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.1" }, DR)).toBe(true);
+  });
+
+  it("acepta los datos completos del evaluador (DatosEvalConv)", () => {
+    const seccion = { incluida: true, prueba_codigo: "2.15" };
+    expect(seccionAplica(seccion, datos({ sistema_adquisicion: "Digital" }))).toBe(false);
+    expect(seccionAplica(seccion, datos({ sistema_adquisicion: "Digitalizado" }))).toBe(true);
   });
 });

@@ -112,6 +112,60 @@ export function tolerancia211Default(sistemaAdquisicion?: string): number {
   return 15;
 }
 
+/** Lo único que las reglas automáticas de "no aplica" leen del equipo. */
+export type DatosNoAplicaAutomatico = Pick<DatosEvalConv, "sistema_adquisicion">;
+
+export interface ReglaNoAplicaAutomatica {
+  /** Motivo que el informe imprime en la Metodología de la prueba. */
+  motivo: string;
+  /** Leyenda corta para el editor del pre-informe: por qué el switch no se puede encender. */
+  nota: string;
+}
+
+const NO_APLICA_SISTEMA_DR: ReglaNoAplicaAutomatica = {
+  motivo:
+    "NO APLICA, toda vez que la prueba solo aplica a sistemas CR (cassettes y pantallas de fósforo fotoestimulable) y el equipo evaluado es un sistema DR (flat panel).",
+  nota: "No aplica automáticamente: el equipo es un sistema Digital (DR). Se cambia en la información del equipo.",
+};
+
+/**
+ * Reglas automáticas de "no aplica": pruebas que quedan excluidas por un dato
+ * del equipo, sin que el físico apague el switch. Es el único lugar donde
+ * viven; agregar una regla es agregar un caso aquí.
+ *   - #116: 2.14 y 2.15 solo aplican a sistemas CR; no aplican a un equipo DR.
+ * Devuelve undefined si ninguna regla excluye la prueba.
+ */
+export function reglaNoAplicaAutomatica(
+  codigo: string,
+  datos: DatosNoAplicaAutomatico | undefined
+): ReglaNoAplicaAutomatica | undefined {
+  if ((codigo === "2.14" || codigo === "2.15") && sistemaEsDR(datos?.sistema_adquisicion)) {
+    return NO_APLICA_SISTEMA_DR;
+  }
+  return undefined;
+}
+
+/** Motivo de la regla automática que excluye la prueba (undefined = ninguna). */
+export function motivoNoAplicaAutomatico(
+  codigo: string,
+  datos: DatosNoAplicaAutomatico | undefined
+): string | undefined {
+  return reglaNoAplicaAutomatica(codigo, datos)?.motivo;
+}
+
+/**
+ * ¿La prueba aplica al equipo? Requiere el switch encendido (`incluida`) y que
+ * ninguna regla automática la excluya. El valor guardado de `incluida` no se
+ * modifica: si el dato del equipo cambia, la prueba vuelve sola a aplicar.
+ * Usada por el editor de pre-informe y por el generador de PDF.
+ */
+export function seccionAplica(
+  seccion: { incluida: boolean; prueba_codigo: string },
+  datos: DatosNoAplicaAutomatico | undefined
+): boolean {
+  return seccion.incluida && motivoNoAplicaAutomatico(seccion.prueba_codigo, datos) === undefined;
+}
+
 // ─── Evaluadores por prueba ───
 
 /** 2.1 — Levantamiento radiométrico (rollup del concepto por punto). */
@@ -533,7 +587,7 @@ function evaluar213(d: DatosEvalConv): Concepto | undefined {
 
 /** 2.14 — Inspección de cassettes/pantallas IP (rollup). No aplica a sistemas DR (#116). */
 function evaluar214(d: DatosEvalConv): Concepto | undefined {
-  if (sistemaEsDR(d.sistema_adquisicion)) return "No_aplica";
+  if (motivoNoAplicaAutomatico("2.14", d) !== undefined) return "No_aplica";
   const cassettes = d.cassettes ?? [];
   const conConcepto = cassettes.filter((c) => c.concepto);
   if (conConcepto.length === 0) return undefined;
@@ -542,7 +596,7 @@ function evaluar214(d: DatosEvalConv): Concepto | undefined {
 
 /** 2.15 — Uniformidad de sensibilidad IP CR: CV(EI) ≤ 10%. No aplica a sistemas DR (#116). */
 function evaluar215(d: DatosEvalConv): Concepto | undefined {
-  if (sistemaEsDR(d.sistema_adquisicion)) return "No_aplica";
+  if (motivoNoAplicaAutomatico("2.15", d) !== undefined) return "No_aplica";
   const eiVals = (d.uniformidadCr ?? []).map((u) => u.ei ?? 0).filter((v) => v > 0);
   if (eiVals.length < 2) return undefined;
   return cvPct(eiVals) <= 10 ? "Conforme" : "No_conforme";

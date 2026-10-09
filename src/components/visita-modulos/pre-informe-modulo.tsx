@@ -58,6 +58,86 @@ type ConceptoType = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_
 
 // ─── UI Components ───
 
+/**
+ * Campo de texto con predeterminado editable: llega precargado, guarda al
+ * salir del campo y "Restaurar predeterminado" descarta lo guardado. Lo usan
+ * el Análisis y el motivo de "no aplica" de `SeccionCard`.
+ *
+ * Un texto igual al predeterminado (o vacío) no se guarda: `onGuardar` recibe
+ * `undefined` y el informe sigue usando el predeterminado vigente, en vez de
+ * quedar congelado en una copia.
+ */
+function CampoTextoPredeterminado({
+  seccionId,
+  etiqueta,
+  placeholder,
+  guardado,
+  predeterminado,
+  altoClassName,
+  onGuardar,
+}: {
+  seccionId?: string;
+  etiqueta: string;
+  placeholder: string;
+  /** Texto propio ya guardado; `undefined` = se muestra el predeterminado. */
+  guardado?: string;
+  predeterminado?: string | null;
+  /** Clase de alto del textarea (p. ej. `h-40`). */
+  altoClassName: string;
+  /** `undefined` = sin texto propio: el informe usa el predeterminado. */
+  onGuardar: (v: string | undefined) => void;
+}) {
+  const campoRef = useRef<HTMLTextAreaElement>(null);
+  const [saved, setSaved] = useState(false);
+
+  const guardar = (v: string | undefined) => {
+    onGuardar(v);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  const handleBlur = (campo: HTMLTextAreaElement) => {
+    const texto = campo.value.trim();
+    const esPredeterminado = texto === "" || texto === (predeterminado ?? "").trim();
+    if (texto === "" && predeterminado != null) campo.value = predeterminado;
+    const nuevo = esPredeterminado ? undefined : campo.value;
+    if (nuevo === guardado) return;
+    guardar(nuevo);
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+          {etiqueta}
+          {saved && <Check className="w-3 h-3 text-emerald-500" />}
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            if (campoRef.current) campoRef.current.value = predeterminado ?? "";
+            guardar(undefined);
+          }}
+          className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Restaurar predeterminado
+        </button>
+      </div>
+      <textarea
+        ref={campoRef}
+        // Sin texto guardado, se remonta cuando cambia el predeterminado
+        // (p. ej. al corregir una medición) para mostrar el texto nuevo.
+        key={guardado != null ? `${seccionId}-guardado` : `${seccionId}-${predeterminado ?? ""}`}
+        className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none ${altoClassName} focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary`}
+        defaultValue={guardado ?? predeterminado ?? ""}
+        placeholder={placeholder}
+        onBlur={(e) => handleBlur(e.target)}
+      />
+    </div>
+  );
+}
+
 export function SeccionCard({
   seccion,
   catalogo,
@@ -69,6 +149,7 @@ export function SeccionCard({
   onToggleNoEjecutada,
   onUpdateAcciones,
   onUpdateObservaciones,
+  onUpdateMetodologiaNoAplica,
 }: {
   seccion: ConvInformeSeccion;
   catalogo: (typeof CATALOGO_SECCIONES)[0];
@@ -87,14 +168,14 @@ export function SeccionCard({
   onUpdateAcciones: (v: string) => void;
   /** `undefined` = sin texto propio: el informe usa el Análisis predeterminado. */
   onUpdateObservaciones: (v: string | undefined) => void;
+  /** `undefined` = sin motivo propio: el informe usa el predeterminado del catálogo. */
+  onUpdateMetodologiaNoAplica: (v: string | undefined) => void;
 }) {
   const Icon = GRUPO_ICONS[catalogo.grupo] ?? FileText;
-  const analisisRef = useRef<HTMLTextAreaElement>(null);
   const accionesRef = useRef<HTMLTextAreaElement>(null);
   const sinCriterio = !tieneCriterio(catalogo.codigo);
   const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
   const [savedAcciones, setSavedAcciones] = useState(false);
-  const [savedObservaciones, setSavedObservaciones] = useState(false);
 
   const handleUpdateAcciones = (v: string) => {
     onUpdateAcciones(v);
@@ -102,25 +183,16 @@ export function SeccionCard({
     setTimeout(() => setSavedAcciones(false), 1500);
   };
 
-  const handleUpdateObservaciones = (v: string | undefined) => {
-    onUpdateObservaciones(v);
-    setSavedObservaciones(true);
-    setTimeout(() => setSavedObservaciones(false), 1500);
-  };
-
   // Análisis: a diferencia de las acciones correctivas, un texto igual al
   // predeterminado (o vacío) no se guarda. Así el Análisis se sigue
   // recalculando si luego cambian las mediciones, en vez de quedar congelado.
   const analisisGuardado = seccion.observaciones?.trim() ? seccion.observaciones : undefined;
   const tieneAnalisis = analisisDefault != null || analisisGuardado != null;
-  const handleBlurAnalisis = (campo: HTMLTextAreaElement) => {
-    const texto = campo.value.trim();
-    const esPredeterminado = texto === "" || texto === (analisisDefault ?? "").trim();
-    if (texto === "" && analisisDefault != null) campo.value = analisisDefault;
-    const nuevo = esPredeterminado ? undefined : campo.value;
-    if (nuevo === analisisGuardado) return;
-    handleUpdateObservaciones(nuevo);
-  };
+
+  // Motivo de "no aplica": mismo criterio, con el predeterminado del catálogo.
+  const motivoNoAplicaGuardado = seccion.metodologia_no_aplica?.trim()
+    ? seccion.metodologia_no_aplica
+    : undefined;
 
   // Acciones correctivas con predeterminado editable — solo 2.1, 2.2 y 2.13
   // (las demás pruebas usan el textarea libre, solo visible en No conforme).
@@ -313,39 +385,15 @@ export function SeccionCard({
               `observaciones` y reemplaza al automático en el informe (las
               tablas del Análisis no se editan). */}
           {tieneAnalisis && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  Análisis
-                  {savedObservaciones && <Check className="w-3 h-3 text-emerald-500" />}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (analisisRef.current) analisisRef.current.value = analisisDefault ?? "";
-                    handleUpdateObservaciones(undefined);
-                  }}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  Restaurar predeterminado
-                </button>
-              </div>
-              <textarea
-                ref={analisisRef}
-                // Sin texto guardado, se remonta cuando cambia el predeterminado
-                // (p. ej. al corregir una medición) para mostrar el texto nuevo.
-                key={
-                  analisisGuardado != null
-                    ? `${seccion.id}-guardado`
-                    : `${seccion.id}-${analisisDefault ?? ""}`
-                }
-                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                defaultValue={analisisGuardado ?? analisisDefault ?? ""}
-                placeholder="Análisis de los resultados de la prueba..."
-                onBlur={(e) => handleBlurAnalisis(e.target)}
-              />
-            </div>
+            <CampoTextoPredeterminado
+              seccionId={seccion.id}
+              etiqueta="Análisis"
+              placeholder="Análisis de los resultados de la prueba..."
+              guardado={analisisGuardado}
+              predeterminado={analisisDefault}
+              altoClassName="h-40"
+              onGuardar={onUpdateObservaciones}
+            />
           )}
 
           {/* Preview de textos TECDOC (colapsado) */}
@@ -372,6 +420,24 @@ export function SeccionCard({
               </div>
             </div>
           </details>
+        </div>
+      )}
+
+      {/* Prueba apagada (No aplica) — único campo: el motivo que el informe
+          imprime en la Metodología en lugar del texto del catálogo. Se guarda
+          en `metodologia_no_aplica`; el resto de subsecciones sale como
+          "No aplica." */}
+      {expanded && !seccion.incluida && (
+        <div className="px-3 pb-3 border-t border-slate-100 pt-3 ml-8">
+          <CampoTextoPredeterminado
+            seccionId={seccion.id}
+            etiqueta="Metodología (motivo de no aplica)"
+            placeholder="Motivo por el que la prueba no aplica..."
+            guardado={motivoNoAplicaGuardado}
+            predeterminado={catalogo.metodologiaNoAplica}
+            altoClassName="h-20"
+            onGuardar={onUpdateMetodologiaNoAplica}
+          />
         </div>
       )}
     </div>
@@ -954,6 +1020,10 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
                 // `concepto` arriba (un `undefined` no llega al servidor y el
                 // texto viejo volvería en el siguiente pull).
                 seccion.id && updateSeccion(seccion.id, { observaciones: v ?? null })
+              }
+              onUpdateMetodologiaNoAplica={(v) =>
+                // `null` para limpiar, igual que `observaciones`.
+                seccion.id && updateSeccion(seccion.id, { metodologia_no_aplica: v ?? null })
               }
             />
           );

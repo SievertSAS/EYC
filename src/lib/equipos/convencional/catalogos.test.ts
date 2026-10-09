@@ -50,6 +50,12 @@ describe("CATALOGO_SECCIONES", () => {
     }
   });
 
+  it("las 21 pruebas traen el motivo predeterminado de 'no aplica' para la Metodología", () => {
+    for (const s of CATALOGO_SECCIONES) {
+      expect(s.metodologiaNoAplica, s.codigo).toMatch(/^NO APLICA, toda vez que \S.*\.$/);
+    }
+  });
+
   it("getCatalogoSeccion", () => {
     expect(getCatalogoSeccion("2.5")?.grupo).toBe("B");
     expect(getCatalogoSeccion("9.9")).toBeUndefined();

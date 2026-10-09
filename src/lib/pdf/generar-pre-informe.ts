@@ -204,6 +204,24 @@ export function resolverAccionesTexto(
   return guardado?.trim() || delCatalogo || fallback;
 }
 
+/**
+ * Títulos numerados (desde `.4`) de las subsecciones que una prueba marcada
+ * como "No aplica" imprime en la grilla compacta, a continuación de Objetivo,
+ * Instrumentación y Metodología. Refleja las subsecciones reales de cada
+ * prueba: la 2.1 lleva "Diagrama radiométrico" en lugar de "Evidencia
+ * gráfica", y 2.14 / 2.15 no llevan ninguna de las dos.
+ */
+export function subseccionesNoAplica(codigo: string): string[] {
+  const titulos = ["Resultados", "Análisis", "Criterio de aceptación"];
+  if (codigo === "2.1") titulos.push("Diagrama radiométrico");
+  else if (tieneEvidenciaGrafica(codigo)) titulos.push("Evidencia gráfica");
+  titulos.push("Concepto", "Acciones Correctivas");
+  return titulos.map((titulo, i) => `${codigo}.${i + 4}. ${titulo}`);
+}
+
+/** Alto de cada fila de la grilla "No aplica": título (5 mm) + una línea de párrafo (4,2 + 2 mm). */
+const NO_APLICA_ALTO_FILA = 11.2;
+
 // ─── Tipos internos ───
 
 interface DatosInforme {
@@ -601,6 +619,30 @@ export async function generarPreInforme(
     const alturaParrafo = lines.length * 4.2 + 2;
     addSubsectionTitle(number, title, alturaParrafo);
     addParagraph(text, fontSize, indent, color);
+  }
+
+  /**
+   * Subsecciones de una prueba "No aplica", condensadas en una grilla de dos
+   * columnas que se llena por filas. Cada celda es el título de la subsección
+   * y debajo "No aplica.", todas con la misma tipografía y color. La grilla
+   * se reserva completa para que no se parta entre páginas.
+   */
+  function renderNoAplicaCompacto(titulos: string[]) {
+    const filas = Math.ceil(titulos.length / 2);
+    checkPage(filas * NO_APLICA_ALTO_FILA);
+    const anchoColumna = CONTENT_WIDTH / 2;
+    titulos.forEach((titulo, i) => {
+      const x = MARGIN + (i % 2) * anchoColumna;
+      const yCelda = y + Math.floor(i / 2) * NO_APLICA_ALTO_FILA;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...COLOR_BLACK);
+      doc.text(titulo, x, yCelda);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COLOR_GRAY);
+      doc.text("No aplica.", x, yCelda + 5);
+    });
+    y += filas * NO_APLICA_ALTO_FILA;
   }
 
   /**
@@ -1184,6 +1226,12 @@ export async function generarPreInforme(
       if (!cat) continue;
       const codigo = seccion.prueba_codigo;
       const aplica = seccion.incluida;
+      // #120: override manual -- "aplica pero no se pudo ejecutar por falla
+      // de un componente". Gana sobre el veredicto automático y, en el PDF,
+      // también sobre el switch "incluida": esa prueba conserva el formato
+      // completo y no pasa por la grilla compacta de "No aplica".
+      const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
+      const noAplica = !aplica && !noEjecutada;
 
       // Título de la prueba
       checkPage(60);
@@ -1193,6 +1241,25 @@ export async function generarPreInforme(
 
       addSubsectionParagraph(`${codigo}.1.`, "Objetivo", cat.objetivo);
       addSubsectionParagraph(`${codigo}.2.`, "Instrumentación", cat.instrumentacion);
+      // Prueba "No aplica": la Metodología explica el motivo (el que editó el
+      // físico o el predeterminado de la prueba) y el resto de subsecciones
+      // se condensa en la grilla de dos columnas.
+      if (noAplica) {
+        const motivo = seccion.metodologia_no_aplica?.trim() || cat.metodologiaNoAplica;
+        const titulosGrilla = subseccionesNoAplica(codigo);
+        // Metodología + grilla reservadas como un solo bloque: si no, el motivo
+        // puede quedar al pie de una página y la grilla sola en la siguiente.
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const alturaMotivo = doc.splitTextToSize(motivo, CONTENT_WIDTH).length * 4.2 + 2;
+        checkPage(6 + alturaMotivo + Math.ceil(titulosGrilla.length / 2) * NO_APLICA_ALTO_FILA);
+        addSubsectionParagraph(`${codigo}.3.`, "Metodología", motivo);
+        renderNoAplicaCompacto(titulosGrilla);
+        y += 4;
+        // No cuenta como no conforme ni como pendiente para el concepto general.
+        resumenRows.push([`${codigo} ${cat.nombre}`, "NO APLICA"]);
+        continue;
+      }
       addSubsectionParagraph(`${codigo}.3.`, "Metodología", cat.metodologia);
 
       // Resultados (+ análisis en 2.1, descripción en 2.2)
@@ -1293,11 +1360,6 @@ export async function generarPreInforme(
       // así se puede reservar título+veredicto+párrafo como un bloque único.
       const numConcepto = `${codigo}.${nextSub}.`;
       nextSub++;
-      // #120: override manual -- "aplica pero no se pudo ejecutar por falla
-      // de un componente". Gana sobre el veredicto automático, igual que el
-      // switch "incluida" gana sobre el cálculo (ver también conceptoDe en
-      // pre-informe-modulo.tsx, misma precedencia).
-      const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
       const veredicto = aplica && !noEjecutada ? evaluarConceptoPrueba(codigo, conv) : undefined;
       const esPendiente =
         aplica && !noEjecutada && tieneCriterio(codigo) && veredicto === undefined;
@@ -1798,9 +1860,6 @@ export async function generarPreInforme(
             "Se recomienda realizar revisión técnica del detector, verificar la calibración del sistema y repetir la prueba. Si los problemas persisten, escalar al fabricante o servicio técnico autorizado."
           );
         }
-      } else if (!aplica) {
-        conceptoLabel = "NO APLICA";
-        esNoConforme = false;
       } else {
         conceptoLabel =
           veredicto === "Conforme"
@@ -1810,7 +1869,6 @@ export async function generarPreInforme(
               : "PENDIENTE";
       }
 
-      const noAplica = conceptoLabel === "NO APLICA";
       // Título + veredicto + párrafo, reservados como un solo bloque — la
       // altura real (con o sin conceptoParrafo) recién se conoce acá.
       doc.setFont("helvetica", "normal");
@@ -1825,20 +1883,13 @@ export async function generarPreInforme(
       doc.text(conceptoLabel, MARGIN, y);
       y += 6;
       if (conceptoParrafo) {
-        addParagraph(conceptoParrafo, 9, 0, noAplica ? COLOR_GRAY : COLOR_BLACK);
+        addParagraph(conceptoParrafo);
       }
       // `observaciones` es el texto editado del Análisis y ya se imprimió en
       // esa subsección (ver arriba) — reimprimirlo aquí lo duplicaría.
 
       // Acciones correctivas
-      addSubsectionParagraph(
-        `${codigo}.${nextSub}.`,
-        "Acciones Correctivas",
-        accionesTexto,
-        9,
-        0,
-        noAplica ? COLOR_GRAY : COLOR_BLACK
-      );
+      addSubsectionParagraph(`${codigo}.${nextSub}.`, "Acciones Correctivas", accionesTexto);
       y += 4;
 
       resumenRows.push([`${codigo} ${cat.nombre}`, conceptoLabel]);

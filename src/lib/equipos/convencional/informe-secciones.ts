@@ -15,6 +15,12 @@ export interface SeccionInfoCatalogo {
   instrumentacion: string;
   /** Texto de metodología para el PDF */
   metodologia: string;
+  /**
+   * Motivo predeterminado que reemplaza a la metodología en el PDF cuando la
+   * prueba se marca como "No aplica". El físico puede editarlo desde el
+   * pre-informe (`metodologia_no_aplica` de la sección).
+   */
+  metodologiaNoAplica: string;
   /** Texto del criterio de aceptación para el PDF */
   criterio: string;
   /**
@@ -48,6 +54,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Sistema dosimétrico calibrado para mediciones en protección radiológica (cámara de ionización o detector de estado sólido), material equivalente simulador de radiación dispersa y cinta métrica.",
     metodologia:
       "Se realizó el levantamiento radiométrico mediante mediciones de radiación dispersa en puntos representativos del área donde se encuentra instalado el equipo de radiología general. Las mediciones se efectuaron utilizando una cámara de ionización o un detector de estado sólido calibrado en términos de dosis equivalente ambiental H*(10), posicionando un simulador de dispersión en la ubicación habitual del paciente durante la exposición, aplicando la técnica máxima utilizada en la práctica clínica. Los puntos de medición evaluados se presentan en el diagrama radiométrico de la instalación.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que no fue posible realizar el levantamiento radiométrico en la instalación evaluada.",
     criterio:
       "Área controlada (trabajadores): H*(10) <= 5 mSv/año. Área supervisada (público): H*(10) <= 0.5 mSv/año.",
     comoSeEvalua: {
@@ -73,6 +81,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Inspección visual directa del equipo y de la instalación, utilizando herramientas básicas de verificación cuando aplica.",
     metodologia:
       "Se realizó una inspección visual del equipo y de las condiciones de operación de la instalación mediante una lista de verificación basada en los lineamientos del IAEA-TECDOC-1958 y en los criterios de seguridad aplicables a equipos de radiología general.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que la inspección visual no hace parte del alcance del servicio realizado.",
     criterio:
       "La inspección visual se considera aceptable cuando los componentes visibles del equipo y las condiciones de operación de la instalación se encuentran en buen estado físico, sin deterioros, fugas o defectos que puedan comprometer la protección radiológica del operador, los pacientes o el público.",
     comoSeEvalua: {
@@ -100,6 +110,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Detector CR o DR, dispositivo de verificación de colimación y alineación del rayo central y cinta métrica.",
     metodologia:
       "Se ubicó el dispositivo de verificación de colimación sobre el receptor de imagen y se ajustó el campo luminoso de manera que coincidiera con las marcas de referencia del objeto de prueba. Posteriormente, se realizó una exposición radiográfica con una técnica adecuada para visualizar el campo irradiado y la posición del rayo central.\n\nA partir de la imagen obtenida se evaluó la coincidencia entre el campo luminoso y el campo de radiación, así como la perpendicularidad del rayo central respecto al plano del receptor, de acuerdo con los criterios establecidos en el IAEA-TECDOC-1958.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con sistema de colimación con campo luminoso.",
     criterio:
       "La desviación entre el campo luminoso y el campo de radiación no debe exceder el 2 % de la distancia foco-receptor en cada borde ni el 4 % en total. La perpendicularidad del rayo central debe presentar una desviación angular menor o igual a 3°.",
     comoSeEvalua: {
@@ -125,6 +137,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe seleccionó una combinación representativa de tensión y corriente del generador y se realizaron al menos tres exposiciones para un tiempo de exposición determinado, registrando el tiempo medido en cada exposición. El procedimiento se repitió para otros dos tiempos de exposición seleccionados, manteniendo constantes los demás parámetros de irradiación.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no permite seleccionar ni indica el tiempo de exposición.",
     criterio:
       "La desviación entre el tiempo de exposición seleccionado y el tiempo medido no debe exceder +/-10 %.\nLa repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 10 %.",
     comoSeEvalua: {
@@ -150,6 +164,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe seleccionaron al menos tres valores representativos de tensión del tubo de rayos X y se realizaron al menos tres exposiciones para cada valor seleccionado, registrando la tensión medida en cada irradiación. Durante las mediciones se mantuvieron constantes los demás parámetros de irradiación.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no permite seleccionar la tensión del tubo de rayos X.",
     criterio:
       "La desviación entre la tensión seleccionada y la tensión medida no debe exceder +/-10 %.\nLa repetibilidad de las mediciones debe presentar un coeficiente de variación (CV) <= 5 %.",
     comoSeEvalua: {
@@ -175,6 +191,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nSe realizaron exposiciones utilizando valores representativos de tensión del tubo de rayos X, registrando la capa hemirreductora (CHR) reportada por el analizador para cada condición de irradiación. Los valores obtenidos se compararon con los valores mínimos de referencia establecidos para radiodiagnóstico según la tensión del tubo utilizada.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que no fue posible determinar la capa hemirreductora con la instrumentación disponible.",
     criterio:
       "La capa hemirreductora del haz de rayos X debe ser igual o mayor que los valores mínimos de referencia establecidos para cada nivel de tensión del tubo.",
     comoSeEvalua: {
@@ -199,6 +217,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Analizador de rayos X RaySafe X2 con detector para radiodiagnóstico.",
     metodologia:
       "Se posicionó el medidor no invasivo sobre la mesa, en el centro del haz de radiación, ajustando el tamaño del campo al volumen sensible del instrumento. En sistemas digitales se protegió el detector mediante una lámina de cobre (Cu) de 1 mm de espesor.\n\nEl detector del sistema dosimétrico se ubicó aproximadamente a 100 cm del foco del tubo de rayos X. Se seleccionó un valor de 80 kV como tensión de referencia. Posteriormente se realizaron exposiciones utilizando diferentes valores de mAs, registrando el kerma en aire reportado por el analizador en cada irradiación.\n\nA partir de las mediciones obtenidas se calculó el rendimiento del tubo de rayos X, expresado como kerma en aire por unidad de carga (µGy/mAs). La repetibilidad se evaluó mediante el cálculo del coeficiente de variación (CV) para exposiciones repetidas bajo las mismas condiciones de irradiación, mientras que la linealidad se evaluó mediante la comparación del rendimiento obtenido para los diferentes valores de mAs.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no permite seleccionar la carga del tubo (mAs) de forma independiente.",
     criterio:
       "El coeficiente de variación (CV) para exposiciones repetidas no debe exceder 5 %.\nLa desviación en la linealidad del rendimiento con respecto al mAs no debe exceder +/-10 %.",
     comoSeEvalua: {
@@ -226,6 +246,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Se realizó una exposición con parámetros técnicos representativos de la práctica clínica y se registró el kerma en aire mediante el sistema dosimétrico.\n\n" +
       "Posteriormente, se estimó el producto kerma-área (PkA) multiplicando el kerma en aire medido por el área del campo de irradiación corregida a la distancia del detector.\n\n" +
       "Finalmente, el valor obtenido se comparó con el PkA reportado por el sistema del equipo, calculando el factor de corrección del indicador de PkA.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con sensor para determinar el producto dosis-área (DAP).",
     criterio:
       "De acuerdo con el protocolo IAEA-TECDOC-1958, esta prueba tiene como objetivo determinar el factor de corrección del indicador de producto kerma-área (PKA) o DAP del equipo.\n" +
       "Por lo tanto, no se establece un criterio de aceptación ni tolerancia para emitir concepto de conformidad o no conformidad. El resultado de esta prueba es el factor de corrección obtenido, el cual deberá aplicarse en las evaluaciones dosimétricas posteriores del equipo.",
@@ -240,6 +262,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Cassette CR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
       "De acuerdo con el protocolo IAEA-TECDOC-1958, esta prueba consiste en registrar el valor del indicador de exposición (EI o DDI) del sistema bajo condiciones de exposición reproducibles y compararlo con el valor base definido por el fabricante o por el programa de control de calidad.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el sistema no reporta el indicador de exposición (DDI/EI).",
     criterio: "La desviación no debe exceder ± 20 % de los valores base.",
     comoSeEvalua: {
       datos:
@@ -264,6 +288,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Cassette CR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
       "De acuerdo con el protocolo IAEA-TECDOC-1958, la repetibilidad del indicador de exposición se evalúa realizando varias exposiciones consecutivas bajo las mismas condiciones de irradiación y registrando el valor del indicador de exposición (DDI o EI) reportado por el sistema.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el sistema no reporta el indicador de exposición (DDI/EI).",
     criterio: "El valor del coeficiente de variación debe ser <= 20 %.",
     comoSeEvalua: {
       datos: "Los índices de exposición (EI) de todas las tomas del grupo 1.",
@@ -286,6 +312,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Detector de imagen CR o DR, lámina de cobre 1 mm Cu, software de procesamiento de imagen.",
     metodologia:
       "La evaluación de uniformidad del detector se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, obteniendo imágenes uniformes del detector mediante la interposición de una lámina de cobre y registrando el valor medio de píxel en diferentes regiones de interés (ROI) distribuidas en la imagen. Adicionalmente, se realizó inspección visual para identificar la presencia de píxeles defectuosos o artefactos.",
+    metodologiaNoAplica: "NO APLICA, toda vez que el equipo no cuenta con detector digital.",
     criterio:
       "La imagen uniforme obtenida debe presentar una respuesta homogénea del detector y no evidenciar píxeles defectuosos ni artefactos que afecten la calidad de la imagen. La variación de uniformidad del detector, calculada a partir de los valores máximos y mínimos de señal registrados en las regiones de interés, no debe exceder el [TOLERANCIA_PCT] %.",
     comoSeEvalua: {
@@ -312,6 +339,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Objeto de prueba para resolución espacial de alto contraste (patrón de pares de líneas), detector de imagen del sistema evaluado (CR o DR) y software de visualización y procesamiento de imágenes del sistema radiográfico.",
     metodologia:
       "Se posicionó el objeto de prueba para resolución espacial sobre el receptor de imagen, asegurando su correcta alineación 45° con el centro del haz de radiación. Posteriormente se realizó una exposición radiográfica utilizando parámetros técnicos representativos de la práctica clínica habitual del equipo evaluado.\n\nLa imagen obtenida fue analizada visualmente mediante el software de visualización del sistema, identificando el grupo de pares de líneas por milímetro (pl/mm) que pueden distinguirse claramente en la imagen radiográfica. La evaluación se realizó de acuerdo con los criterios establecidos en el protocolo IAEA-TECDOC-1958, determinando el valor máximo de resolución espacial reproducible por el sistema.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con receptor de imagen digital.",
     criterio: "La resolución espacial del sistema debe ser mayor o igual a 2,4 pl/mm.",
     comoSeEvalua: {
       datos:
@@ -334,6 +363,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Objeto de prueba para resolución espacial de bajo contraste (patrón de pares de líneas), detector de imagen del sistema evaluado (CR o DR) y software de visualización y procesamiento de imágenes del sistema radiográfico.",
     metodologia:
       "La prueba se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, utilizando el módulo de bajo contraste del fantoma correspondiente. Se adquirió la imagen bajo condiciones representativas de operación y se evaluó visualmente la cantidad de detalles de bajo contraste visibles en la imagen.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con receptor de imagen digital.",
     criterio:
       "Debe observarse una cantidad mayor a tres masas o tener un porcentaje de contraste inferior a 4 %.",
     comoSeEvalua: {
@@ -359,6 +390,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Cassettes y paño antimotas.",
     metodologia:
       "La verificación de integridad y limpieza de los cassettes y pantallas IP se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958, mediante inspección visual de los cassettes y de las pantallas de fósforo fotoestimulable (IP).\n\nDurante la inspección se verificó la correcta identificación de las IP CR y de los cassettes, se examinaron posibles defectos externos, así como la presencia de polvo o rayaduras en las pantallas. En caso necesario, las pantallas se limpiaron siguiendo las recomendaciones del fabricante.",
+    metodologiaNoAplica: "NO APLICA, toda vez que el equipo no utiliza cassettes ni pantallas IP.",
     criterio:
       "Los cassettes y pantallas IP no deben presentar defectos externos, polvo ni rayaduras que puedan generar artefactos en la imagen radiográfica.",
     comoSeEvalua: {
@@ -381,6 +413,7 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     instrumentacion: "Pantallas IP CR, cassette correspondiente y sistema de lectura CR.",
     metodologia:
       "La evaluación de la uniformidad de sensibilidad de las pantallas IP se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, mediante la adquisición de imágenes uniformes y el análisis de la respuesta de la pantalla en diferentes regiones de la imagen.",
+    metodologiaNoAplica: "NO APLICA, toda vez que el equipo no utiliza pantallas IP (sistema CR).",
     criterio:
       "El coeficiente de variación (CV) del índice de exposición (EI) entre pantallas IP no debe exceder el 10 %.",
     comoSeEvalua: {
@@ -404,6 +437,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Fantoma o patrón de resolución espacial adecuado para la determinación de la MTF y sistema de radiografía digital (DR o CR).",
     metodologia:
       "La evaluación de la función de transferencia de modulación se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, adquiriendo una imagen del patrón de resolución espacial bajo condiciones representativas de operación del sistema.\n\nLa imagen obtenida fue analizada mediante software de procesamiento de imagen para determinar la respuesta del sistema a diferentes frecuencias espaciales.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el sistema no permite obtener las imágenes requeridas para el cálculo de la MTF.",
     criterio:
       "Las variaciones del valor de la MTF en el tiempo no deben superar el 10 % respecto al valor de referencia inicial.",
     comoSeEvalua: {
@@ -428,6 +463,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen, material atenuador y cinta métrica.",
     metodologia:
       "La evaluación de la sensibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con el sistema CAE activado para diferentes espesores de material simulador y verificando la respuesta del detector.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con Control Automático de Exposición (CAE).",
     criterio:
       "La variación de los parámetros evaluados (mAs, EI y D.I.) respecto a los valores de referencia no debe superar el 50 %.",
     comoSeEvalua: {
@@ -450,6 +487,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador.",
     metodologia:
       "La evaluación de la consistencia entre los sensores del control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con los sensores del CAE de manera individual y en sus diferentes combinaciones, bajo condiciones equivalentes de irradiación, y comparando la respuesta del detector.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con Control Automático de Exposición (CAE).",
     criterio:
       "Las diferencias porcentuales respecto a los valores promedio deben ser menores o iguales al 30 %.",
     comoSeEvalua: {
@@ -473,6 +512,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador.",
     metodologia:
       "La evaluación de la repetibilidad del control automático de exposición se realiza conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando varias exposiciones consecutivas con el sistema CAE activado y registrando la respuesta del detector para las mismas condiciones de irradiación.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con Control Automático de Exposición (CAE).",
     criterio:
       "El coeficiente de variación de los parámetros evaluados debe ser menor o igual al 10 %.",
     comoSeEvalua: {
@@ -495,6 +536,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Sistema dosimétrico calibrado para medición de kerma en aire o detector digital del sistema de imagen y material atenuador de diferentes espesores.",
     metodologia:
       "La evaluación de la compensación del sistema de control automático de exposición se realizó conforme al procedimiento descrito en el IAEA-TECDOC-1958, efectuando exposiciones con diferentes valores de kVp y con diferentes espesores de material atenuador, manteniendo constante la selección del sensor del CAE. Los valores obtenidos de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) se compararon con los valores iniciales de referencia correspondientes.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con Control Automático de Exposición (CAE).",
     criterio:
       "La variación porcentual de los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) para cada condición evaluada debe ser menor o igual al 30 % respecto a los valores base correspondientes.",
     comoSeEvalua: {
@@ -518,6 +561,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "Sistema dosimétrico calibrado para medición de kerma en aire (cámara de ionización o detector de estado sólido), material atenuador y sistema receptor de imagen digital.",
     metodologia:
       "La determinación de la dosis al receptor se realizó siguiendo el procedimiento descrito en el IAEA-TECDOC-1958. El tubo de rayos X se centró con el detector y el haz se colimó para cubrir completamente el área del receptor. Se colocó una lámina de cobre de 1 mm en la salida del haz de radiación y el dosímetro en la superficie del Bucky, alineado con el eje central del haz. Se registraron la distancia fuente–dosímetro (d1) y la distancia fuente–receptor de imagen (d2). Se seleccionaron parámetros clínicos representativos y se realizaron exposiciones, registrando el valor de dosis medida en cada condición. La dosis al receptor se calculó aplicando la corrección geométrica correspondiente.",
+    metodologiaNoAplica:
+      "NO APLICA, toda vez que el equipo no cuenta con receptor de imagen digital.",
     criterio:
       "La diferencia entre el valor de la dosis calculada y la dosis base inicial debe ser menor a 0,01 mGy (10 µGy).",
     comoSeEvalua: {

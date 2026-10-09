@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
 import { resetTestDb } from "@/test/db-reset";
 import { seedGraph } from "@/test/seed";
+import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 import {
   generarPreInforme,
   getLogoBase64,
@@ -23,6 +24,7 @@ import {
   resetMarcaAguaCache,
   resetPieFooterCache,
   resolverAccionesTexto,
+  subseccionesNoAplica,
   textoCampo,
   textoFecha,
 } from "./generar-pre-informe";
@@ -829,5 +831,190 @@ describe("Análisis editable en cualquier prueba (observaciones de la sección)"
     });
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
     expect(text).not.toContain(textoCustom);
+  });
+});
+
+describe("Prueba 'No aplica': motivo en Metodología y resto compactado en dos columnas", () => {
+  // Una sola sección en la visita, para que cada marcador venga de esa prueba.
+  // Los párrafos de varias líneas se justifican palabra por palabra y no
+  // quedan legibles enteros en el buffer: se afirma sobre textos de una línea
+  // o sobre palabras sueltas.
+  async function pdfDeSeccion(
+    codigo: string,
+    campos: Partial<ConvInformeSeccion> = {}
+  ): Promise<string> {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: codigo,
+      orden: 1,
+      incluida: false,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+      ...campos,
+    });
+    return pdfText((await generarPreInforme(visita!.id!))!);
+  }
+
+  const veces = (texto: string, marca: string) => texto.split(marca).length - 1;
+
+  const MOTIVO_211 = "NO APLICA, toda vez que el equipo no cuenta con detector digital.";
+  // Palabra que en la 2.12 solo aparece en la Metodología del catálogo.
+  const MARCA_METODOLOGIA_212 = "Posteriormente";
+  // Fragmento del Criterio de aceptación de la 2.12 (una sola línea).
+  const MARCA_CRITERIO_212 = "2,4 pl/mm";
+
+  it("la Metodología imprime el motivo predeterminado del catálogo", async () => {
+    const text = await pdfDeSeccion("2.11");
+    expect(text).toContain("2.11.3.");
+    expect(text).toContain(MOTIVO_211);
+  });
+
+  it("la Metodología del catálogo no se imprime (sí en la misma prueba cuando aplica)", async () => {
+    expect(await pdfDeSeccion("2.12", { incluida: true })).toContain(MARCA_METODOLOGIA_212);
+    expect(await pdfDeSeccion("2.12")).not.toContain(MARCA_METODOLOGIA_212);
+  });
+
+  it("un motivo guardado por el físico reemplaza al predeterminado", async () => {
+    const motivo = "Motivo editado por el fisico XYZ123";
+    const text = await pdfDeSeccion("2.11", { metodologia_no_aplica: `  ${motivo}  ` });
+    expect(veces(text, motivo)).toBe(1);
+    expect(text).not.toContain(MOTIVO_211);
+  });
+
+  it("un motivo guardado en blanco cae al predeterminado", async () => {
+    expect(await pdfDeSeccion("2.11", { metodologia_no_aplica: "   " })).toContain(MOTIVO_211);
+  });
+
+  it("subseccionesNoAplica: 2.8 → seis títulos numerados de .4 a .9", () => {
+    expect(subseccionesNoAplica("2.8")).toEqual([
+      "2.8.4. Resultados",
+      "2.8.5. Análisis",
+      "2.8.6. Criterio de aceptación",
+      "2.8.7. Evidencia gráfica",
+      "2.8.8. Concepto",
+      "2.8.9. Acciones Correctivas",
+    ]);
+  });
+
+  it("subseccionesNoAplica: 2.14 y 2.15 → cinco títulos, sin Evidencia gráfica", () => {
+    for (const codigo of ["2.14", "2.15"]) {
+      expect(subseccionesNoAplica(codigo)).toEqual([
+        `${codigo}.4. Resultados`,
+        `${codigo}.5. Análisis`,
+        `${codigo}.6. Criterio de aceptación`,
+        `${codigo}.7. Concepto`,
+        `${codigo}.8. Acciones Correctivas`,
+      ]);
+    }
+  });
+
+  it("subseccionesNoAplica: 2.1 → Diagrama radiométrico en lugar de Evidencia gráfica", () => {
+    expect(subseccionesNoAplica("2.1")).toEqual([
+      "2.1.4. Resultados",
+      "2.1.5. Análisis",
+      "2.1.6. Criterio de aceptación",
+      "2.1.7. Diagrama radiométrico",
+      "2.1.8. Concepto",
+      "2.1.9. Acciones Correctivas",
+    ]);
+  });
+
+  it("subseccionesNoAplica: las 21 pruebas llevan Evidencia gráfica salvo 2.1, 2.14 y 2.15", () => {
+    for (let i = 1; i <= 21; i++) {
+      const codigo = `2.${i}`;
+      const conEvidencia = subseccionesNoAplica(codigo).some((t) =>
+        t.endsWith("Evidencia gráfica")
+      );
+      expect(conEvidencia, codigo).toBe(!["2.1", "2.14", "2.15"].includes(codigo));
+    }
+  });
+
+  it("cada subsección de la grilla se imprime con su número y 'No aplica.' en todas las celdas", async () => {
+    const text = await pdfDeSeccion("2.8");
+    for (const n of [4, 5, 6, 7, 8, 9]) expect(text).toContain(`2.8.${n}.`);
+    expect(text).not.toContain("2.8.10.");
+    expect(veces(text, "(No aplica.) Tj")).toBe(6);
+  });
+
+  it("2.14: cinco celdas, sin subsección .9", async () => {
+    const text = await pdfDeSeccion("2.14");
+    expect(veces(text, "(No aplica.) Tj")).toBe(5);
+    expect(text).toContain("2.14.8.");
+    expect(text).not.toContain("2.14.9.");
+  });
+
+  it("el Criterio de aceptación del catálogo ya no se imprime (sí cuando la prueba aplica)", async () => {
+    expect(await pdfDeSeccion("2.12", { incluida: true })).toContain(MARCA_CRITERIO_212);
+    expect(await pdfDeSeccion("2.12")).not.toContain(MARCA_CRITERIO_212);
+  });
+
+  it("las acciones correctivas guardadas no se imprimen en una prueba no aplica", async () => {
+    const acciones = "ACCIONES-MARCADOR-NO-APLICA";
+    expect(await pdfDeSeccion("2.12", { acciones_correctivas: acciones })).not.toContain(acciones);
+  });
+
+  it("el veredicto 'NO APLICA' queda solo en la tabla resumen, no en el cuerpo de la prueba", async () => {
+    const text = await pdfDeSeccion("2.12", { metodologia_no_aplica: "Motivo sin la marca." });
+    expect(veces(text, "(NO APLICA) Tj")).toBe(1);
+    expect(text).not.toContain("(NO APLICA.) Tj");
+  });
+
+  it("todas las pruebas en no aplica: el informe oficial se emite (el concepto general no queda pendiente)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: false,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(veces(text, "(NO APLICA) Tj")).toBe(21);
+    expect(text).not.toContain("PENDIENTE");
+  });
+
+  it("la Metodología y la grilla quedan en la misma página (el motivo no queda huérfano al pie)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: false,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    // Cada página es un stream propio: si entre el título de Metodología y la
+    // primera celda de la grilla hay un "endstream", quedaron en páginas distintas.
+    const partidas = Array.from({ length: 21 }, (_, i) => `2.${i + 1}`).filter((codigo) => {
+      const iMetodologia = text.indexOf(`(${codigo}.3. Metodolog`);
+      const iGrilla = text.indexOf(`(${codigo}.4. Resultados) Tj`);
+      expect(iMetodologia).toBeGreaterThan(-1);
+      expect(iGrilla).toBeGreaterThan(iMetodologia);
+      return text.slice(iMetodologia, iGrilla).includes("endstream");
+    });
+    expect(partidas).toEqual([]);
+  });
+
+  it("'No se pudo ejecutar' (#120) se imprime como antes: textos del catálogo completos y sin grilla", async () => {
+    const text = await pdfDeSeccion("2.12", {
+      incluida: true,
+      concepto: "No_favorable_no_ejecutada",
+      metodologia_no_aplica: "MOTIVO-QUE-NO-DEBE-SALIR",
+    });
+    expect(text).toContain(MARCA_METODOLOGIA_212);
+    expect(text).toContain(MARCA_CRITERIO_212);
+    expect(text).toContain("(NO EJECUTADA) Tj");
+    expect(text).not.toContain("MOTIVO-QUE-NO-DEBE-SALIR");
+    expect(text).not.toContain("(No aplica.) Tj");
   });
 });

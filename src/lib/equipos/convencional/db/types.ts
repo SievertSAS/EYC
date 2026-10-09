@@ -476,8 +476,12 @@ export interface ConvInformeSeccion extends Partial<SyncFields> {
   concepto?: "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada" | null;
   /** Texto de acciones correctivas (editable inline) */
   acciones_correctivas?: string;
-  /** Observaciones adicionales del físico */
-  observaciones?: string;
+  /**
+   * Texto del "Análisis" editado por el físico; reemplaza al automático en el
+   * PDF. Vacío = se usa el texto automático de la prueba.
+   * `null` (no `undefined`) para limpiarlo, por la misma razón que `concepto`.
+   */
+  observaciones?: string | null;
   creado_en?: string;
 }
 

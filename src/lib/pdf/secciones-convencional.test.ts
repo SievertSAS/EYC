@@ -7,6 +7,10 @@ import {
   renderTablaBaseRef216,
   renderTablaBaseRef221,
   renderTablaChrRef,
+  conAnalisisPersonalizado,
+  textoAnalisisPredeterminado,
+  inyectarDatosEquipo,
+  analisisPredeterminadoDeVisita,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -527,23 +531,21 @@ describe("2.21 — encabezado 'Cumple', tabla de valores base y 'Análisis' edit
     return { ctx, parrafos };
   }
 
-  it("textoAnalisisCustom reemplaza el párrafo de conclusión de 2.21.5", async () => {
+  it("conAnalisisPersonalizado reemplaza el párrafo de conclusión de 2.21.5", async () => {
     const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
     conv.raysafeMediciones = shots();
     const { ctx, parrafos } = await ctxConTextoCapturado();
-    renderResultadosSeccion(
+    const personalizado = conAnalisisPersonalizado(
       ctx,
-      "2.21",
-      visitaFixture,
-      conv,
-      undefined,
       "Texto de análisis editado a mano por el físico."
     );
+    renderResultadosSeccion(personalizado.ctx, "2.21", visitaFixture, conv, undefined);
+    personalizado.flush();
     expect(parrafos).toContain("Texto de análisis editado a mano por el físico.");
     expect(parrafos.join(" ")).not.toContain("evidenciando estabilidad");
   });
 
-  it("sin textoAnalisisCustom mantiene el párrafo calculado automático (regresión)", async () => {
+  it("sin texto personalizado mantiene el párrafo calculado automático (regresión)", async () => {
     const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
     conv.raysafeMediciones = shots();
     const { ctx, parrafos } = await ctxConTextoCapturado();
@@ -1179,5 +1181,341 @@ describe("#122 — 'Análisis' de 2.3/2.4/2.5 cita la desviación/CV real, no re
     const match = texto.match(/desviación total fue de ([\d,.]+) %/);
     expect(match).not.toBeNull();
     expect(parseFloat(match![1].replace(",", "."))).toBeCloseTo(2, 0);
+  });
+});
+
+// ─── Análisis editable en las 21 pruebas ───
+
+type EventoRender =
+  | { tipo: "titulo"; texto: string }
+  | { tipo: "parrafo"; texto: string }
+  | { tipo: "tabla"; head: unknown[] };
+
+/** Ctx real (jsPDF + autoTable) que registra, en orden, títulos, párrafos y tablas. */
+async function ctxConRegistro(): Promise<{ ctx: InformeCtx; eventos: EventoRender[] }> {
+  const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const doc = new jsPDF();
+  const eventos: EventoRender[] = [];
+  const autoTable: typeof autoTableReal = (d, opts) => {
+    eventos.push({ tipo: "tabla", head: (opts.head?.[0] as unknown[]) ?? [] });
+    return autoTableReal(d, opts);
+  };
+  let y = 20;
+  const ctx: InformeCtx = {
+    doc,
+    autoTable,
+    get y() {
+      return y;
+    },
+    set y(v: number) {
+      y = v;
+    },
+    checkPage: () => {},
+    addParagraph: (texto: string) => {
+      eventos.push({ tipo: "parrafo", texto });
+    },
+    addSubsectionTitle: (_numero: string, titulo: string) => {
+      eventos.push({ tipo: "titulo", texto: titulo });
+    },
+  };
+  return { ctx, eventos };
+}
+
+const parrafosDe = (eventos: EventoRender[]): string[] =>
+  eventos.flatMap((e) => (e.tipo === "parrafo" ? [e.texto] : []));
+
+/** Eventos emitidos después del título "Análisis". */
+const trasAnalisis = (eventos: EventoRender[]): EventoRender[] =>
+  eventos.slice(eventos.findIndex((e) => e.tipo === "titulo" && e.texto === "Análisis") + 1);
+
+const tiempos24 = (medidos: number[]) =>
+  medidos.map((tiempo_medido_s, i) =>
+    row({
+      id: `m${i}`,
+      visita_id: V,
+      tipo_medicion: "principal",
+      grupo_numero: 1,
+      toma_numero: i + 1,
+      tiempo_nominal_s: 0.8,
+      tiempo_medido_s,
+    })
+  );
+
+const mtf216 = () =>
+  row({
+    sid_cm: 100,
+    kv_referencia: 70,
+    pixel_size_mm: 0.14,
+    nyquist_lpmm: 3.57,
+    mtf50_horizontal: 1.2,
+    mtf20_horizontal: 2.1,
+    mtf50_vertical: 1.15,
+    mtf20_vertical: 2.05,
+  });
+
+const shot221 = (extra: Record<string, unknown> = {}) =>
+  row({
+    id: "r1",
+    visita_id: V,
+    tipo_medicion: "sin_rejilla",
+    programa_clinico: "Tórax AP",
+    kv_nominal: 90,
+    mas_nominal: 5,
+    dosis_medida_mgy: 0.3258,
+    ...extra,
+  });
+
+const EDITADO = "Texto de análisis editado a mano por el físico.";
+
+describe("textoAnalisisPredeterminado — texto automático del 'Análisis' de cada prueba", () => {
+  it("2.4 conforme: devuelve el único párrafo del Análisis, sin los párrafos de Resultados", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = tiempos24([0.79, 0.795, 0.8]);
+    const texto = await textoAnalisisPredeterminado("2.4", visitaFixture, conv, undefined);
+    expect(texto).toMatch(
+      /^Los resultados obtenidos evidencian que el tiempo de exposición medido/
+    );
+    expect(texto).toContain("adecuada estabilidad del sistema de temporización");
+    expect(texto).not.toContain("\n");
+    expect(texto).not.toContain("La prueba se llevó a cabo");
+  });
+
+  it("2.4 no conforme: devuelve el párrafo que cita el incumplimiento", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = tiempos24([0.4, 0.42, 0.44]);
+    const texto = await textoAnalisisPredeterminado("2.4", visitaFixture, conv, undefined);
+    expect(texto).toContain("superiores a los criterios de aceptación establecidos");
+    expect(texto).not.toContain("adecuada estabilidad");
+  });
+
+  it("2.16: une los tres párrafos con una línea en blanco", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = mtf216();
+    const texto = await textoAnalisisPredeterminado("2.16", visitaFixture, conv, undefined);
+    const partes = texto!.split("\n\n");
+    expect(partes).toHaveLength(3);
+    expect(partes[0]).toMatch(/^Las curvas de MTF obtenidas/);
+    expect(partes[2]).toMatch(/^Los valores obtenidos son consistentes/);
+  });
+
+  it("coincide con lo que imprime el PDF después del título 'Análisis'", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = [shot221({ dosis_base_mgy: 0.319 })];
+    const { ctx, eventos } = await ctxConRegistro();
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    const texto = await textoAnalisisPredeterminado("2.21", visitaFixture, conv, undefined);
+    expect(texto).toBe(parrafosDe(trasAnalisis(eventos)).join("\n\n"));
+  });
+
+  it("sin datos (la prueba no llega a emitir 'Análisis') → null", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    expect(await textoAnalisisPredeterminado("2.4", visitaFixture, conv, undefined)).toBeNull();
+  });
+
+  it("2.2: su Análisis lo imprime el generador desde el catálogo → null", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    expect(await textoAnalisisPredeterminado("2.2", visitaFixture, conv, undefined)).toBeNull();
+  });
+});
+
+describe("conAnalisisPersonalizado — reemplaza el texto del 'Análisis' y conserva las tablas", () => {
+  it("2.21 con valores base: reemplaza el párrafo y mantiene la Tabla 2.21.2", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = [shot221({ dosis_base_mgy: 0.319 })];
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.21", visitaFixture, conv, undefined);
+    personalizado.flush();
+
+    const analisis = trasAnalisis(eventos);
+    expect(parrafosDe(analisis)).toEqual([EDITADO]);
+    expect(analisis.some((e) => e.tipo === "tabla" && e.head.includes("Cumple"))).toBe(true);
+  });
+
+  it("2.21 sin valores base: la edición también se aplica", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = [shot221()];
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.21", visitaFixture, conv, undefined);
+    personalizado.flush();
+
+    expect(parrafosDe(trasAnalisis(eventos))).toEqual([EDITADO]);
+    expect(parrafosDe(eventos).join(" ")).not.toContain("No se dispone de valores de referencia");
+  });
+
+  it("2.16: imprime el texto una sola vez y suprime los párrafos automáticos restantes", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = mtf216();
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.16", visitaFixture, conv, undefined);
+    personalizado.flush();
+
+    expect(parrafosDe(trasAnalisis(eventos))).toEqual([EDITADO]);
+  });
+
+  it("los párrafos anteriores al título 'Análisis' pasan intactos", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = tiempos24([0.79, 0.795, 0.8]);
+    const { ctx: ctxBase, eventos: sinEditar } = await ctxConRegistro();
+    renderResultadosSeccion(ctxBase, "2.4", visitaFixture, conv, undefined);
+
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.4", visitaFixture, conv, undefined);
+    personalizado.flush();
+
+    const antes = (evs: EventoRender[]) =>
+      evs.slice(
+        0,
+        evs.findIndex((e) => e.tipo === "titulo" && e.texto === "Análisis")
+      );
+    expect(antes(eventos)).toEqual(antes(sinEditar));
+    expect(parrafosDe(antes(eventos)).length).toBeGreaterThan(0);
+    expect(parrafosDe(trasAnalisis(eventos))).toEqual([EDITADO]);
+  });
+
+  it("2.20 (párrafos y tablas intercalados): un solo texto y las dos tablas de análisis", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.20", visitaFixture, conv, undefined);
+    personalizado.flush();
+
+    const analisis = trasAnalisis(eventos);
+    expect(parrafosDe(analisis)).toEqual([EDITADO]);
+    expect(analisis.filter((e) => e.tipo === "tabla")).toHaveLength(2);
+    expect(analisis[0]).toEqual({ tipo: "parrafo", texto: EDITADO });
+  });
+
+  it("flush imprime el texto cuando el bloque 'Análisis' no emitió ningún párrafo (solo tabla)", async () => {
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    personalizado.ctx.addSubsectionTitle("9.9.5.", "Análisis");
+    personalizado.ctx.autoTable(personalizado.ctx.doc, {
+      head: [["Parámetro"]],
+      body: [["x"]],
+      startY: personalizado.ctx.y,
+    });
+    expect(parrafosDe(eventos)).toEqual([]);
+    personalizado.flush();
+    personalizado.flush();
+    expect(eventos.map((e) => e.tipo)).toEqual(["titulo", "tabla", "parrafo"]);
+    expect(parrafosDe(eventos)).toEqual([EDITADO]);
+  });
+
+  it("si la prueba nunca emite el título 'Análisis', no imprime nada adicional", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.4", visitaFixture, conv, undefined);
+    personalizado.flush();
+    expect(parrafosDe(eventos)).not.toContain(EDITADO);
+  });
+
+  it("un título posterior al 'Análisis' cierra el bloque: sus párrafos no se suprimen", async () => {
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    personalizado.ctx.addSubsectionTitle("9.9.5.", "Análisis");
+    personalizado.ctx.addSubsectionTitle("9.9.6.", "Criterio de aceptación");
+    personalizado.ctx.addParagraph("Texto del criterio.");
+    personalizado.flush();
+    expect(eventos).toEqual([
+      { tipo: "titulo", texto: "Análisis" },
+      { tipo: "parrafo", texto: EDITADO },
+      { tipo: "titulo", texto: "Criterio de aceptación" },
+      { tipo: "parrafo", texto: "Texto del criterio." },
+    ]);
+  });
+
+  it("el cursor `y` del ctx decorado lee y escribe sobre el ctx original", async () => {
+    const { ctx } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    personalizado.ctx.y = 123;
+    expect(ctx.y).toBe(123);
+    ctx.y = 45;
+    expect(personalizado.ctx.y).toBe(45);
+  });
+});
+
+describe("recopilarDatosConv({ sinImagenes }) e inyectarDatosEquipo — carga liviana para el editor", () => {
+  it("sinImagenes: no descarga evidencias y deja las fotos vacías, con el resto de datos intacto", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await db.conv_evidencias.add(
+      row({
+        id: "ev-montaje",
+        visita_id: V,
+        prueba_codigo: "2.3",
+        slot: "montaje_colimacion",
+        url_storage: "https://example.com/montaje.jpg",
+        ...ok,
+      })
+    );
+    await db.conv_mediciones.add(row({ id: "m1", visita_id: V, punto_numero: 1, ...ok }));
+
+    const d = await recopilarDatosConv(V, { sinImagenes: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(d.fotos23).toEqual([]);
+    expect(d.fotos212).toEqual([]);
+    expect(d.planoRadiometrico).toBeUndefined();
+    expect(d.mediciones.map((m) => m.id)).toEqual(["m1"]);
+    expect(d.secciones).toHaveLength(21);
+    vi.unstubAllGlobals();
+  });
+
+  it("inyectarDatosEquipo copia sistema_adquisicion y aplica true por defecto a reporta_di/reporta_tei", async () => {
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    inyectarDatosEquipo(conv, row({ sistema_adquisicion: "Digital (DR)", reporta_di: false }));
+    expect(conv.sistema_adquisicion).toBe("Digital (DR)");
+    expect(conv.reporta_di).toBe(false);
+    expect(conv.reporta_tei).toBe(true);
+
+    inyectarDatosEquipo(conv, undefined);
+    expect(conv.sistema_adquisicion).toBeUndefined();
+    expect(conv.reporta_di).toBe(true);
+    expect(conv.reporta_tei).toBe(true);
+  });
+});
+
+describe("analisisPredeterminadoDeVisita — predeterminado del editor leído de la base local", () => {
+  it("arma el texto con las mediciones guardadas de la visita", async () => {
+    await db.visitas.add(row({ id: V, estado_visita: "en_progreso" }));
+    await db.conv_raysafe_mediciones.bulkAdd(
+      [0.4, 0.42, 0.44].map((tiempo_medido_s, i) =>
+        row({
+          id: `m${i}`,
+          visita_id: V,
+          tipo_medicion: "principal",
+          grupo_numero: 1,
+          toma_numero: i + 1,
+          tiempo_nominal_s: 0.8,
+          tiempo_medido_s,
+          ...ok,
+        })
+      )
+    );
+    const texto = await analisisPredeterminadoDeVisita(V, "2.4");
+    expect(texto).toContain("superiores a los criterios de aceptación establecidos");
+  });
+
+  it("toma reporta_di del equipo de la visita (2.9 sin D.I.)", async () => {
+    await db.equipos.add(row({ id: "eq-1", reporta_di: false }));
+    await db.visitas.add(row({ id: V, equipo_id: "eq-1", estado_visita: "en_progreso" }));
+    await db.conv_ddi_mediciones.add(
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 1, ei: 100, ei_base: 100, ...ok })
+    );
+    const texto = await analisisPredeterminadoDeVisita(V, "2.9");
+    expect(texto).toMatch(/^El valor del indicador de exposición \(EI\) presenta variación/);
+  });
+
+  it("visita inexistente o prueba sin datos → null", async () => {
+    expect(await analisisPredeterminadoDeVisita("no-existe", "2.4")).toBeNull();
+    await db.visitas.add(row({ id: V, estado_visita: "en_progreso" }));
+    expect(await analisisPredeterminadoDeVisita(V, "2.4")).toBeNull();
   });
 });

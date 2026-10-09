@@ -34,6 +34,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { irAModulo } from "@/lib/modulo-nav";
+import { logger } from "@/lib/logger";
 import { getCamposFaltantesInfo, type CampoFaltante } from "@/lib/workflow/module-completeness";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
@@ -57,10 +58,11 @@ type ConceptoType = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_
 
 // ─── UI Components ───
 
-function SeccionCard({
+export function SeccionCard({
   seccion,
   catalogo,
   conceptoEfectivo,
+  analisisDefault,
   expanded,
   onToggleExpand,
   onToggleIncluida,
@@ -72,13 +74,19 @@ function SeccionCard({
   catalogo: (typeof CATALOGO_SECCIONES)[0];
   /** Concepto calculado automáticamente desde los datos capturados. */
   conceptoEfectivo?: ConceptoType;
+  /**
+   * Texto predeterminado del Análisis: el automático de la prueba (o el del
+   * catálogo en la 2.2). `null`/`undefined` = la prueba aún no tiene Análisis.
+   */
+  analisisDefault?: string | null;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleIncluida: () => void;
   /** #120 — override manual: aplica pero no se pudo ejecutar por falla de un componente. */
   onToggleNoEjecutada: () => void;
   onUpdateAcciones: (v: string) => void;
-  onUpdateObservaciones: (v: string) => void;
+  /** `undefined` = sin texto propio: el informe usa el Análisis predeterminado. */
+  onUpdateObservaciones: (v: string | undefined) => void;
 }) {
   const Icon = GRUPO_ICONS[catalogo.grupo] ?? FileText;
   const analisisRef = useRef<HTMLTextAreaElement>(null);
@@ -94,10 +102,24 @@ function SeccionCard({
     setTimeout(() => setSavedAcciones(false), 1500);
   };
 
-  const handleUpdateObservaciones = (v: string) => {
+  const handleUpdateObservaciones = (v: string | undefined) => {
     onUpdateObservaciones(v);
     setSavedObservaciones(true);
     setTimeout(() => setSavedObservaciones(false), 1500);
+  };
+
+  // Análisis: a diferencia de las acciones correctivas, un texto igual al
+  // predeterminado (o vacío) no se guarda. Así el Análisis se sigue
+  // recalculando si luego cambian las mediciones, en vez de quedar congelado.
+  const analisisGuardado = seccion.observaciones?.trim() ? seccion.observaciones : undefined;
+  const tieneAnalisis = analisisDefault != null || analisisGuardado != null;
+  const handleBlurAnalisis = (campo: HTMLTextAreaElement) => {
+    const texto = campo.value.trim();
+    const esPredeterminado = texto === "" || texto === (analisisDefault ?? "").trim();
+    if (texto === "" && analisisDefault != null) campo.value = analisisDefault;
+    const nuevo = esPredeterminado ? undefined : campo.value;
+    if (nuevo === analisisGuardado) return;
+    handleUpdateObservaciones(nuevo);
   };
 
   // Acciones correctivas con predeterminado editable — solo 2.1, 2.2 y 2.13
@@ -182,7 +204,13 @@ function SeccionCard({
         <ConceptoBadgeSmall concepto={conceptoEfectivo} />
 
         {/* Expand */}
-        <button type="button" onClick={onToggleExpand} className="p-1 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          aria-expanded={expanded}
+          aria-label={`Ver detalle de la prueba ${catalogo.codigo}`}
+          className="p-1 flex-shrink-0"
+        >
           {expanded ? (
             <ChevronUp className="w-4 h-4 text-slate-400" />
           ) : (
@@ -280,9 +308,11 @@ function SeccionCard({
             )
           )}
 
-          {/* Análisis — solo para secciones con texto de análisis (2.2).
-              Trae el texto por defecto editable y se guarda en observaciones. */}
-          {catalogo.analisis && (
+          {/* Análisis — todas las pruebas. Trae precargado el texto
+              predeterminado y, si el físico lo cambia, se guarda en
+              `observaciones` y reemplaza al automático en el informe (las
+              tablas del Análisis no se editan). */}
+          {tieneAnalisis && (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -292,9 +322,8 @@ function SeccionCard({
                 <button
                   type="button"
                   onClick={() => {
-                    const def = catalogo.analisis ?? "";
-                    if (analisisRef.current) analisisRef.current.value = def;
-                    handleUpdateObservaciones(def);
+                    if (analisisRef.current) analisisRef.current.value = analisisDefault ?? "";
+                    handleUpdateObservaciones(undefined);
                   }}
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
                 >
@@ -304,10 +333,17 @@ function SeccionCard({
               </div>
               <textarea
                 ref={analisisRef}
+                // Sin texto guardado, se remonta cuando cambia el predeterminado
+                // (p. ej. al corregir una medición) para mostrar el texto nuevo.
+                key={
+                  analisisGuardado != null
+                    ? `${seccion.id}-guardado`
+                    : `${seccion.id}-${analisisDefault ?? ""}`
+                }
                 className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                defaultValue={seccion.observaciones ?? catalogo.analisis ?? ""}
-                placeholder="Análisis de la inspección visual..."
-                onBlur={(e) => handleUpdateObservaciones(e.target.value)}
+                defaultValue={analisisGuardado ?? analisisDefault ?? ""}
+                placeholder="Análisis de los resultados de la prueba..."
+                onBlur={(e) => handleBlurAnalisis(e.target)}
               />
             </div>
           )}
@@ -496,6 +532,39 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       conceptoEfectivoSeccion(seccion, datos),
     [datos]
   );
+
+  // ─── Análisis predeterminado de la prueba expandida ───
+  // Se calcula solo al expandir la tarjeta (import dinámico: arrastra jsPDF) y
+  // se recalcula cuando cambia `data`, igual que el concepto. La 2.2 no pasa
+  // por acá: su predeterminado es el texto fijo del catálogo.
+  const [analisisAuto, setAnalisisAuto] = useState<{
+    codigo: string;
+    texto: string | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!data || !expandedCodigo || expandedCodigo === "2.2") return;
+    const codigo = expandedCodigo;
+    let cancelado = false;
+    (async () => {
+      try {
+        const { analisisPredeterminadoDeVisita } = await import("@/lib/pdf/secciones-convencional");
+        const texto = await analisisPredeterminadoDeVisita(visitaId, codigo);
+        if (!cancelado) setAnalisisAuto({ codigo, texto });
+      } catch (err) {
+        logger.error("pre-informe:analisis", `No se pudo calcular el Análisis de ${codigo}`, err);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [data, expandedCodigo, visitaId]);
+
+  const analisisDefaultDe = (cat: (typeof CATALOGO_SECCIONES)[0]): string | null | undefined =>
+    cat.codigo === "2.2"
+      ? cat.analisis
+      : analisisAuto?.codigo === cat.codigo
+        ? analisisAuto.texto
+        : undefined;
 
   // ─── Initialize secciones from catalog ───
   // Guard síncrono: `data` se recalcula cada vez que CUALQUIERA de las tablas
@@ -854,6 +923,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
               seccion={seccion}
               catalogo={cat}
               conceptoEfectivo={conceptoDe(seccion)}
+              analisisDefault={analisisDefaultDe(cat)}
               expanded={expandedCodigo === seccion.prueba_codigo}
               onToggleExpand={() =>
                 setExpandedCodigo(
@@ -880,7 +950,10 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
                 seccion.id && updateSeccion(seccion.id, { acciones_correctivas: v || undefined })
               }
               onUpdateObservaciones={(v) =>
-                seccion.id && updateSeccion(seccion.id, { observaciones: v || undefined })
+                // `null`, no `undefined`, para limpiar: mismo motivo que
+                // `concepto` arriba (un `undefined` no llega al servidor y el
+                // texto viejo volvería en el siguiente pull).
+                seccion.id && updateSeccion(seccion.id, { observaciones: v ?? null })
               }
             />
           );

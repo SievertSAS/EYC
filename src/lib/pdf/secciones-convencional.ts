@@ -2,7 +2,7 @@ import type { jsPDF } from "jspdf";
 import type autoTableType from "jspdf-autotable";
 import { db } from "@/lib/db";
 import { formatDecimal } from "@/lib/decimal";
-import type { VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
+import type { Equipo, VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
 import type {
   ConvLevantamientoSetup,
   ConvMedicionRadiometrica,
@@ -199,7 +199,22 @@ function dedupePorClave<T>(
 /** Excluye filas soft-deleted de las lecturas conv_* (#51). */
 const vivoConv = (r: { deleted_at?: string | null }): boolean => !r.deleted_at;
 
-export async function recopilarDatosConv(visitaId: string): Promise<DatosConvencional> {
+/** Opciones de `recopilarDatosConv`. */
+export interface OpcionesRecopilarConv {
+  /**
+   * Omite la lectura de `conv_evidencias` y la resolución de imágenes (blob
+   * local o descarga del bucket). Para consumidores que solo necesitan los
+   * datos medidos, como el texto del "Análisis" en el editor del pre-informe.
+   */
+  sinImagenes?: boolean;
+}
+
+export async function recopilarDatosConv(
+  visitaId: string,
+  opciones: OpcionesRecopilarConv = {}
+): Promise<DatosConvencional> {
+  const sinImagenes = opciones.sinImagenes === true;
+  const resolverImagen: typeof cargarImagen = sinImagenes ? async () => undefined : cargarImagen;
   const [
     secciones,
     setup,
@@ -230,7 +245,9 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     db.conv_inspeccion_items.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
     db.conv_elementos_proteccion.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
     db.conv_resultados_prueba.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
-    db.conv_evidencias.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
+    sinImagenes
+      ? Promise.resolve<ConvEvidencia[]>([])
+      : db.conv_evidencias.where("visita_id").equals(visitaId).filter(vivoConv).toArray(),
     db.conv_colimacion.where("visita_id").equals(visitaId).filter(vivoConv).first(),
     db.conv_raysafe_setup.where("visita_id").equals(visitaId).filter(vivoConv).first(),
     db.conv_raysafe_mediciones
@@ -300,7 +317,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const fotos22: NonNullable<DatosConvencional["fotos22"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_22) {
     const ev = evidencias.find((e) => e.prueba_codigo === "2.2" && e.slot === slot);
-    const img = await cargarImagen(ev);
+    const img = await resolverImagen(ev);
     if (img) fotos22.push({ label, ...img });
   }
   // Avisos de protección — lista dinámica (#66): una evidencia por aviso,
@@ -309,7 +326,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     .filter((e) => e.prueba_codigo === "2.2" && e.slot?.startsWith("aviso_"))
     .sort((a, b) => (a.creado_en ?? "").localeCompare(b.creado_en ?? ""));
   for (const ev of avisos) {
-    const img = await cargarImagen(ev);
+    const img = await resolverImagen(ev);
     if (img) {
       fotos22.push({ label: ev.descripcion?.trim() || "Aviso de protección radiológica", ...img });
     }
@@ -318,7 +335,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     const ev = evidencias.find(
       (e) => e.prueba_codigo === "2.2" && e.slot === `elemento_${elem.id}`
     );
-    const img = await cargarImagen(ev);
+    const img = await resolverImagen(ev);
     if (img) fotos22.push({ label: "Elementos de protección radiológica", ...img });
   }
 
@@ -333,7 +350,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const fotos23: NonNullable<DatosConvencional["fotos23"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_23) {
     const ev = evidencias.find((e) => e.prueba_codigo === "2.3" && e.slot === slot);
-    const img = await cargarImagen(ev);
+    const img = await resolverImagen(ev);
     if (img) fotos23.push({ label, ...img });
   }
   // Montaje y patrón de la 2.3 se reutilizan en 2.12/2.13 (#117) — misma
@@ -341,15 +358,15 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const evMontajeColimacion = evidencias.find(
     (e) => e.prueba_codigo === "2.3" && e.slot === "montaje_colimacion"
   );
-  const imgMontajeColimacion = await cargarImagen(evMontajeColimacion);
+  const imgMontajeColimacion = await resolverImagen(evMontajeColimacion);
   const evPatronColimacion = evidencias.find(
     (e) => e.prueba_codigo === "2.3" && e.slot === "patron_colimacion"
   );
-  const imgPatronColimacion = await cargarImagen(evPatronColimacion);
+  const imgPatronColimacion = await resolverImagen(evPatronColimacion);
 
   // Fotografía de montaje RaySafe (secciones 2.4.7 y 2.5.7 — misma imagen)
   const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
-  const img24 = await cargarImagen(ev24);
+  const img24 = await resolverImagen(ev24);
   const LABEL_MONTAJE_RAYSAFE = "Implementación de instrumentación en la prueba";
   const fotos24: NonNullable<DatosConvencional["fotos24"]> = [];
   if (img24) fotos24.push({ label: LABEL_MONTAJE_RAYSAFE, ...img24 });
@@ -366,7 +383,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
 
   // Fotografía de montaje DDI (secciones 2.9.7 y 2.10.7)
   const ev29 = evidencias.find((e) => e.prueba_codigo === "2.9" && e.slot === "montaje_ddi");
-  const img29 = await cargarImagen(ev29);
+  const img29 = await resolverImagen(ev29);
   const fotos29: NonNullable<DatosConvencional["fotos29"]> = [];
   if (img29) fotos29.push({ label: "Montaje experimental para la prueba DDI/EI", ...img29 });
   const fotos210: NonNullable<DatosConvencional["fotos210"]> = [];
@@ -392,7 +409,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const evDicomResolucion = evidencias.find(
     (e) => e.prueba_codigo === "2.12" && e.slot === "dicom_resolucion"
   );
-  const imgDicomResolucion = await cargarImagen(evDicomResolucion);
+  const imgDicomResolucion = await resolverImagen(evDicomResolucion);
   if (imgDicomResolucion)
     fotos212.push({
       label: "Radiografía del patrón de resolución espacial",
@@ -411,9 +428,9 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     (e) => e.prueba_codigo === "2.16" && e.slot === "curva_mtf_vertical"
   );
   const [imgCurvaH, imgObjetoBorde, imgCurvaV] = await Promise.all([
-    cargarImagen(evCurvaH),
-    cargarImagen(evObjetoBorde),
-    cargarImagen(evCurvaV),
+    resolverImagen(evCurvaH),
+    resolverImagen(evObjetoBorde),
+    resolverImagen(evCurvaV),
   ]);
   const fotos216: NonNullable<DatosConvencional["fotos216"]> = [];
   if (imgCurvaH) fotos216.push({ label: "MTF Horizontal", ...imgCurvaH });
@@ -422,7 +439,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
 
   // Foto montaje CAE para 2.17.7
   const ev217 = evidencias.find((e) => e.prueba_codigo === "2.17" && e.slot === "montaje_cae");
-  const img217 = await cargarImagen(ev217);
+  const img217 = await resolverImagen(ev217);
   const fotos217: NonNullable<DatosConvencional["fotos217"]> = [];
   if (img217)
     fotos217.push({
@@ -438,7 +455,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
   const fotos211: NonNullable<DatosConvencional["fotos211"]> = [];
   for (const [slot, label] of SLOTS_FOTOS_211) {
     const ev = evidencias.find((e) => e.prueba_codigo === "2.11" && e.slot === slot);
-    const img = await cargarImagen(ev);
+    const img = await resolverImagen(ev);
     if (img) fotos211.push({ label, ...img });
   }
 
@@ -450,7 +467,7 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     elementos,
     resultados: new Map(resultadosArr.map((r) => [r.prueba_codigo, r])),
     colimacion,
-    planoRadiometrico: await cargarImagen(planoEv),
+    planoRadiometrico: await resolverImagen(planoEv),
     fotos22,
     fotos23,
     fotos24,
@@ -478,6 +495,21 @@ export async function recopilarDatosConv(visitaId: string): Promise<DatosConvenc
     fotos217,
     fotos221,
   };
+}
+
+/**
+ * Inyecta en `conv` los datos que viven en el equipo y no en las tablas conv_*.
+ * #116: `sistema_adquisicion` determina la tolerancia de la 2.11 y la
+ * aplicabilidad de 2.14/2.15. #111: `reporta_di`/`reporta_tei` controlan si se
+ * muestran las columnas D.I./TEI de 2.9/2.10 y 2.15 (por defecto, sí).
+ */
+export function inyectarDatosEquipo(
+  conv: DatosConvencional,
+  equipo: Pick<Equipo, "sistema_adquisicion" | "reporta_di" | "reporta_tei"> | undefined
+): void {
+  conv.sistema_adquisicion = equipo?.sistema_adquisicion;
+  conv.reporta_di = equipo?.reporta_di ?? true;
+  conv.reporta_tei = equipo?.reporta_tei ?? true;
 }
 
 // ─── Helpers de render ───
@@ -3162,7 +3194,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
   return 6;
 }
 
-function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom?: string): number {
+function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   const { addParagraph, addSubsectionTitle, checkPage, autoTable, doc } = ctx;
   const setup = conv.raysafeSetup;
   const d1 = setup?.distancia_foco_sensor_d1_cm ?? 100;
@@ -3250,10 +3282,9 @@ function render221(ctx: InformeCtx, conv: DatosConvencional, textoAnalisisCustom
     const conforme221 = diffs221.length === 0 || Math.max(...diffs221) < 0.01;
 
     addParagraph(
-      textoAnalisisCustom?.trim() ||
-        (conforme221
-          ? "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se encuentran dentro del criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), evidenciando estabilidad en la dosis entregada al receptor de imagen."
-          : "Una o más diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia superan el criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), lo que indica una variación significativa en la dosis entregada al receptor de imagen.")
+      conforme221
+        ? "Las diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia se encuentran dentro del criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), evidenciando estabilidad en la dosis entregada al receptor de imagen."
+        : "Una o más diferencias calculadas entre los valores de dosis al receptor obtenidos y los valores de referencia superan el criterio de aceptación establecido en el IAEA-TECDOC-1958 (diferencia < 0,01 mGy), lo que indica una variación significativa en la dosis entregada al receptor de imagen."
     );
   }
 
@@ -3269,8 +3300,7 @@ export function renderResultadosSeccion(
   codigo: string,
   visita: VisitaEjecucion,
   conv: DatosConvencional,
-  ubicacion: UbicacionRx | undefined,
-  textoAnalisisCustom?: string
+  ubicacion: UbicacionRx | undefined
 ): number {
   switch (codigo) {
     case "2.1":
@@ -3314,10 +3344,135 @@ export function renderResultadosSeccion(
     case "2.20":
       return render220(ctx, conv);
     case "2.21":
-      return render221(ctx, conv, textoAnalisisCustom);
+      return render221(ctx, conv);
     default:
       return renderGenerico(ctx, codigo, conv);
   }
+}
+
+// ─── Análisis editable ───
+
+const TITULO_ANALISIS = "Análisis";
+
+/**
+ * Decorador de `InformeCtx` que sustituye el texto narrativo del "Análisis"
+ * de una prueba por `texto` (el que editó el físico), sin tocar los render2X.
+ *
+ * Después del título "Análisis", el primer párrafo imprime `texto` y los
+ * párrafos automáticos siguientes se suprimen; las tablas y sus rótulos se
+ * dibujan igual. Los párrafos anteriores al título pasan intactos. Si el
+ * bloque no emite ningún párrafo (solo tabla), `flush()` imprime el texto al
+ * final; si la prueba nunca emite el título, no se imprime nada.
+ */
+export function conAnalisisPersonalizado(
+  ctx: InformeCtx,
+  texto: string
+): { ctx: InformeCtx; flush: () => void } {
+  let enAnalisis = false;
+  let impreso = false;
+
+  const imprimirPendiente = () => {
+    if (!enAnalisis || impreso) return;
+    impreso = true;
+    ctx.addParagraph(texto);
+  };
+
+  const decorado: InformeCtx = {
+    doc: ctx.doc,
+    autoTable: ctx.autoTable,
+    get y() {
+      return ctx.y;
+    },
+    set y(v: number) {
+      ctx.y = v;
+    },
+    checkPage: (needed) => ctx.checkPage(needed),
+    addParagraph: (text, fontSize, indent) => {
+      if (!enAnalisis) {
+        ctx.addParagraph(text, fontSize, indent);
+        return;
+      }
+      imprimirPendiente();
+    },
+    addSubsectionTitle: (number, title) => {
+      // Un título posterior cierra el bloque: el texto va antes de él.
+      imprimirPendiente();
+      enAnalisis = title === TITULO_ANALISIS;
+      if (enAnalisis) impreso = false;
+      ctx.addSubsectionTitle(number, title);
+    },
+  };
+
+  return { ctx: decorado, flush: imprimirPendiente };
+}
+
+/**
+ * Texto automático del "Análisis" de una prueba: los párrafos que el render2X
+ * emite después del título "Análisis", unidos con una línea en blanco. Es el
+ * predeterminado que el editor del pre-informe muestra para editar.
+ *
+ * Ejecuta el mismo renderizador del PDF sobre un documento descartable, así
+ * el texto nunca diverge del informe. Devuelve `null` si la prueba no llega a
+ * emitir "Análisis" (sin datos registrados, o la 2.2, cuyo Análisis sale del
+ * catálogo).
+ */
+export async function textoAnalisisPredeterminado(
+  codigo: string,
+  visita: VisitaEjecucion,
+  conv: DatosConvencional,
+  ubicacion: UbicacionRx | undefined
+): Promise<string | null> {
+  const [{ jsPDF: JsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  let y = MARGIN;
+  let enAnalisis = false;
+  let huboAnalisis = false;
+  const parrafos: string[] = [];
+  const ctx: InformeCtx = {
+    doc,
+    autoTable,
+    get y() {
+      return y;
+    },
+    set y(v: number) {
+      y = v;
+    },
+    checkPage: () => {},
+    addParagraph: (text) => {
+      if (enAnalisis) parrafos.push(text);
+    },
+    addSubsectionTitle: (_number, title) => {
+      enAnalisis = title === TITULO_ANALISIS;
+      if (enAnalisis) huboAnalisis = true;
+    },
+  };
+
+  renderResultadosSeccion(ctx, codigo, visita, conv, ubicacion);
+  return huboAnalisis ? parrafos.join("\n\n") : null;
+}
+
+/**
+ * Predeterminado del "Análisis" de una prueba, leído de la base local. Lo usa
+ * el editor del pre-informe: carga los datos sin imágenes e inyecta los del
+ * equipo igual que `generarPreInforme`, para que el texto coincida con el PDF.
+ */
+export async function analisisPredeterminadoDeVisita(
+  visitaId: string,
+  codigo: string
+): Promise<string | null> {
+  const visita = await db.visitas.get(visitaId);
+  if (!visita) return null;
+  const [equipo, ubicacion, conv] = await Promise.all([
+    visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
+    visita.ubicacion_id ? db.ubicaciones_rx.get(visita.ubicacion_id) : undefined,
+    recopilarDatosConv(visitaId, { sinImagenes: true }),
+  ]);
+  inyectarDatosEquipo(conv, equipo);
+  return textoAnalisisPredeterminado(codigo, visita, conv, ubicacion);
 }
 
 // ─── Evidencia gráfica por prueba ───

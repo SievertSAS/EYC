@@ -714,8 +714,8 @@ describe("Página de contenido (índice)", () => {
 
   it("2.21: el Análisis editado no se duplica después de Acciones correctivas", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
-    // render221 solo usa textoAnalisisCustom en el branch "hay línea base" —
-    // necesita al menos una medición sin_rejilla con dosis_base_mgy.
+    // Con línea base (medición sin_rejilla con dosis_base_mgy) el Análisis
+    // lleva además la Tabla 2.21.2; el texto editado va después de ella.
     await db.conv_raysafe_mediciones.add({
       id: randomUUID(),
       visita_id: visita!.id!,
@@ -744,5 +744,90 @@ describe("Página de contenido (índice)", () => {
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
     const apariciones = text.split(textoCustom).length - 1;
     expect(apariciones).toBe(1);
+  });
+
+  it("2.21 sin valores base: el Análisis editado también se imprime, una sola vez", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const textoCustom = "Texto de analisis sin valores base QWE456";
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: "2.21",
+      orden: 21,
+      incluida: true,
+      observaciones: textoCustom,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text.split(textoCustom).length - 1).toBe(1);
+  });
+});
+
+describe("Análisis editable en cualquier prueba (observaciones de la sección)", () => {
+  // El generador justifica los párrafos palabra por palabra, así que el texto
+  // automático de varias líneas no queda legible en el buffer del PDF: su
+  // supresión se verifica en secciones-convencional.test.ts. Acá se usan
+  // textos editados de una sola línea, que sí se dibujan enteros.
+
+  async function seedVisitaCon24(observaciones?: string) {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.conv_raysafe_mediciones.bulkAdd(
+      [0.79, 0.795, 0.8].map((tiempo_medido_s, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        tipo_medicion: "principal" as const,
+        grupo_numero: 1,
+        toma_numero: i + 1,
+        tiempo_nominal_s: 0.8,
+        tiempo_medido_s,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: "2.4",
+      orden: 4,
+      incluida: true,
+      observaciones,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    });
+    return visita!.id!;
+  }
+
+  it("2.4 con observaciones: el texto sale una sola vez, en 2.4.5 Análisis y no bajo Concepto", async () => {
+    const textoCustom = "Analisis de la 2.4 editado por el fisico ABC789";
+    const text = await pdfText((await generarPreInforme(await seedVisitaCon24(textoCustom)))!);
+
+    expect(text.split(textoCustom).length - 1).toBe(1);
+
+    const posTexto = text.indexOf(textoCustom);
+    const posAnalisis = text.indexOf("2.4.5.");
+    const posCriterio = text.indexOf("2.4.6.");
+    expect(posAnalisis).toBeGreaterThan(-1);
+    expect(posCriterio).toBeGreaterThan(posAnalisis);
+    expect(posTexto).toBeGreaterThan(posAnalisis);
+    expect(posTexto).toBeLessThan(posCriterio);
+  });
+
+  it("2.4 sin datos (no llega a emitir Análisis): las observaciones no se imprimen en ningún lado", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const textoCustom = "Analisis huerfano de la 2.4 JKL321";
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: "2.4",
+      orden: 4,
+      incluida: true,
+      observaciones: textoCustom,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toContain(textoCustom);
   });
 });

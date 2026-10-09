@@ -48,6 +48,8 @@ import {
 import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import {
   recopilarDatosConv,
+  inyectarDatosEquipo,
+  conAnalisisPersonalizado,
   renderResultadosSeccion,
   renderDiagramaRadiometrico,
   tieneEvidenciaGrafica,
@@ -466,15 +468,10 @@ export async function generarPreInforme(
   // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
   const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
   const conv = esConv ? await recopilarDatosConv(visitaId) : null;
-  // #116: sistema_adquisicion vive en el equipo, no en ninguna tabla conv_*
-  // -- se inyecta acá para que evaluarConceptoPrueba() lo vea en `conv`.
-  if (conv) conv.sistema_adquisicion = datos.equipo?.sistema_adquisicion;
-  // #111: idem para reporta_di/reporta_tei -- controlan si el informe
-  // muestra las columnas D.I./TEI de la prueba 2.9/2.10 y 2.15.
-  if (conv) {
-    conv.reporta_di = datos.equipo?.reporta_di ?? true;
-    conv.reporta_tei = datos.equipo?.reporta_tei ?? true;
-  }
+  // #116/#111: sistema_adquisicion y reporta_di/reporta_tei viven en el
+  // equipo, no en ninguna tabla conv_* -- se inyectan acá para que
+  // evaluarConceptoPrueba() y los renderizadores los vean en `conv`.
+  if (conv) inyectarDatosEquipo(conv, datos.equipo);
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let y = MARGIN;
@@ -1204,18 +1201,23 @@ export async function generarPreInforme(
         addSubsectionParagraph(`${codigo}.4.`, "Resultados", "NO APLICA.", 9, 0, COLOR_GRAY);
         nextSub = 5;
       } else {
-        // 2.21: el físico puede sobreescribir el párrafo de conclusión del
-        // Análisis (2.21.5) sin perder las tablas auto-generadas.
-        const textoAnalisisCustom221 =
-          codigo === "2.21" ? seccion.observaciones?.trim() || undefined : undefined;
-        nextSub = renderResultadosSeccion(
-          ctx,
-          codigo,
-          datos.visita,
-          conv,
-          datos.ubicacion,
-          textoAnalisisCustom221
-        );
+        // El físico puede sobreescribir el texto del Análisis de cualquier
+        // prueba (campo `observaciones`) sin perder las tablas auto-generadas.
+        // La 2.2 no pasa por acá: su Análisis se imprime más abajo.
+        const textoAnalisisCustom = codigo === "2.2" ? undefined : seccion.observaciones?.trim();
+        if (textoAnalisisCustom) {
+          const personalizado = conAnalisisPersonalizado(ctx, textoAnalisisCustom);
+          nextSub = renderResultadosSeccion(
+            personalizado.ctx,
+            codigo,
+            datos.visita,
+            conv,
+            datos.ubicacion
+          );
+          personalizado.flush();
+        } else {
+          nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.ubicacion);
+        }
       }
 
       // Análisis (solo 2.2) — usa el campo observaciones como texto editable,
@@ -1825,18 +1827,8 @@ export async function generarPreInforme(
       if (conceptoParrafo) {
         addParagraph(conceptoParrafo, 9, 0, noAplica ? COLOR_GRAY : COLOR_BLACK);
       }
-      // Las secciones 2.1, 2.2 y 2.3 tienen concepto automático; la 2.21 ya
-      // usa `observaciones` dentro de su propia subsección "Análisis"
-      // (render221, vía textoAnalisisCustom) — reimprimirlo aquí lo duplica.
-      if (
-        codigo !== "2.1" &&
-        codigo !== "2.2" &&
-        codigo !== "2.3" &&
-        codigo !== "2.21" &&
-        seccion.observaciones?.trim()
-      ) {
-        addParagraph(seccion.observaciones);
-      }
+      // `observaciones` es el texto editado del Análisis y ya se imprimió en
+      // esa subsección (ver arriba) — reimprimirlo aquí lo duplicaría.
 
       // Acciones correctivas
       addSubsectionParagraph(

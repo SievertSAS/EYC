@@ -6,6 +6,7 @@ import { resetTestDb } from "@/test/db-reset";
 import { seedGraph } from "@/test/seed";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
+import { reglaNoAplicaAutomatica } from "@/lib/equipos/convencional/evaluacion";
 
 // ============================================================
 //  Motivo de "no aplica" editable en el pre-informe.
@@ -15,6 +16,9 @@ import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 //    predeterminado del catálogo. Guarda al salir del campo y "Restaurar
 //    predeterminado" limpia lo guardado.
 //  - PreInformeModulo: persiste en `metodologia_no_aplica`.
+//  - "No aplica" automático (2.14 y 2.15 en equipos DR, #116): la tarjeta se
+//    comporta como apagada sin tocar `incluida`; el switch queda deshabilitado
+//    y el motivo predeterminado es el de la regla.
 // ============================================================
 
 const useDb = vi.fn();
@@ -218,5 +222,158 @@ describe("PreInformeModulo — el motivo se persiste en `metodologia_no_aplica`"
     await expandir28();
     await screen.findByText(/Ver textos del informe/);
     expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
+  });
+});
+
+describe("'No aplica' automático — 2.14 y 2.15 en equipos DR (#116)", () => {
+  const REGLA_DR = reglaNoAplicaAutomatica("2.14", { sistema_adquisicion: "Digital" })!;
+  const NOTA_DR =
+    "No aplica automáticamente: el equipo es un sistema Digital (DR). Se cambia en la información del equipo.";
+  const interruptor = (codigo: string) =>
+    screen.getByRole("switch", { name: `La prueba ${codigo} aplica` }) as HTMLButtonElement;
+
+  describe("SeccionCard", () => {
+    function renderCard(opts: { conRegla: boolean; incluida?: boolean; guardado?: string }) {
+      const onToggleIncluida = vi.fn();
+      const seccion: ConvInformeSeccion = {
+        id: "s-14",
+        visita_id: "v-1",
+        prueba_codigo: "2.14",
+        orden: 14,
+        incluida: opts.incluida ?? true,
+        metodologia_no_aplica: opts.guardado,
+      };
+      render(
+        <SeccionCard
+          seccion={seccion}
+          catalogo={catalogo("2.14")}
+          conceptoEfectivo={opts.conRegla || !seccion.incluida ? "No_aplica" : undefined}
+          noAplicaAutomatico={opts.conRegla ? REGLA_DR : undefined}
+          expanded
+          onToggleExpand={() => {}}
+          onToggleIncluida={onToggleIncluida}
+          onToggleNoEjecutada={() => {}}
+          onUpdateAcciones={() => {}}
+          onUpdateObservaciones={() => {}}
+          onUpdateMetodologiaNoAplica={() => {}}
+        />
+      );
+      return { onToggleIncluida };
+    }
+
+    it("con regla automática y switch guardado encendido: se dibuja apagado y deshabilitado", () => {
+      const { onToggleIncluida } = renderCard({ conRegla: true });
+      expect(interruptor("2.14").getAttribute("aria-checked")).toBe("false");
+      expect(interruptor("2.14").disabled).toBe(true);
+      fireEvent.click(interruptor("2.14"));
+      expect(onToggleIncluida).not.toHaveBeenCalled();
+    });
+
+    it("con regla automática: la leyenda explica por qué no se puede encender", () => {
+      renderCard({ conRegla: true });
+      expect(screen.getByText(NOTA_DR)).toBeTruthy();
+    });
+
+    it("con regla automática: al expandir aparece el campo con el motivo de la regla", () => {
+      renderCard({ conRegla: true });
+      expect(screen.getByText(ETIQUETA)).toBeTruthy();
+      const campo = screen.getByPlaceholderText(PLACEHOLDER) as HTMLTextAreaElement;
+      expect(campo.value).toBe(REGLA_DR.motivo);
+      expect(screen.getAllByRole("textbox")).toHaveLength(1);
+      expect(screen.queryByText(/Ver textos del informe/)).toBeNull();
+    });
+
+    it("con regla automática: un motivo guardado por el físico se muestra en lugar del automático", () => {
+      renderCard({ conRegla: true, guardado: "Motivo del físico." });
+      expect((screen.getByPlaceholderText(PLACEHOLDER) as HTMLTextAreaElement).value).toBe(
+        "Motivo del físico."
+      );
+    });
+
+    it("sin regla automática: el switch refleja `incluida`, está habilitado y sin leyenda", () => {
+      const { onToggleIncluida } = renderCard({ conRegla: false });
+      expect(interruptor("2.14").getAttribute("aria-checked")).toBe("true");
+      expect(interruptor("2.14").disabled).toBe(false);
+      expect(screen.queryByText(NOTA_DR)).toBeNull();
+      expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
+      fireEvent.click(interruptor("2.14"));
+      expect(onToggleIncluida).toHaveBeenCalledTimes(1);
+    });
+
+    it("sin regla automática y apagado a mano: motivo predeterminado del catálogo", () => {
+      renderCard({ conRegla: false, incluida: false });
+      expect(interruptor("2.14").getAttribute("aria-checked")).toBe("false");
+      expect(interruptor("2.14").disabled).toBe(false);
+      expect((screen.getByPlaceholderText(PLACEHOLDER) as HTMLTextAreaElement).value).toBe(
+        catalogo("2.14").metodologiaNoAplica
+      );
+    });
+  });
+
+  describe("PreInformeModulo", () => {
+    beforeEach(async () => {
+      await resetTestDb();
+      useDb.mockReturnValue({ isReady: true });
+      vi.mocked(updateAndSync).mockClear();
+    });
+
+    async function seedVisitaCon(codigo: string, sistemaAdquisicion: string) {
+      const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+      await db.equipos.update(equipo.id!, { sistema_adquisicion: sistemaAdquisicion });
+      const seccionId = randomUUID();
+      await db.conv_informe_secciones.add({
+        id: seccionId,
+        visita_id: visita!.id!,
+        prueba_codigo: codigo,
+        orden: 1,
+        incluida: true,
+        sync_status: "synced",
+        last_modified: new Date().toISOString(),
+      });
+      return { visitaId: visita!.id!, seccionId };
+    }
+
+    const expandir = async (codigo: string) =>
+      fireEvent.click(
+        await screen.findByRole("button", { name: `Ver detalle de la prueba ${codigo}` })
+      );
+
+    for (const codigo of ["2.14", "2.15"]) {
+      it(`${codigo} en equipo DR: switch apagado y deshabilitado, leyenda y motivo de la regla`, async () => {
+        const { visitaId } = await seedVisitaCon(codigo, "Digital");
+        render(<PreInformeModulo visitaId={visitaId} />);
+        await expandir(codigo);
+        expect(interruptor(codigo).getAttribute("aria-checked")).toBe("false");
+        expect(interruptor(codigo).disabled).toBe(true);
+        expect(screen.getByText(NOTA_DR)).toBeTruthy();
+        const campo = (await screen.findByPlaceholderText(PLACEHOLDER)) as HTMLTextAreaElement;
+        expect(campo.value).toBe(REGLA_DR.motivo);
+        // La regla se deriva: el valor guardado de `incluida` no se toca.
+        expect(updateAndSync).not.toHaveBeenCalled();
+      });
+    }
+
+    it("2.14 en equipo CR: el switch funciona como antes", async () => {
+      const { visitaId, seccionId } = await seedVisitaCon("2.14", "Digitalizado");
+      render(<PreInformeModulo visitaId={visitaId} />);
+      await expandir("2.14");
+      expect(interruptor("2.14").getAttribute("aria-checked")).toBe("true");
+      expect(interruptor("2.14").disabled).toBe(false);
+      expect(screen.queryByText(NOTA_DR)).toBeNull();
+      expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
+      fireEvent.click(interruptor("2.14"));
+      expect(updateAndSync).toHaveBeenCalledWith("conv_informe_secciones", seccionId, {
+        incluida: false,
+      });
+    });
+
+    it("otra prueba en equipo DR: sin regla, el switch sigue habilitado", async () => {
+      const { visitaId } = await seedVisitaCon("2.12", "Digital");
+      render(<PreInformeModulo visitaId={visitaId} />);
+      await expandir("2.12");
+      expect(interruptor("2.12").getAttribute("aria-checked")).toBe("true");
+      expect(interruptor("2.12").disabled).toBe(false);
+      expect(screen.queryByText(NOTA_DR)).toBeNull();
+    });
   });
 });

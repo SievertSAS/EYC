@@ -41,7 +41,9 @@ import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 import {
   cargarTablasConv,
   conceptoEfectivoSeccion,
+  reglaNoAplicaAutomatica,
   tieneCriterio,
+  type ReglaNoAplicaAutomatica,
 } from "@/lib/equipos/convencional/evaluacion";
 
 // ─── Constants ───
@@ -142,6 +144,7 @@ export function SeccionCard({
   seccion,
   catalogo,
   conceptoEfectivo,
+  noAplicaAutomatico,
   analisisDefault,
   expanded,
   onToggleExpand,
@@ -155,6 +158,11 @@ export function SeccionCard({
   catalogo: (typeof CATALOGO_SECCIONES)[0];
   /** Concepto calculado automáticamente desde los datos capturados. */
   conceptoEfectivo?: ConceptoType;
+  /**
+   * Regla automática que excluye la prueba (p. ej. 2.14 y 2.15 en equipos DR).
+   * Con ella la tarjeta se comporta como apagada, sin importar `incluida`.
+   */
+  noAplicaAutomatico?: ReglaNoAplicaAutomatica;
   /**
    * Texto predeterminado del Análisis: el automático de la prueba (o el del
    * catálogo en la 2.2). `null`/`undefined` = la prueba aún no tiene Análisis.
@@ -175,6 +183,9 @@ export function SeccionCard({
   const accionesRef = useRef<HTMLTextAreaElement>(null);
   const sinCriterio = !tieneCriterio(catalogo.codigo);
   const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
+  // "Aplica" efectivo: el switch guardado y, además, que ninguna regla
+  // automática excluya la prueba (misma regla que `seccionAplica` en el PDF).
+  const aplica = seccion.incluida && !noAplicaAutomatico;
   const [savedAcciones, setSavedAcciones] = useState(false);
 
   const handleUpdateAcciones = (v: string) => {
@@ -189,7 +200,8 @@ export function SeccionCard({
   const analisisGuardado = seccion.observaciones?.trim() ? seccion.observaciones : undefined;
   const tieneAnalisis = analisisDefault != null || analisisGuardado != null;
 
-  // Motivo de "no aplica": mismo criterio, con el predeterminado del catálogo.
+  // Motivo de "no aplica": mismo criterio, con el predeterminado de la regla
+  // automática o, si no hay regla, el del catálogo.
   const motivoNoAplicaGuardado = seccion.metodologia_no_aplica?.trim()
     ? seccion.metodologia_no_aplica
     : undefined;
@@ -211,16 +223,23 @@ export function SeccionCard({
   return (
     <div
       className={`rounded-2xl border bg-white transition-all duration-200 ${
-        seccion.incluida
-          ? "border-slate-200 shadow-sm"
-          : "border-dashed border-slate-300 bg-slate-50/50"
+        aplica ? "border-slate-200 shadow-sm" : "border-dashed border-slate-300 bg-slate-50/50"
       }`}
     >
       {/* Header row */}
       <div className="flex items-center gap-2 p-3">
         {/* Toggle */}
-        <button type="button" onClick={onToggleIncluida} className="flex-shrink-0">
-          {seccion.incluida ? (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aplica}
+          aria-label={`La prueba ${catalogo.codigo} aplica`}
+          disabled={Boolean(noAplicaAutomatico)}
+          title={noAplicaAutomatico?.nota}
+          onClick={onToggleIncluida}
+          className="flex-shrink-0 disabled:cursor-not-allowed"
+        >
+          {aplica ? (
             <ToggleRight className="w-6 h-6 text-primary" />
           ) : (
             <ToggleLeft className="w-6 h-6 text-slate-300" />
@@ -242,11 +261,9 @@ export function SeccionCard({
 
         {/* Icon */}
         <div
-          className={`p-1.5 rounded-lg flex-shrink-0 ${
-            seccion.incluida ? "bg-primary/10" : "bg-slate-100"
-          }`}
+          className={`p-1.5 rounded-lg flex-shrink-0 ${aplica ? "bg-primary/10" : "bg-slate-100"}`}
         >
-          <Icon className={`w-3.5 h-3.5 ${seccion.incluida ? "text-primary" : "text-slate-400"}`} />
+          <Icon className={`w-3.5 h-3.5 ${aplica ? "text-primary" : "text-slate-400"}`} />
         </div>
 
         {/* Title */}
@@ -254,7 +271,7 @@ export function SeccionCard({
           <div className="flex items-center gap-2">
             <span
               className={`text-[10px] font-black uppercase tracking-widest ${
-                seccion.incluida ? "text-primary" : "text-slate-400"
+                aplica ? "text-primary" : "text-slate-400"
               }`}
             >
               {catalogo.codigo}
@@ -264,9 +281,7 @@ export function SeccionCard({
             </span>
           </div>
           <p
-            className={`text-xs font-bold truncate ${
-              seccion.incluida ? "text-slate-800" : "text-slate-400"
-            }`}
+            className={`text-xs font-bold truncate ${aplica ? "text-slate-800" : "text-slate-400"}`}
           >
             {catalogo.nombre}
           </p>
@@ -291,8 +306,16 @@ export function SeccionCard({
         </button>
       </div>
 
+      {/* Regla automática de "no aplica": explica por qué el switch está
+          apagado y no se puede encender desde aquí. */}
+      {noAplicaAutomatico && (
+        <p className="px-3 pb-2 ml-8 text-[10px] font-medium text-slate-400 leading-relaxed">
+          {noAplicaAutomatico.nota}
+        </p>
+      )}
+
       {/* Expanded content */}
-      {expanded && seccion.incluida && (
+      {expanded && aplica && (
         <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3 ml-8">
           {/* Concepto — siempre automático desde los datos capturados */}
           <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
@@ -423,18 +446,18 @@ export function SeccionCard({
         </div>
       )}
 
-      {/* Prueba apagada (No aplica) — único campo: el motivo que el informe
-          imprime en la Metodología en lugar del texto del catálogo. Se guarda
-          en `metodologia_no_aplica`; el resto de subsecciones sale como
-          "No aplica." */}
-      {expanded && !seccion.incluida && (
+      {/* Prueba apagada o excluida por una regla automática (No aplica) —
+          único campo: el motivo que el informe imprime en la Metodología en
+          lugar del texto del catálogo. Se guarda en `metodologia_no_aplica`;
+          el resto de subsecciones sale como "No aplica." */}
+      {expanded && !aplica && (
         <div className="px-3 pb-3 border-t border-slate-100 pt-3 ml-8">
           <CampoTextoPredeterminado
             seccionId={seccion.id}
             etiqueta="Metodología (motivo de no aplica)"
             placeholder="Motivo por el que la prueba no aplica..."
             guardado={motivoNoAplicaGuardado}
-            predeterminado={catalogo.metodologiaNoAplica}
+            predeterminado={noAplicaAutomatico?.motivo ?? catalogo.metodologiaNoAplica}
             altoClassName="h-20"
             onGuardar={onUpdateMetodologiaNoAplica}
           />
@@ -989,6 +1012,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
               seccion={seccion}
               catalogo={cat}
               conceptoEfectivo={conceptoDe(seccion)}
+              noAplicaAutomatico={reglaNoAplicaAutomatica(seccion.prueba_codigo, datos)}
               analisisDefault={analisisDefaultDe(cat)}
               expanded={expandedCodigo === seccion.prueba_codigo}
               onToggleExpand={() =>

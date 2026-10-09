@@ -1018,3 +1018,84 @@ describe("Prueba 'No aplica': motivo en Metodología y resto compactado en dos c
     expect(text).not.toContain("(No aplica.) Tj");
   });
 });
+
+describe("'No aplica' automático: 2.14 y 2.15 en equipos DR (#116)", () => {
+  // Misma estrategia que el describe anterior: una sola sección por visita y
+  // afirmaciones sobre textos de una línea o palabras sueltas.
+  async function pdfDeSeccion(
+    codigo: string,
+    sistemaAdquisicion: string,
+    campos: Partial<ConvInformeSeccion> = {}
+  ): Promise<string> {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipos.update(equipo.id!, { sistema_adquisicion: sistemaAdquisicion });
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: codigo,
+      orden: 1,
+      incluida: true,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+      ...campos,
+    });
+    return pdfText((await generarPreInforme(visita!.id!))!);
+  }
+
+  const veces = (texto: string, marca: string) => texto.split(marca).length - 1;
+
+  // Palabra que solo aparece en el motivo automático, y palabra que en cada
+  // prueba solo aparece en el Criterio de aceptación del catálogo.
+  const MARCA_MOTIVO_DR = "flat";
+  const MARCA_CRITERIO: Record<string, string> = { "2.14": "artefactos", "2.15": "coeficiente" };
+
+  for (const codigo of ["2.14", "2.15"]) {
+    it(`${codigo} con equipo DR y switch encendido: motivo en Metodología y grilla compacta`, async () => {
+      const text = await pdfDeSeccion(codigo, "Digital");
+      expect(text).toContain(`(${codigo}.4. Resultados) Tj`);
+      expect(veces(text, "(No aplica.) Tj")).toBe(5);
+      expect(text).toContain(MARCA_MOTIVO_DR);
+      expect(text).not.toContain(MARCA_CRITERIO[codigo]);
+      expect(text).not.toContain(`${codigo}.9.`);
+      // El veredicto queda solo en la tabla resumen, no en el cuerpo.
+      expect(veces(text, "(NO APLICA) Tj")).toBe(1);
+      expect(text).not.toContain("PENDIENTE");
+    });
+
+    it(`${codigo} con equipo DR: un motivo guardado por el físico gana sobre el automático`, async () => {
+      const motivo = "Motivo editado por el fisico XYZ123";
+      const text = await pdfDeSeccion(codigo, "Digital", { metodologia_no_aplica: motivo });
+      expect(veces(text, motivo)).toBe(1);
+      expect(text).not.toContain(MARCA_MOTIVO_DR);
+      expect(text).toContain(`(${codigo}.4. Resultados) Tj`);
+    });
+
+    it(`${codigo} con equipo CR y switch encendido: formato completo, como antes`, async () => {
+      const text = await pdfDeSeccion(codigo, "Digitalizado");
+      expect(text).toContain(MARCA_CRITERIO[codigo]);
+      expect(text).not.toContain("(No aplica.) Tj");
+      expect(text).not.toContain("(NO APLICA) Tj");
+      expect(text).not.toContain(MARCA_MOTIVO_DR);
+    });
+
+    it(`${codigo} con equipo DR y 'No se pudo ejecutar': formato completo y NO EJECUTADA`, async () => {
+      const text = await pdfDeSeccion(codigo, "Digital", {
+        concepto: "No_favorable_no_ejecutada",
+        metodologia_no_aplica: "MOTIVO-QUE-NO-DEBE-SALIR",
+      });
+      expect(text).toContain(MARCA_CRITERIO[codigo]);
+      expect(text).toContain("(NO EJECUTADA) Tj");
+      expect(text).not.toContain("(No aplica.) Tj");
+      expect(text).not.toContain("(NO APLICA.) Tj");
+      expect(text).not.toContain("(NO APLICA) Tj");
+      expect(text).not.toContain("MOTIVO-QUE-NO-DEBE-SALIR");
+      expect(text).not.toContain(MARCA_MOTIVO_DR);
+    });
+  }
+
+  it("equipo DR con el switch apagado a mano: sigue saliendo compacta con el motivo automático", async () => {
+    const text = await pdfDeSeccion("2.14", "Digital", { incluida: false });
+    expect(text).toContain("(2.14.4. Resultados) Tj");
+    expect(text).toContain(MARCA_MOTIVO_DR);
+  });
+});

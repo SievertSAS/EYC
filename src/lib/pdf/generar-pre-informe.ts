@@ -42,7 +42,8 @@ import { getCatalogoSeccion } from "@/lib/equipos/convencional/informe-secciones
 import {
   evaluarConceptoPrueba,
   tieneCriterio,
-  sistemaEsDR,
+  motivoNoAplicaAutomatico,
+  seccionAplica,
   tolerancia211Default,
 } from "@/lib/equipos/convencional/evaluacion";
 import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
@@ -1217,20 +1218,23 @@ export async function generarPreInforme(
       addSubsectionTitle,
     };
 
-    // Todas las pruebas aparecen en el informe; el switch (incluida) decide si
-    // la prueba APLICA (se evalúa) o NO APLICA (se documenta como no aplicable).
+    // Todas las pruebas aparecen en el informe; el switch (incluida) y las
+    // reglas automáticas (`seccionAplica`) deciden si la prueba APLICA (se
+    // evalúa) o NO APLICA (se documenta como no aplicable).
     const todasSecciones = [...conv.secciones].sort((a, b) => a.orden - b.orden);
 
     for (const seccion of todasSecciones) {
       const cat = getCatalogoSeccion(seccion.prueba_codigo);
       if (!cat) continue;
       const codigo = seccion.prueba_codigo;
-      const aplica = seccion.incluida;
       // #120: override manual -- "aplica pero no se pudo ejecutar por falla
       // de un componente". Gana sobre el veredicto automático y, en el PDF,
       // también sobre el switch "incluida": esa prueba conserva el formato
       // completo y no pasa por la grilla compacta de "No aplica".
       const noEjecutada = seccion.concepto === "No_favorable_no_ejecutada";
+      // También gana sobre las reglas automáticas de "no aplica" (#116): una
+      // prueba "no ejecutada" se imprime según el switch, como si no hubiera regla.
+      const aplica = noEjecutada ? seccion.incluida : seccionAplica(seccion, conv);
       const noAplica = !aplica && !noEjecutada;
 
       // Título de la prueba
@@ -1242,10 +1246,13 @@ export async function generarPreInforme(
       addSubsectionParagraph(`${codigo}.1.`, "Objetivo", cat.objetivo);
       addSubsectionParagraph(`${codigo}.2.`, "Instrumentación", cat.instrumentacion);
       // Prueba "No aplica": la Metodología explica el motivo (el que editó el
-      // físico o el predeterminado de la prueba) y el resto de subsecciones
-      // se condensa en la grilla de dos columnas.
+      // físico, el de la regla automática o el predeterminado de la prueba) y
+      // el resto de subsecciones se condensa en la grilla de dos columnas.
       if (noAplica) {
-        const motivo = seccion.metodologia_no_aplica?.trim() || cat.metodologiaNoAplica;
+        const motivo =
+          seccion.metodologia_no_aplica?.trim() ||
+          motivoNoAplicaAutomatico(codigo, conv) ||
+          cat.metodologiaNoAplica;
         const titulosGrilla = subseccionesNoAplica(codigo);
         // Metodología + grilla reservadas como un solo bloque: si no, el motivo
         // puede quedar al pie de una página y la grilla sola en la siguiente.
@@ -1731,12 +1738,6 @@ export async function generarPreInforme(
             "Se recomienda verificar las condiciones del detector y del sistema de procesamiento de imagen, y repetir la prueba para confirmar los resultados obtenidos."
           );
         }
-      } else if (codigo === "2.15" && aplica && sistemaEsDR(datos.equipo?.sistema_adquisicion)) {
-        conceptoLabel = "NO APLICA";
-        conceptoParrafo =
-          "Esta prueba solo aplica a sistemas CR (con pantallas de fósforo fotoestimulable). El equipo evaluado es un sistema DR (flat panel).";
-        accionesTexto = "No Aplica";
-        esNoConforme = false;
       } else if (codigo === "2.15" && aplica) {
         const filas = conv.uniformidadCr ?? [];
         const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
@@ -1766,12 +1767,6 @@ export async function generarPreInforme(
             );
           }
         }
-      } else if (codigo === "2.14" && aplica && sistemaEsDR(datos.equipo?.sistema_adquisicion)) {
-        conceptoLabel = "NO APLICA";
-        conceptoParrafo =
-          "Esta prueba solo aplica a sistemas CR (cassettes y pantallas de fósforo fotoestimulable). El equipo evaluado es un sistema DR (flat panel).";
-        accionesTexto = "No Aplica";
-        esNoConforme = false;
       } else if (codigo === "2.14" && aplica) {
         if (esPendiente) {
           conceptoLabel = "PENDIENTE";

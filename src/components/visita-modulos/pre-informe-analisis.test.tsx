@@ -69,6 +69,7 @@ describe("SeccionCard — campo 'Análisis'", () => {
         onToggleNoEjecutada={() => {}}
         onUpdateAcciones={() => {}}
         onUpdateObservaciones={onUpdateObservaciones}
+        onUpdateMetodologiaNoAplica={() => {}}
       />
     );
     return { onUpdateObservaciones };

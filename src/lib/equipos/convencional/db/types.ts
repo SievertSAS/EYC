@@ -482,6 +482,13 @@ export interface ConvInformeSeccion extends Partial<SyncFields> {
    * `null` (no `undefined`) para limpiarlo, por la misma razón que `concepto`.
    */
   observaciones?: string | null;
+  /**
+   * Motivo por el que la prueba no aplica, editado por el físico; se imprime
+   * en la Metodología del PDF cuando `incluida` es false. Vacío = se usa el
+   * motivo predeterminado del catálogo (`metodologiaNoAplica`).
+   * `null` (no `undefined`) para limpiarlo, por la misma razón que `concepto`.
+   */
+  metodologia_no_aplica?: string | null;
   creado_en?: string;
 }
 

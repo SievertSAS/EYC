@@ -73,9 +73,7 @@ export default function ConfiguracionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Configuración
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Configuración</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Gestión de usuarios y permisos del sistema
         </p>
@@ -159,7 +157,7 @@ function UsuariosTab() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger
             render={
-              <Button className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white" />
+              <Button className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white" />
             }
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -180,7 +178,7 @@ function UsuariosTab() {
         {usuarios.map((u) => (
           <Card
             key={u.id}
-            className={`border-none shadow-sm rounded-2xl bg-white overflow-hidden ${
+            className={`border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden ${
               !u.activo ? "opacity-60" : ""
             }`}
           >
@@ -188,9 +186,9 @@ function UsuariosTab() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-black text-slate-900 text-sm truncate">{u.nombre}</p>
+                    <p className="font-medium text-slate-900 text-sm truncate">{u.nombre}</p>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                         u.activo
                           ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
                           : "bg-red-100 text-red-600 border border-red-200"
@@ -381,7 +379,7 @@ function UsuarioFormDialog({
   return (
     <DialogContent className="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle className="font-black">
+        <DialogTitle className="font-semibold">
           {editId ? "Editar Usuario" : "Nuevo Usuario"}
         </DialogTitle>
       </DialogHeader>
@@ -395,7 +393,7 @@ function UsuarioFormDialog({
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
-            className="rounded-xl"
+            className="rounded-lg"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -408,7 +406,7 @@ function UsuarioFormDialog({
               value={cedula}
               onChange={(e) => setCedula(e.target.value)}
               required
-              className="rounded-xl"
+              className="rounded-lg"
             />
           </div>
           <div className="space-y-2">
@@ -419,7 +417,7 @@ function UsuarioFormDialog({
               id="cargo"
               value={cargo}
               onChange={(e) => setCargo(e.target.value as RolUsuario)}
-              className="w-full h-9 rounded-xl border border-slate-200 px-3 text-sm font-medium focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-white"
+              className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm font-medium focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-white"
             >
               {ROLES_DISPONIBLES.map((r) => (
                 <option key={r} value={r}>
@@ -441,7 +439,7 @@ function UsuarioFormDialog({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="rounded-xl"
+                className="rounded-lg"
               />
             </div>
             <div className="space-y-2">
@@ -455,7 +453,7 @@ function UsuarioFormDialog({
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="rounded-xl"
+                className="rounded-lg"
               />
             </div>
           </>
@@ -468,7 +466,7 @@ function UsuarioFormDialog({
             id="telefono"
             value={telefono}
             onChange={(e) => setTelefono(e.target.value)}
-            className="rounded-xl"
+            className="rounded-lg"
           />
         </div>
 
@@ -482,7 +480,7 @@ function UsuarioFormDialog({
               value={tituloFirma}
               onChange={(e) => setTituloFirma(e.target.value)}
               placeholder={ROL_LABELS[cargo]}
-              className="rounded-xl"
+              className="rounded-lg"
             />
           </div>
         )}
@@ -511,7 +509,7 @@ function UsuarioFormDialog({
             <Button
               type="button"
               variant="outline"
-              className="rounded-xl border-dashed border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 w-full font-bold text-sm text-slate-500"
+              className="rounded-lg border-dashed border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 w-full font-bold text-sm text-slate-500"
               onClick={() => firmaInputRef.current?.click()}
             >
               <Camera className="w-4 h-4 mr-2" />
@@ -528,7 +526,7 @@ function UsuarioFormDialog({
           <Button
             type="submit"
             disabled={loading}
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {editId ? "Guardar Cambios" : "Crear Usuario"}
@@ -660,19 +658,19 @@ function RolesTab() {
         })}
       </div>
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left p-3 sm:p-4 font-black text-slate-800 text-xs uppercase tracking-wider">
+                  <th className="text-left p-3 sm:p-4 font-medium text-slate-800 text-xs">
                     Módulo
                   </th>
                   {ROLES_DISPONIBLES.map((rol) => (
                     <th
                       key={rol}
-                      className="text-center p-3 sm:p-4 font-black text-slate-800 text-xs uppercase tracking-wider"
+                      className="text-center p-3 sm:p-4 font-medium text-slate-800 text-xs"
                     >
                       {ROL_LABELS[rol]}
                     </th>

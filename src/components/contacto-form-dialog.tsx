@@ -137,9 +137,9 @@ export function ContactoFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-md">
+      <DialogContent className="rounded-lg border-none shadow-2xl p-0 overflow-hidden sm:max-w-md">
         <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-slate-900 tracking-tight">
             {isEdit ? "Editar Contacto" : "Nuevo Contacto"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
@@ -149,11 +149,9 @@ export function ContactoFormDialog({
 
         <div className="p-6 space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Nombre *
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Nombre completo"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
@@ -161,11 +159,9 @@ export function ContactoFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Cargo
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Cargo</Label>
             <Select value={cargo} onValueChange={(v) => setCargo(v ?? "")}>
-              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
+              <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                 <SelectValue placeholder="Seleccionar cargo...">
                   {(v) =>
                     CARGO_OPTIONS.find((opt) => opt.value === v)?.label || "Seleccionar cargo..."
@@ -183,11 +179,9 @@ export function ContactoFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Cédula
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Cédula</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Número de cédula"
               value={cedula}
               onChange={(e) => setCedula(e.target.value)}
@@ -196,22 +190,18 @@ export function ContactoFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Teléfono
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Teléfono</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="300 000 0000"
                 value={telefono}
                 onChange={(e) => setTelefono(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Email
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Email</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="email@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -220,7 +210,7 @@ export function ContactoFormDialog({
           </div>
 
           {/* Checkbox para programar */}
-          <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
             <input
               type="checkbox"
               checked={paraProgramar}
@@ -239,13 +229,13 @@ export function ContactoFormDialog({
         <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
           <Button
             variant="ghost"
-            className="rounded-xl font-black"
+            className="rounded-lg font-medium"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             disabled={saving || !nombre.trim()}
             onClick={handleSave}
           >

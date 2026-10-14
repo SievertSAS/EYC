@@ -115,7 +115,7 @@ function conceptoLimite(valor: number | null, limite: number): Concepto | null {
 
 function Alert({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
+    <div className="flex gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 font-medium">
       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -124,7 +124,7 @@ function Alert({ children }: { children: React.ReactNode }) {
 
 function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary font-medium">
+    <div className="flex gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary font-medium">
       <Lightbulb className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -144,12 +144,12 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+      <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
         <Icon className="text-primary w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">{step}</p>
-        <h3 className="font-black text-slate-900 text-sm sm:text-base">{title}</h3>
+        <p className="text-xs font-medium text-primary">{step}</p>
+        <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{title}</h3>
         {children && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{children}</p>}
       </div>
     </div>
@@ -167,13 +167,13 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-100 rounded-xl overflow-hidden">
+    <div className="border border-slate-100 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
+        <span className="text-xs font-medium text-slate-600">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -201,9 +201,9 @@ function ImageSlot({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-slate-200">
+        <div className="relative rounded-lg overflow-hidden border border-slate-200">
           <img src={preview} alt={label} className="w-full h-48 object-cover" />
           <button
             type="button"
@@ -217,7 +217,7 @@ function ImageSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
         >
           <Camera className="w-6 h-6" />
           <span className="text-xs font-bold">Tomar foto o seleccionar</span>
@@ -240,13 +240,13 @@ function ImageSlot({
 }
 
 function ConceptoBadge({ concepto }: { concepto: Concepto | null }) {
-  if (!concepto) return <span className="text-[10px] text-slate-300 font-bold">—</span>;
+  if (!concepto) return <span className="text-xs text-slate-300 font-bold">—</span>;
   return concepto === "Conforme" ? (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
       <CheckCircle2 className="w-3 h-3" /> OK
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
       <XCircle className="w-3 h-3" /> NC
     </span>
   );
@@ -268,7 +268,7 @@ function ResultRow({
       <span className="text-xs font-medium text-slate-600">{label}</span>
       <div className="flex items-center gap-3">
         <span className="text-xs font-mono font-bold text-slate-800">{valor}</span>
-        <span className="text-[10px] text-slate-400">{limite}</span>
+        <span className="text-xs text-slate-400">{limite}</span>
         <ConceptoBadge concepto={concepto} />
       </div>
     </div>
@@ -558,10 +558,10 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+          <p className="text-xs font-medium text-primary">
             Grupo C — Pruebas 2.17, 2.18, 2.19, 2.20
           </p>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
             Control Automatico de Exposicion (CAE)
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
@@ -571,7 +571,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
         </div>
         <Button
           variant="outline"
-          className="rounded-xl font-bold text-xs flex-shrink-0 gap-1.5"
+          className="rounded-lg font-bold text-xs flex-shrink-0 gap-1.5"
           onClick={() => {
             setManualPrueba(undefined);
             setManualOpen(true);
@@ -583,7 +583,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       </div>
 
       {/* ═══ SETUP ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Paso 1" title="Preparacion y montaje" icon={SlidersHorizontal}>
             Configura el CAE y coloca el atenuador de cobre.
@@ -607,7 +607,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* ═══ TABLA DE MEDICIONES (15 disparos) ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Paso 2" title="Registro de mediciones" icon={SlidersHorizontal}>
             15 disparos con diferentes kVp, espesores de Cu y posiciones de sensor.
@@ -636,7 +636,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                   ].map((label) => (
                     <th
                       key={label}
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                      className="text-xs font-medium text-slate-400 text-left py-2 px-1.5"
                     >
                       {label}
                     </th>
@@ -648,7 +648,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                   const disp = DISPAROS_CAE.find((d) => d.toma === m.toma_numero);
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1.5 font-black text-primary">
+                      <td className="py-1.5 px-1.5 font-medium text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
                           <Check
@@ -682,7 +682,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                           />
                         </td>
                       ))}
-                      <td className="py-1.5 px-1.5 text-[10px] text-slate-400 font-medium">
+                      <td className="py-1.5 px-1.5 text-xs text-slate-400 font-medium">
                         {disp?.para ?? ""}
                       </td>
                     </tr>
@@ -697,7 +697,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══ VALORES BASE (Precarga) ═══ */}
       <Card
         key={`setup-${setup?.id ?? "new"}`}
-        className="border-none shadow-sm rounded-2xl bg-white overflow-hidden"
+        className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden"
       >
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
@@ -751,7 +751,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                 ] as const
               ).map(({ kv, fields }) => (
                 <div key={kv} className="grid grid-cols-4 gap-2 items-end">
-                  <div className="text-xs font-black text-primary">{kv} kVp</div>
+                  <div className="text-xs font-medium text-primary">{kv} kVp</div>
                   {(["mas", "ei", "di"] as const).map((f) => (
                     <SetupField
                       key={f}
@@ -789,7 +789,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
                 ] as const
               ).map(({ cu, fields }) => (
                 <div key={cu} className="grid grid-cols-4 gap-2 items-end">
-                  <div className="text-xs font-black text-primary">Cu {cu} mm</div>
+                  <div className="text-xs font-medium text-primary">Cu {cu} mm</div>
                   {(["mas", "ei", "di"] as const).map((f) => (
                     <SetupField
                       key={f}
@@ -811,7 +811,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══ RESULTADOS AUTO-CALCULADOS ═══ */}
 
       {/* 2.17 Sensibilidad */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Prueba 2.17" title="Sensibilidad del CAE" icon={SlidersHorizontal}>
             Compara la medicion actual (toma 9) con los valores base. Limite: variacion &le; 50%.
@@ -838,7 +838,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* 2.18 Consistencia */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader
             step="Prueba 2.18"
@@ -869,7 +869,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* 2.19 Repetibilidad */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Prueba 2.19" title="Repetibilidad del CAE" icon={SlidersHorizontal}>
             CV (desviacion estandar / promedio) de las 4 repeticiones (tomas 9-12). Limite: CV &le;
@@ -897,7 +897,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* 2.20 Compensación kVp */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Prueba 2.20a" title="Compensacion por kVp" icon={SlidersHorizontal}>
             Variacion de cada parametro respecto a base por kVp. Limite: &le; 30%.
@@ -932,7 +932,7 @@ export function GrupoCModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* 2.20 Compensación espesores */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader
             step="Prueba 2.20b"

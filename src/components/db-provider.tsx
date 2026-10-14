@@ -77,7 +77,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   if (needsReset) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 text-center">
-        <div className="bg-amber-100 p-4 rounded-2xl">
+        <div className="bg-amber-100 p-4 rounded-lg">
           <svg
             className="w-10 h-10 text-amber-600"
             fill="none"
@@ -92,14 +92,16 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
             />
           </svg>
         </div>
-        <h2 className="text-xl font-black text-slate-900">Hay que actualizar los datos locales</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Hay que actualizar los datos locales
+        </h2>
         <p className="text-slate-500 font-medium max-w-md">
           Esta versión de la aplicación cambió la forma de guardar los datos y no puede migrar los
           que ya tenés en este dispositivo. Se van a borrar los datos locales y volver a descargar
           del servidor. Asegurate de haber sincronizado antes de continuar.
         </p>
         <button
-          className="mt-2 px-6 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60"
+          className="mt-2 px-6 py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60"
           disabled={resetting}
           onClick={async () => {
             setResetting(true);
@@ -119,7 +121,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   if (needsReload) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 text-center">
-        <div className="bg-amber-100 p-4 rounded-2xl">
+        <div className="bg-amber-100 p-4 rounded-lg">
           <svg
             className="w-10 h-10 text-amber-600"
             fill="none"
@@ -134,13 +136,13 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
             />
           </svg>
         </div>
-        <h2 className="text-xl font-black text-slate-900">Base de datos desactualizada</h2>
+        <h2 className="text-xl font-semibold text-slate-900">Base de datos desactualizada</h2>
         <p className="text-slate-500 font-medium max-w-md">
           Hay una actualización pendiente. Cierra todas las demás pestañas de esta aplicación y
           luego recarga.
         </p>
         <button
-          className="mt-2 px-6 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-colors"
+          className="mt-2 px-6 py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors"
           onClick={() => window.location.reload()}
         >
           Recargar ahora

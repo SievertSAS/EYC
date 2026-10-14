@@ -50,7 +50,7 @@ interface ReprogramarVisitaDialogProps {
   onReprogramada?: () => void;
 }
 
-const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
+const labelClass = "text-xs font-medium text-slate-600";
 
 export function ReprogramarVisitaDialog({
   open,
@@ -102,7 +102,7 @@ export function ReprogramarVisitaDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-black flex items-center gap-2">
+          <DialogTitle className="font-semibold flex items-center gap-2">
             <CalendarClock className="w-4 h-4 text-primary" /> Reprogramar visita
           </DialogTitle>
           <DialogDescription>
@@ -118,7 +118,7 @@ export function ReprogramarVisitaDialog({
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="rounded-xl"
+              className="rounded-lg"
             />
           </div>
 
@@ -130,7 +130,7 @@ export function ReprogramarVisitaDialog({
               value={tecnicoSel}
               onValueChange={(t: TecnicoLite | null) => setTecnicoId(t?.id ?? "")}
             >
-              <ComboboxTrigger className="w-full rounded-xl border-slate-200 h-11 data-[placeholder]:text-slate-400">
+              <ComboboxTrigger className="w-full rounded-lg border-slate-200 h-11 data-[placeholder]:text-slate-400">
                 <ComboboxValue placeholder="Seleccionar técnico..." />
               </ComboboxTrigger>
               <ComboboxContent>
@@ -153,13 +153,13 @@ export function ReprogramarVisitaDialog({
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Por qué se reprograma (obligatorio)"
-              className="rounded-xl"
+              className="rounded-lg"
               rows={3}
             />
           </div>
 
           {error && (
-            <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">
+            <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
               {error}
             </p>
           )}
@@ -168,14 +168,14 @@ export function ReprogramarVisitaDialog({
         <DialogFooter>
           <Button
             variant="ghost"
-            className="rounded-xl font-bold"
+            className="rounded-lg font-bold"
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             onClick={handleConfirm}
             disabled={saving || !fecha || !tecnicoId || !motivo.trim()}
           >

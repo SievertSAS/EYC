@@ -88,7 +88,7 @@ const SLOTS_IMAGEN = [
 
 function Alert({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
+    <div className="flex gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 font-medium">
       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -129,13 +129,13 @@ function fmtNum(value: number | null | undefined, decimales = 2): string {
 
 /** Badge chico de concepto para los resultados auto-calculados en vivo. */
 function ConceptoBadgeChico({ conforme }: { conforme: boolean | null | undefined }) {
-  if (conforme == null) return <span className="text-[10px] text-slate-300 font-bold">—</span>;
+  if (conforme == null) return <span className="text-xs text-slate-300 font-bold">—</span>;
   return conforme ? (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
       <CheckCircle2 className="w-3 h-3" /> OK
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
       <XCircle className="w-3 h-3" /> NC
     </span>
   );
@@ -164,7 +164,7 @@ function FilaResultado({
 
 function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary font-medium">
+    <div className="flex gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary font-medium">
       <Lightbulb className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -184,12 +184,12 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+      <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
         <Icon className="text-primary w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">{step}</p>
-        <h3 className="font-black text-slate-900 text-sm sm:text-base">{title}</h3>
+        <p className="text-xs font-medium text-primary">{step}</p>
+        <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{title}</h3>
         {children && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{children}</p>}
       </div>
     </div>
@@ -207,13 +207,13 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-100 rounded-xl overflow-hidden">
+    <div className="border border-slate-100 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
+        <span className="text-xs font-medium text-slate-600">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -237,19 +237,19 @@ function RaysafeUploadCard({
   const [count, setCount] = useState(0);
 
   return (
-    <div className="flex items-center justify-between gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+    <div className="flex items-center justify-between gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
       <div className="flex items-center gap-3">
         <FileSpreadsheet className="w-5 h-5 text-primary flex-shrink-0" />
         <div>
-          <p className="text-xs font-black text-slate-700">Importar datos RaySafe</p>
-          <p className="text-[10px] text-slate-400 font-medium">
+          <p className="text-xs font-medium text-slate-700">Importar datos RaySafe</p>
+          <p className="text-xs text-slate-400 font-medium">
             Sube la plantilla Excel completa o un archivo TSV del sensor.
           </p>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         {loaded && (
-          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+          <span className="flex items-center gap-1 text-xs font-bold text-emerald-600">
             <CheckCircle2 className="w-3.5 h-3.5" />
             {count} filas
           </span>
@@ -257,14 +257,14 @@ function RaysafeUploadCard({
         <a
           href="/plantillas/plantilla-raysafe.xlsx"
           download
-          className="text-[10px] text-primary/70 underline underline-offset-2 hover:text-primary font-medium"
+          className="text-xs text-primary/70 underline underline-offset-2 hover:text-primary font-medium"
         >
           Descargar plantilla
         </a>
         <Button
           variant="outline"
           size="sm"
-          className="rounded-xl font-bold text-xs gap-1.5 h-8"
+          className="rounded-lg font-bold text-xs gap-1.5 h-8"
           onClick={() => ref.current?.click()}
         >
           <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -326,9 +326,9 @@ function ImageSlot({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-slate-200">
+        <div className="relative rounded-lg overflow-hidden border border-slate-200">
           <img src={preview} alt={label} className="w-full h-48 object-cover" />
           <button
             type="button"
@@ -342,7 +342,7 @@ function ImageSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
         >
           <Camera className="w-6 h-6" />
           <span className="text-xs font-bold">Tomar foto o seleccionar</span>
@@ -751,10 +751,10 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+          <p className="text-xs font-medium text-primary">
             Grupo B — Pruebas 2.4, 2.5, 2.6, 2.7, 2.21, 2.8
           </p>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
             RaySafe: Tiempo, kVp, CHR, Rendimiento y Dosis
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
@@ -764,7 +764,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </div>
         <Button
           variant="outline"
-          className="rounded-xl font-bold text-xs flex-shrink-0 gap-1.5"
+          className="rounded-lg font-bold text-xs flex-shrink-0 gap-1.5"
           onClick={() => {
             setManualPrueba(undefined);
             setManualOpen(true);
@@ -779,7 +779,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       <RaysafeUploadCard onImport={importarPlantilla} />
 
       {/* ═══ SETUP ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Paso 1" title="Preparación y montaje" icon={Zap}>
             Configura el montaje antes de hacer los disparos.
@@ -797,11 +797,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               onSave={(v) => updateSetup({ distancia_foco_sensor_cm: v ? parseDecimal(v) : 100 })}
             />
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <label className="text-xs font-medium text-slate-400">
                 Unidad DAP nominal (equipo)
               </label>
               <select
-                className="rounded-xl h-9 text-sm font-medium border border-slate-200 bg-white w-full px-2"
+                className="rounded-lg h-9 text-sm font-medium border border-slate-200 bg-white w-full px-2"
                 defaultValue={setup?.unidad_dap ?? "mgy_cm2"}
                 onChange={(e) => updateSetup({ unidad_dap: e.target.value })}
               >
@@ -812,11 +812,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <label className="text-xs font-medium text-slate-400">
                 Unidad Kerma/DAP medido (RaySafe)
               </label>
               <select
-                className="rounded-xl h-9 text-sm font-medium border border-slate-200 bg-white w-full px-2"
+                className="rounded-lg h-9 text-sm font-medium border border-slate-200 bg-white w-full px-2"
                 defaultValue={setup?.unidad_kerma ?? "mgy"}
                 onChange={(e) => updateSetup({ unidad_kerma: e.target.value })}
               >
@@ -844,7 +844,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* ═══ DISPAROS PRINCIPALES ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Paso 2" title="Disparos principales (sin rejilla)" icon={Zap}>
             {principales.length} tomas en 8 grupos. Configura la técnica nominal; los valores
@@ -886,7 +886,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                   ].map(([label, cls]) => (
                     <th
                       key={label}
-                      className={`text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1 ${cls}`}
+                      className={`text-xs font-medium text-slate-400 text-left py-2 px-1 ${cls}`}
                     >
                       {label}
                     </th>
@@ -936,7 +936,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                         isFirstInGroup ? "border-t-2 border-t-slate-200" : ""
                       }`}
                     >
-                      <td className="py-1.5 px-1 font-black text-primary">
+                      <td className="py-1.5 px-1 font-medium text-primary">
                         {isFirstInGroup ? m.grupo_numero : ""}
                       </td>
                       <td className="py-1.5 px-1 text-slate-500 font-mono">
@@ -984,7 +984,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           }}
                         />
                       </td>
-                      <td className="py-1.5 px-1 text-[10px] text-slate-400 font-medium">
+                      <td className="py-1.5 px-1 text-xs text-slate-400 font-medium">
                         {isFirstInGroup ? grupoInfo?.para : ""}
                       </td>
                     </tr>
@@ -997,7 +997,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* ═══ MEDICIONES CON REJILLA ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Paso 3 — Prueba 2.21"
@@ -1032,7 +1032,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                   ].map((label) => (
                     <th
                       key={label}
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                      className="text-xs font-medium text-slate-400 text-left py-2 px-1.5"
                     >
                       {label}
                     </th>
@@ -1042,7 +1042,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               <tbody>
                 {conRejilla.map((m) => (
                   <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">
+                    <td className="py-1.5 px-1.5 font-medium text-primary">
                       <span className="inline-flex items-center gap-1">
                         {m.toma_numero}
                         <Check
@@ -1106,7 +1106,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* ═══ MEDICIONES SIN REJILLA ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Paso 4 — Prueba 2.21"
@@ -1162,7 +1162,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                   ].map((label) => (
                     <th
                       key={label}
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                      className="text-xs font-medium text-slate-400 text-left py-2 px-1.5"
                     >
                       {label}
                     </th>
@@ -1176,7 +1176,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     : undefined;
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1.5 font-black text-primary">
+                      <td className="py-1.5 px-1.5 font-medium text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
                           <Check
@@ -1250,7 +1250,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* ═══ KERMA EN AIRE (Prueba 2.8) ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Paso 5 — Prueba 2.8"
@@ -1289,7 +1289,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                   ].map((label) => (
                     <th
                       key={label}
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1"
+                      className="text-xs font-medium text-slate-400 text-left py-2 px-1"
                     >
                       {label}
                     </th>
@@ -1303,7 +1303,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     : undefined;
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1 font-black text-primary">
+                      <td className="py-1.5 px-1 font-medium text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.toma_numero}
                           <Check
@@ -1369,7 +1369,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* ═══ RESULTADOS AUTO-CALCULADOS EN VIVO ═══ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.4 Tiempo de exposición" icon={Zap}>
             Desviación ≤ 10% respecto al nominal, CV ≤ 10% entre repeticiones.
@@ -1389,7 +1389,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.5 Tensión (kVp)" icon={Zap}>
             Desviación ≤ 10% respecto al nominal, CV ≤ 5% entre repeticiones.
@@ -1409,7 +1409,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.6 Capa hemirreductora (CHR)" icon={Zap}>
             CHR promedio ≥ mínimo de referencia TECDOC según el kV del grupo.
@@ -1429,7 +1429,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.7 Rendimiento del tubo" icon={Zap}>
             Linealidad ≤ 10% entre grupos de mAs, repetibilidad (CV) ≤ 5%.
@@ -1474,7 +1474,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.21 Dosis al receptor" icon={Zap}>
             Diferencia vs. línea base &lt; 0,01 mGy, por programa clínico.
@@ -1499,7 +1499,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.8 Factor de corrección PKA" icon={Zap}>
             Solo informativo — esta prueba no tiene criterio de aceptación.

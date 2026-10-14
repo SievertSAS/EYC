@@ -87,7 +87,7 @@
   --input: oklch(0.92 0.005 250);
   --ring: oklch(0.553 0.215 285);
 
-  --radius: 1rem;
+  --radius: 0.625rem;
 
   /* Charts — paleta Sievert */
   --chart-1: oklch(0.553 0.215 285);

@@ -48,8 +48,8 @@ interface SedeFormDialogProps {
   onSaved?: (id: string) => void;
 }
 
-const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
-const inputClass = "rounded-xl border-slate-200 focus:border-primary font-medium h-11";
+const labelClass = "text-xs font-medium text-slate-600";
+const inputClass = "rounded-lg border-slate-200 focus:border-primary font-medium h-11";
 
 export function SedeFormDialog({
   open,
@@ -174,9 +174,9 @@ export function SedeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-md">
+      <DialogContent className="rounded-lg border-none shadow-2xl p-0 overflow-hidden sm:max-w-md">
         <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-slate-900 tracking-tight">
             {isEdit ? "Editar Sede" : "Nueva Sede"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
@@ -317,13 +317,13 @@ export function SedeFormDialog({
         <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
           <Button
             variant="ghost"
-            className="rounded-xl font-black"
+            className="rounded-lg font-medium"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             disabled={saving || !nombre.trim()}
             onClick={handleSave}
           >

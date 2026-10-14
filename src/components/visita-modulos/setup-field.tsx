@@ -29,7 +29,7 @@ export function SetupField({
   type = "number",
   step,
   placeholder,
-  className = "rounded-xl h-9 text-sm font-medium",
+  className = "rounded-lg h-9 text-sm font-medium",
   onSave,
 }: SetupFieldProps) {
   const [saved, setSaved] = useState(false);
@@ -45,7 +45,7 @@ export function SetupField({
 
   return (
     <div className="space-y-1">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+      <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
         {label}
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
       </label>

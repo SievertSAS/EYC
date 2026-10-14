@@ -18,7 +18,7 @@ export function StateTimeline({ currentState, className }: StateTimelineProps) {
   const currentIndex = ESTADO_ORDER.indexOf(currentState);
 
   return (
-    <div className={cn("flex items-center gap-1 overflow-x-auto pb-1", className)}>
+    <div className={cn("flex items-center gap-1 overflow-x-auto py-1.5 px-1", className)}>
       {ESTADO_ORDER.map((estado, index) => {
         const config = ESTADO_CONFIG[estado];
         const isPast = index < currentIndex;
@@ -38,7 +38,7 @@ export function StateTimeline({ currentState, className }: StateTimelineProps) {
               />
               <span
                 className={cn(
-                  "text-[8px] sm:text-[9px] font-black uppercase tracking-wider whitespace-nowrap",
+                  "text-xs sm:text-xs font-medium whitespace-nowrap",
                   isCurrent && "text-primary",
                   isPast && "text-slate-400",
                   !isPast && !isCurrent && "text-slate-300"

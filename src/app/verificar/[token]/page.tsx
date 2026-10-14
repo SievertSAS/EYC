@@ -42,10 +42,8 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center">
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
-            Sievert Protección Radiológica
-          </p>
-          <h1 className="text-lg font-black text-slate-900 tracking-tight">
+          <p className="text-xs font-medium text-primary">Sievert Protección Radiológica</p>
+          <h1 className="text-lg font-semibold text-slate-900 tracking-tight">
             Verificación de Informe
           </h1>
         </div>
@@ -70,9 +68,9 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
   if (!informe) {
     return (
       <Shell>
-        <div className="bg-white rounded-2xl shadow-sm p-6 text-center space-y-3">
+        <div className="bg-white rounded-lg border border-slate-200 p-6 text-center space-y-3">
           <ShieldX className="w-10 h-10 text-red-500 mx-auto" />
-          <p className="font-black text-slate-800">Informe no encontrado</p>
+          <p className="font-medium text-slate-800">Informe no encontrado</p>
           <p className="text-sm text-slate-500">
             El código escaneado no corresponde a ningún informe registrado.
           </p>
@@ -125,11 +123,11 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
 
   return (
     <Shell>
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="p-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
                 {informe.numero_informe}
               </h2>
               <p className="text-sm text-slate-500 font-medium">
@@ -138,7 +136,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
               </p>
             </div>
             <span
-              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                 favorable
                   ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                   : "bg-red-100 text-red-600 border-red-200"
@@ -154,7 +152,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
           </div>
 
           <div
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-black ${estadoBadge.className}`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${estadoBadge.className}`}
           >
             <EstadoIcon className="w-4 h-4" />
             {estadoBadge.label}
@@ -162,21 +160,17 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Fecha de emisión
-              </p>
+              <p className="text-xs font-medium text-slate-400">Fecha de emisión</p>
               <p className="text-sm font-bold text-slate-700">{informe.fecha_emision}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Fecha de vencimiento
-              </p>
+              <p className="text-xs font-medium text-slate-400">Fecha de vencimiento</p>
               <p className="text-sm font-bold text-slate-700">{informe.fecha_vencimiento}</p>
             </div>
           </div>
 
           {informe.version_actual > 1 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 font-medium">
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 font-medium">
               Este informe ha tenido correcciones — estás viendo la versión vigente (v
               {informe.version_actual}). Una copia impresa anterior puede estar desactualizada.
             </p>
@@ -187,13 +181,13 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
               href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6 transition-colors"
+              className="flex items-center justify-center gap-2 w-full rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-11 px-6 transition-colors"
             >
               <Download className="w-4 h-4" />
               Ver PDF oficial
             </a>
           ) : (
-            <div className="flex items-center gap-2 justify-center text-xs text-slate-500 font-bold py-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="flex items-center gap-2 justify-center text-xs text-slate-500 font-bold py-3 bg-slate-50 rounded-lg border border-slate-100">
               <FileText className="w-4 h-4" />
               Documento oficial aún no publicado
             </div>

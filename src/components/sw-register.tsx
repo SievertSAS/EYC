@@ -75,8 +75,8 @@ export function ServiceWorkerRegister() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-white border border-primary/20 shadow-2xl rounded-2xl p-4 flex items-center gap-3">
-        <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
+      <div className="bg-white border border-primary/20 shadow-2xl rounded-lg p-4 flex items-center gap-3">
+        <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
           <svg
             className="w-5 h-5 text-primary"
             fill="none"
@@ -92,12 +92,12 @@ export function ServiceWorkerRegister() {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-slate-900">Nueva versión disponible</p>
+          <p className="text-sm font-medium text-slate-900">Nueva versión disponible</p>
           <p className="text-[11px] text-slate-500 font-medium">Actualiza para obtener mejoras</p>
         </div>
         <button
           onClick={handleUpdate}
-          className="px-3 py-1.5 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-colors flex-shrink-0"
+          className="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors flex-shrink-0"
         >
           Actualizar
         </button>

@@ -40,7 +40,7 @@ export function ImagenConTitulo({
   const conTitulo = typeof onNombreChange === "function";
 
   return (
-    <div className="rounded-xl border border-slate-100 p-3 space-y-2">
+    <div className="rounded-lg border border-slate-100 p-3 space-y-2">
       {(conTitulo || onDelete) && (
         <div className="flex items-center gap-2">
           {conTitulo && (

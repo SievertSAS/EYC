@@ -110,7 +110,7 @@ function CampoTextoPredeterminado({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+        <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
           {etiqueta}
           {saved && <Check className="w-3 h-3 text-emerald-500" />}
         </label>
@@ -120,7 +120,7 @@ function CampoTextoPredeterminado({
             if (campoRef.current) campoRef.current.value = predeterminado ?? "";
             guardar(undefined);
           }}
-          className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-primary transition-colors"
         >
           <RotateCcw className="w-3 h-3" />
           Restaurar predeterminado
@@ -131,7 +131,7 @@ function CampoTextoPredeterminado({
         // Sin texto guardado, se remonta cuando cambia el predeterminado
         // (p. ej. al corregir una medición) para mostrar el texto nuevo.
         key={guardado != null ? `${seccionId}-guardado` : `${seccionId}-${predeterminado ?? ""}`}
-        className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none ${altoClassName} focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary`}
+        className={`w-full rounded-lg border border-slate-200 p-2.5 text-xs font-medium resize-none ${altoClassName} focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary`}
         defaultValue={guardado ?? predeterminado ?? ""}
         placeholder={placeholder}
         onBlur={(e) => handleBlur(e.target)}
@@ -222,8 +222,8 @@ export function SeccionCard({
 
   return (
     <div
-      className={`rounded-2xl border bg-white transition-all duration-200 ${
-        aplica ? "border-slate-200 shadow-sm" : "border-dashed border-slate-300 bg-slate-50/50"
+      className={`rounded-lg border bg-white transition-all duration-200 ${
+        aplica ? "border-slate-200" : "border-dashed border-slate-300 bg-slate-50/50"
       }`}
     >
       {/* Header row */}
@@ -269,14 +269,10 @@ export function SeccionCard({
         {/* Title */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span
-              className={`text-[10px] font-black uppercase tracking-widest ${
-                aplica ? "text-primary" : "text-slate-400"
-              }`}
-            >
+            <span className={`text-xs font-medium ${aplica ? "text-primary" : "text-slate-400"}`}>
               {catalogo.codigo}
             </span>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
               Grupo {catalogo.grupo}
             </span>
           </div>
@@ -309,7 +305,7 @@ export function SeccionCard({
       {/* Regla automática de "no aplica": explica por qué el switch está
           apagado y no se puede encender desde aquí. */}
       {noAplicaAutomatico && (
-        <p className="px-3 pb-2 ml-8 text-[10px] font-medium text-slate-400 leading-relaxed">
+        <p className="px-3 pb-2 ml-8 text-xs font-medium text-slate-400 leading-relaxed">
           {noAplicaAutomatico.nota}
         </p>
       )}
@@ -318,8 +314,8 @@ export function SeccionCard({
       {expanded && aplica && (
         <div className="px-3 pb-3 space-y-3 border-t border-slate-100 pt-3 ml-8">
           {/* Concepto — siempre automático desde los datos capturados */}
-          <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
-            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+          <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
+            <p className="text-xs text-slate-500 font-medium leading-relaxed">
               {sinCriterio
                 ? "Esta prueba es de carácter descriptivo/referencial y no define un criterio de aceptación, por lo que no emite concepto."
                 : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de los datos capturados de la prueba. Usa el interruptor para marcar la prueba como no aplicable, o el ícono de llave si la prueba aplica pero no se pudo ejecutar por falla de un componente."}
@@ -329,22 +325,22 @@ export function SeccionCard({
           {/* Cómo se evalúa — qué datos toma, qué cálculo hace, qué regla decide.
               Solo informativo: no afecta el veredicto. */}
           {!sinCriterio && catalogo.comoSeEvalua && (
-            <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-2.5 space-y-2">
-              <p className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5">
+            <div className="rounded-lg border border-primary/15 bg-primary/[0.03] p-2.5 space-y-2">
+              <p className="text-xs font-medium text-primary flex items-center gap-1.5">
                 <Calculator className="w-3 h-3" />
                 Cómo se evalúa
               </p>
-              <div className="space-y-1.5 text-[10px] text-slate-600 leading-relaxed">
+              <div className="space-y-1.5 text-xs text-slate-600 leading-relaxed">
                 <p>
-                  <span className="font-black text-slate-700">Datos que toma: </span>
+                  <span className="font-medium text-slate-700">Datos que toma: </span>
                   {catalogo.comoSeEvalua.datos}
                 </p>
                 <p>
-                  <span className="font-black text-slate-700">Cálculo: </span>
+                  <span className="font-medium text-slate-700">Cálculo: </span>
                   {catalogo.comoSeEvalua.calculo}
                 </p>
                 <p>
-                  <span className="font-black text-slate-700">Criterio de aceptación: </span>
+                  <span className="font-medium text-slate-700">Criterio de aceptación: </span>
                   {catalogo.comoSeEvalua.criterio}
                 </p>
               </div>
@@ -357,7 +353,7 @@ export function SeccionCard({
           {tieneAccionesPredeterminadas && accionDefault != null ? (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                   Acciones correctivas
                   {savedAcciones && <Check className="w-3 h-3 text-emerald-500" />}
                 </label>
@@ -367,7 +363,7 @@ export function SeccionCard({
                     if (accionesRef.current) accionesRef.current.value = accionDefault;
                     handleUpdateAcciones(accionDefault);
                   }}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-primary transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
                   Restaurar predeterminado
@@ -376,7 +372,7 @@ export function SeccionCard({
               <textarea
                 ref={accionesRef}
                 key={`${seccion.id}-${conceptoEfectivo}`}
-                className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full rounded-lg border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 defaultValue={seccion.acciones_correctivas ?? accionDefault}
                 placeholder="Describa las acciones correctivas requeridas..."
                 onBlur={(e) => handleUpdateAcciones(e.target.value)}
@@ -385,12 +381,12 @@ export function SeccionCard({
           ) : (
             requiereAccionLibre && (
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                   Acciones correctivas
                   {savedAcciones && <Check className="w-3 h-3 text-emerald-500" />}
                 </label>
                 <textarea
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-xs font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   defaultValue={seccion.acciones_correctivas ?? ""}
                   placeholder={
                     conceptoEfectivo === "No_favorable_no_ejecutada"
@@ -421,24 +417,24 @@ export function SeccionCard({
 
           {/* Preview de textos TECDOC (colapsado) */}
           <details className="group">
-            <summary className="text-[10px] font-bold text-slate-400 cursor-pointer hover:text-primary">
+            <summary className="text-xs font-bold text-slate-400 cursor-pointer hover:text-primary">
               Ver textos del informe (objetivo, metodologia, criterio)
             </summary>
-            <div className="mt-2 space-y-2 text-[10px] text-slate-500 leading-relaxed">
+            <div className="mt-2 space-y-2 text-xs text-slate-500 leading-relaxed">
               <div>
-                <span className="font-black text-slate-600">Objetivo: </span>
+                <span className="font-medium text-slate-600">Objetivo: </span>
                 {catalogo.objetivo}
               </div>
               <div>
-                <span className="font-black text-slate-600">Instrumentacion: </span>
+                <span className="font-medium text-slate-600">Instrumentacion: </span>
                 {catalogo.instrumentacion}
               </div>
               <div>
-                <span className="font-black text-slate-600">Metodologia: </span>
+                <span className="font-medium text-slate-600">Metodologia: </span>
                 {catalogo.metodologia}
               </div>
               <div>
-                <span className="font-black text-slate-600">Criterio: </span>
+                <span className="font-medium text-slate-600">Criterio: </span>
                 {catalogo.criterio}
               </div>
             </div>
@@ -471,24 +467,24 @@ function ConceptoBadgeSmall({ concepto }: { concepto?: ConceptoType }) {
   if (!concepto) return null;
   if (concepto === "Conforme")
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
         <CheckCircle2 className="w-3 h-3" /> OK
       </span>
     );
   if (concepto === "No_conforme")
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-700 bg-red-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
         <XCircle className="w-3 h-3" /> NC
       </span>
     );
   if (concepto === "No_favorable_no_ejecutada")
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
         <Wrench className="w-3 h-3" /> N/E
       </span>
     );
   return (
-    <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md flex-shrink-0">
+    <span className="text-xs font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md flex-shrink-0">
       N/A
     </span>
   );
@@ -508,7 +504,7 @@ function DatosFaltantesPanel({
 }) {
   if (faltantes.length === 0) {
     return (
-      <div className="flex items-center gap-2 py-3 px-4 bg-emerald-50 rounded-2xl border border-emerald-200">
+      <div className="flex items-center gap-2 py-3 px-4 bg-emerald-50 rounded-lg border border-emerald-200">
         <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
         <span className="text-sm font-bold text-emerald-700">
           Información General completa — todos los datos del informe están cargados.
@@ -525,7 +521,7 @@ function DatosFaltantesPanel({
   }
 
   return (
-    <div className="bg-amber-50 rounded-2xl border border-amber-200 overflow-hidden">
+    <div className="bg-amber-50 rounded-lg border border-amber-200 overflow-hidden">
       <div className="flex items-center gap-2 p-4">
         <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
         <button
@@ -547,7 +543,7 @@ function DatosFaltantesPanel({
         <Button
           size="sm"
           variant="outline"
-          className="rounded-xl text-[10px] font-bold h-8 border-amber-300 text-amber-800 hover:bg-amber-100"
+          className="rounded-lg text-xs font-bold h-8 border-amber-300 text-amber-800 hover:bg-amber-100"
           onClick={() => irAModulo(visitaId, "info")}
         >
           Ir a completar
@@ -558,9 +554,7 @@ function DatosFaltantesPanel({
         <div className="px-4 pb-4 space-y-3">
           {[...porSeccion.entries()].map(([seccion, campos]) => (
             <div key={seccion}>
-              <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
-                {seccion}
-              </p>
+              <p className="text-xs font-medium text-amber-700">{seccion}</p>
               <ul className="mt-1 space-y-0.5">
                 {campos.map((c) => (
                   <li
@@ -812,8 +806,8 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Header */}
       <div>
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Pre-Informe</p>
-        <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
+        <p className="text-xs font-medium text-primary">Pre-Informe</p>
+        <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
           Editor del Informe
         </h2>
         <p className="text-slate-500 font-medium text-sm mt-1">
@@ -822,7 +816,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       </div>
 
       {readOnly && (
-        <div className="flex items-center gap-2 py-3 px-4 bg-amber-50 rounded-2xl border border-amber-200">
+        <div className="flex items-center gap-2 py-3 px-4 bg-amber-50 rounded-lg border border-amber-200">
           <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
           <span className="text-sm font-bold text-amber-700">
             Informe en revisión o aprobado — solo lectura. Aún puedes generar y descargar el PDF
@@ -840,36 +834,36 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       />
 
       {/* Stats bar */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5">
           <div className="flex flex-wrap gap-3 items-center justify-between">
             <div className="flex gap-4">
               <div className="text-center">
-                <p className="text-lg font-black text-primary">{stats.total}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Pruebas</p>
+                <p className="text-lg font-semibold text-primary">{stats.total}</p>
+                <p className="text-xs font-medium text-slate-400">Pruebas</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-black text-emerald-600">{stats.conformes}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Conformes</p>
+                <p className="text-lg font-semibold text-emerald-600">{stats.conformes}</p>
+                <p className="text-xs font-medium text-slate-400">Conformes</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-black text-red-600">{stats.noConformes}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">No conf.</p>
+                <p className="text-lg font-semibold text-red-600">{stats.noConformes}</p>
+                <p className="text-xs font-medium text-slate-400">No conf.</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-black text-slate-400">{stats.noAplica}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">N/A</p>
+                <p className="text-lg font-semibold text-slate-400">{stats.noAplica}</p>
+                <p className="text-xs font-medium text-slate-400">N/A</p>
               </div>
               {stats.sinConcepto > 0 && (
                 <div className="text-center">
-                  <p className="text-lg font-black text-amber-500">{stats.sinConcepto}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">Pendientes</p>
+                  <p className="text-lg font-semibold text-amber-500">{stats.sinConcepto}</p>
+                  <p className="text-xs font-medium text-slate-400">Pendientes</p>
                 </div>
               )}
               {stats.noEjecutadas > 0 && (
                 <div className="text-center">
-                  <p className="text-lg font-black text-amber-600">{stats.noEjecutadas}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">No ejec.</p>
+                  <p className="text-lg font-semibold text-amber-600">{stats.noEjecutadas}</p>
+                  <p className="text-xs font-medium text-slate-400">No ejec.</p>
                 </div>
               )}
             </div>
@@ -878,7 +872,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-xl text-[10px] font-bold h-8"
+                className="rounded-lg text-xs font-bold h-8"
                 onClick={() => toggleAll(true)}
                 disabled={readOnly}
               >
@@ -887,7 +881,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-xl text-[10px] font-bold h-8"
+                className="rounded-lg text-xs font-bold h-8"
                 onClick={() => toggleAll(false)}
                 disabled={readOnly}
               >
@@ -903,7 +897,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
         <Button
           onClick={handleGenerar}
           disabled={generating || stats.total === 0}
-          className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-12 px-6 flex-1"
+          className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-12 px-6 flex-1"
         >
           {generating ? (
             <>
@@ -922,7 +916,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
           <Button
             onClick={handleDescargar}
             variant="outline"
-            className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-12 px-6"
+            className="rounded-lg font-medium border-slate-200 hover:bg-primary/5 h-12 px-6"
           >
             <Download className="w-4 h-4 mr-2" />
             Descargar PDF
@@ -932,7 +926,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Error */}
       {error && (
-        <div className="flex items-start gap-2 bg-red-50 rounded-xl p-4 border border-red-200">
+        <div className="flex items-start gap-2 bg-red-50 rounded-lg p-4 border border-red-200">
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-700 font-medium">{error}</p>
         </div>
@@ -940,21 +934,21 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Preview del PDF */}
       {pdfUrl && (
-        <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
           <CardContent className="p-4 sm:p-5 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="bg-emerald-100 p-2.5 rounded-xl">
+              <div className="bg-emerald-100 p-2.5 rounded-lg">
                 <Eye className="text-emerald-600 w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-sm">Vista previa</h3>
+                <h3 className="font-semibold text-slate-900 text-sm">Vista previa</h3>
                 <p className="text-[11px] text-slate-400 font-medium">
                   Pre-informe generado exitosamente
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl overflow-hidden border border-slate-200">
+            <div className="rounded-lg overflow-hidden border border-slate-200">
               <iframe
                 src={pdfUrl}
                 className="w-full h-[600px] sm:h-[700px]"
@@ -967,9 +961,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Secciones fijas — Portada, Información, Introducción */}
       <div className="space-y-2">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Secciones fijas
-        </p>
+        <p className="text-xs font-medium text-slate-400 px-1">Secciones fijas</p>
         {[
           { label: "Portada", desc: "Identificacion del equipo e instalacion" },
           {
@@ -980,16 +972,16 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
         ].map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+            className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100"
           >
             <div className="bg-slate-200 p-1.5 rounded-lg">
               <FileText className="w-3.5 h-3.5 text-slate-500" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-slate-600">{s.label}</p>
-              <p className="text-[10px] text-slate-400">{s.desc}</p>
+              <p className="text-xs text-slate-400">{s.desc}</p>
             </div>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
               Fija
             </span>
           </div>
@@ -998,9 +990,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Secciones de pruebas */}
       <div className={`space-y-2 ${readOnly ? "pointer-events-none opacity-60" : ""}`}>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Pruebas de control de calidad
-        </p>
+        <p className="text-xs font-medium text-slate-400 px-1">Pruebas de control de calidad</p>
 
         {secciones.map((seccion) => {
           const cat = catalogoMap.get(seccion.prueba_codigo);
@@ -1056,9 +1046,7 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Secciones finales fijas */}
       <div className="space-y-2">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-          Secciones finales
-        </p>
+        <p className="text-xs font-medium text-slate-400 px-1">Secciones finales</p>
         {[
           { label: "Resumen de resultados", desc: "Tabla resumen auto-generada" },
           { label: "Concepto general", desc: "Favorable / No favorable" },
@@ -1068,16 +1056,16 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
         ].map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+            className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100"
           >
             <div className="bg-slate-200 p-1.5 rounded-lg">
               <FileText className="w-3.5 h-3.5 text-slate-500" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-slate-600">{s.label}</p>
-              <p className="text-[10px] text-slate-400">{s.desc}</p>
+              <p className="text-xs text-slate-400">{s.desc}</p>
             </div>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
               Fija
             </span>
           </div>

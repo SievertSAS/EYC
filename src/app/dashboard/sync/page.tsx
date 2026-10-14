@@ -65,17 +65,15 @@ function SyncRecordRow({
   return (
     <div
       key={recordKey}
-      className={`p-3 bg-white border ${border} rounded-xl text-sm font-medium flex items-center gap-3`}
+      className={`p-3 bg-white border ${border} rounded-lg text-sm font-medium flex items-center gap-3`}
     >
       <AlertCircle className={`w-4 h-4 ${iconColor} flex-shrink-0`} />
       <div className="min-w-0 flex-1">
         <div>
-          <span className={`${textStrong} font-black`}>{rec.tableLabel}</span>
+          <span className={`${textStrong} font-medium`}>{rec.tableLabel}</span>
           <span className={`${textSoft} ml-2 truncate`}>{rec.preview}</span>
           {rec.status === "failed" && (
-            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-red-400">
-              Fallido
-            </span>
+            <span className="ml-2 text-xs font-medium text-red-400">Fallido</span>
           )}
         </div>
         {typeof rec.attempts === "number" && (
@@ -87,7 +85,7 @@ function SyncRecordRow({
         )}
       </div>
       <span
-        className={`text-[10px] ${theme === "red" ? "text-red-300" : "text-amber-300"} font-mono flex-shrink-0`}
+        className={`text-xs ${theme === "red" ? "text-red-300" : "text-amber-300"} font-mono flex-shrink-0`}
       >
         #{rec.id}
       </span>
@@ -95,7 +93,7 @@ function SyncRecordRow({
         <Button
           variant="ghost"
           size="sm"
-          className="rounded-lg font-black text-red-700 hover:bg-red-100 h-8 px-3 flex-shrink-0"
+          className="rounded-lg font-medium text-red-700 hover:bg-red-100 h-8 px-3 flex-shrink-0"
           disabled={retryingRecordId === recordKey || !online}
           onClick={() => onRetry(rec)}
         >
@@ -214,9 +212,7 @@ export default function SyncPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Sincronización
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Sincronización</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Estado de datos offline y conexión con el servidor
         </p>
@@ -225,18 +221,16 @@ export default function SyncPage() {
       {/* Estado de conexión */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-5">
         {/* Online */}
-        <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
           <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Conexión
-                </p>
-                <h3 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                <p className="text-xs sm:text-xs font-medium text-slate-400 mb-1">Conexión</p>
+                <h3 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight">
                   {status?.online ? "En línea" : "Sin conexión"}
                 </h3>
               </div>
-              <div className={`p-3 rounded-xl ${status?.online ? "bg-emerald-100" : "bg-red-100"}`}>
+              <div className={`p-3 rounded-lg ${status?.online ? "bg-emerald-100" : "bg-red-100"}`}>
                 {status?.online ? (
                   <Wifi className="w-5 h-5 text-emerald-600" />
                 ) : (
@@ -248,19 +242,17 @@ export default function SyncPage() {
         </Card>
 
         {/* Autenticación */}
-        <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
           <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Sesión
-                </p>
-                <h3 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                <p className="text-xs sm:text-xs font-medium text-slate-400 mb-1">Sesión</p>
+                <h3 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight">
                   {status?.authenticated ? "Activa" : "No conectada"}
                 </h3>
               </div>
               <div
-                className={`p-3 rounded-xl ${
+                className={`p-3 rounded-lg ${
                   status?.authenticated ? "bg-emerald-100" : "bg-amber-100"
                 }`}
               >
@@ -275,19 +267,17 @@ export default function SyncPage() {
         </Card>
 
         {/* Pendientes */}
-        <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
           <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Pendientes
-                </p>
-                <h3 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                <p className="text-xs sm:text-xs font-medium text-slate-400 mb-1">Pendientes</p>
+                <h3 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight">
                   {status?.pendingCount ?? 0}
                 </h3>
               </div>
               <div
-                className={`p-3 rounded-xl ${
+                className={`p-3 rounded-lg ${
                   (status?.pendingCount ?? 0) > 0 ? "bg-amber-100" : "bg-slate-100"
                 }`}
               >
@@ -302,19 +292,17 @@ export default function SyncPage() {
         </Card>
 
         {/* Con error */}
-        <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
           <CardContent className="p-4 sm:p-5 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Con error
-                </p>
-                <h3 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+                <p className="text-xs sm:text-xs font-medium text-slate-400 mb-1">Con error</p>
+                <h3 className="text-base sm:text-xl font-semibold text-slate-900 tracking-tight">
                   {status?.errorCount ?? 0}
                 </h3>
               </div>
               <div
-                className={`p-3 rounded-xl ${
+                className={`p-3 rounded-lg ${
                   (status?.errorCount ?? 0) > 0 ? "bg-red-100" : "bg-slate-100"
                 }`}
               >
@@ -331,13 +319,13 @@ export default function SyncPage() {
 
       {/* Registros con error — detalle expandible */}
       {errorRecords.length > 0 && (
-        <Card className="border-2 border-red-200 shadow-none rounded-2xl bg-red-50 overflow-hidden">
+        <Card className="border-2 border-red-200 shadow-none rounded-lg bg-red-50 overflow-hidden">
           <CardContent className="p-5 sm:p-6 space-y-4">
             <button
               className="w-full flex items-center justify-between"
               onClick={() => setErrorsExpanded(!errorsExpanded)}
             >
-              <h3 className="text-base font-black text-red-700 tracking-tight flex items-center gap-2">
+              <h3 className="text-base font-semibold text-red-700 tracking-tight flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 {errorRecords.length} registro{errorRecords.length !== 1 ? "s" : ""} no se{" "}
                 {errorRecords.length !== 1 ? "pudieron" : "pudo"} sincronizar
@@ -366,7 +354,7 @@ export default function SyncPage() {
 
             <Button
               variant="ghost"
-              className="rounded-xl font-black text-red-700 hover:bg-red-100 h-10 px-4"
+              className="rounded-lg font-medium text-red-700 hover:bg-red-100 h-10 px-4"
               disabled={retrying || syncing || !status?.online}
               onClick={handleRetry}
             >
@@ -388,13 +376,13 @@ export default function SyncPage() {
 
       {/* Registros pendientes — detalle expandible */}
       {pendingRecords.length > 0 && (
-        <Card className="border-2 border-amber-200 shadow-none rounded-2xl bg-amber-50 overflow-hidden">
+        <Card className="border-2 border-amber-200 shadow-none rounded-lg bg-amber-50 overflow-hidden">
           <CardContent className="p-5 sm:p-6 space-y-4">
             <button
               className="w-full flex items-center justify-between"
               onClick={() => setPendingExpanded(!pendingExpanded)}
             >
-              <h3 className="text-base font-black text-amber-700 tracking-tight flex items-center gap-2">
+              <h3 className="text-base font-semibold text-amber-700 tracking-tight flex items-center gap-2">
                 <CloudUpload className="w-5 h-5" />
                 {pendingRecords.length} registro{pendingRecords.length !== 1 ? "s" : ""} sin subir
                 todavía
@@ -425,10 +413,10 @@ export default function SyncPage() {
       )}
 
       {/* Botón de sincronización */}
-      <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-2xl bg-primary/5 overflow-hidden">
+      <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-lg bg-primary/5 overflow-hidden">
         <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row items-center gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-800 tracking-tight flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-primary" />
               Sincronizar ahora
             </h3>
@@ -437,7 +425,7 @@ export default function SyncPage() {
             </p>
           </div>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
             disabled={syncing || !status?.online}
             onClick={handleSync}
           >
@@ -458,43 +446,39 @@ export default function SyncPage() {
 
       {/* Resultado de la última sync */}
       {lastResult && (
-        <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
           <CardContent className="p-5 space-y-4">
-            <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-800 tracking-tight flex items-center gap-2">
               <Clock className="w-4 h-4 text-slate-400" />
               Última sincronización
             </h3>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <CloudUpload className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">
-                    Enviados
-                  </span>
+                  <span className="text-xs font-medium text-emerald-700">Enviados</span>
                 </div>
-                <p className="text-xl font-black text-emerald-700">{lastResult.pushed}</p>
+                <p className="text-xl font-semibold text-emerald-700">{lastResult.pushed}</p>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <CloudDownload className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-black text-blue-700 uppercase tracking-wider">
-                    Recibidos
-                  </span>
+                  <span className="text-xs font-medium text-blue-700">Recibidos</span>
                 </div>
-                <p className="text-xl font-black text-blue-700">{lastResult.pulled}</p>
+                <p className="text-xl font-semibold text-blue-700">{lastResult.pulled}</p>
               </div>
             </div>
 
             {lastResult.errors.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-black text-red-600 uppercase tracking-wider">
+                <p className="text-xs font-medium text-red-600">
                   Errores ({lastResult.errors.length})
                 </p>
                 {lastResult.errors.map((err, i) => (
                   <div
                     key={i}
-                    className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium space-y-1"
+                    className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 font-medium space-y-1"
                   >
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -509,7 +493,7 @@ export default function SyncPage() {
             )}
 
             {lastResult.errors.length === 0 && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium flex items-center gap-2">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 font-medium flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
                 Sincronización completada sin errores
               </div>
@@ -524,7 +508,7 @@ export default function SyncPage() {
 
       {/* Info de modo offline */}
       {!status?.online && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium flex items-start gap-2">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 font-medium flex items-start gap-2">
           <WifiOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-bold">Trabajando sin conexión</p>
@@ -537,10 +521,10 @@ export default function SyncPage() {
       )}
 
       {/* Zona de riesgo — resetear datos locales */}
-      <Card className="border-2 border-dashed border-red-200 shadow-none rounded-2xl bg-red-50/40 overflow-hidden">
+      <Card className="border-2 border-dashed border-red-200 shadow-none rounded-lg bg-red-50/40 overflow-hidden">
         <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-black text-red-700 tracking-tight flex items-center gap-2">
+            <h3 className="text-base font-semibold text-red-700 tracking-tight flex items-center gap-2">
               <ShieldAlert className="w-5 h-5" />
               Resetear datos locales
             </h3>
@@ -552,7 +536,7 @@ export default function SyncPage() {
           </div>
           <Button
             variant="ghost"
-            className="rounded-xl font-black text-red-700 hover:bg-red-100 h-11 px-5 flex-shrink-0"
+            className="rounded-lg font-medium text-red-700 hover:bg-red-100 h-11 px-5 flex-shrink-0"
             onClick={() => {
               setResetAck(false);
               setResetOpen(true);
@@ -567,7 +551,7 @@ export default function SyncPage() {
       <Dialog open={resetOpen} onOpenChange={(o) => !resetting && setResetOpen(o)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-black flex items-center gap-2 text-red-700">
+            <DialogTitle className="font-semibold flex items-center gap-2 text-red-700">
               <ShieldAlert className="w-5 h-5" /> Resetear datos locales
             </DialogTitle>
             <DialogDescription>
@@ -588,7 +572,7 @@ export default function SyncPage() {
           </ul>
 
           {hayDatosSinSubir && (
-            <div className="flex gap-2 p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-700 font-bold">
+            <div className="flex gap-2 p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-700 font-bold">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>
                 Tenés {status?.pendingCount ?? 0} pendiente
@@ -611,14 +595,14 @@ export default function SyncPage() {
           <DialogFooter>
             <Button
               variant="ghost"
-              className="rounded-xl font-bold"
+              className="rounded-lg font-bold"
               onClick={() => setResetOpen(false)}
               disabled={resetting}
             >
               Cancelar
             </Button>
             <Button
-              className="rounded-xl font-black bg-red-600 hover:bg-red-700 text-white"
+              className="rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white"
               onClick={handleResetLocal}
               disabled={!resetAck || resetting}
             >

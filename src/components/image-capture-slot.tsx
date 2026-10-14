@@ -44,13 +44,13 @@ export function ImageCaptureSlot({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+        <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
           <ImageIcon className="w-3.5 h-3.5" />
           {slot.label}
-          {slot.obligatorio && <span className="text-red-500 text-[10px]">*</span>}
+          {slot.obligatorio && <span className="text-red-500 text-xs">*</span>}
         </label>
         {slot.max_imagenes > 1 && (
-          <span className="text-[10px] text-slate-400 font-bold">
+          <span className="text-xs text-slate-400 font-bold">
             {slotImages.length}/{slot.max_imagenes}
           </span>
         )}
@@ -84,7 +84,7 @@ export function ImageCaptureSlot({
           <Button
             type="button"
             variant="outline"
-            className="rounded-xl border-dashed border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 h-auto py-3 w-full font-bold text-sm text-slate-500"
+            className="rounded-lg border-dashed border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 h-auto py-3 w-full font-bold text-sm text-slate-500"
             onClick={() => inputRef.current?.click()}
             disabled={loading}
           >
@@ -115,7 +115,7 @@ function ImagePreview({
   const src = useImagenSrc(imagen);
 
   return (
-    <div className="relative group rounded-xl overflow-hidden border border-slate-200 w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
+    <div className="relative group rounded-lg overflow-hidden border border-slate-200 w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="Evidencia" className="w-full h-full object-cover" />

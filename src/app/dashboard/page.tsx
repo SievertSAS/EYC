@@ -49,9 +49,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Header de página */}
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Dashboard
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Dashboard</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Resumen general de operaciones
         </p>
@@ -96,7 +94,7 @@ export default function DashboardPage() {
 
       {/* Acciones rápidas */}
       <div className="space-y-4">
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight">
           Acciones rápidas
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
@@ -144,19 +142,19 @@ function KpiCard({
   icon: React.ReactNode;
 }) {
   return (
-    <Card className="border-none shadow-sm hover:shadow-xl transition-all rounded-3xl bg-white group cursor-default overflow-hidden">
+    <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all rounded-lg bg-white group cursor-default overflow-hidden">
       <CardContent className="p-4 sm:p-5 md:p-8">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
+            <p className="text-xs sm:text-xs font-medium text-slate-400 mb-1">
               <span className="sm:hidden">{labelShort}</span>
               <span className="hidden sm:inline">{label}</span>
             </p>
-            <h3 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+            <h3 className="text-base sm:text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">
               {value}
             </h3>
           </div>
-          <div className="bg-primary/10 p-2.5 sm:p-3 md:p-4 rounded-xl md:rounded-2xl group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+          <div className="bg-primary/10 p-2.5 sm:p-3 md:p-4 rounded-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
             {icon}
           </div>
         </div>
@@ -178,13 +176,13 @@ function ActionCard({
 }) {
   return (
     <Link href={href}>
-      <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden">
+      <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all duration-300 rounded-lg bg-white group cursor-pointer overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="bg-primary/10 p-2 sm:p-2.5 rounded-xl flex-shrink-0">{icon}</div>
+              <div className="bg-primary/10 p-2 sm:p-2.5 rounded-lg flex-shrink-0">{icon}</div>
               <div className="min-w-0">
-                <p className="font-black text-slate-900 text-sm sm:text-base truncate">{title}</p>
+                <p className="font-medium text-slate-900 text-sm sm:text-base truncate">{title}</p>
                 <p className="text-[11px] text-slate-400 font-medium">{description}</p>
               </div>
             </div>

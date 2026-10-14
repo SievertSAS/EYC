@@ -146,9 +146,9 @@ export function UbicacionFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-lg">
+      <DialogContent className="rounded-lg border-none shadow-2xl p-0 overflow-hidden sm:max-w-lg">
         <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-slate-900 tracking-tight">
             {isEdit ? "Editar Ubicación" : "Nueva Ubicación RX"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
@@ -158,11 +158,9 @@ export function UbicacionFormDialog({
 
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Nombre del Servicio *
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Nombre del Servicio *</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Ej: Rayos X Convencional - Sala 1"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
@@ -171,11 +169,9 @@ export function UbicacionFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Licencia
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Licencia</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="No. de licencia"
                 value={licencia}
                 onChange={(e) => setLicencia(e.target.value)}
@@ -183,10 +179,8 @@ export function UbicacionFormDialog({
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Vencimiento Licencia
-                </Label>
-                <label className="flex items-center gap-1 text-[10px] font-medium text-slate-500 cursor-pointer">
+                <Label className="text-xs font-medium text-slate-600">Vencimiento Licencia</Label>
+                <label className="flex items-center gap-1 text-xs font-medium text-slate-500 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={sinFechaExp}
@@ -202,7 +196,7 @@ export function UbicacionFormDialog({
               <Input
                 type="date"
                 disabled={sinFechaExp}
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11 disabled:opacity-50 disabled:bg-slate-50"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11 disabled:opacity-50 disabled:bg-slate-50"
                 value={fechaExp}
                 onChange={(e) => setFechaExp(e.target.value)}
               />
@@ -211,23 +205,19 @@ export function UbicacionFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Código Habilitación
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Código Habilitación</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="Código REPS"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Horas/Día
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Horas/Día</Label>
               <Input
                 type="number"
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="8"
                 min="1"
                 max="24"
@@ -239,19 +229,17 @@ export function UbicacionFormDialog({
 
           {/* ─── Sala y blindaje ─── */}
           <div className="pt-2 border-t border-slate-100">
-            <p className="text-xs font-black text-primary uppercase tracking-widest mb-1">
-              Sala y blindaje
-            </p>
+            <p className="text-xs font-medium text-primary mb-1">Sala y blindaje</p>
             <p className="text-[11px] text-slate-400 font-medium mb-3">
               Dimensiones del recinto y colindancias — se usan en la prueba 2.2 del informe.
             </p>
 
             <div className="space-y-2 mb-3">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+              <Label className="text-xs font-medium text-slate-600">
                 Ubicación física del equipo
               </Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="Ej: primer piso de las instalaciones"
                 value={ubicFisica}
                 onChange={(e) => setUbicFisica(e.target.value)}
@@ -260,49 +248,41 @@ export function UbicacionFormDialog({
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Ancho (m)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Ancho (m)</Label>
                 <Input
                   type="number"
                   step="0.01"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="3.40"
                   value={ancho}
                   onChange={(e) => setAncho(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Largo (m)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Largo (m)</Label>
                 <Input
                   type="number"
                   step="0.01"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="6.10"
                   value={largo}
                   onChange={(e) => setLargo(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Alto (m)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Alto (m)</Label>
                 <Input
                   type="number"
                   step="0.01"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="2.30"
                   value={alto}
                   onChange={(e) => setAlto(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Área (m²)
-                </Label>
-                <div className="rounded-xl bg-slate-50 border border-slate-200 font-bold text-slate-700 h-11 flex items-center px-3">
+                <Label className="text-xs font-medium text-slate-600">Área (m²)</Label>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 font-bold text-slate-700 h-11 flex items-center px-3">
                   {areaCalc != null ? areaCalc.toFixed(2) : "—"}
                 </div>
               </div>
@@ -318,11 +298,9 @@ export function UbicacionFormDialog({
                 ] as const
               ).map(([z, val, setter]) => (
                 <div key={z} className="space-y-2">
-                  <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                    Zona {z}
-                  </Label>
+                  <Label className="text-xs font-medium text-slate-600">Zona {z}</Label>
                   <textarea
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="Limita con… / puertas / barreras"
                     value={val}
                     onChange={(e) => setter(e.target.value)}
@@ -339,11 +317,9 @@ export function UbicacionFormDialog({
                 ] as const
               ).map(([label, val, setter, ph]) => (
                 <div key={label} className="space-y-2">
-                  <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                    {label}
-                  </Label>
+                  <Label className="text-xs font-medium text-slate-600">{label}</Label>
                   <textarea
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder={ph}
                     value={val}
                     onChange={(e) => setter(e.target.value)}
@@ -357,13 +333,13 @@ export function UbicacionFormDialog({
         <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
           <Button
             variant="ghost"
-            className="rounded-xl font-black"
+            className="rounded-lg font-medium"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             disabled={saving || !nombre.trim()}
             onClick={handleSave}
           >

@@ -185,9 +185,7 @@ export default function VisitasPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Visitas
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Visitas</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Servicios asignados y en progreso
         </p>
@@ -200,7 +198,7 @@ export default function VisitasPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por cliente, equipo o técnico…"
-          className="pl-9 rounded-xl border-slate-200 h-11"
+          className="pl-9 rounded-lg border-slate-200 h-11"
         />
       </div>
 
@@ -216,7 +214,7 @@ export default function VisitasPage() {
             role="tab"
             aria-selected={activeFilter === tab.id}
             onClick={() => setActiveFilter(tab.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
               activeFilter === tab.id
                 ? "bg-primary text-white shadow-md"
                 : "bg-white text-slate-500 border border-slate-200 hover:bg-primary/5"
@@ -224,7 +222,7 @@ export default function VisitasPage() {
           >
             {tab.label}
             <span
-              className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${
+              className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
                 activeFilter === tab.id ? "bg-white/20" : "bg-slate-100"
               }`}
             >
@@ -237,7 +235,7 @@ export default function VisitasPage() {
       {/* Lista de visitas */}
       {filteredVisitas.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-primary/10 p-6 rounded-3xl">
+          <div className="bg-primary/10 p-6 rounded-lg">
             <ClipboardCheck className="w-10 h-10 text-primary" />
           </div>
           <p className="text-slate-500 font-bold text-lg">
@@ -252,7 +250,7 @@ export default function VisitasPage() {
       ) : (
         <>
           {/* Tabla (escritorio) */}
-          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden hidden md:block">
+          <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden hidden md:block">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -283,30 +281,30 @@ export default function VisitasPage() {
                           onClick={() => irAVisita(visita.id!)}
                         >
                           <TableCell>
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
-                                <ClipboardCheck className="text-primary w-4 h-4" />
-                              </div>
-                              <p className="font-black text-slate-900 truncate">
-                                {cliente?.nombre_cliente ?? "Sin cliente"}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium text-slate-600">
-                            {sede?.ciudad ?? "—"}, {ubicacion?.nombre_servicio ?? "—"}
+                            <p className="font-medium text-slate-900 line-clamp-2 max-w-xs">
+                              {cliente?.nombre_cliente ?? "Sin cliente"}
+                            </p>
                           </TableCell>
                           <TableCell>
-                            <p className="font-medium text-slate-600 whitespace-nowrap">
+                            <p className="text-slate-600 whitespace-nowrap">
+                              {sede?.ciudad ?? "—"}
+                            </p>
+                            <p className="text-xs text-slate-400 line-clamp-1 max-w-48">
+                              {ubicacion?.nombre_servicio ?? "—"}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-slate-600 whitespace-nowrap">
                               {[equipo?.gen_marca, equipo?.gen_modelo].filter(Boolean).join(" ") ||
                                 "—"}
                             </p>
                             {equipo?.tipo_equipo && (
-                              <p className="text-[10px] text-slate-400 font-medium uppercase">
+                              <p className="text-xs text-slate-400">
                                 {equipo.tipo_equipo.replace(/_/g, " ")}
                               </p>
                             )}
                           </TableCell>
-                          <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                          <TableCell className="text-slate-600 whitespace-nowrap">
                             {tecnico ? (
                               <span className="flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 text-slate-400" />
@@ -316,12 +314,12 @@ export default function VisitasPage() {
                               <span className="text-slate-400">Sin asignar</span>
                             )}
                           </TableCell>
-                          <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                          <TableCell className="text-slate-600 whitespace-nowrap">
                             {visita.fecha_visita ?? "Sin fecha"}
                           </TableCell>
                           <TableCell className="text-center">
                             {muestraProgreso ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
                                 {completeness.completed}/{completeness.total}
                               </span>
                             ) : (
@@ -330,7 +328,7 @@ export default function VisitasPage() {
                           </TableCell>
                           <TableCell>
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
                             >
                               {estado.label}
                             </span>
@@ -354,7 +352,7 @@ export default function VisitasPage() {
                 const estado = ESTADO_CONFIG[visita.estado_visita];
                 return (
                   <a key={visita.id} href={`/dashboard/visitas/${visita.id}`}>
-                    <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
+                    <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all duration-300 rounded-lg bg-white group cursor-pointer overflow-hidden mb-3">
                       <CardContent className="p-4 sm:p-5 md:p-6">
                         <div className="flex items-start justify-between gap-3">
                           {/* Info principal */}
@@ -362,7 +360,7 @@ export default function VisitasPage() {
                             {/* Cliente */}
                             <div className="flex items-start gap-2">
                               <Building2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                              <p className="font-black text-slate-900 text-sm sm:text-base leading-tight">
+                              <p className="font-medium text-slate-900 text-sm sm:text-base leading-tight">
                                 {cliente?.nombre_cliente ?? "Sin cliente"}
                               </p>
                             </div>
@@ -392,12 +390,12 @@ export default function VisitasPage() {
                             {/* Badges + Progress */}
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                               <span
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
                               >
                                 {estado.label}
                               </span>
                               {equipo?.tipo_equipo && (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+                                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
                                   {equipo.tipo_equipo.replace(/_/g, " ")}
                                 </span>
                               )}
@@ -405,7 +403,7 @@ export default function VisitasPage() {
                               {visita.estado_visita !== "asignada" &&
                                 visita.estado_visita !== "aprobada" &&
                                 visita.estado_visita !== "enviada" && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                                     {completeness.completed}/{completeness.total}
                                   </span>
                                 )}

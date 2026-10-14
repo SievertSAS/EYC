@@ -97,9 +97,7 @@ export default function ClientesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-            Clientes
-          </h2>
+          <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Clientes</h2>
           <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
             {data.length} cliente{data.length !== 1 ? "s" : ""} registrado
             {data.length !== 1 ? "s" : ""}
@@ -107,7 +105,7 @@ export default function ClientesPage() {
         </div>
         {canCreate && (
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-5"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-11 px-5"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -121,7 +119,7 @@ export default function ClientesPage() {
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <Input
-          className="rounded-xl border-slate-200 focus:border-primary font-medium h-11 pl-10"
+          className="rounded-lg border-slate-200 focus:border-primary font-medium h-11 pl-10"
           placeholder="Buscar por nombre o NIT..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -131,7 +129,7 @@ export default function ClientesPage() {
       {/* Lista */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-primary/10 p-6 rounded-3xl">
+          <div className="bg-primary/10 p-6 rounded-lg">
             <Building2 className="w-10 h-10 text-primary" />
           </div>
           <p className="text-slate-500 font-bold text-lg">
@@ -146,7 +144,7 @@ export default function ClientesPage() {
       ) : (
         <>
           {/* Tabla (escritorio) */}
-          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden hidden md:block">
+          <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden hidden md:block">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -167,29 +165,24 @@ export default function ClientesPage() {
                       onClick={() => router.push(`/dashboard/clientes/${cliente.id}`)}
                     >
                       <TableCell>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
-                            <Building2 className="text-primary w-4 h-4" />
-                          </div>
-                          <p className="font-black text-slate-900 truncate">
-                            {cliente.nombre_cliente}
-                          </p>
-                        </div>
+                        <p className="font-medium text-slate-900 line-clamp-2 max-w-xs">
+                          {cliente.nombre_cliente}
+                        </p>
                       </TableCell>
-                      <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                      <TableCell className="text-slate-600 whitespace-nowrap">
                         {cliente.nit}
                         {cliente.digito_verificacion ? `-${cliente.digito_verificacion}` : ""}
                       </TableCell>
-                      <TableCell className="font-medium text-slate-600 capitalize">
+                      <TableCell className="text-slate-600 capitalize">
                         {cliente.naturaleza ?? "—"}
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
                           {sedes}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                           {equipos}
                         </span>
                       </TableCell>
@@ -207,15 +200,15 @@ export default function ClientesPage() {
           <div className="space-y-3 md:hidden">
             {filtered.map(({ cliente, sedes, equipos }) => (
               <Link key={cliente.id} href={`/dashboard/clientes/${cliente.id}`}>
-                <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
+                <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all duration-300 rounded-lg bg-white group cursor-pointer overflow-hidden mb-3">
                   <CardContent className="p-4 sm:p-5 md:p-6">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0 flex-1">
-                        <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0 mt-0.5">
+                        <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0 mt-0.5">
                           <Building2 className="text-primary w-5 h-5" />
                         </div>
                         <div className="min-w-0 space-y-1.5">
-                          <p className="font-black text-slate-900 text-sm sm:text-base truncate">
+                          <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
                             {cliente.nombre_cliente}
                           </p>
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
@@ -225,11 +218,11 @@ export default function ClientesPage() {
                             )}
                           </div>
                           <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
                               {sedes} sede{sedes !== 1 ? "s" : ""}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
                               <Radio className="w-3 h-3" />
                               {equipos} equipo{equipos !== 1 ? "s" : ""}
                             </span>

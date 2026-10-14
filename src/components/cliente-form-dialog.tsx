@@ -6,6 +6,9 @@ import { randomUUID } from "@/lib/uuid";
 import { db } from "@/lib/db";
 import type { Cliente } from "@/lib/db/types";
 import { pushSingle } from "@/lib/supabase/sync-engine";
+import { logger } from "@/lib/logger";
+import { buscarClienteDuplicado } from "@/lib/validation/cliente-duplicado";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +78,27 @@ export function ClienteFormDialog({
     if (!form.nombre_cliente?.trim()) return;
     setSaving(true);
     try {
+      const duplicado = buscarClienteDuplicado(
+        await db.clientes.toArray(),
+        { nombre_cliente: form.nombre_cliente, nit: form.nit },
+        cliente?.id
+      );
+      if (duplicado) {
+        const { campo, cliente: existente } = duplicado;
+        toast.error(
+          campo === "nit"
+            ? "Ya existe un cliente con este NIT"
+            : "Ya existe un cliente con este nombre",
+          {
+            description:
+              campo === "nit"
+                ? `El NIT ${existente.nit} pertenece a ${existente.nombre_cliente}.`
+                : `${existente.nombre_cliente} ya está registrado${existente.nit ? ` con NIT ${existente.nit}` : ""}.`,
+          }
+        );
+        return;
+      }
+
       const now = new Date().toISOString();
       let savedId: string;
       if (isEdit && cliente?.id) {
@@ -102,7 +126,10 @@ export function ClienteFormDialog({
       // Push inmediato a Supabase (no bloquea la UI)
       pushSingle("clientes", savedId);
     } catch (err) {
-      console.error("[ClienteForm] Error al guardar:", err);
+      logger.error("cliente-form", "Error al guardar el cliente", err);
+      toast.error("No se pudo guardar el cliente", {
+        description: "Intenta de nuevo. Si el problema persiste, revisa la sincronización.",
+      });
     } finally {
       setSaving(false);
     }
@@ -118,10 +145,10 @@ export function ClienteFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-lg">
+      <DialogContent className="rounded-lg border-none shadow-2xl p-0 overflow-hidden sm:max-w-lg">
         {/* Header con gradiente */}
         <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-slate-900 tracking-tight">
             {isEdit ? "Editar Cliente" : "Nuevo Cliente"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
@@ -135,11 +162,9 @@ export function ClienteFormDialog({
         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Nombre cliente (requerido) */}
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Nombre del Cliente *
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Nombre del Cliente *</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Nombre de la institución o persona"
               value={form.nombre_cliente ?? ""}
               onChange={(e) => update("nombre_cliente", e.target.value)}
@@ -148,11 +173,9 @@ export function ClienteFormDialog({
 
           {/* Nombre prestador */}
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Nombre Prestador
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Nombre Prestador</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Nombre del prestador de servicios"
               value={form.nombre_prestador ?? ""}
               onChange={(e) => update("nombre_prestador", e.target.value)}
@@ -162,22 +185,18 @@ export function ClienteFormDialog({
           {/* NIT + Dígito */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                NIT
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">NIT</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="000000000"
                 value={form.nit ?? ""}
                 onChange={(e) => update("nit", e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                DV
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">DV</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="0"
                 maxLength={1}
                 value={form.digito_verificacion ?? ""}
@@ -188,14 +207,12 @@ export function ClienteFormDialog({
 
           {/* Naturaleza */}
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Naturaleza
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Naturaleza</Label>
             <Select
               value={form.naturaleza ?? ""}
               onValueChange={(val) => update("naturaleza", (val ?? "") as string)}
             >
-              <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
+              <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                 <SelectValue placeholder="Seleccionar...">
                   {(v) =>
                     ({ privado: "Privado", publico: "Público", mixto: "Mixto" })[v as string] ||
@@ -213,11 +230,9 @@ export function ClienteFormDialog({
 
           {/* Dirección */}
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Dirección
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Dirección</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Dirección principal"
               value={form.direccion ?? ""}
               onChange={(e) => update("direccion", e.target.value)}
@@ -227,22 +242,18 @@ export function ClienteFormDialog({
           {/* Teléfono + Email */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Teléfono
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Teléfono</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="300 000 0000"
                 value={form.telefono ?? ""}
                 onChange={(e) => update("telefono", e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Email
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Email</Label>
               <Input
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="email@ejemplo.com"
                 type="email"
                 value={form.email ?? ""}
@@ -253,11 +264,9 @@ export function ClienteFormDialog({
 
           {/* Representante legal */}
           <div className="space-y-2">
-            <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              Representante Legal
-            </Label>
+            <Label className="text-xs font-medium text-slate-600">Representante Legal</Label>
             <Input
-              className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+              className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
               placeholder="Nombre completo"
               value={form.nombre_representante_legal ?? ""}
               onChange={(e) => update("nombre_representante_legal", e.target.value)}
@@ -269,13 +278,13 @@ export function ClienteFormDialog({
         <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
           <Button
             variant="ghost"
-            className="rounded-xl font-black"
+            className="rounded-lg font-medium"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             disabled={saving || !form.nombre_cliente?.trim()}
             onClick={handleSave}
           >

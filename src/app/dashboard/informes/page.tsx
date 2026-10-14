@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   FileText,
   Building2,
@@ -16,8 +17,18 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 // ============================================================
 //  Lista de informes con filtros
@@ -25,10 +36,19 @@ import Link from "next/link";
 
 type FilterTab = "todos" | "vigentes" | "vencidos";
 
+// Normaliza para búsqueda insensible a mayúsculas y tildes
+const normalizar = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+
 export default function InformesPage() {
+  const router = useRouter();
   const { isReady } = useDb();
   const { hasPermission } = useRole();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("todos");
+  const [search, setSearch] = useState("");
 
   const informes = useLiveQuery(async () => {
     if (!isReady) return undefined;
@@ -74,12 +94,26 @@ export default function InformesPage() {
     );
   }
 
-  const filtered =
+  const porTab =
     activeFilter === "todos"
       ? informes
       : activeFilter === "vigentes"
         ? informes.filter((i) => i.vigente)
         : informes.filter((i) => !i.vigente);
+
+  // Búsqueda sobre la pestaña activa (los contadores no la reflejan, igual que en visitas)
+  const q = normalizar(search.trim());
+  const filtered = q
+    ? porTab.filter((i) =>
+        [
+          i.informe.numero_informe,
+          i.cliente?.nombre_cliente,
+          i.equipo?.gen_marca,
+          i.equipo?.gen_modelo,
+          i.equipo?.gen_numero_serie,
+        ].some((c) => c && normalizar(c).includes(q))
+      )
+    : porTab;
 
   const counts = {
     todos: informes.length,
@@ -91,12 +125,21 @@ export default function InformesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Informes
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Informes</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Informes técnicos emitidos
         </p>
+      </div>
+
+      {/* Buscador */}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input
+          className="rounded-lg border-slate-200 focus:border-primary font-medium h-11 pl-10"
+          placeholder="Buscar por número, cliente, marca, modelo o serie..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Filter tabs */}
@@ -113,7 +156,7 @@ export default function InformesPage() {
             role="tab"
             aria-selected={activeFilter === tab.id}
             onClick={() => setActiveFilter(tab.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
               activeFilter === tab.id
                 ? "bg-primary text-white shadow-md"
                 : "bg-white text-slate-500 border border-slate-200 hover:bg-primary/5"
@@ -121,7 +164,7 @@ export default function InformesPage() {
           >
             {tab.label}
             <span
-              className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${
+              className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
                 activeFilter === tab.id ? "bg-white/20" : "bg-slate-100"
               }`}
             >
@@ -134,51 +177,62 @@ export default function InformesPage() {
       {/* Lista */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-primary/10 p-6 rounded-3xl">
+          <div className="bg-primary/10 p-6 rounded-lg">
             <FileText className="w-10 h-10 text-primary" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">No hay informes</p>
+          <p className="text-slate-500 font-bold text-lg">
+            {q ? "Sin resultados" : "No hay informes"}
+          </p>
           <p className="text-slate-400 text-sm">
-            Los informes se generan automáticamente al aprobar una visita.
+            {q
+              ? "Intenta con otro término de búsqueda."
+              : "Los informes se generan automáticamente al aprobar una visita."}
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map(({ informe, equipo, cliente, vigente }) => (
-            <Link key={informe.id} href={`/dashboard/informes/${informe.id}`}>
-              <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
-                <CardContent className="p-4 sm:p-5 md:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0 space-y-2">
-                      {/* Número de informe */}
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary flex-shrink-0" />
-                        <p className="font-black text-slate-900 text-sm sm:text-base">
+        <>
+          {/* Tabla (escritorio) */}
+          <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Informe</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Equipo</TableHead>
+                    <TableHead>Emisión</TableHead>
+                    <TableHead>Concepto</TableHead>
+                    <TableHead>Vigencia</TableHead>
+                    <TableHead className="w-10" aria-label="Abrir" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(({ informe, equipo, cliente, vigente }) => (
+                    <TableRow
+                      key={informe.id}
+                      className="cursor-pointer group"
+                      onClick={() => router.push(`/dashboard/informes/${informe.id}`)}
+                    >
+                      <TableCell>
+                        <p className="font-medium text-slate-900 whitespace-nowrap">
                           {informe.numero_informe}
                         </p>
-                      </div>
-
-                      {/* Cliente y equipo */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="w-3 h-3" />
+                        <p className="text-xs text-slate-400">v{informe.version_actual}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-slate-600 line-clamp-2 max-w-xs">
                           {cliente?.nombre_cliente ?? "—"}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Radio className="w-3 h-3" />
-                          {equipo?.gen_marca} {equipo?.gen_modelo}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {informe.fecha_emision}
-                        </span>
-                      </div>
-
-                      {/* Badges */}
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {/* Concepto */}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-slate-600">
+                        {equipo?.gen_marca} {equipo?.gen_modelo}
+                      </TableCell>
+                      <TableCell className="text-slate-600 whitespace-nowrap">
+                        {informe.fecha_emision}
+                      </TableCell>
+                      <TableCell>
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                             informe.concepto_general === "FAVORABLE"
                               ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
                               : "bg-red-100 text-red-600 border border-red-200"
@@ -191,10 +245,10 @@ export default function InformesPage() {
                           )}
                           {informe.concepto_general}
                         </span>
-
-                        {/* Vigencia */}
+                      </TableCell>
+                      <TableCell>
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                             vigente
                               ? "bg-emerald-100 text-emerald-600 border border-emerald-200"
                               : "bg-red-100 text-red-600 border border-red-200"
@@ -203,21 +257,94 @@ export default function InformesPage() {
                           <Clock className="w-3 h-3 inline mr-1" />
                           {vigente ? "Vigente" : "Vencido"}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-                        {/* Versión */}
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">
-                          v{informe.version_actual}
-                        </span>
+          {/* Tarjetas (móvil) */}
+          <div className="space-y-3 md:hidden">
+            {filtered.map(({ informe, equipo, cliente, vigente }) => (
+              <Link key={informe.id} href={`/dashboard/informes/${informe.id}`}>
+                <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all duration-300 rounded-lg bg-white group cursor-pointer overflow-hidden mb-3">
+                  <CardContent className="p-4 sm:p-5 md:p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {/* Número de informe */}
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                          <p className="font-medium text-slate-900 text-sm sm:text-base">
+                            {informe.numero_informe}
+                          </p>
+                        </div>
+
+                        {/* Cliente y equipo */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs text-slate-500 font-medium">
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {cliente?.nombre_cliente ?? "—"}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Radio className="w-3 h-3" />
+                            {equipo?.gen_marca} {equipo?.gen_modelo}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {informe.fecha_emision}
+                          </span>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {/* Concepto */}
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                              informe.concepto_general === "FAVORABLE"
+                                ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                : "bg-red-100 text-red-600 border border-red-200"
+                            }`}
+                          >
+                            {informe.concepto_general === "FAVORABLE" ? (
+                              <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                            ) : (
+                              <XCircle className="w-3 h-3 inline mr-1" />
+                            )}
+                            {informe.concepto_general}
+                          </span>
+
+                          {/* Vigencia */}
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                              vigente
+                                ? "bg-emerald-100 text-emerald-600 border border-emerald-200"
+                                : "bg-red-100 text-red-600 border border-red-200"
+                            }`}
+                          >
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            {vigente ? "Vigente" : "Vencido"}
+                          </span>
+
+                          {/* Versión */}
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                            v{informe.version_actual}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-1 group-hover:text-primary transition-colors" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                      <ArrowRight className="w-5 h-5 text-slate-300 flex-shrink-0 mt-1 group-hover:text-primary transition-colors" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

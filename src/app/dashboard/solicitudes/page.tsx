@@ -7,6 +7,7 @@ import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Briefcase,
   Plus,
@@ -17,6 +18,7 @@ import {
   ArrowRight,
   Loader2,
   DollarSign,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -95,6 +97,13 @@ const ESTADO_BADGE: Record<string, { bg: string; text: string; border: string }>
   },
 };
 
+// Normaliza para búsqueda insensible a mayúsculas y tildes
+const normalizar = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+
 export default function SolicitudesPage() {
   const router = useRouter();
   const { isReady } = useDb();
@@ -102,6 +111,7 @@ export default function SolicitudesPage() {
   const canCreate = hasPermission("solicitudes", "crear");
   const [activeTab, setActiveTab] = useState<PipelineTab>("todas");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const data = useLiveQuery(async () => {
     if (!isReady) return undefined;
@@ -138,10 +148,23 @@ export default function SolicitudesPage() {
   }
 
   // Filter + counts. "Todas" excluye las canceladas — viven en su propia pestaña.
-  const filtered =
+  const porTab =
     activeTab === "todas"
       ? data.filter((d) => d.solicitud.pipeline_estado !== "cancelada")
       : data.filter((d) => d.solicitud.pipeline_estado === activeTab);
+
+  // Búsqueda sobre la pestaña activa (los contadores no la reflejan, igual que en visitas)
+  const q = normalizar(search.trim());
+  const filtered = q
+    ? porTab.filter((d) =>
+        [
+          d.solicitud.numero_solicitud,
+          d.cliente?.nombre_cliente,
+          d.ubicacion?.nombre_servicio,
+          d.tecnico?.nombre,
+        ].some((c) => c && normalizar(c).includes(q))
+      )
+    : porTab;
 
   const counts: Record<PipelineTab, number> = {
     todas: data.filter((d) => d.solicitud.pipeline_estado !== "cancelada").length,
@@ -158,16 +181,14 @@ export default function SolicitudesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-            Solicitudes
-          </h2>
+          <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Solicitudes</h2>
           <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
             Pipeline de servicios
           </p>
         </div>
         {canCreate && (
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-5"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-11 px-5"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -175,6 +196,17 @@ export default function SolicitudesPage() {
             <span className="sm:hidden">Nueva</span>
           </Button>
         )}
+      </div>
+
+      {/* Buscador */}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input
+          className="rounded-lg border-slate-200 focus:border-primary font-medium h-11 pl-10"
+          placeholder="Buscar por número, cliente, ubicación o técnico..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Pipeline tabs */}
@@ -189,7 +221,7 @@ export default function SolicitudesPage() {
             role="tab"
             aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
               activeTab === tab.id
                 ? "bg-primary text-white shadow-md"
                 : "bg-white text-slate-500 border border-slate-200 hover:bg-primary/5"
@@ -198,7 +230,7 @@ export default function SolicitudesPage() {
             <span className="sm:hidden">{tab.short}</span>
             <span className="hidden sm:inline">{tab.label}</span>
             <span
-              className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${
+              className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
                 activeTab === tab.id ? "bg-white/20" : "bg-slate-100"
               }`}
             >
@@ -211,18 +243,22 @@ export default function SolicitudesPage() {
       {/* Lista */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-primary/10 p-6 rounded-3xl">
+          <div className="bg-primary/10 p-6 rounded-lg">
             <Briefcase className="w-10 h-10 text-primary" />
           </div>
-          <p className="text-slate-500 font-bold text-lg">Sin solicitudes</p>
+          <p className="text-slate-500 font-bold text-lg">
+            {q ? "Sin resultados" : "Sin solicitudes"}
+          </p>
           <p className="text-slate-400 text-sm">
-            Crea una solicitud para iniciar el flujo de servicio.
+            {q
+              ? "Intenta con otro término de búsqueda."
+              : "Crea una solicitud para iniciar el flujo de servicio."}
           </p>
         </div>
       ) : (
         <>
           {/* Tabla (escritorio) */}
-          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden hidden md:block">
+          <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden hidden md:block">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -252,27 +288,22 @@ export default function SolicitudesPage() {
                           {solicitud.numero_solicitud ?? "—"}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
-                              <Building2 className="text-primary w-4 h-4" />
-                            </div>
-                            <p className="font-black text-slate-900 truncate">
-                              {cliente?.nombre_cliente ?? "—"}
-                            </p>
-                          </div>
+                          <p className="font-medium text-slate-900 line-clamp-2 max-w-xs">
+                            {cliente?.nombre_cliente ?? "—"}
+                          </p>
                         </TableCell>
-                        <TableCell className="font-medium text-slate-600">
+                        <TableCell className="text-slate-600">
                           {ubicacion?.nombre_servicio ?? "—"}
                         </TableCell>
-                        <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                        <TableCell className="text-slate-600 whitespace-nowrap">
                           {tecnico ? tecnico.nombre.split(" ").slice(0, 2).join(" ") : "—"}
                         </TableCell>
-                        <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                        <TableCell className="text-slate-600 whitespace-nowrap">
                           {solicitud.fecha_estimada_visita ?? "—"}
                         </TableCell>
                         <TableCell>
                           {solicitud.tipo_servicio ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
                               {solicitud.tipo_servicio.replace("_", " ")}
                             </span>
                           ) : (
@@ -282,12 +313,12 @@ export default function SolicitudesPage() {
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${badge.bg} ${badge.text} border ${badge.border}`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${badge.bg} ${badge.text} border ${badge.border}`}
                             >
                               {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
                             </span>
                             {solicitud.pago_recibido && (
-                              <span className="px-1.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-600 border border-emerald-200">
+                              <span className="px-1.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-600 border border-emerald-200">
                                 <DollarSign className="w-3 h-3" />
                               </span>
                             )}
@@ -312,18 +343,18 @@ export default function SolicitudesPage() {
 
               return (
                 <Link key={solicitud.id} href={`/dashboard/solicitudes/${solicitud.id}`}>
-                  <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
+                  <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all duration-300 rounded-lg bg-white group cursor-pointer overflow-hidden mb-3">
                     <CardContent className="p-4 sm:p-5 md:p-6">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0 space-y-2">
                           {/* Cliente */}
                           <div className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-primary flex-shrink-0" />
-                            <p className="font-black text-slate-900 text-sm sm:text-base truncate">
+                            <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
                               {cliente?.nombre_cliente ?? "—"}
                             </p>
                             {solicitud.numero_solicitud && (
-                              <span className="font-mono text-[10px] font-bold text-slate-400 flex-shrink-0">
+                              <span className="font-mono text-xs font-bold text-slate-400 flex-shrink-0">
                                 {solicitud.numero_solicitud}
                               </span>
                             )}
@@ -354,17 +385,17 @@ export default function SolicitudesPage() {
                           {/* Badges */}
                           <div className="flex flex-wrap items-center gap-2 pt-0.5">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.bg} ${badge.text} border ${badge.border}`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium ${badge.bg} ${badge.text} border ${badge.border}`}
                             >
                               {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
                             </span>
                             {solicitud.tipo_servicio && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
                                 {solicitud.tipo_servicio.replace("_", " ")}
                               </span>
                             )}
                             {solicitud.pago_recibido && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center gap-0.5">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center gap-0.5">
                                 <DollarSign className="w-3 h-3" />
                                 Pagado
                               </span>

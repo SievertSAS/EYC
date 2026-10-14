@@ -188,17 +188,17 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
       </Link>
 
       {/* Header */}
-      <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">
                 {informe.numero_informe}
               </h2>
               <p className="text-sm text-slate-500 font-medium">{cliente?.nombre_cliente}</p>
             </div>
             <span
-              className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+              className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                 informe.concepto_general === "FAVORABLE"
                   ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
                   : "bg-red-100 text-red-600 border border-red-200"
@@ -216,31 +216,23 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
           {/* Metadata grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Equipo
-              </p>
+              <p className="text-xs font-medium text-slate-400">Equipo</p>
               <p className="text-sm font-bold text-slate-700">
                 {equipo?.gen_marca} {equipo?.gen_modelo}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Emisión
-              </p>
+              <p className="text-xs font-medium text-slate-400">Emisión</p>
               <p className="text-sm font-bold text-slate-700">{informe.fecha_emision}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Vencimiento
-              </p>
+              <p className="text-xs font-medium text-slate-400">Vencimiento</p>
               <p className={`text-sm font-bold ${vigente ? "text-emerald-600" : "text-red-600"}`}>
                 {informe.fecha_vencimiento}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                QR Token
-              </p>
+              <p className="text-xs font-medium text-slate-400">QR Token</p>
               <p className="text-xs font-mono text-slate-500 truncate">
                 {informe.qr_token.substring(0, 8)}...
               </p>
@@ -248,10 +240,10 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           {/* Versión oficial: hash / estado de publicación */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 space-y-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-black text-slate-600">
+              <span className="text-xs font-medium text-slate-600">
                 Versión oficial (v{informe.version_actual})
               </span>
             </div>
@@ -278,7 +270,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
               <Button
                 onClick={handlePublicar}
                 disabled={publicando || !visita}
-                className="rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="rounded-lg font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {publicando ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -291,7 +283,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
             <Button
               onClick={handleRegenerar}
               variant="outline"
-              className="rounded-xl font-black border-slate-200"
+              className="rounded-lg font-medium border-slate-200"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Regenerar PDF (vista rápida)
@@ -303,7 +295,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
                 rel="noopener noreferrer"
                 className={buttonVariants({
                   variant: "outline",
-                  className: "rounded-xl font-black border-slate-200",
+                  className: "rounded-lg font-medium border-slate-200",
                 })}
               >
                 <QrCode className="w-4 h-4 mr-2" />
@@ -316,7 +308,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Historial de versiones */}
       <div>
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-4">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-4">
           Historial de Versiones
         </h3>
         <div className="space-y-3">
@@ -325,17 +317,17 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
             return (
               <Card
                 key={version.id}
-                className="border-none shadow-sm rounded-2xl bg-white overflow-hidden"
+                className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden"
               >
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-black text-slate-900">
+                        <span className="text-sm font-medium text-slate-900">
                           Versión {version.numero_version}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${estadoBadge.bg} ${estadoBadge.text} border ${estadoBadge.border}`}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoBadge.bg} ${estadoBadge.text} border ${estadoBadge.border}`}
                         >
                           {version.estado}
                         </span>

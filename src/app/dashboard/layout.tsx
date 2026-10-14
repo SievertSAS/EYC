@@ -14,12 +14,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SidebarProvider>
             <a
               href="#main-content"
-              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-xl focus:text-sm focus:font-bold focus:shadow-lg"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:text-sm focus:font-bold focus:shadow-lg"
             >
               Ir al contenido principal
             </a>
             <AppSidebar />
-            <SidebarInset>
+            {/* min-w-0: sin esto el flex item crece al ancho mínimo de su
+                contenido (tablas anchas) y desborda el viewport. */}
+            <SidebarInset className="min-w-0">
               {/* Estado de sincronización — solo visible si hay algo que atender
                   (sin conexión, DB no lista, o error). Es `fixed`: se superpone
                   al contenido, no reserva espacio ni corre el resto de la UI. */}

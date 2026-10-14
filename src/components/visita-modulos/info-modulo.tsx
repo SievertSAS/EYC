@@ -130,7 +130,7 @@ function EditableField({
 
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+      <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
         {Icon && <Icon className="w-3 h-3" />}
         {label}
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
@@ -140,7 +140,7 @@ function EditableField({
         type={esNumero ? "text" : type}
         inputMode={esNumero ? "decimal" : undefined}
         disabled={disabled}
-        className="rounded-xl border-slate-200 focus:border-primary font-medium h-9 text-sm disabled:opacity-50 disabled:bg-slate-50"
+        className="rounded-lg border-slate-200 focus:border-primary font-medium h-9 text-sm disabled:opacity-50 disabled:bg-slate-50"
         value={local}
         onChange={(e) => {
           setLocal(e.target.value);
@@ -176,13 +176,13 @@ function SelectField({
 
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+      <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
         {Icon && <Icon className="w-3 h-3" />}
         {label}
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
       </p>
       <select
-        className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800"
+        className="w-full rounded-lg border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800"
         value={value}
         onChange={(e) => handleChange(e.target.value)}
       >
@@ -263,7 +263,7 @@ function GeoAmbientalFields({
   return (
     <>
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+        <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
           <MapPin className="w-3 h-3" />
           Departamento
         </p>
@@ -282,7 +282,7 @@ function GeoAmbientalFields({
             });
           }}
         >
-          <ComboboxTrigger className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800 data-[placeholder]:text-slate-400">
+          <ComboboxTrigger className="w-full rounded-lg border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800 data-[placeholder]:text-slate-400">
             <ComboboxValue placeholder="Seleccionar..." />
           </ComboboxTrigger>
           <ComboboxContent>
@@ -299,7 +299,7 @@ function GeoAmbientalFields({
         </Combobox>
       </div>
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+        <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
           <MapPin className="w-3 h-3" />
           Ciudad
         </p>
@@ -313,7 +313,7 @@ function GeoAmbientalFields({
           }}
           disabled={!deptoId}
         >
-          <ComboboxTrigger className="w-full rounded-xl border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800 data-[placeholder]:text-slate-400">
+          <ComboboxTrigger className="w-full rounded-lg border border-slate-200 focus:border-primary font-medium h-9 text-sm px-3 bg-white text-slate-800 data-[placeholder]:text-slate-400">
             <ComboboxValue placeholder={deptoId ? "Seleccionar..." : "Elegí departamento"} />
           </ComboboxTrigger>
           <ComboboxContent>
@@ -365,12 +365,12 @@ function EditableTextArea({
 
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+      <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
         {label}
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
       </p>
       <textarea
-        className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         value={local}
         onChange={(e) => {
           setLocal(e.target.value);
@@ -395,7 +395,7 @@ function ReadonlyField({
   const display = !isEmpty(value) ? String(value) : "—";
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+      <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
         {Icon && <Icon className="w-3 h-3" />}
         {label}
       </p>
@@ -448,7 +448,7 @@ function RefImagenSlot({
   const src = useImagenSrc(iden ?? {});
   return (
     <div className="space-y-1.5">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
       <ImagenConTitulo
         src={src}
         onCapture={onCapture}
@@ -470,7 +470,7 @@ function ProgressBar({ percent, label }: { percent: number; label: string }) {
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className="text-[11px] font-black text-slate-500 whitespace-nowrap">
+      <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
         {percent}% {label}
       </span>
     </div>
@@ -493,18 +493,18 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+    <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
       <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="bg-primary/10 p-2.5 rounded-xl">
+          <div className="bg-primary/10 p-2.5 rounded-lg">
             <Icon className="text-primary w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-black text-slate-900 text-sm sm:text-base">{title}</h3>
+            <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{title}</h3>
             <p className="text-[11px] text-slate-400 font-medium">{subtitle}</p>
           </div>
           <span
-            className={`text-xs font-black px-2.5 py-1 rounded-full ${
+            className={`text-xs font-medium px-2.5 py-1 rounded-full ${
               progress === 100
                 ? "bg-emerald-100 text-emerald-700"
                 : progress >= 50
@@ -862,7 +862,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           <ArrowLeft className="w-4 h-4" /> Volver a visitas
         </a>
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-red-100 p-6 rounded-3xl">
+          <div className="bg-red-100 p-6 rounded-lg">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
           <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
@@ -980,17 +980,19 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
       {/* Header con progreso global */}
       <div className="space-y-3">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tighter">
+        <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
           Información General
         </h2>
         <p className="text-slate-500 font-medium text-sm">
           Completa los datos faltantes de la precarga — estos valores se usan en el informe.
         </p>
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-lg p-4 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-black text-slate-700">Progreso total de la precarga</span>
+            <span className="text-sm font-medium text-slate-700">
+              Progreso total de la precarga
+            </span>
             <span
-              className={`text-lg font-black ${
+              className={`text-lg font-semibold ${
                 totalProgress === 100
                   ? "text-emerald-600"
                   : totalProgress >= 50
@@ -1096,15 +1098,11 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
 
         {/* Contactos */}
         <div className="pt-3 border-t border-slate-100 space-y-4">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Contactos
-          </p>
+          <p className="text-xs font-medium text-slate-400">Contactos</p>
 
           {/* Médico Responsable */}
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">
-              Médico Responsable
-            </p>
+          <div className="bg-slate-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-primary mb-2">Médico Responsable</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <EditableField
                 label="Nombre"
@@ -1116,8 +1114,8 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           {/* Tecnólogo Responsable */}
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">
+          <div className="bg-slate-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-primary mb-2">
               Tecnólogo Responsable del Servicio
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1143,8 +1141,8 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           {/* OPR */}
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">
+          <div className="bg-slate-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-primary mb-2">
               Oficial de Protección Radiológica (OPR)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1158,10 +1156,8 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           {/* Responsable de la Visita */}
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">
-              Responsable de la Visita
-            </p>
+          <div className="bg-slate-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-primary mb-2">Responsable de la Visita</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <EditableField
                 label="Nombre"
@@ -1202,7 +1198,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             disabled={!!ubicacion?.sin_fecha_expiracion_licencia}
             onSave={(v) => saveUbicacion("fecha_expiracion_licencia", v)}
             labelExtra={
-              <label className="flex items-center gap-1 text-[9px] font-medium text-slate-400 normal-case cursor-pointer">
+              <label className="flex items-center gap-1 text-xs font-medium text-slate-400 normal-case cursor-pointer">
                 <input
                   type="checkbox"
                   checked={!!ubicacion?.sin_fecha_expiracion_licencia}
@@ -1346,11 +1342,9 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           )}
 
           {tubos.map((t, i) => (
-            <div key={t.id} className="rounded-xl border border-slate-100 p-3 space-y-3">
+            <div key={t.id} className="rounded-lg border border-slate-100 p-3 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Tubo {i + 1}
-                </p>
+                <p className="text-xs font-medium text-slate-400">Tubo {i + 1}</p>
                 <button
                   type="button"
                   onClick={() => deleteTubo(t.id!)}
@@ -1435,7 +1429,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             type="button"
             onClick={addTubo}
             disabled={!equipo}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+            className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
           >
             <Plus className="w-4 h-4" />
             Agregar tubo
@@ -1562,7 +1556,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             type="button"
             onClick={addIdentificacion}
             disabled={!equipo}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
+            className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors disabled:opacity-40"
           >
             <Plus className="w-4 h-4" />
             Agregar identificación
@@ -1606,9 +1600,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           <div className="space-y-3 pt-3 border-t border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Descripción de zonas
-            </p>
+            <p className="text-xs font-medium text-slate-400">Descripción de zonas</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(["a", "b", "c", "d"] as const).map((z) => (
                 <EditableTextArea
@@ -1623,9 +1615,7 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           <div className="space-y-3 pt-3 border-t border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Piso y techo
-            </p>
+            <p className="text-xs font-medium text-slate-400">Piso y techo</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <EditableTextArea
                 label="Piso"

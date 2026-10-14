@@ -82,13 +82,13 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
+    <div className="border border-slate-200 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-wider">{title}</span>
+        <span className="text-xs font-medium text-slate-600">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -536,9 +536,9 @@ export function EquipoFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-xl">
+      <DialogContent className="rounded-lg border-none shadow-2xl p-0 overflow-hidden sm:max-w-xl">
         <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-slate-900 tracking-tight">
             {isEdit ? "Editar Equipo" : "Nuevo Equipo"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
@@ -550,11 +550,9 @@ export function EquipoFormDialog({
           {/* General */}
           <CollapsibleSection title="General" defaultOpen={true}>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Tipo de Equipo
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Tipo de Equipo</Label>
               <Select value={tipoEquipo} onValueChange={(v) => setTipoEquipo(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
+                <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                   <SelectValue placeholder="Seleccionar tipo...">
                     {(v) => TIPO_LABELS[v as string] ?? (v as string) ?? "Seleccionar tipo..."}
                   </SelectValue>
@@ -571,11 +569,9 @@ export function EquipoFormDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Sistema Adquisición
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Sistema Adquisición</Label>
                 <Select value={sistemaAdq} onValueChange={(v) => setSistemaAdq(v ?? "")}>
-                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
+                  <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                     <SelectValue placeholder="Seleccionar..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -588,11 +584,9 @@ export function EquipoFormDialog({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Bucky
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Bucky</Label>
                 <Select value={bucky} onValueChange={(v) => setBucky(v ?? "")}>
-                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
+                  <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                     <SelectValue placeholder="Seleccionar...">
                       {(v) =>
                         ({ Si: "Sí", No: "No", No_aplica: "No aplica" })[v as string] ||
@@ -610,12 +604,12 @@ export function EquipoFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+              <Label className="text-xs font-medium text-slate-600">
                 Distancia Foco-Paciente (cm)
               </Label>
               <Input
                 type="number"
-                className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                 placeholder="100"
                 value={distanciaFoco}
                 onChange={(e) => setDistanciaFoco(e.target.value)}
@@ -627,22 +621,18 @@ export function EquipoFormDialog({
           <CollapsibleSection title="Generador" defaultOpen={true}>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Marca
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Marca</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="Marca"
                   value={genMarca}
                   onChange={(e) => setGenMarca(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Modelo
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Modelo</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="Modelo"
                   value={genModelo}
                   onChange={(e) => setGenModelo(e.target.value)}
@@ -651,34 +641,28 @@ export function EquipoFormDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  No. Serie
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">No. Serie</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="Número de serie"
                   value={genSerie}
                   onChange={(e) => setGenSerie(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Fecha Fabricación
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Fecha Fabricación</Label>
                 <Input
                   type="date"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={genFechaFab}
                   onChange={(e) => setGenFechaFab(e.target.value)}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Fase
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Fase</Label>
               <Select value={genFase} onValueChange={(v) => setGenFase(v ?? "")}>
-                <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium">
+                <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                   <SelectValue placeholder="Seleccionar fase...">
                     {(v) =>
                       ({
@@ -698,7 +682,7 @@ export function EquipoFormDialog({
             </div>
 
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+              <Label className="text-xs font-medium text-slate-600">
                 Foto de la placa / referencia del generador
               </Label>
               <StageImagenRow
@@ -717,26 +701,22 @@ export function EquipoFormDialog({
           <CollapsibleSection title="Filtración">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Inherente (mmAl)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Inherente (mmAl)</Label>
                 <Input
                   type="number"
                   step="0.1"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="0.5"
                   value={filtInherente}
                   onChange={(e) => setFiltInherente(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Añadida (mmAl)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Añadida (mmAl)</Label>
                 <Input
                   type="number"
                   step="0.1"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="1.0"
                   value={filtAnadida}
                   onChange={(e) => setFiltAnadida(e.target.value)}
@@ -749,21 +729,17 @@ export function EquipoFormDialog({
           <CollapsibleSection title="Tubo de Rayos X">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Marca
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Marca</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboMarca}
                   onChange={(e) => setTuboMarca(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Modelo
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Modelo</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboModelo}
                   onChange={(e) => setTuboModelo(e.target.value)}
                 />
@@ -771,21 +747,17 @@ export function EquipoFormDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  No. Serie
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">No. Serie</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboSerie}
                   onChange={(e) => setTuboSerie(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Tipo
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Tipo</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="Ej: Convencional"
                   value={tuboTipo}
                   onChange={(e) => setTuboTipo(e.target.value)}
@@ -794,34 +766,28 @@ export function EquipoFormDialog({
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  mAs Max
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">mAs Max</Label>
                 <Input
                   type="number"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboMasMax}
                   onChange={(e) => setTuboMasMax(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  kV Max
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">kV Max</Label>
                 <Input
                   type="number"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboKvMax}
                   onChange={(e) => setTuboKvMax(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  mA Max
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">mA Max</Label>
                 <Input
                   type="number"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboMaMax}
                   onChange={(e) => setTuboMaMax(e.target.value)}
                 />
@@ -829,25 +795,21 @@ export function EquipoFormDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Foco Fino (mm)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Foco Fino (mm)</Label>
                 <Input
                   type="number"
                   step="0.1"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboFocoFino}
                   onChange={(e) => setTuboFocoFino(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Foco Grueso (mm)
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Foco Grueso (mm)</Label>
                 <Input
                   type="number"
                   step="0.1"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={tuboFocoGrueso}
                   onChange={(e) => setTuboFocoGrueso(e.target.value)}
                 />
@@ -855,7 +817,7 @@ export function EquipoFormDialog({
             </div>
 
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+              <Label className="text-xs font-medium text-slate-600">
                 Foto de la placa / referencia del tubo
               </Label>
               <StageImagenRow
@@ -874,31 +836,25 @@ export function EquipoFormDialog({
           <CollapsibleSection title="Colimador">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Marca
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Marca</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={colMarca}
                   onChange={(e) => setColMarca(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Modelo
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Modelo</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={colModelo}
                   onChange={(e) => setColModelo(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  No. Serie
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">No. Serie</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={colSerie}
                   onChange={(e) => setColSerie(e.target.value)}
                 />
@@ -906,7 +862,7 @@ export function EquipoFormDialog({
             </div>
 
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
+              <Label className="text-xs font-medium text-slate-600">
                 Foto de la placa / referencia del colimador
               </Label>
               <StageImagenRow
@@ -925,21 +881,17 @@ export function EquipoFormDialog({
           <CollapsibleSection title="Gantry (CT)">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Marca
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Marca</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={gantryMarca}
                   onChange={(e) => setGantryMarca(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Modelo
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Modelo</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={gantryModelo}
                   onChange={(e) => setGantryModelo(e.target.value)}
                 />
@@ -947,21 +899,17 @@ export function EquipoFormDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  No. Serie
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">No. Serie</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   value={gantrySerie}
                   onChange={(e) => setGantrySerie(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Tipo Detector
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Tipo Detector</Label>
                 <Input
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
                   placeholder="Ej: Flat Panel"
                   value={gantryDetector}
                   onChange={(e) => setGantryDetector(e.target.value)}
@@ -991,7 +939,7 @@ export function EquipoFormDialog({
               <button
                 type="button"
                 onClick={addOtraIden}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 py-2.5 text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Agregar identificación
@@ -1003,13 +951,13 @@ export function EquipoFormDialog({
         <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
           <Button
             variant="ghost"
-            className="rounded-xl font-black"
+            className="rounded-lg font-medium"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             disabled={saving}
             onClick={handleSave}
           >

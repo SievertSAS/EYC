@@ -206,11 +206,11 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
       </Link>
 
       {/* Header */}
-      <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">
                 {cliente?.nombre_cliente ?? "Sin cliente"}
               </h2>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
@@ -233,7 +233,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
             <Badge
-              className={`${estadoConfig.bgColor} ${estadoConfig.color} ${estadoConfig.borderColor} rounded-full text-[10px] font-black uppercase tracking-widest`}
+              className={`${estadoConfig.bgColor} ${estadoConfig.color} ${estadoConfig.borderColor} rounded-full text-xs font-medium`}
             >
               {estadoConfig.label}
             </Badge>
@@ -244,45 +244,37 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Resumen de datos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              Pruebas
-            </p>
-            <p className="text-xl font-black text-slate-900">
+            <p className="text-xs font-medium text-slate-400 mb-1">Pruebas</p>
+            <p className="text-xl font-semibold text-slate-900">
               {pruebasCompletadas}/{pruebasTotal}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              Favorables
-            </p>
-            <p className="text-xl font-black text-emerald-600">{pruebasFavorables}</p>
+            <p className="text-xs font-medium text-slate-400 mb-1">Favorables</p>
+            <p className="text-xl font-semibold text-emerald-600">{pruebasFavorables}</p>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              No Favorables
-            </p>
-            <p className="text-xl font-black text-red-600">{pruebasNoFavorables}</p>
+            <p className="text-xs font-medium text-slate-400 mb-1">No Favorables</p>
+            <p className="text-xl font-semibold text-red-600">{pruebasNoFavorables}</p>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              Mediciones
-            </p>
-            <p className="text-xl font-black text-slate-900">{medicionesCount}</p>
+            <p className="text-xs font-medium text-slate-400 mb-1">Mediciones</p>
+            <p className="text-xl font-semibold text-slate-900">{medicionesCount}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Módulos (links a las páginas de visita — modo lectura) */}
       <div>
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-4">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-4">
           Módulos de la visita
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -293,11 +285,11 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
               const Icon = resolveIcon(modulo.icon);
               return (
                 <a key={modulo.id} href={`/dashboard/visitas/${id}?modulo=${modulo.id}`}>
-                  <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden">
+                  <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all rounded-lg bg-white group cursor-pointer overflow-hidden">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="bg-primary/10 p-2 rounded-xl">
+                          <div className="bg-primary/10 p-2 rounded-lg">
                             <Icon className="text-primary w-4 h-4" />
                           </div>
                           <span className="font-bold text-slate-900 text-sm">{modulo.nombre}</span>
@@ -316,17 +308,17 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
       {/* Acciones de revisión */}
       {visita.estado_visita === "en_revision" && (
         <div className="space-y-4">
-          <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight">
+          <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight">
             Decisión
           </h3>
 
           {/* Observaciones textarea (toggle) */}
           {showObservaciones && (
-            <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+            <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-black text-slate-800">
+                  <span className="text-sm font-medium text-slate-800">
                     Observaciones para el técnico
                   </span>
                 </div>
@@ -334,13 +326,13 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
                   placeholder="Describa las correcciones necesarias..."
-                  className="w-full p-3 rounded-xl border border-slate-200 text-sm font-medium focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none resize-none min-h-[100px]"
+                  className="w-full p-3 rounded-lg border border-slate-200 text-sm font-medium focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none resize-none min-h-[100px]"
                 />
                 <div className="flex gap-2">
                   <Button
                     onClick={handleDevolver}
                     disabled={!observaciones.trim() || loading === "devolver"}
-                    className="rounded-xl font-black bg-amber-500 hover:bg-amber-600 text-white"
+                    className="rounded-lg font-medium bg-amber-500 hover:bg-amber-600 text-white"
                   >
                     {loading === "devolver" ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -355,7 +347,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
                       setShowObservaciones(false);
                       setObservaciones("");
                     }}
-                    className="rounded-xl font-black"
+                    className="rounded-lg font-medium"
                   >
                     Cancelar
                   </Button>
@@ -369,7 +361,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
               <Button
                 onClick={handleAprobar}
                 disabled={loading === "aprobar"}
-                className="rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-6"
+                className="rounded-lg font-medium bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-6"
               >
                 {loading === "aprobar" ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -381,7 +373,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
               <Button
                 onClick={() => setShowObservaciones(true)}
                 variant="outline"
-                className="rounded-xl font-black border-amber-300 text-amber-700 hover:bg-amber-50 h-12 px-6"
+                className="rounded-lg font-medium border-amber-300 text-amber-700 hover:bg-amber-50 h-12 px-6"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Devolver

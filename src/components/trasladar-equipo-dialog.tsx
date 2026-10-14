@@ -45,9 +45,9 @@ interface TrasladarEquipoDialogProps {
   onTrasladado?: () => void;
 }
 
-const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
+const labelClass = "text-xs font-medium text-slate-600";
 const triggerClass =
-  "w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium data-[placeholder]:text-slate-400";
+  "w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium data-[placeholder]:text-slate-400";
 
 export function TrasladarEquipoDialog({
   open,
@@ -134,9 +134,9 @@ export function TrasladarEquipoDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="rounded-3xl border-none shadow-2xl p-0 overflow-hidden sm:max-w-md">
+      <DialogContent className="rounded-lg border-none shadow-2xl p-0 overflow-hidden sm:max-w-md">
         <DialogHeader className="bg-gradient-to-br from-primary/5 to-primary/10 p-6 border-b border-primary/10">
-          <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+          <DialogTitle className="text-xl font-semibold text-slate-900 tracking-tight">
             Trasladar Equipo
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium text-sm">
@@ -146,12 +146,10 @@ export function TrasladarEquipoDialog({
 
         <div className="p-6 space-y-4">
           {ubicacionActualLabel && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-slate-50 border border-slate-100">
               <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                  Ubicación actual
-                </p>
+                <p className="text-[11px] font-medium text-slate-400">Ubicación actual</p>
                 <p className="text-sm font-bold text-slate-700">{ubicacionActualLabel}</p>
               </div>
             </div>
@@ -253,7 +251,7 @@ export function TrasladarEquipoDialog({
           <div className="space-y-2">
             <Label className={labelClass}>Motivo (opcional)</Label>
             <textarea
-              className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-medium resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               placeholder="Ej: reubicación por remodelación, venta del equipo…"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
@@ -261,7 +259,7 @@ export function TrasladarEquipoDialog({
           </div>
 
           {error && (
-            <div className="p-3 rounded-xl text-sm font-medium bg-red-50 text-red-600 border border-red-200">
+            <div className="p-3 rounded-lg text-sm font-medium bg-red-50 text-red-600 border border-red-200">
               {error}
             </div>
           )}
@@ -270,13 +268,13 @@ export function TrasladarEquipoDialog({
         <DialogFooter className="p-6 pt-0 flex justify-end gap-3 border-none bg-transparent">
           <Button
             variant="ghost"
-            className="rounded-xl font-black"
+            className="rounded-lg font-medium"
             onClick={() => onOpenChange(false)}
           >
             Cancelar
           </Button>
           <Button
-            className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white"
+            className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white"
             disabled={saving || destinoInvalido}
             onClick={handleTrasladar}
           >

@@ -90,9 +90,7 @@ export default function RevisionPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          Revisión
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Revisión</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">
           Visitas pendientes de aprobación
         </p>
@@ -100,7 +98,7 @@ export default function RevisionPage() {
 
       {/* Contador */}
       <div className="flex items-center gap-3">
-        <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-purple-100 text-purple-700 border border-purple-200">
+        <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
           {visitas.length} pendiente{visitas.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -108,7 +106,7 @@ export default function RevisionPage() {
       {/* Lista */}
       {visitas.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-emerald-100 p-6 rounded-3xl">
+          <div className="bg-emerald-100 p-6 rounded-lg">
             <ShieldCheck className="w-10 h-10 text-emerald-600" />
           </div>
           <p className="text-slate-500 font-bold text-lg">Todo al día</p>
@@ -120,14 +118,14 @@ export default function RevisionPage() {
             const estado = ESTADO_CONFIG[visita.estado_visita];
             return (
               <Link key={visita.id} href={`/dashboard/revision/${visita.id}`}>
-                <Card className="border-none shadow-sm hover:shadow-lg transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group cursor-pointer overflow-hidden mb-3">
+                <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all duration-300 rounded-lg bg-white group cursor-pointer overflow-hidden mb-3">
                   <CardContent className="p-4 sm:p-5 md:p-6">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0 space-y-2">
                         {/* Cliente */}
                         <div className="flex items-start gap-2">
                           <Building2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                          <p className="font-black text-slate-900 text-sm sm:text-base leading-tight">
+                          <p className="font-medium text-slate-900 text-sm sm:text-base leading-tight">
                             {cliente?.nombre_cliente ?? "Sin cliente"}
                           </p>
                         </div>
@@ -155,11 +153,11 @@ export default function RevisionPage() {
                         {/* Badges */}
                         <div className="flex flex-wrap items-center gap-2 pt-1">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${estado.bgColor} ${estado.color} border ${estado.borderColor}`}
                           >
                             {estado.label}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                             {completeness.completed}/{completeness.total} módulos
                           </span>
                         </div>

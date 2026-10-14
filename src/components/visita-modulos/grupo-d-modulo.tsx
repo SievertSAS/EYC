@@ -70,7 +70,7 @@ type Concepto = "Conforme" | "No_conforme";
 
 function Alert({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
+    <div className="flex gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 font-medium">
       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -79,7 +79,7 @@ function Alert({ children }: { children: React.ReactNode }) {
 
 function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary font-medium">
+    <div className="flex gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary font-medium">
       <Lightbulb className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -99,12 +99,12 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+      <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
         <Icon className="text-primary w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">{step}</p>
-        <h3 className="font-black text-slate-900 text-sm sm:text-base">{title}</h3>
+        <p className="text-xs font-medium text-primary">{step}</p>
+        <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{title}</h3>
         {children && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{children}</p>}
       </div>
     </div>
@@ -122,13 +122,13 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-100 rounded-xl overflow-hidden">
+    <div className="border border-slate-100 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
+        <span className="text-xs font-medium text-slate-600">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -156,9 +156,9 @@ function ImageSlot({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-slate-200">
+        <div className="relative rounded-lg overflow-hidden border border-slate-200">
           <img src={preview} alt={label} className="w-full h-48 object-cover" />
           <button
             type="button"
@@ -172,7 +172,7 @@ function ImageSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
         >
           <Camera className="w-6 h-6" />
           <span className="text-xs font-bold">Tomar foto o seleccionar</span>
@@ -195,13 +195,13 @@ function ImageSlot({
 }
 
 function ConceptoBadge({ concepto }: { concepto: Concepto | null }) {
-  if (!concepto) return <span className="text-[10px] text-slate-300 font-bold">—</span>;
+  if (!concepto) return <span className="text-xs text-slate-300 font-bold">—</span>;
   return concepto === "Conforme" ? (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
       <CheckCircle2 className="w-3 h-3" /> OK
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
       <XCircle className="w-3 h-3" /> NC
     </span>
   );
@@ -223,7 +223,7 @@ function ResultRow({
       <span className="text-xs font-medium text-slate-600">{label}</span>
       <div className="flex items-center gap-3">
         <span className="text-xs font-mono font-bold text-slate-800">{valor}</span>
-        <span className="text-[10px] text-slate-400">{limite}</span>
+        <span className="text-xs text-slate-400">{limite}</span>
         <ConceptoBadge concepto={concepto} />
       </div>
     </div>
@@ -245,7 +245,7 @@ function ConceptoSelect({
         : "border-slate-200 bg-white text-slate-600";
   return (
     <select
-      className={`rounded-xl font-bold text-xs h-7 px-2 border ${color} min-w-[100px]`}
+      className={`rounded-lg font-bold text-xs h-7 px-2 border ${color} min-w-[100px]`}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value as "Conforme" | "No_conforme")}
     >
@@ -627,10 +627,10 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+          <p className="text-xs font-medium text-primary">
             Grupo D — Pruebas 2.9, 2.10, 2.14, 2.15
           </p>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
             DDI/EI, Integridad y Uniformidad CR
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
@@ -640,7 +640,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
         </div>
         <Button
           variant="outline"
-          className="rounded-xl font-bold text-xs flex-shrink-0 gap-1.5"
+          className="rounded-lg font-bold text-xs flex-shrink-0 gap-1.5"
           onClick={() => {
             setManualPrueba(undefined);
             setManualOpen(true);
@@ -656,7 +656,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           ═══════════════════════════════════════════ */}
 
       {/* Setup */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Pruebas 2.9 / 2.10 — Setup"
@@ -684,7 +684,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Tabla de mediciones DDI */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Registro de mediciones" title="Disparos DDI/EI" icon={MonitorCheck}>
             Grupo 1 (3 repeticiones) para prueba 2.9 y repetibilidad 2.10. Grupos 2-4 para cassettes
@@ -718,7 +718,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                     (label) => (
                       <th
                         key={label}
-                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                        className="text-xs font-medium text-slate-400 text-left py-2 px-1.5"
                       >
                         {label}
                       </th>
@@ -738,7 +738,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                         isFirstInGroup ? "border-t-2 border-t-slate-200" : ""
                       }`}
                     >
-                      <td className="py-1.5 px-1.5 font-black text-primary">
+                      <td className="py-1.5 px-1.5 font-medium text-primary">
                         {isFirstInGroup ? (
                           <span className="inline-flex items-center gap-1.5">
                             {m.grupo}
@@ -808,7 +808,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           {new Set(ddiMediciones.map((m) => m.grupo)).size < MAX_GRUPOS_DDI && (
             <Button
               variant="outline"
-              className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+              className="w-full rounded-lg border-dashed border-2 h-10 font-bold text-sm"
               onClick={addGrupoDdi}
             >
               <Plus className="w-4 h-4 mr-2" /> Agregar cassette adicional
@@ -818,7 +818,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Valores base para 2.9 */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Valores base"
@@ -829,14 +829,14 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           </StepHeader>
           <div className={`grid gap-3 ${reportaDi ? "grid-cols-2" : "grid-cols-1"}`}>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                 EI base
                 {savedEiBase && <Check className="w-3 h-3 text-emerald-500" />}
               </label>
               <Input
                 type="number"
                 step="0.01"
-                className="rounded-xl h-9 text-sm font-medium"
+                className="rounded-lg h-9 text-sm font-medium"
                 value={baseEi29}
                 onChange={(e) => setBaseEi29(e.target.value)}
                 onBlur={(e) => {
@@ -852,14 +852,14 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
             </div>
             {reportaDi && (
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                   D.I. base
                   {savedDiBase && <Check className="w-3 h-3 text-emerald-500" />}
                 </label>
                 <Input
                   type="number"
                   step="0.01"
-                  className="rounded-xl h-9 text-sm font-medium"
+                  className="rounded-lg h-9 text-sm font-medium"
                   value={baseDi29}
                   onChange={(e) => setBaseDi29(e.target.value)}
                   onBlur={(e) => {
@@ -881,7 +881,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Resultado 2.9 */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Prueba 2.9" title="Control de calidad DDI/EI" icon={MonitorCheck}>
             Desviacion del EI y D.I. medidos vs base. Limite: &le; 20%.
@@ -916,7 +916,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Resultado 2.10 */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Prueba 2.10" title="Repetibilidad DDI/EI" icon={MonitorCheck}>
             CV de las 3 repeticiones del grupo 1. Limite: CV &le; 20%.
@@ -954,7 +954,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           PRUEBA 2.14 — INTEGRIDAD CASSETTES
           ═══════════════════════════════════════════ */}
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.14"
@@ -973,7 +973,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
             >
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                     Serie del detector
                     <Check
                       className={`w-3 h-3 text-emerald-500 ${
@@ -982,7 +982,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                     />
                   </label>
                   <Input
-                    className="rounded-xl h-8 text-xs font-medium"
+                    className="rounded-lg h-8 text-xs font-medium"
                     defaultValue={c.serie_detector ?? ""}
                     placeholder="Ej: SN-12345"
                     onBlur={(e) => {
@@ -1022,7 +1022,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                   />
                 </div>
                 <Input
-                  className="rounded-xl h-8 text-xs font-medium"
+                  className="rounded-lg h-8 text-xs font-medium"
                   placeholder="Observaciones"
                   defaultValue={c.observacion ?? ""}
                   onBlur={(e) => {
@@ -1044,7 +1044,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
 
           <Button
             variant="outline"
-            className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+            className="w-full rounded-lg border-dashed border-2 h-10 font-bold text-sm"
             onClick={addCassette}
           >
             <Plus className="w-4 h-4 mr-2" /> Agregar cassette / detector
@@ -1056,7 +1056,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
           PRUEBA 2.15 — UNIFORMIDAD CR
           ═══════════════════════════════════════════ */}
 
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.15"
@@ -1076,7 +1076,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
                     (label) => (
                       <th
                         key={label}
-                        className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5"
+                        className="text-xs font-medium text-slate-400 text-left py-2 px-1.5"
                       >
                         {label}
                       </th>
@@ -1087,7 +1087,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
               <tbody>
                 {(data.uniformidad ?? []).map((u) => (
                   <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">
+                    <td className="py-1.5 px-1.5 font-medium text-primary">
                       <span className="inline-flex items-center gap-1">
                         {u.item_numero}
                         <Check
@@ -1144,7 +1144,7 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
 
           <Button
             variant="outline"
-            className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+            className="w-full rounded-lg border-dashed border-2 h-10 font-bold text-sm"
             onClick={addUniformidad}
           >
             <Plus className="w-4 h-4 mr-2" /> Agregar cassette
@@ -1152,20 +1152,18 @@ export function GrupoDModulo({ visitaId: id }: { visitaId: string }) {
 
           {/* Resultado 2.15 */}
           {resultados.prueba215.promedioEi !== null && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-              <p className="text-[10px] font-black text-primary uppercase tracking-widest">
-                Resultado uniformidad
-              </p>
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-2">
+              <p className="text-xs font-medium text-primary">Resultado uniformidad</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] text-slate-400 font-bold">Promedio EI</p>
-                  <p className="text-sm font-black text-slate-800">
+                  <p className="text-xs text-slate-400 font-bold">Promedio EI</p>
+                  <p className="text-sm font-medium text-slate-800">
                     {resultados.prueba215.promedioEi?.toFixed(2) ?? "—"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-400 font-bold">Desviacion estandar EI</p>
-                  <p className="text-sm font-black text-slate-800">
+                  <p className="text-xs text-slate-400 font-bold">Desviacion estandar EI</p>
+                  <p className="text-sm font-medium text-slate-800">
                     {resultados.prueba215.desvEi?.toFixed(2) ?? "—"}
                   </p>
                 </div>

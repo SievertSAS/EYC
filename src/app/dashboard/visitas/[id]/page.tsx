@@ -28,7 +28,7 @@ import {
 import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
 import { crearInformeDesdeVisita } from "@/lib/workflow/informe-service";
 import { publicarVersionOficial } from "@/lib/workflow/publicar-informe";
-import { getModules, getDefaultModules } from "@/lib/equipos/registry";
+import { getModules, getDefaultModules, getPackage } from "@/lib/equipos/registry";
 import type { ModuloVisita } from "@/lib/equipos/types";
 import {
   ArrowLeft,
@@ -108,7 +108,7 @@ function PercentBadge({ value }: { value: number }) {
         ? "bg-amber-100 text-amber-700"
         : "bg-slate-100 text-slate-400";
   return (
-    <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${color}`}>{value}%</span>
+    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${color}`}>{value}%</span>
   );
 }
 
@@ -194,7 +194,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
           <ArrowLeft className="w-4 h-4" /> Volver a visitas
         </a>
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="bg-red-100 p-6 rounded-3xl">
+          <div className="bg-red-100 p-6 rounded-lg">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
           <p className="text-slate-500 font-bold text-lg">Visita no encontrada</p>
@@ -234,6 +234,14 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
   const packageModulos = equipo?.tipo_equipo ? getModules(equipo.tipo_equipo) : getDefaultModules();
   // Prepend info module + package modules
   const MODULOS = [INFO_MODULE, ...packageModulos];
+  // Pruebas de cada módulo de grupo ("grupo-a" ↔ grupo "a" del paquete), para
+  // listarlas en la tarjeta del módulo.
+  const pruebasPorModulo = new Map(
+    (equipo?.tipo_equipo ? (getPackage(equipo.tipo_equipo)?.grupos ?? []) : []).map((g) => [
+      `grupo-${g.codigo}`,
+      [...g.pruebas].sort((a, b) => a.orden_en_grupo - b.orden_en_grupo),
+    ])
+  );
 
   // Módulo seleccionado vía ?modulo= — se renderiza dentro del workspace sin
   // navegación de Next.js, para que el cambio entre módulos funcione offline.
@@ -249,6 +257,21 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
     return <ModuloComponent visitaId={visitaId} />;
   }
 
+  const actionBar = (
+    <VisitActionBar
+      visitaId={visitaId}
+      estadoVisita={visita.estado_visita}
+      onTransition={() => {
+        // useLiveQuery se actualiza automáticamente
+      }}
+      progressText={
+        visita.estado_visita === "en_progreso"
+          ? `${completeness.completed}/${completeness.total} módulos completados`
+          : undefined
+      }
+    />
+  );
+
   return (
     <div className="space-y-6 pb-24 md:pb-6">
       {/* Navegación */}
@@ -262,10 +285,10 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
 
       {/* Banner de devolución del ingeniero */}
       {hasRevisionNotes && (
-        <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+        <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-amber-50 rounded-lg border border-amber-200 space-y-2">
           <div className="flex items-center gap-2">
             <MessageSquareWarning className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <span className="text-sm font-black text-amber-800">
+            <span className="text-sm font-medium text-amber-800">
               Devuelta por el ingeniero revisor
             </span>
           </div>
@@ -275,10 +298,10 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
 
       {/* Banner: visita reprogramada (#64) */}
       {visita.reprogramada_en && (
-        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200 space-y-2">
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-2">
           <div className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-blue-600 flex-shrink-0" />
-            <span className="text-sm font-black text-blue-800">
+            <span className="text-sm font-medium text-blue-800">
               Visita reprogramada
               {visita.reprogramada_en ? ` · ${visita.reprogramada_en.slice(0, 10)}` : ""}
             </span>
@@ -291,10 +314,10 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
 
       {/* Banner: informe faltante (visita aprobada/enviada sin registro de informe) */}
       {faltaInforme && (
-        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+        <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 space-y-2">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <span className="text-sm font-black text-amber-800">
+            <span className="text-sm font-medium text-amber-800">
               Esta visita no tiene un informe generado
             </span>
           </div>
@@ -307,7 +330,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
               onClick={handleGenerarInforme}
               disabled={generandoInforme}
               size="sm"
-              className="rounded-xl font-black bg-amber-600 hover:bg-amber-700 text-white"
+              className="rounded-lg font-medium bg-amber-600 hover:bg-amber-700 text-white"
             >
               {generandoInforme ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -321,11 +344,11 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
       )}
 
       {/* Header con info del servicio */}
-      <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">
                 {cliente?.nombre_cliente ?? "Sin cliente"}
               </h2>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
@@ -341,7 +364,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
               </div>
             </div>
             <Badge
-              className={`${estadoConfig.bgColor} ${estadoConfig.color} ${estadoConfig.borderColor} rounded-full text-[10px] font-black uppercase tracking-widest hover:${estadoConfig.bgColor}`}
+              className={`${estadoConfig.bgColor} ${estadoConfig.color} ${estadoConfig.borderColor} rounded-full text-xs font-medium hover:${estadoConfig.bgColor}`}
             >
               {estadoConfig.label}
             </Badge>
@@ -349,13 +372,13 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
 
           {/* Info rápida */}
           <div className="flex flex-wrap gap-2">
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
               NIT: {cliente?.nit}
             </span>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
               Hab: {ubicacion?.codigo_habilitacion ?? "—"}
             </span>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
               Visita: {visita.fecha_visita ?? "Sin fecha"}
             </span>
           </div>
@@ -369,10 +392,8 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
             visita.estado_visita !== "enviada" && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Progreso
-                  </span>
-                  <span className="text-xs font-black text-slate-600">
+                  <span className="text-xs font-medium text-slate-400">Progreso</span>
+                  <span className="text-xs font-medium text-slate-600">
                     {completeness.completed}/{completeness.total} módulos
                   </span>
                 </div>
@@ -389,10 +410,10 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
 
       {/* Módulos del workspace */}
       <div>
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-4">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-4">
           Módulos de captura
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 sm:auto-rows-fr gap-3 md:gap-4">
           {MODULOS.map((modulo) => {
             const progress = moduleStatuses[modulo.id] ?? {
               status: "sin_iniciar" as const,
@@ -400,25 +421,26 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
             };
             const Icon = resolveIcon(modulo.icon);
             const locked = isLocked && modulo.id !== "info";
+            const pruebas = pruebasPorModulo.get(modulo.id);
 
             const cardContent = (
               <Card
-                className={`border-none shadow-sm transition-all duration-300 rounded-2xl md:rounded-3xl bg-white group overflow-hidden ${
-                  locked ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg cursor-pointer"
+                className={`h-full border border-slate-200 shadow-none transition-all duration-300 rounded-lg bg-white group overflow-hidden ${
+                  locked ? "opacity-60 cursor-not-allowed" : "hover:border-slate-300 cursor-pointer"
                 }`}
               >
-                <CardContent className="p-4 sm:p-5 md:p-6">
+                <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`p-2.5 rounded-xl flex-shrink-0 ${
+                        className={`p-2.5 rounded-lg flex-shrink-0 ${
                           locked ? "bg-slate-100" : "bg-primary/10"
                         }`}
                       >
                         <Icon className={`w-5 h-5 ${locked ? "text-slate-400" : "text-primary"}`} />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-black text-slate-900 text-sm sm:text-base truncate">
+                        <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
                           {modulo.nombre}
                         </p>
                         <p className="text-[11px] text-slate-400 font-medium">
@@ -437,39 +459,51 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
                       )}
                     </div>
                   </div>
+                  {pruebas && pruebas.length > 0 && (
+                    <ul className="mt-3 flex flex-wrap gap-1.5">
+                      {pruebas.map((prueba) => (
+                        <li
+                          key={prueba.codigo}
+                          title={prueba.nombre}
+                          className="px-2 py-0.5 rounded-md bg-slate-100 text-xs font-mono text-slate-500"
+                        >
+                          {prueba.numero_tecdoc}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </CardContent>
               </Card>
             );
 
             return locked ? (
-              <div key={modulo.id}>{cardContent}</div>
+              <div key={modulo.id} className="h-full">
+                {cardContent}
+              </div>
             ) : (
               <button
                 key={modulo.id}
                 type="button"
                 onClick={() => irAModulo(visitaId, modulo.id)}
-                className="text-left w-full"
+                className="text-left w-full h-full"
               >
                 {cardContent}
               </button>
             );
           })}
+          {/* Con número impar de módulos la última celda queda vacía en
+              escritorio: la barra de acciones la ocupa. En móvil la barra es
+              `fixed`, así que la celda no reserva espacio visible. */}
+          {MODULOS.length % 2 === 1 && (
+            <div className="md:flex md:items-end md:justify-end md:*:mt-0 md:*:w-full">
+              {actionBar}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Barra de acciones */}
-      <VisitActionBar
-        visitaId={visitaId}
-        estadoVisita={visita.estado_visita}
-        onTransition={() => {
-          // useLiveQuery se actualiza automáticamente
-        }}
-        progressText={
-          visita.estado_visita === "en_progreso"
-            ? `${completeness.completed}/${completeness.total} módulos completados`
-            : undefined
-        }
-      />
+      {/* Barra de acciones: con número par de módulos va debajo de la grilla */}
+      {MODULOS.length % 2 === 0 && actionBar}
     </div>
   );
 }

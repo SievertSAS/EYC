@@ -181,7 +181,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
             {cliente.nombre_cliente}
           </h2>
           <p className="text-slate-500 font-medium text-sm">
@@ -192,7 +192,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
         {canEditCliente && (
           <Button
             variant="outline"
-            className="rounded-xl font-black border-slate-200 hover:bg-primary/5"
+            className="rounded-lg font-medium border-slate-200 hover:bg-primary/5"
             onClick={() => setEditClienteOpen(true)}
           >
             <Pencil className="w-4 h-4 mr-2" />
@@ -203,42 +203,36 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
 
       {/* KPI row */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="bg-primary/10 p-2 rounded-xl">
+            <div className="bg-primary/10 p-2 rounded-lg">
               <Users className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Contactos
-              </p>
-              <p className="text-lg font-black text-slate-900">{contactos.length}</p>
+              <p className="text-xs font-medium text-slate-400">Contactos</p>
+              <p className="text-lg font-semibold text-slate-900">{contactos.length}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="bg-primary/10 p-2 rounded-xl">
+            <div className="bg-primary/10 p-2 rounded-lg">
               <MapPin className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Sedes
-              </p>
-              <p className="text-lg font-black text-slate-900">{sedes.length}</p>
+              <p className="text-xs font-medium text-slate-400">Sedes</p>
+              <p className="text-lg font-semibold text-slate-900">{sedes.length}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm rounded-2xl bg-white">
+        <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="bg-primary/10 p-2 rounded-xl">
+            <div className="bg-primary/10 p-2 rounded-lg">
               <Radio className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Equipos
-              </p>
-              <p className="text-lg font-black text-slate-900">{totalEquipos}</p>
+              <p className="text-xs font-medium text-slate-400">Equipos</p>
+              <p className="text-lg font-semibold text-slate-900">{totalEquipos}</p>
             </div>
           </CardContent>
         </Card>
@@ -247,20 +241,20 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
       {/* Tabs */}
       <Tabs defaultValue="info">
         <TabsList variant="line" className="w-full justify-start border-b border-slate-200 pb-0">
-          <TabsTrigger value="info" className="font-black text-sm">
+          <TabsTrigger value="info" className="font-medium text-sm">
             Info
           </TabsTrigger>
-          <TabsTrigger value="contactos" className="font-black text-sm">
+          <TabsTrigger value="contactos" className="font-medium text-sm">
             Contactos ({contactos.length})
           </TabsTrigger>
-          <TabsTrigger value="sedes" className="font-black text-sm">
+          <TabsTrigger value="sedes" className="font-medium text-sm">
             Sedes ({sedes.length})
           </TabsTrigger>
         </TabsList>
 
         {/* ─── Tab: Info ─── */}
         <TabsContent value="info" className="pt-4">
-          <Card className="border-none shadow-sm rounded-2xl bg-white">
+          <Card className="border border-slate-200 shadow-none rounded-lg bg-white">
             <CardContent className="p-5 space-y-4">
               <InfoRow label="Nombre Prestador" value={cliente.nombre_prestador} />
               <InfoRow
@@ -283,7 +277,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
         <TabsContent value="contactos" className="pt-4 space-y-3">
           {canCreateCliente && (
             <Button
-              className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-10"
+              className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-10"
               onClick={() => {
                 setEditContacto(undefined);
                 setContactoDialogOpen(true);
@@ -296,7 +290,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
 
           {contactos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-              <div className="bg-primary/10 p-5 rounded-3xl">
+              <div className="bg-primary/10 p-5 rounded-lg">
                 <Users className="w-8 h-8 text-primary" />
               </div>
               <p className="text-slate-500 font-bold">Sin contactos</p>
@@ -305,15 +299,15 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
             contactos.map((contacto) => (
               <Card
                 key={contacto.id}
-                className="border-none shadow-sm rounded-2xl bg-white overflow-hidden"
+                className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden"
               >
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <p className="font-black text-slate-900 text-sm">{contacto.nombre}</p>
+                        <p className="font-medium text-slate-900 text-sm">{contacto.nombre}</p>
                         {contacto.para_programar && (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                             Programar
                           </span>
                         )}
@@ -362,7 +356,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
         <TabsContent value="sedes" className="pt-4 space-y-3">
           {canCreateCliente && (
             <Button
-              className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-10"
+              className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-10"
               onClick={() => {
                 setEditSede(undefined);
                 setSedeDialogOpen(true);
@@ -375,7 +369,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
 
           {sedes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-              <div className="bg-primary/10 p-5 rounded-3xl">
+              <div className="bg-primary/10 p-5 rounded-lg">
                 <MapPin className="w-8 h-8 text-primary" />
               </div>
               <p className="text-slate-500 font-bold">Sin sedes</p>
@@ -386,7 +380,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
               return (
                 <Card
                   key={sede.id}
-                  className="border-none shadow-sm rounded-2xl bg-white overflow-hidden"
+                  className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden"
                 >
                   <CardContent className="p-0">
                     {/* Sede header */}
@@ -396,15 +390,15 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                         className="flex-1 min-w-0 flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50 transition-colors text-left"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
+                          <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
                             <MapPin className="w-4 h-4 text-primary" />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 min-w-0">
-                              <p className="font-black text-slate-900 text-sm truncate">
+                              <p className="font-medium text-slate-900 text-sm truncate">
                                 {sede.nombre_sede}
                               </p>
-                              <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
+                              <span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
                                 Sede
                               </span>
                             </div>
@@ -420,7 +414,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
                             {ubicaciones.length} ubic.
                           </span>
                           {isExpanded ? (
@@ -450,7 +444,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3 space-y-2">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <p className="text-xs font-medium text-slate-400">
                             Ubicaciones RX ({ubicaciones.length})
                           </p>
                           {canCreateCliente && (
@@ -480,7 +474,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                             return (
                               <div
                                 key={ubicacion.id}
-                                className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+                                className="bg-white rounded-lg border border-slate-200 overflow-hidden"
                               >
                                 {/* Ubicación header */}
                                 <div className="flex items-center">
@@ -493,16 +487,16 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                                         <p className="font-bold text-slate-800 text-sm truncate">
                                           {ubicacion.nombre_servicio}
                                         </p>
-                                        <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-600 border border-indigo-200 flex-shrink-0">
+                                        <span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-600 border border-indigo-200 flex-shrink-0">
                                           Ubicación RX
                                         </span>
                                       </div>
-                                      <p className="text-[10px] text-slate-400 font-medium">
+                                      <p className="text-xs text-slate-400 font-medium">
                                         {ubicacion.codigo_habilitacion ?? "Sin código"}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary">
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                                         {equipos.length} eq.
                                       </span>
                                       {ubiExpanded ? (
@@ -533,7 +527,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                                 {ubiExpanded && (
                                   <div className="border-t border-slate-100 px-3 py-2 space-y-1.5 bg-slate-50/30">
                                     <div className="flex items-center justify-between gap-2 mb-1">
-                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                      <p className="text-xs font-medium text-slate-400">
                                         Equipos ({equipos.length})
                                       </p>
                                       {canCreateEquipo && (
@@ -571,11 +565,11 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                                                   .filter(Boolean)
                                                   .join(" ") || "Equipo sin marca"}
                                               </p>
-                                              <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 border border-emerald-200 flex-shrink-0">
+                                              <span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-600 border border-emerald-200 flex-shrink-0">
                                                 Equipo
                                               </span>
                                             </div>
-                                            <p className="text-[10px] text-slate-400 font-medium">
+                                            <p className="text-xs text-slate-400 font-medium">
                                               {equipo.tipo_equipo
                                                 ? (TIPO_EQUIPO_LABELS[equipo.tipo_equipo] ??
                                                   equipo.tipo_equipo)
@@ -662,9 +656,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
 function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-40 flex-shrink-0">
-        {label}
-      </p>
+      <p className="text-xs font-medium text-slate-400 w-40 flex-shrink-0">{label}</p>
       <p className="text-sm font-medium text-slate-700">{value || "—"}</p>
     </div>
   );

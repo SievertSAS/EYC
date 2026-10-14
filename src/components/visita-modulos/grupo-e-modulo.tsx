@@ -55,7 +55,7 @@ function num(v: unknown): number {
 
 function Alert({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
+    <div className="flex gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 font-medium">
       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -64,7 +64,7 @@ function Alert({ children }: { children: React.ReactNode }) {
 
 function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary font-medium">
+    <div className="flex gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary font-medium">
       <Lightbulb className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -84,12 +84,12 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+      <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
         <Icon className="text-primary w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">{step}</p>
-        <h3 className="font-black text-slate-900 text-sm sm:text-base">{title}</h3>
+        <p className="text-xs font-medium text-primary">{step}</p>
+        <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{title}</h3>
         {children && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{children}</p>}
       </div>
     </div>
@@ -107,13 +107,13 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-100 rounded-xl overflow-hidden">
+    <div className="border border-slate-100 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
+        <span className="text-xs font-medium text-slate-600">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -141,9 +141,9 @@ function ImageSlot({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-slate-200">
+        <div className="relative rounded-lg overflow-hidden border border-slate-200">
           <img src={preview} alt={label} className="w-full h-48 object-cover" />
           <button
             type="button"
@@ -157,7 +157,7 @@ function ImageSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          className="w-full h-32 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-primary hover:text-primary transition-colors"
         >
           <Camera className="w-6 h-6" />
           <span className="text-xs font-bold">Tomar foto o seleccionar</span>
@@ -192,17 +192,17 @@ function ImagenCompartida({
   const preview = useImagenSrc(evidencia ?? {});
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+      <p className="text-xs font-medium text-slate-400">
         {label} — misma foto que en la prueba {origen}
       </p>
       {preview ? (
         <img
           src={preview}
           alt={label}
-          className="w-full h-48 object-cover rounded-xl border border-slate-200"
+          className="w-full h-48 object-cover rounded-lg border border-slate-200"
         />
       ) : (
-        <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300 text-xs font-bold">
+        <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-300 text-xs font-bold">
           Sin foto capturada en la prueba {origen} todavía
         </div>
       )}
@@ -211,13 +211,13 @@ function ImagenCompartida({
 }
 
 function ConceptoBadge({ concepto }: { concepto: "Conforme" | "No_conforme" | null | undefined }) {
-  if (!concepto) return <span className="text-[10px] text-slate-300 font-bold">—</span>;
+  if (!concepto) return <span className="text-xs text-slate-300 font-bold">—</span>;
   return concepto === "Conforme" ? (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
       <CheckCircle2 className="w-3 h-3" /> Conforme
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
       <XCircle className="w-3 h-3" /> No conforme
     </span>
   );
@@ -244,7 +244,7 @@ function RoiDiagrama() {
         {posiciones.map(({ n, className }) => (
           <span
             key={n}
-            className={`absolute w-7 h-7 flex items-center justify-center rounded-md text-xs font-black text-white transition-all hover:scale-110 hover:bg-primary cursor-default ${
+            className={`absolute w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium text-white transition-all hover:scale-110 hover:bg-primary cursor-default ${
               n === 1 ? "bg-primary" : "bg-primary/60"
             } ${className}`}
           >
@@ -252,7 +252,7 @@ function RoiDiagrama() {
           </span>
         ))}
       </div>
-      <p className="text-[10px] text-slate-400 leading-snug">
+      <p className="text-xs text-slate-400 leading-snug">
         ROI1 = centro de la imagen.
         <br />
         ROI2-5 = esquinas (sup. izq., sup. der., inf. izq., inf. der.).
@@ -627,10 +627,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+          <p className="text-xs font-medium text-primary">
             Grupo E — Pruebas 2.3, 2.11, 2.12, 2.13, 2.16
           </p>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
             Colimacion, Resolucion, Contraste y MTF
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
@@ -640,7 +640,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
         </div>
         <Button
           variant="outline"
-          className="rounded-xl font-bold text-xs flex-shrink-0 gap-1.5"
+          className="rounded-lg font-bold text-xs flex-shrink-0 gap-1.5"
           onClick={() => {
             setManualPrueba(undefined);
             setManualOpen(true);
@@ -654,7 +654,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══════════════════════════════════════════
           PRUEBA 2.3 — COLIMACIÓN
           ═══════════════════════════════════════════ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.3"
@@ -711,7 +711,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             <div className="space-y-3">
               {DIRECCIONES.map((d) => (
                 <div key={d.key} className="grid grid-cols-3 gap-2 items-end">
-                  <div className="text-xs font-black text-primary">{d.label}</div>
+                  <div className="text-xs font-medium text-primary">{d.label}</div>
                   <SetupField
                     label="Nominal (cm)"
                     step="0.1"
@@ -756,7 +756,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                         (h) => (
                           <th
                             key={h}
-                            className="text-[9px] font-black text-slate-400 uppercase text-left py-1.5 px-1.5"
+                            className="text-xs font-medium text-slate-400 text-left py-1.5 px-1.5"
                           >
                             {h}
                           </th>
@@ -781,10 +781,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                       </tr>
                     ))}
                     <tr className="border-t-2 border-slate-200">
-                      <td className="py-1.5 px-1.5 font-black text-slate-700" colSpan={4}>
+                      <td className="py-1.5 px-1.5 font-medium text-slate-700" colSpan={4}>
                         Total
                       </td>
-                      <td className="py-1.5 px-1.5 font-mono font-black">
+                      <td className="py-1.5 px-1.5 font-mono font-medium">
                         {colimacionResults.totalVar.toFixed(1)}%
                       </td>
                       <td className="py-1.5 px-1.5 text-slate-400">&lt; 4%</td>
@@ -802,7 +802,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           <CollapsibleSection title="Perpendicularidad del rayo central">
             <Tip>Selecciona donde se ubico la esfera en la imagen del patron de colimacion.</Tip>
             <select
-              className="w-full rounded-xl border border-slate-200 h-9 text-xs font-medium px-3 bg-white"
+              className="w-full rounded-lg border border-slate-200 h-9 text-xs font-medium px-3 bg-white"
               value={colim?.posicion_esfera ?? ""}
               onChange={(e) => updateColimacion({ posicion_esfera: e.target.value || undefined })}
             >
@@ -828,7 +828,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══════════════════════════════════════════
           PRUEBA 2.11 — UNIFORMIDAD DETECTOR
           ═══════════════════════════════════════════ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.11"
@@ -864,14 +864,14 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             >
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                     Serie del detector
                     {ur.det.id && isSaved(ur.det.id) && (
                       <Check className="w-3 h-3 text-emerald-500" />
                     )}
                   </label>
                   <Input
-                    className="rounded-xl h-8 text-xs font-medium"
+                    className="rounded-lg h-8 text-xs font-medium"
                     placeholder="Serie del detector"
                     defaultValue={ur.det.serie_detector ?? ""}
                     onBlur={(e) => {
@@ -887,7 +887,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                 {/* Tolerancia — solo lectura: la define el sistema de adquisicion del
                     equipo (tolerancia211Default), no el tecnico. */}
                 <div className="flex items-center gap-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">
+                  <label className="text-xs font-medium text-slate-400 whitespace-nowrap">
                     Tolerancia (%)
                   </label>
                   <span className="rounded-lg h-7 px-2.5 inline-flex items-center text-xs font-bold text-slate-600 bg-slate-100">
@@ -901,7 +901,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
 
                 {(["ac", "ca"] as const).map((orient) => (
                   <div key={orient} className="space-y-2">
-                    <p className="text-[10px] font-black text-slate-500 uppercase">
+                    <p className="text-xs font-medium text-slate-500">
                       {orient === "ac" ? "0° (Anodo-Catodo)" : "180° (Catodo-Anodo)"}
                     </p>
                     <div className="grid grid-cols-5 gap-2">
@@ -910,7 +910,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                         const desvField = `roi_${i}_desv_${orient}` as keyof typeof ur.det;
                         return (
                           <div key={i} className="space-y-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase">
+                            <label className="text-xs font-medium text-slate-400">
                               {`ROI${i + 1}`}
                             </label>
                             <Input
@@ -950,9 +950,9 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                       })}
                     </div>
                     {(orient === "ac" ? ur.ac : ur.ca).max !== null && (
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         Uniformidad max:{" "}
-                        <span className="font-black text-slate-800">
+                        <span className="font-medium text-slate-800">
                           {(orient === "ac" ? ur.ac : ur.ca).max?.toFixed(1)}%
                         </span>
                       </p>
@@ -1006,13 +1006,13 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                             Uniformidad max global
                           </span>
                           <span
-                            className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                            className={`text-xs font-medium ${conforme ? "text-green-700" : "text-red-600"}`}
                           >
                             {conforme ? "FAVORABLE" : "NO FAVORABLE"}
                           </span>
                         </div>
                         <span
-                          className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                          className={`text-xs font-medium ${conforme ? "text-green-700" : "text-red-600"}`}
                         >
                           {ur.maxGlobal.toFixed(1)}%
                         </span>
@@ -1033,7 +1033,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
 
           <Button
             variant="outline"
-            className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+            className="w-full rounded-lg border-dashed border-2 h-10 font-bold text-sm"
             onClick={addUniformidadDet}
           >
             <Plus className="w-4 h-4 mr-2" /> Agregar detector / chasis
@@ -1044,7 +1044,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══════════════════════════════════════════
           PRUEBA 2.12 — RESOLUCIÓN ALTO CONTRASTE
           ═══════════════════════════════════════════ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.12"
@@ -1087,11 +1087,9 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              pl/mm visibles
-            </label>
+            <label className="text-xs font-medium text-slate-400">pl/mm visibles</label>
             <select
-              className="w-full rounded-xl h-9 text-sm font-black border border-blue-200 bg-blue-50/50 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-lg h-9 text-sm font-medium border border-blue-200 bg-blue-50/50 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
               value={resol?.pares_lineas_plmm ?? ""}
               onChange={(e) =>
                 updateResolucion({
@@ -1121,13 +1119,13 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-bold text-slate-700">Resolución espacial</span>
                     <span
-                      className={`text-[10px] font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                      className={`text-xs font-medium ${conforme ? "text-green-700" : "text-red-600"}`}
                     >
                       {conforme ? "FAVORABLE" : "NO FAVORABLE"}
                     </span>
                   </div>
                   <span
-                    className={`text-xs font-black ${conforme ? "text-green-700" : "text-red-600"}`}
+                    className={`text-xs font-medium ${conforme ? "text-green-700" : "text-red-600"}`}
                   >
                     {resol.pares_lineas_plmm.toFixed(1)} pl/mm
                   </span>
@@ -1140,7 +1138,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══════════════════════════════════════════
           PRUEBA 2.13 — BAJO CONTRASTE
           ═══════════════════════════════════════════ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.13"
@@ -1161,7 +1159,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             const niveles = formato === "masas" ? NIVELES_MASAS : NIVELES_CONTRASTE;
             return (
               <>
-                <div className="inline-flex rounded-xl border border-slate-200 p-1 bg-slate-50">
+                <div className="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50">
                   {(
                     [
                       { value: "contraste" as const, label: "% Contraste" },
@@ -1172,7 +1170,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                       key={opt.value}
                       type="button"
                       onClick={() => updateBajoContraste({ formato: opt.value })}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         formato === opt.value
                           ? "bg-white text-primary shadow-sm"
                           : "text-slate-400 hover:text-slate-600"
@@ -1191,14 +1189,14 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                         key={nc.key}
                         type="button"
                         onClick={() => updateBajoContraste({ [nc.key]: !checked })}
-                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
                           checked
                             ? "border-emerald-400 bg-emerald-50 text-emerald-700"
                             : "border-slate-200 bg-white text-slate-400 hover:border-slate-300"
                         }`}
                       >
-                        <p className="text-xs font-black">{nc.label}</p>
-                        <p className="text-[10px] mt-0.5">{checked ? "Visible" : "No visible"}</p>
+                        <p className="text-xs font-medium">{nc.label}</p>
+                        <p className="text-xs mt-0.5">{checked ? "Visible" : "No visible"}</p>
                       </button>
                     );
                   })}
@@ -1212,7 +1210,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
       {/* ═══════════════════════════════════════════
           PRUEBA 2.16 — MTF
           ═══════════════════════════════════════════ */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.16"
@@ -1280,7 +1278,7 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   key={field}
                   label={label}
                   step="0.01"
-                  className="rounded-xl h-9 text-sm font-medium border-blue-200 bg-blue-50/50"
+                  className="rounded-lg h-9 text-sm font-medium border-blue-200 bg-blue-50/50"
                   defaultValue={
                     ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }

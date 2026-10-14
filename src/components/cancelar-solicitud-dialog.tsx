@@ -33,7 +33,7 @@ interface CancelarSolicitudDialogProps {
   onCancelada?: () => void;
 }
 
-const labelClass = "text-xs font-black text-slate-600 uppercase tracking-wider";
+const labelClass = "text-xs font-medium text-slate-600";
 
 export function CancelarSolicitudDialog({
   open,
@@ -72,7 +72,7 @@ export function CancelarSolicitudDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-black flex items-center gap-2">
+          <DialogTitle className="font-semibold flex items-center gap-2">
             <Ban className="w-4 h-4 text-red-500" /> Cancelar solicitud
           </DialogTitle>
           <DialogDescription>
@@ -83,7 +83,7 @@ export function CancelarSolicitudDialog({
 
         <div className="space-y-4">
           {visitasAsignadas > 0 && (
-            <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
+            <div className="flex gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 font-medium">
               <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
               <span>
                 Se cancelarán también {visitasAsignadas} visita{visitasAsignadas > 1 ? "s" : ""}{" "}
@@ -98,13 +98,13 @@ export function CancelarSolicitudDialog({
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Por qué se cancela (obligatorio)"
-              className="rounded-xl"
+              className="rounded-lg"
               rows={3}
             />
           </div>
 
           {error && (
-            <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">
+            <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
               {error}
             </p>
           )}
@@ -113,14 +113,14 @@ export function CancelarSolicitudDialog({
         <DialogFooter>
           <Button
             variant="ghost"
-            className="rounded-xl font-bold"
+            className="rounded-lg font-bold"
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
             Volver
           </Button>
           <Button
-            className="rounded-xl font-black bg-red-500 hover:bg-red-600 text-white"
+            className="rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white"
             onClick={handleConfirm}
             disabled={saving || !motivo.trim()}
           >

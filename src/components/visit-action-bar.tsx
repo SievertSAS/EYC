@@ -74,7 +74,7 @@ export function VisitActionBar({
     if (estadoVisita === "en_revision" && role.cargo === "tecnico") {
       return (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 md:static md:border-0 md:bg-transparent md:p-0 md:mt-6 z-20">
-          <div className="flex items-center justify-center gap-2 py-3 px-4 bg-purple-50 rounded-2xl border border-purple-200">
+          <div className="flex items-center justify-center gap-2 py-3 px-4 bg-purple-50 rounded-lg border border-purple-200">
             <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
             <span className="text-sm font-bold text-purple-700">
               En espera de revisión del ingeniero
@@ -87,7 +87,7 @@ export function VisitActionBar({
       const label = estadoVisita === "enviada" ? "Informe enviado al cliente" : "Visita aprobada";
       return (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 md:static md:border-0 md:bg-transparent md:p-0 md:mt-6 z-20">
-          <div className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-50 rounded-2xl border border-emerald-200">
+          <div className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-50 rounded-lg border border-emerald-200">
             <BadgeCheck className="w-4 h-4 text-emerald-600" />
             <span className="text-sm font-bold text-emerald-700">{label}</span>
           </div>
@@ -144,10 +144,10 @@ export function VisitActionBar({
     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 md:static md:border-0 md:bg-transparent md:p-0 md:mt-6 z-20">
       {/* Errores de gate */}
       {gateErrors && !gateErrors.canProceed && (
-        <div className="mb-3 p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+        <div className="mb-3 p-4 bg-amber-50 rounded-lg border border-amber-200 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-            <span className="text-sm font-black text-amber-800">Módulos incompletos</span>
+            <span className="text-sm font-medium text-amber-800">Módulos incompletos</span>
           </div>
           <ul className="space-y-1 ml-6">
             {gateErrors.errors.map((err) => (
@@ -161,19 +161,19 @@ export function VisitActionBar({
 
       {/* Formulario inline de razón (devolver / solicitar ajustes cliente) */}
       {pendingReasonAction && (
-        <div className="mb-3 p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
-          <p className="text-sm font-black text-amber-800">{pendingReasonAction.label}</p>
+        <div className="mb-3 p-4 bg-amber-50 rounded-lg border border-amber-200 space-y-3">
+          <p className="text-sm font-medium text-amber-800">{pendingReasonAction.label}</p>
           <Textarea
             value={razon}
             onChange={(e) => setRazon(e.target.value)}
             placeholder="Describe el motivo..."
-            className="rounded-xl bg-white"
+            className="rounded-lg bg-white"
             rows={3}
           />
           <div className="flex gap-2 justify-end">
             <Button
               variant="ghost"
-              className="rounded-xl font-bold"
+              className="rounded-lg font-bold"
               onClick={() => {
                 setPendingReasonAction(null);
                 setRazon("");
@@ -183,7 +183,7 @@ export function VisitActionBar({
               Cancelar
             </Button>
             <Button
-              className={`rounded-xl font-black ${VARIANT_CLASSES[pendingReasonAction.variant] ?? VARIANT_CLASSES.warning}`}
+              className={`rounded-lg font-medium ${VARIANT_CLASSES[pendingReasonAction.variant] ?? VARIANT_CLASSES.warning}`}
               onClick={() => runTransition(pendingReasonAction, razon.trim())}
               disabled={loading || !razon.trim()}
             >
@@ -211,7 +211,7 @@ export function VisitActionBar({
                 key={actionDef.action}
                 onClick={() => handleAction(actionDef)}
                 disabled={loading}
-                className={`flex-1 md:flex-none rounded-xl font-black h-12 px-6 ${
+                className={`flex-1 md:flex-none rounded-lg font-medium h-12 px-6 ${
                   VARIANT_CLASSES[actionDef.variant] ?? VARIANT_CLASSES.primary
                 }`}
               >

@@ -101,7 +101,7 @@ function num(v: string | number | undefined | null): number {
 /** Alerta amarilla — advertencia crítica (si no la sigues, invalidas la prueba o dañas algo) */
 function Alert({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 font-medium">
+    <div className="flex gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 font-medium">
       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -111,7 +111,7 @@ function Alert({ children }: { children: React.ReactNode }) {
 /** Recomendación morada — tip metodológico, buena práctica */
 function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 p-3 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary font-medium">
+    <div className="flex gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary font-medium">
       <Lightbulb className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
       <span>{children}</span>
     </div>
@@ -131,12 +131,12 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+      <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
         <Icon className="text-primary w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-primary uppercase tracking-widest">{step}</p>
-        <h3 className="font-black text-slate-900 text-sm sm:text-base">{title}</h3>
+        <p className="text-xs font-medium text-primary">{step}</p>
+        <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{title}</h3>
         {children && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{children}</p>}
       </div>
     </div>
@@ -160,7 +160,7 @@ function ConceptoSelect({
           : "border-slate-200 bg-white text-slate-600";
   return (
     <select
-      className={`rounded-xl font-bold text-xs h-9 px-2 border ${color} min-w-[120px]`}
+      className={`rounded-lg font-bold text-xs h-9 px-2 border ${color} min-w-[120px]`}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value as Concepto)}
     >
@@ -183,13 +183,13 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-100 rounded-xl overflow-hidden">
+    <div className="border border-slate-100 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
       >
-        <span className="text-xs font-black text-slate-600 uppercase tracking-widest">{title}</span>
+        <span className="text-xs font-medium text-slate-600">{title}</span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-slate-400" />
         ) : (
@@ -222,9 +222,9 @@ function ImageSlot({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-slate-200">
+        <div className="relative rounded-lg overflow-hidden border border-slate-200">
           <img src={preview} alt={label} className="w-full h-48 object-cover" />
           <button
             type="button"
@@ -248,7 +248,7 @@ function ImageSlot({
             setDragOver(false);
             pick(e.dataTransfer.files?.[0]);
           }}
-          className={`w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-colors ${
+          className={`w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-2 transition-colors ${
             dragOver
               ? "border-primary text-primary bg-primary/5"
               : "border-slate-300 text-slate-400 hover:border-primary hover:text-primary"
@@ -780,10 +780,8 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
-            Grupo A — Pruebas 2.1 y 2.2
-          </p>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">
+          <p className="text-xs font-medium text-primary">Grupo A — Pruebas 2.1 y 2.2</p>
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight">
             Levantamiento Radiométrico e Inspección Visual
           </h2>
           <p className="text-slate-500 font-medium text-sm mt-1">
@@ -793,7 +791,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
         </div>
         <Button
           variant="outline"
-          className="rounded-xl font-bold text-xs flex-shrink-0 gap-1.5"
+          className="rounded-lg font-bold text-xs flex-shrink-0 gap-1.5"
           onClick={() => {
             setManualPrueba(undefined);
             setManualOpen(true);
@@ -809,7 +807,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
           ════════════════════════════════════════════ */}
 
       {/* Imágenes y fotografías (plano 2.1 + fotos 2.2) */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Pruebas 2.1 y 2.2 — Imágenes"
@@ -849,9 +847,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
           {/* Avisos de protección radiológica — lista dinámica (#66) */}
           <div className="space-y-3 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Avisos de protección radiológica
-              </p>
+              <p className="text-xs font-medium text-slate-400">Avisos de protección radiológica</p>
               <Button
                 type="button"
                 variant="ghost"
@@ -887,7 +883,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Paso 1: Parámetros */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Prueba 2.1 — Paso 1" title="Parámetros de la prueba" icon={Gauge}>
             Configura los datos base antes de tomar las mediciones.
@@ -959,55 +955,55 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
             </Tip>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-xs font-medium text-slate-400">
                   Radiografías / semana (precarga)
                 </label>
-                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
+                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-lg px-3">
                   {nrSemana || "—"}
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-xs font-medium text-slate-400">
                   mAs máx. clínico (precarga)
                 </label>
-                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
+                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-lg px-3">
                   {masMaxClinico || "—"}
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-xs font-medium text-slate-400">
                   W estimada (mA·min/sem)
                 </label>
-                <div className="h-9 flex items-center text-sm font-black text-primary bg-primary/5 rounded-xl px-3">
+                <div className="h-9 flex items-center text-sm font-medium text-primary bg-primary/5 rounded-lg px-3">
                   {wEstimada.toFixed(1)}
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-xs font-medium text-slate-400">
                   W estándar (mA·min/sem)
                 </label>
-                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
+                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-lg px-3">
                   {W_ESTANDAR}{" "}
-                  <span className="ml-2 text-[10px] text-slate-400 font-medium">
+                  <span className="ml-2 text-xs text-slate-400 font-medium">
                     fija — TECDOC-1958
                   </span>
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
                   W usado
                   {!cargaTrabajoModo && (
                     <span className="normal-case font-medium text-slate-400">(auto: máximo)</span>
                   )}
                 </label>
-                <div className="h-9 flex items-center text-sm font-black text-emerald-700 bg-emerald-50 rounded-xl px-3">
+                <div className="h-9 flex items-center text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg px-3">
                   {wUsado.toFixed(1)}
                 </div>
-                <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                <div className="flex rounded-lg overflow-hidden border border-slate-200">
                   <button
                     type="button"
                     onClick={() => updateSetup({ carga_trabajo_modo: "estimada" })}
-                    className={`flex-1 h-7 text-[10px] font-black uppercase tracking-wide transition-colors ${
+                    className={`flex-1 h-7 text-xs font-medium transition-colors ${
                       modoActivo === "estimada"
                         ? "bg-primary text-white"
                         : "bg-white text-slate-500 hover:bg-slate-50"
@@ -1018,7 +1014,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                   <button
                     type="button"
                     onClick={() => updateSetup({ carga_trabajo_modo: "tipica" })}
-                    className={`flex-1 h-7 text-[10px] font-black uppercase tracking-wide transition-colors border-l border-slate-200 ${
+                    className={`flex-1 h-7 text-xs font-medium transition-colors border-l border-slate-200 ${
                       modoActivo === "tipica"
                         ? "bg-primary text-white"
                         : "bg-white text-slate-500 hover:bg-slate-50"
@@ -1029,10 +1025,10 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-xs font-medium text-slate-400">
                   Corriente prueba I (mA)
                 </label>
-                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-xl px-3">
+                <div className="h-9 flex items-center text-sm font-bold text-slate-700 bg-slate-50 rounded-lg px-3">
                   {corrientePrueba || "← Llena técnica"}
                 </div>
               </div>
@@ -1043,7 +1039,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                   onSave={(v) => updateSetup({ semanas_laborales: v ? parseDecimal(v) : 50 })}
                 />
                 {semanasLaborales < 50 && (
-                  <p className="text-[10px] font-bold text-amber-600">
+                  <p className="text-xs font-bold text-amber-600">
                     Menos de 50 semanas reduce la dosis anual calculada — justifícalo en el informe.
                   </p>
                 )}
@@ -1054,7 +1050,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Paso 2: Tabla de mediciones */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Prueba 2.1 — Paso 2" title="Mediciones radiométricas" icon={Zap}>
             Registra la lectura de tasa de dosis en cada punto de la sala.
@@ -1084,7 +1080,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                   ].map(([label, cls]) => (
                     <th
                       key={label}
-                      className={`text-[9px] font-black text-slate-400 tracking-widest text-left py-2 px-1.5 ${cls}`}
+                      className={`text-xs font-medium text-slate-400 text-left py-2 px-1.5 ${cls}`}
                     >
                       {label}
                     </th>
@@ -1100,7 +1096,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
                   return (
                     <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-1.5 px-1.5 font-black text-primary">
+                      <td className="py-1.5 px-1.5 font-medium text-primary">
                         <span className="inline-flex items-center gap-1">
                           {m.punto_numero}
                           <Check
@@ -1189,12 +1185,12 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                           <option value="supervisada">Supervisada</option>
                         </select>
                       </td>
-                      <td className="py-1.5 px-1.5 font-black text-primary font-mono">
+                      <td className="py-1.5 px-1.5 font-medium text-primary font-mono">
                         {dosis > 0 ? dosis.toFixed(6) : "—"}
                       </td>
                       <td className="py-1.5 px-1.5">
                         <span
-                          className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                          className={`text-xs font-medium px-1.5 py-0.5 rounded-md ${
                             isConf
                               ? "bg-emerald-50 text-emerald-700"
                               : isNoConf
@@ -1223,7 +1219,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
           <Button
             variant="outline"
-            className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+            className="w-full rounded-lg border-dashed border-2 h-10 font-bold text-sm"
             onClick={addMedicion}
           >
             <Plus className="w-4 h-4 mr-2" /> Agregar punto de medición
@@ -1236,7 +1232,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
           ════════════════════════════════════════════ */}
 
       {/* Paso 3: Inspección del equipo */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Prueba 2.2 — Paso 3" title="Inspección visual del equipo" icon={Eye}>
             Evalúa el estado físico y funcional del equipo de rayos X.
@@ -1248,10 +1244,10 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
               return (
                 <div
                   key={idx}
-                  className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2"
+                  className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-2"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-xs font-black text-primary bg-primary/10 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-medium text-primary bg-primary/10 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
                       {idx + 1}
                     </span>
                     <p className="text-xs text-slate-700 font-medium leading-relaxed flex-1">
@@ -1272,7 +1268,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                     />
                     <Input
                       key={`${item?.id}-${item?.concepto}`}
-                      className="rounded-xl h-9 text-xs font-medium flex-1 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      className="rounded-lg h-9 text-xs font-medium flex-1 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                       placeholder={
                         item?.concepto === "No_conforme"
                           ? "Describe la no conformidad"
@@ -1293,7 +1289,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Paso 4: Condiciones de operación */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader step="Prueba 2.2 — Paso 4" title="Condiciones de operación" icon={Shield}>
             Verifica las condiciones de seguridad y protección radiológica de la instalación.
@@ -1305,10 +1301,10 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
               return (
                 <div
                   key={idx}
-                  className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2"
+                  className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-2"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-xs font-black text-primary bg-primary/10 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-medium text-primary bg-primary/10 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
                       {idx + 1}
                     </span>
                     <p className="text-xs text-slate-700 font-medium leading-relaxed flex-1">
@@ -1329,7 +1325,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                     />
                     <Input
                       key={`${item?.id}-${item?.concepto}`}
-                      className="rounded-xl h-9 text-xs font-medium flex-1 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      className="rounded-lg h-9 text-xs font-medium flex-1 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                       placeholder={
                         item?.concepto === "No_conforme"
                           ? "Describe la no conformidad"
@@ -1350,7 +1346,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
       </Card>
 
       {/* Paso 5: Elementos de protección */}
-      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-5">
           <StepHeader
             step="Prueba 2.2 — Paso 5"
@@ -1377,7 +1373,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                   ].map(([label, cls]) => (
                     <th
                       key={label}
-                      className={`text-[9px] font-black text-slate-400 uppercase tracking-widest text-left py-2 px-1.5 ${cls}`}
+                      className={`text-xs font-medium text-slate-400 text-left py-2 px-1.5 ${cls}`}
                     >
                       {label}
                     </th>
@@ -1387,7 +1383,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
               <tbody>
                 {(data.elementos ?? []).map((elem, idx) => (
                   <tr key={elem.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5 font-black text-primary">
+                    <td className="py-1.5 px-1.5 font-medium text-primary">
                       <span className="inline-flex items-center gap-1">
                         {idx + 1}
                         {elem.id && isSaved(elem.id) && (
@@ -1421,7 +1417,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                     </td>
                     <td className="py-1.5 px-1.5">
                       <select
-                        className="rounded-xl font-bold text-xs h-9 px-2 border border-slate-200 bg-white text-slate-600 min-w-[110px]"
+                        className="rounded-lg font-bold text-xs h-9 px-2 border border-slate-200 bg-white text-slate-600 min-w-[110px]"
                         defaultValue={elem.tipo_paciente ?? ""}
                         onChange={(e) => {
                           if (!elem.id) return;
@@ -1482,7 +1478,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
 
           <Button
             variant="outline"
-            className="w-full rounded-xl border-dashed border-2 h-10 font-bold text-sm"
+            className="w-full rounded-lg border-dashed border-2 h-10 font-bold text-sm"
             onClick={addElemento}
           >
             <Plus className="w-4 h-4 mr-2" /> Agregar elemento de protección

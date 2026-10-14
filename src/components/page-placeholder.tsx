@@ -12,15 +12,13 @@ export function PagePlaceholder({ title, subtitle, icon: Icon, message }: PagePl
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter">
-          {title}
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">{title}</h2>
         <p className="text-slate-500 font-medium text-sm md:text-lg mt-1">{subtitle}</p>
       </div>
 
       {/* Empty state */}
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <div className="bg-primary/10 p-6 rounded-3xl">
+        <div className="bg-primary/10 p-6 rounded-lg">
           <Icon className="w-10 h-10 text-primary" />
         </div>
         <p className="text-slate-500 font-bold text-lg">{message}</p>

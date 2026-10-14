@@ -136,15 +136,15 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
       </Link>
 
       {/* Header */}
-      <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+              <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
                 <Radio className="w-5 h-5 text-primary" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight truncate">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-slate-900 tracking-tight truncate">
                   {nombreEquipo(equipo)}
                 </h2>
                 {equipo.gen_numero_serie && (
@@ -158,7 +158,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
             {canTrasladar && (
               <Button
                 variant="outline"
-                className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-9 px-3 text-xs flex-shrink-0"
+                className="rounded-lg font-medium border-slate-200 hover:bg-primary/5 h-9 px-3 text-xs flex-shrink-0"
                 onClick={() => setTrasladarOpen(true)}
               >
                 <Truck className="w-3.5 h-3.5 mr-1.5" />
@@ -171,9 +171,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {cliente && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Cliente
-                </p>
+                <p className="text-xs font-medium text-slate-400">Cliente</p>
                 <p className="text-sm font-bold text-slate-700 flex items-center gap-1">
                   <Building2 className="w-3.5 h-3.5 text-slate-400" />
                   {cliente.nombre_cliente}
@@ -182,9 +180,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
             )}
             {(sede || ubicacion) && (
               <div className="space-y-1 sm:col-span-2">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Ubicación actual
-                </p>
+                <p className="text-xs font-medium text-slate-400">Ubicación actual</p>
                 <p className="text-sm font-bold text-slate-700 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   {[sede?.nombre_sede, ubicacion?.nombre_servicio].filter(Boolean).join(" — ") ||
@@ -194,10 +190,8 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
             )}
             {equipo.tipo_equipo && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Tipo
-                </p>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
+                <p className="text-xs font-medium text-slate-400">Tipo</p>
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                   {equipo.tipo_equipo.replace(/_/g, " ")}
                 </span>
               </div>
@@ -208,7 +202,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Visitas del equipo */}
       <div>
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-3 flex items-center gap-2">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-3 flex items-center gap-2">
           <ClipboardCheck className="w-5 h-5 text-primary" />
           Visitas ({visitas.length})
         </h3>
@@ -218,10 +212,10 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-2">
             {visitas.map((v) => (
               <a key={v.id} href={`/dashboard/visitas/${v.id}`}>
-                <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
+                <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all rounded-lg bg-white group cursor-pointer overflow-hidden mb-2">
                   <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-900 truncate">Visita #{v.id}</p>
+                      <p className="text-sm font-medium text-slate-900 truncate">Visita #{v.id}</p>
                       <p className="text-[11px] text-slate-400 font-medium">
                         {v.estado_visita.replace(/_/g, " ")} ·{" "}
                         {fmtFecha(v.fecha_visita ?? v.creado_en)}
@@ -238,7 +232,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Informes del equipo */}
       <div>
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-3 flex items-center gap-2">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-3 flex items-center gap-2">
           <FileText className="w-5 h-5 text-primary" />
           Informes ({informes.length})
         </h3>
@@ -248,10 +242,10 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-2">
             {informes.map((inf) => (
               <Link key={inf.id} href={`/dashboard/informes/${inf.id}`}>
-                <Card className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white group cursor-pointer overflow-hidden mb-2">
+                <Card className="border border-slate-200 shadow-none hover:border-slate-300 transition-all rounded-lg bg-white group cursor-pointer overflow-hidden mb-2">
                   <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-900 truncate">
+                      <p className="text-sm font-medium text-slate-900 truncate">
                         {inf.numero_informe}
                       </p>
                       <p className="text-[11px] text-slate-400 font-medium">
@@ -269,7 +263,7 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Historial de traslados */}
       <div>
-        <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-3 flex items-center gap-2">
+        <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-3 flex items-center gap-2">
           <Truck className="w-5 h-5 text-primary" />
           Historial de traslados ({movimientos.length})
         </h3>
@@ -280,10 +274,10 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
             {movimientos.map(({ mov, anterior, nueva }) => (
               <Card
                 key={mov.id}
-                className="border-none shadow-sm rounded-2xl bg-white overflow-hidden"
+                className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden"
               >
                 <CardContent className="p-4 sm:p-5 space-y-1.5">
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                  <p className="text-[11px] font-medium text-slate-400">
                     {fmtFecha(mov.fecha_movimiento)}
                   </p>
                   <div className="flex items-center gap-2 text-sm font-bold text-slate-700 flex-wrap">

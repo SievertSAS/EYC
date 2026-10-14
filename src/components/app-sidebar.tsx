@@ -132,7 +132,7 @@ export function AppSidebar() {
 
           return (
             <SidebarGroup key={group.group}>
-              <SidebarGroupLabel className="px-2 text-slate-400 font-black uppercase text-[10px] tracking-[0.2em] mb-2">
+              <SidebarGroupLabel className="px-2 text-slate-400 font-medium text-xs mb-2">
                 {group.group}
               </SidebarGroupLabel>
               <SidebarMenu className="gap-1">
@@ -144,7 +144,7 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         isActive={isActive}
-                        className="h-11 rounded-xl hover:bg-primary/5 data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
+                        className="h-10 rounded-md hover:bg-primary/5 data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
                         render={<Link href={item.href} />}
                       >
                         <item.icon className="w-4 h-4" />
@@ -161,7 +161,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4 sm:p-5 mt-auto border-t border-sidebar-border">
         {role && (
-          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
             <Avatar className="h-10 w-10 border-2 border-primary/20 p-0.5">
               <AvatarFallback className="bg-primary text-white font-bold text-sm">
                 {role.nombre
@@ -173,10 +173,8 @@ export function AppSidebar() {
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-black text-slate-900 truncate">{role.nombre}</span>
-              <span
-                className={`text-[10px] font-black uppercase tracking-wider ${CARGO_COLORS[cargo] ?? "text-primary"}`}
-              >
+              <span className="text-sm font-medium text-slate-900 truncate">{role.nombre}</span>
+              <span className={`text-xs font-medium ${CARGO_COLORS[cargo] ?? "text-primary"}`}>
                 {CARGO_LABELS[cargo] ?? cargo}
               </span>
             </div>
@@ -187,7 +185,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50 h-10 rounded-xl font-bold text-sm"
+              className="text-red-500 hover:text-red-600 hover:bg-red-50 h-10 rounded-md font-medium text-sm"
             >
               <LogOut className="w-4 h-4" />
               <span>Cerrar Sesión</span>

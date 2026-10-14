@@ -276,11 +276,11 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       </Link>
 
       {/* Header */}
-      <Card className="border-none shadow-sm rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+      <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 md:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1 min-w-0">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-slate-900 tracking-tight">
                 Solicitud {solicitud.numero_solicitud ?? `#${solicitud.id!.slice(0, 8)}`}
               </h2>
               <p className="text-[11px] text-slate-400 font-mono font-medium truncate">
@@ -290,14 +290,14 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <span
-                className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.bg} ${badge.text} border ${badge.border}`}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${badge.bg} ${badge.text} border ${badge.border}`}
               >
                 {ESTADO_LABEL[estado] ?? estado.replace("_", " ")}
               </span>
               {canEditSolicitud && estado !== "cancelada" && (
                 <Button
                   variant="outline"
-                  className="rounded-xl font-black border-slate-200 hover:bg-primary/5 h-9 px-3 text-xs"
+                  className="rounded-lg font-medium border-slate-200 hover:bg-primary/5 h-9 px-3 text-xs"
                   onClick={() => setEditDialogOpen(true)}
                 >
                   <Pencil className="w-3.5 h-3.5 mr-1.5" />
@@ -307,7 +307,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
               {canReprogramar && estado !== "cancelada" && (
                 <Button
                   variant="outline"
-                  className="rounded-xl font-black border-red-200 text-red-600 hover:bg-red-50 h-9 px-3 text-xs"
+                  className="rounded-lg font-medium border-red-200 text-red-600 hover:bg-red-50 h-9 px-3 text-xs"
                   onClick={() => setCancelarOpen(true)}
                 >
                   <Ban className="w-3.5 h-3.5 mr-1.5" />
@@ -318,7 +318,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
           </div>
 
           {estado === "cancelada" && (
-            <div className="flex gap-2 p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-700 font-medium">
+            <div className="flex gap-2 p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-700 font-medium">
               <Ban className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
               <span>
                 Solicitud cancelada
@@ -331,9 +331,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {ubicacion && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Ubicación
-                </p>
+                <p className="text-xs font-medium text-slate-400">Ubicación</p>
                 <p className="text-sm font-bold text-slate-700 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   {ubicacion.nombre_servicio}
@@ -342,9 +340,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             )}
             {tecnico && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Técnico
-                </p>
+                <p className="text-xs font-medium text-slate-400">Técnico</p>
                 <p className="text-sm font-bold text-slate-700 flex items-center gap-1">
                   <User className="w-3.5 h-3.5 text-slate-400" />
                   {tecnico.nombre.split(" ").slice(0, 2).join(" ")}
@@ -353,9 +349,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             )}
             {contacto && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Contacto
-                </p>
+                <p className="text-xs font-medium text-slate-400">Contacto</p>
                 <p className="text-sm font-bold text-slate-700">{contacto.nombre}</p>
                 {contacto.telefono && (
                   <p className="text-xs font-medium text-slate-500 flex items-center gap-1">
@@ -367,9 +361,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             )}
             {solicitud.tipo_servicio && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Tipo
-                </p>
+                <p className="text-xs font-medium text-slate-400">Tipo</p>
                 <p className="text-sm font-bold text-slate-700">
                   {solicitud.tipo_servicio.replace("_", " ")}
                 </p>
@@ -377,9 +369,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             )}
             {solicitud.fecha_solicitud && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Fecha Solicitud
-                </p>
+                <p className="text-xs font-medium text-slate-400">Fecha Solicitud</p>
                 <p className="text-sm font-bold text-slate-700 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   {solicitud.fecha_solicitud}
@@ -388,9 +378,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             )}
             {solicitud.fecha_estimada_visita && (
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Fecha Estimada
-                </p>
+                <p className="text-xs font-medium text-slate-400">Fecha Estimada</p>
                 <p className="text-sm font-bold text-slate-700 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   {solicitud.fecha_estimada_visita}
@@ -407,7 +395,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                 {solicitud.forma_pago ?? "Sin definir"}
               </span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                   solicitud.pago_recibido
                     ? "bg-emerald-100 text-emerald-600"
                     : "bg-red-100 text-red-500"
@@ -423,7 +411,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
       {/* Visitas existentes */}
       {visitas.length > 0 && (
         <div>
-          <h3 className="text-base md:text-xl font-black text-slate-800 tracking-tight mb-3">
+          <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight mb-3">
             Visitas Creadas
           </h3>
           <div className="space-y-2">
@@ -438,20 +426,20 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
               return (
                 <Card
                   key={visita.id}
-                  className="border-none shadow-sm hover:shadow-lg transition-all rounded-2xl bg-white overflow-hidden mb-2"
+                  className="border border-slate-200 shadow-none hover:border-slate-300 transition-all rounded-lg bg-white overflow-hidden mb-2"
                 >
                   <a href={`/dashboard/visitas/${visita.id}`} className="group block">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="bg-primary/10 p-2 rounded-xl flex-shrink-0">
+                          <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
                             <ClipboardCheck className="w-4 h-4 text-primary" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-slate-900 truncate flex items-center gap-1.5">
                               Visita — {cliente?.nombre_cliente ?? "Sin cliente"}
                               {visita.reprogramada_en && (
-                                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-black uppercase tracking-wider">
+                                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 text-xs font-medium">
                                   Reprogramada
                                 </span>
                               )}
@@ -459,13 +447,13 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                             <p className="text-[11px] text-slate-500 font-medium truncate">
                               {[sede?.nombre_sede, eqNombre].filter(Boolean).join(" · ")}
                             </p>
-                            <p className="text-[10px] text-slate-400 font-medium">
+                            <p className="text-xs text-slate-400 font-medium">
                               Estado: {visita.estado_visita.replace(/_/g, " ")}
                               {visita.fecha_visita ? ` · ${visita.fecha_visita}` : ""}
                               {` · #${visita.id!.slice(0, 8)}`}
                             </p>
                             {visita.reprogramada_en && visita.reprogramacion_motivo && (
-                              <p className="text-[10px] text-amber-700 font-medium truncate mt-0.5">
+                              <p className="text-xs text-amber-700 font-medium truncate mt-0.5">
                                 Motivo: {visita.reprogramacion_motivo}
                               </p>
                             )}
@@ -496,10 +484,10 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Crear visitas para todos los equipos pendientes */}
       {canCrearVisitas && equiposSinVisita.length > 0 && (
-        <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-2xl bg-primary/5 overflow-hidden">
+        <Card className="border-2 border-dashed border-primary/30 shadow-none rounded-lg bg-primary/5 overflow-hidden">
           <CardContent className="p-5 space-y-4">
             <div>
-              <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-800 tracking-tight flex items-center gap-2">
                 <Radio className="w-5 h-5 text-primary" />
                 Programar Visitas
               </h3>
@@ -512,9 +500,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
 
             {/* Selección de equipos a programar */}
             <div className="space-y-2">
-              <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Equipos a programar
-              </Label>
+              <Label className="text-xs font-medium text-slate-600">Equipos a programar</Label>
               <div className="space-y-2">
                 {equiposSinVisita.map((eq) => {
                   const nombre =
@@ -524,7 +510,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                   return (
                     <label
                       key={eq.id}
-                      className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-primary/40 transition-colors"
+                      className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-primary/40 transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -547,11 +533,9 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
             {/* Técnico y fecha de la visita */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Técnico Asignado *
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Técnico Asignado *</Label>
                 <Select value={tecnicoValue} onValueChange={(v) => setTecnicoSel(v ?? "")}>
-                  <SelectTrigger className="w-full rounded-xl border-slate-200 h-11 data-[size=default]:h-11 font-medium bg-white">
+                  <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium bg-white">
                     <SelectValue placeholder="Seleccionar técnico...">
                       {(v) =>
                         tecnicos.find((t) => String(t.id) === v)?.nombre || "Seleccionar técnico..."
@@ -568,12 +552,10 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                  Fecha de Visita
-                </Label>
+                <Label className="text-xs font-medium text-slate-600">Fecha de Visita</Label>
                 <Input
                   type="date"
-                  className="rounded-xl border-slate-200 focus:border-primary font-medium h-11 bg-white"
+                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11 bg-white"
                   value={fechaVisitaValue}
                   onChange={(e) => setFechaVisitaSel(e.target.value)}
                 />
@@ -582,7 +564,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
 
             <div className="flex justify-end">
               <Button
-                className="rounded-xl font-black bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
+                className="rounded-lg font-medium bg-primary hover:bg-primary/90 text-white h-11 px-6 flex-shrink-0"
                 disabled={creatingVisita || !tecnicoValue || equiposAProgramar.length === 0}
                 onClick={handleCrearVisitas}
               >
@@ -604,7 +586,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
 
             {resultado && (
               <div
-                className={`p-3 rounded-xl text-sm font-medium ${
+                className={`p-3 rounded-lg text-sm font-medium ${
                   resultado.errores.length === 0
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     : "bg-red-50 text-red-600 border border-red-200"
@@ -642,7 +624,7 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Todos los equipos ya tienen visita */}
       {equiposSinVisita.length === 0 && equipos.length > 0 && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium flex items-center gap-2">
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 font-medium flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
           Todos los equipos de esta ubicación ya tienen visita programada.
         </div>

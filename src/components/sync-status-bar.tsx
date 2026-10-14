@@ -85,7 +85,7 @@ export function SyncStatusBar() {
         className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90"
       >
         {icon}
-        <span className="text-[11px] font-black uppercase tracking-widest truncate">{label}</span>
+        <span className="text-[11px] font-medium truncate">{label}</span>
       </Link>
 
       {errorCount > 0 && (
@@ -96,9 +96,7 @@ export function SyncStatusBar() {
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 flex-shrink-0 ml-3"
         >
           <AlertTriangle className="w-3 h-3" />
-          <span className="text-[10px] font-black uppercase tracking-widest">
-            {errorCount} con error
-          </span>
+          <span className="text-xs font-medium">{errorCount} con error</span>
         </Link>
       )}
     </div>

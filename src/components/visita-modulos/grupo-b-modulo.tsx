@@ -1232,7 +1232,6 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
             <SetupField
               label="Distancia foco-sensor d1 (cm)"
               defaultValue={setup?.distancia_foco_sensor_d1_cm ?? ""}
-              placeholder="100"
               onSave={(v) =>
                 updateSetup({ distancia_foco_sensor_d1_cm: v ? parseDecimal(v) : undefined })
               }
@@ -1240,7 +1239,6 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
             <SetupField
               label="Distancia foco-detector d2 (cm)"
               defaultValue={setup?.distancia_foco_detector_d2_cm ?? ""}
-              placeholder="110"
               onSave={(v) =>
                 updateSetup({ distancia_foco_detector_d2_cm: v ? parseDecimal(v) : undefined })
               }

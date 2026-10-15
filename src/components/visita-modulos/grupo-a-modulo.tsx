@@ -928,7 +928,6 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 label="Fondo natural (μSv/h)"
                 step="0.001"
                 defaultValue={setup?.fondo_natural_usv_h ?? ""}
-                placeholder="Ej: 0.08"
                 onSave={(v) =>
                   updateSetup({ fondo_natural_usv_h: v ? parseDecimal(v) : undefined })
                 }
@@ -937,7 +936,6 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 label="Distancia tubo — operario (m)"
                 step="0.1"
                 defaultValue={setup?.distancia_tubo_operario_m ?? ""}
-                placeholder="Ej: 2.5"
                 onSave={(v) =>
                   updateSetup({ distancia_tubo_operario_m: v ? parseDecimal(v) : undefined })
                 }
@@ -1181,7 +1179,6 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                           step="0.001"
                           className="rounded-lg h-7 text-xs font-medium border-slate-200 w-20"
                           defaultValue={m.tasa_dosis_usv_h ?? ""}
-                          placeholder="0.00"
                           onBlur={(e) => {
                             if (!m.id) return;
                             const usv = e.target.value ? parseDecimal(e.target.value) : undefined;

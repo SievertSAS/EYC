@@ -611,7 +611,6 @@ export function EquipoFormDialog({
               <Input
                 type="number"
                 className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                placeholder="100"
                 value={distanciaFoco}
                 onChange={(e) => setDistanciaFoco(e.target.value)}
               />
@@ -702,7 +701,6 @@ export function EquipoFormDialog({
                   type="number"
                   step="0.1"
                   className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="0.5"
                   value={filtInherente}
                   onChange={(e) => setFiltInherente(e.target.value)}
                 />
@@ -713,7 +711,6 @@ export function EquipoFormDialog({
                   type="number"
                   step="0.1"
                   className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="1.0"
                   value={filtAnadida}
                   onChange={(e) => setFiltAnadida(e.target.value)}
                 />

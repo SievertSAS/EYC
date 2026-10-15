@@ -218,7 +218,6 @@ export function UbicacionFormDialog({
               <Input
                 type="number"
                 className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                placeholder="8"
                 min="1"
                 max="24"
                 value={horas}
@@ -253,7 +252,6 @@ export function UbicacionFormDialog({
                   type="number"
                   step="0.01"
                   className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="3.40"
                   value={ancho}
                   onChange={(e) => setAncho(e.target.value)}
                 />
@@ -264,7 +262,6 @@ export function UbicacionFormDialog({
                   type="number"
                   step="0.01"
                   className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="6.10"
                   value={largo}
                   onChange={(e) => setLargo(e.target.value)}
                 />
@@ -275,7 +272,6 @@ export function UbicacionFormDialog({
                   type="number"
                   step="0.01"
                   className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                  placeholder="2.30"
                   value={alto}
                   onChange={(e) => setAlto(e.target.value)}
                 />

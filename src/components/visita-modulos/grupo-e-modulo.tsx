@@ -658,10 +658,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                 onSave={(v) => updateColimacion({ sid_cm: v ? parseDecimal(v) : 100 })}
               />
               {[
-                ["tecnica_kv", "kVp", "75"],
-                ["tecnica_ma", "mA", ""],
-                ["tecnica_mas", "mAs", ""],
-              ].map(([field, label, ph]) => (
+                ["tecnica_kv", "kVp"],
+                ["tecnica_ma", "mA"],
+                ["tecnica_mas", "mAs"],
+              ].map(([field, label]) => (
                 <SetupField
                   key={field}
                   label={label}
@@ -669,7 +669,6 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   defaultValue={
                     ((colim as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
-                  placeholder={ph}
                   onSave={(v) => updateColimacion({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}

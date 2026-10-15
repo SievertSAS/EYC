@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { convertirDap, convertirKerma } from "./unidades-raysafe";
+import { convertirDap, convertirKerma, dapNoAplica } from "./unidades-raysafe";
 
 describe("convertirDap — normaliza a mGy·cm²", () => {
   it("mgy_cm2 → identidad", () => {
@@ -55,5 +55,13 @@ describe("convertirKerma — normaliza a mGy", () => {
   it("consistencia cruzada: 1 gy == 1000 mgy == 1_000_000 ugy", () => {
     expect(convertirKerma(1, "gy")).toBeCloseTo(convertirKerma(1000, "mgy"), 10);
     expect(convertirKerma(1, "gy")).toBeCloseTo(convertirKerma(1_000_000, "ugy"), 5);
+  });
+});
+
+describe("dapNoAplica — equipo sin medidor de DAP", () => {
+  it("true only for the 'no_aplica' option", () => {
+    expect(dapNoAplica("no_aplica")).toBe(true);
+    expect(dapNoAplica("mgy_cm2")).toBe(false);
+    expect(dapNoAplica(undefined)).toBe(false);
   });
 });

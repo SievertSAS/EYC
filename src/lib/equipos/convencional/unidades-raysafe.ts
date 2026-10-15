@@ -9,6 +9,12 @@
  */
 
 export type UnidadDap = "mgy_cm2" | "ugy_cm2" | "dgy_cm2" | "gy_m2";
+/**
+ * Opción de `unidad_dap` para equipos sin medidor de DAP: el panel no reporta
+ * DAP, así que no hay DAP nominal que cargar y la 2.8 no aplica.
+ */
+export const DAP_NO_APLICA = "no_aplica";
+export type UnidadDapEquipo = UnidadDap | typeof DAP_NO_APLICA;
 export type UnidadKerma = "ugy" | "mgy" | "cgy" | "dgy" | "gy";
 
 /** Factor para convertir 1 unidad a mGy·cm² (unidad de referencia interna). */
@@ -43,6 +49,11 @@ export const LABEL_UNIDAD_KERMA: Record<UnidadKerma, string> = {
   dgy: "dGy",
   gy: "Gy",
 };
+
+/** ¿El equipo no reporta DAP (`unidad_dap` = "no_aplica")? */
+export function dapNoAplica(unidad: UnidadDapEquipo | undefined): boolean {
+  return unidad === DAP_NO_APLICA;
+}
 
 /** Normaliza un valor de DAP a mGy·cm² (unidad de referencia interna). */
 export function convertirDap(valor: number, desde: UnidadDap | undefined): number {

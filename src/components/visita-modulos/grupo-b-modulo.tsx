@@ -22,7 +22,11 @@ import {
   upsertValoresBaseEquipo,
 } from "@/lib/equipos/convencional/equipo-valores-base-sync";
 import { campoDosisBasePorPrograma } from "@/lib/equipos/convencional/valores-base-equipo";
-import { LABEL_UNIDAD_KERMA, LABEL_UNIDAD_DAP } from "@/lib/equipos/convencional/unidades-raysafe";
+import {
+  LABEL_UNIDAD_KERMA,
+  LABEL_UNIDAD_DAP,
+  DAP_NO_APLICA,
+} from "@/lib/equipos/convencional/unidades-raysafe";
 import {
   calcularResultado24,
   calcularResultado25,
@@ -712,6 +716,10 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
 
   // ─── Derived data ───
   const setup = data?.setup;
+  // Unidad del DAP que reporta el panel del equipo; null si el equipo no tiene
+  // medidor de DAP (se ocultan las columnas de DAP y la 2.8 no aplica).
+  const unidadDap = setup?.unidad_dap ?? "mgy_cm2";
+  const labelUnidadDap = unidadDap === DAP_NO_APLICA ? null : LABEL_UNIDAD_DAP[unidadDap];
 
   // Resultados auto-calculados en vivo (2.4/2.5/2.6/2.7/2.21/2.8): las mismas
   // funciones puras que usan el badge del pre-informe y el PDF (evaluacion.ts),
@@ -856,6 +864,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                 <option value="ugy_cm2">µGy·cm²</option>
                 <option value="dgy_cm2">dGy·cm²</option>
                 <option value="gy_m2">Gy·m²</option>
+                <option value={DAP_NO_APLICA}>No aplica (no reporta DAP)</option>
               </select>
             </div>
             <div className="space-y-1">
@@ -928,7 +937,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     ["t med. (s)", "w-20"],
                     [`Dosis (${LABEL_UNIDAD_KERMA[setup?.unidad_kerma ?? "mgy"]})`, "w-20"],
                     ["CHR (mmAl)", "w-20"],
-                    [`DAP (${LABEL_UNIDAD_DAP[setup?.unidad_dap ?? "mgy_cm2"]})`, "w-16"],
+                    ...(labelUnidadDap ? [[`DAP (${labelUnidadDap})`, "w-16"]] : []),
                     ["Para pruebas", "min-w-[120px]"],
                   ].map(([label, cls]) => (
                     <th
@@ -1040,22 +1049,26 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1">
                         <CeldaLectura value={m.chr_medido_mmal ?? null} widthClass="w-20" />
                       </td>
-                      <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-16"
-                          defaultValue={m.dap_medido ?? ""}
-                          placeholder="—"
-                          onBlur={(e) => {
-                            if (!m.id) return;
-                            updateMedicion(m.id, {
-                              dap_medido: e.target.value ? parseDecimal(e.target.value) : undefined,
-                            });
-                            flash(m.id);
-                          }}
-                        />
-                      </td>
+                      {labelUnidadDap && (
+                        <td className="py-1.5 px-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-16"
+                            defaultValue={m.dap_medido ?? ""}
+                            placeholder="—"
+                            onBlur={(e) => {
+                              if (!m.id) return;
+                              updateMedicion(m.id, {
+                                dap_medido: e.target.value
+                                  ? parseDecimal(e.target.value)
+                                  : undefined,
+                              });
+                              flash(m.id);
+                            }}
+                          />
+                        </td>
+                      )}
                       <td className="py-1.5 px-1 text-xs text-slate-400 font-medium">
                         {isFirstInGroup ? grupoInfo?.para : ""}
                       </td>
@@ -1373,7 +1386,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     "Programa",
                     "kV",
                     "mAs",
-                    `DAP nom. (${LABEL_UNIDAD_DAP[setup?.unidad_dap ?? "mgy_cm2"]})`,
+                    ...(labelUnidadDap ? [`DAP nom. (${labelUnidadDap})`] : []),
                     "Foco-sensor (cm)",
                     "Foco-detector (cm)",
                     "Ancho (cm)",
@@ -1432,26 +1445,31 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           "largo_irradiacion_cm",
                           "dosis_medida_mgy",
                         ] as const
-                      ).map((field) => (
-                        <td key={field} className="py-1.5 px-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                            defaultValue={
-                              ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
-                            }
-                            placeholder="—"
-                            onBlur={(e) => {
-                              if (!m.id) return;
-                              updateMedicion(m.id, {
-                                [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
-                              });
-                              flash(m.id);
-                            }}
-                          />
-                        </td>
-                      ))}
+                      )
+                        // Sin DAP en el equipo no hay DAP nominal que cargar.
+                        .filter((field) => labelUnidadDap || field !== "dap_nominal")
+                        .map((field) => (
+                          <td key={field} className="py-1.5 px-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
+                              defaultValue={
+                                ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
+                              }
+                              placeholder="—"
+                              onBlur={(e) => {
+                                if (!m.id) return;
+                                updateMedicion(m.id, {
+                                  [field]: e.target.value
+                                    ? parseDecimal(e.target.value)
+                                    : undefined,
+                                });
+                                flash(m.id);
+                              }}
+                            />
+                          </td>
+                        ))}
                     </tr>
                   );
                 })}
@@ -1597,7 +1615,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
           <StepHeader step="Resultados" title="2.8 Factor de corrección PKA" icon={Zap}>
             Solo informativo — esta prueba no tiene criterio de aceptación.
           </StepHeader>
-          {resultadosCalculados.r28.length === 0 ? (
+          {!labelUnidadDap ? (
+            <p className="text-xs font-medium text-slate-500">
+              No aplica: el equipo no reporta DAP.
+            </p>
+          ) : resultadosCalculados.r28.length === 0 ? (
             <ConceptoBadgeChico conforme={null} />
           ) : (
             resultadosCalculados.r28.map((r, i) => (

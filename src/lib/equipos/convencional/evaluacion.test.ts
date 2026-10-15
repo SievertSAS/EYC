@@ -437,6 +437,26 @@ describe("calcularResultado221/28 — valores intermedios", () => {
     expect(r[0]).not.toHaveProperty("conforme");
     expect(r[0].factorCorreccion).not.toBeNull();
   });
+
+  it("calcularResultado28 sin DAP del equipo (no aplica) → sin DAP nominal ni factor", () => {
+    const r = calcularResultado28(
+      [
+        rs({
+          tipo_medicion: "kerma",
+          toma_numero: 1,
+          kv_nominal: 80,
+          mas_nominal: 10,
+          dosis_medida_mgy: 0.5,
+          dap_nominal: 100,
+          ancho_irradiacion_cm: 20,
+          largo_irradiacion_cm: 20,
+        }),
+      ],
+      { visita_id: "v1", unidad_dap: "no_aplica" }
+    );
+    expect(r[0].dapNominal).toBeNull();
+    expect(r[0].factorCorreccion).toBeNull();
+  });
 });
 
 // ─── 2.9 / 2.10 DDI/EI ───
@@ -831,6 +851,19 @@ describe("motivoNoAplicaAutomatico — reglas automáticas de 'no aplica' (#116)
         codigo
       ).toBeUndefined();
     }
+  });
+
+  it("2.8 con unidad DAP del equipo 'no_aplica' → motivo de no aplica", () => {
+    const regla = reglaNoAplicaAutomatica("2.8", { raysafeSetup: { unidad_dap: "no_aplica" } });
+    expect(regla?.motivo).toMatch(/^NO APLICA/);
+    expect(regla?.nota).toMatch(/no reporta DAP/);
+  });
+
+  it("2.8 con una unidad DAP real o sin configurar → undefined", () => {
+    expect(
+      reglaNoAplicaAutomatica("2.8", { raysafeSetup: { unidad_dap: "mgy_cm2" } })
+    ).toBeUndefined();
+    expect(reglaNoAplicaAutomatica("2.8", {})).toBeUndefined();
   });
 
   it("reglaNoAplicaAutomatica entrega el mismo motivo y la leyenda para el editor", () => {

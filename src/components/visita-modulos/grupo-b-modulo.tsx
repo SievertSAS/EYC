@@ -3,6 +3,16 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
+import {
+  campoDesactualizado,
+  leerTecnica,
+  patchTecnica,
+  recalcularCampo,
+  registrarEdicion,
+  type CampoTecnica,
+} from "@/lib/tecnica-exposicion";
+import { ConRecalcular } from "@/components/visita-modulos/boton-recalcular";
+import type { ConvRaysafeMedicion } from "@/lib/equipos/convencional/db/types";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -76,6 +86,19 @@ const GRUPOS_ESPEJO = new Set(
 );
 
 type CampoNominal = "kv_nominal" | "ma_nominal" | "tiempo_nominal_s" | "mas_nominal";
+
+/** Columnas de la técnica nominal que cumplen mA × t = mAs */
+const CAMPOS_TECNICA_NOMINAL = {
+  ma: "ma_nominal",
+  t: "tiempo_nominal_s",
+  mas: "mas_nominal",
+} as const;
+
+const CAMPO_TECNICA_POR_NOMINAL: Partial<Record<CampoNominal, CampoTecnica>> = {
+  ma_nominal: "ma",
+  tiempo_nominal_s: "t",
+  mas_nominal: "mas",
+};
 
 const PROGRAMAS_CLINICOS = ["Extremidad", "Tórax AP", "Columna AP"];
 
@@ -581,6 +604,28 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     }
   }
 
+  // Campos de mA / t / mAs editados en esta sesión, por toma (más reciente
+  // primero): decide cuál marcar como desactualizado si dejan de cuadrar.
+  const [editadosNominal, setEditadosNominal] = useState<Record<string, CampoTecnica[]>>({});
+
+  function registrarEdicionFila(
+    m: ConvRaysafeMedicion,
+    campo: CampoNominal,
+    val: number | undefined
+  ) {
+    const c = CAMPO_TECNICA_POR_NOMINAL[campo];
+    const id = m.id;
+    if (!c || !id || val === (m[campo] ?? undefined)) return;
+    setEditadosNominal((prev) => ({ ...prev, [id]: registrarEdicion(prev[id] ?? [], c) }));
+  }
+
+  function desactualizadoFila(m: ConvRaysafeMedicion): CampoTecnica | null {
+    return campoDesactualizado(
+      leerTecnica(CAMPOS_TECNICA_NOMINAL, m),
+      (m.id && editadosNominal[m.id]) || []
+    );
+  }
+
   /** Propaga la técnica nominal a todas las tomas del mismo grupo (espejo). */
   async function updateNominalGrupo(
     grupoNumero: number | undefined,
@@ -602,19 +647,21 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
   async function updateNominalConRejilla(
     conRejillaId: string,
     programaClinico: string | undefined,
-    field: CampoNominal,
-    value: number | undefined
+    fields: Partial<Record<CampoNominal, number | undefined>>
   ) {
-    await updateAndSync("conv_raysafe_mediciones", conRejillaId, { [field]: value });
+    await updateAndSync("conv_raysafe_mediciones", conRejillaId, fields);
     if (!programaClinico) return;
     const sinRejillaMatch = sinRejilla.find((m) => m.programa_clinico === programaClinico);
     if (sinRejillaMatch?.id) {
-      await updateAndSync("conv_raysafe_mediciones", sinRejillaMatch.id, { [field]: value });
+      await updateAndSync("conv_raysafe_mediciones", sinRejillaMatch.id, fields);
     }
-    if (field === "kv_nominal" || field === "mas_nominal") {
+    const camposKerma = Object.fromEntries(
+      Object.entries(fields).filter(([k]) => k === "kv_nominal" || k === "mas_nominal")
+    );
+    if (Object.keys(camposKerma).length > 0) {
       const kermaMatch = kerma.find((m) => m.programa_clinico === programaClinico);
       if (kermaMatch?.id) {
-        await updateAndSync("conv_raysafe_mediciones", kermaMatch.id, { [field]: value });
+        await updateAndSync("conv_raysafe_mediciones", kermaMatch.id, camposKerma);
       }
     }
   }
@@ -905,6 +952,13 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                   // Técnica nominal: editable en la 1a toma (o grupos sin espejo);
                   // solo lectura en las tomas espejadas. Al editar la 1a toma de un
                   // grupo espejo, el valor se propaga a las demás tomas del grupo.
+                  const guardarNominal = (fields: Record<string, unknown>) => {
+                    if (!m.id) return;
+                    if (esEspejo && isFirstInGroup) updateNominalGrupo(m.grupo_numero, fields);
+                    else updateMedicion(m.id, fields);
+                    flash(m.id);
+                  };
+
                   const celdaNominal = (campo: CampoNominal, widthClass: string, step?: string) =>
                     nominalEspejo ? (
                       <CeldaLectura
@@ -913,20 +967,38 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                         widthClass={widthClass}
                       />
                     ) : (
-                      <Input
-                        type="number"
-                        step={step}
-                        className={`rounded-lg h-7 text-xs font-medium border-slate-200 ${widthClass}`}
-                        defaultValue={m[campo] ?? ""}
-                        onBlur={(e) => {
-                          if (!m.id) return;
-                          const val = e.target.value ? parseDecimal(e.target.value) : undefined;
-                          if (esEspejo && isFirstInGroup)
-                            updateNominalGrupo(m.grupo_numero, { [campo]: val });
-                          else updateMedicion(m.id, { [campo]: val });
-                          flash(m.id);
+                      <ConRecalcular
+                        mostrar={
+                          !!CAMPO_TECNICA_POR_NOMINAL[campo] &&
+                          CAMPO_TECNICA_POR_NOMINAL[campo] === desactualizadoFila(m)
+                        }
+                        onRecalcular={() => {
+                          const c = CAMPO_TECNICA_POR_NOMINAL[campo];
+                          const valor = c
+                            ? recalcularCampo(leerTecnica(CAMPOS_TECNICA_NOMINAL, m), c)
+                            : null;
+                          if (valor != null) guardarNominal({ [campo]: valor });
                         }}
-                      />
+                      >
+                        <Input
+                          // Remonta el input (no controlado) cuando mA × t = mAs
+                          // completa o recalcula el campo.
+                          key={`${campo}-${m[campo] ?? ""}`}
+                          type="number"
+                          step={step}
+                          className={`rounded-lg h-7 text-xs font-medium border-slate-200 ${widthClass}`}
+                          defaultValue={m[campo] ?? ""}
+                          onBlur={(e) => {
+                            if (!m.id) return;
+                            const val = e.target.value ? parseDecimal(e.target.value) : undefined;
+                            registrarEdicionFila(m, campo, val);
+                            guardarNominal({
+                              [campo]: val,
+                              ...patchTecnica(CAMPOS_TECNICA_NOMINAL, { ...m, [campo]: val }),
+                            });
+                          }}
+                        />
+                      </ConRecalcular>
                     );
 
                   return (
@@ -1058,22 +1130,43 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     {(["kv_nominal", "ma_nominal", "tiempo_nominal_s", "mas_nominal"] as const).map(
                       (field) => (
                         <td key={field} className="py-1.5 px-1.5">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
-                            defaultValue={m[field] ?? ""}
-                            onBlur={(e) => {
-                              if (!m.id) return;
-                              updateNominalConRejilla(
-                                m.id,
-                                m.programa_clinico,
-                                field,
-                                e.target.value ? parseDecimal(e.target.value) : undefined
-                              );
+                          <ConRecalcular
+                            mostrar={
+                              !!CAMPO_TECNICA_POR_NOMINAL[field] &&
+                              CAMPO_TECNICA_POR_NOMINAL[field] === desactualizadoFila(m)
+                            }
+                            onRecalcular={() => {
+                              const c = CAMPO_TECNICA_POR_NOMINAL[field];
+                              const valor = c
+                                ? recalcularCampo(leerTecnica(CAMPOS_TECNICA_NOMINAL, m), c)
+                                : null;
+                              if (valor == null || !m.id) return;
+                              updateNominalConRejilla(m.id, m.programa_clinico, { [field]: valor });
                               flash(m.id);
                             }}
-                          />
+                          >
+                            <Input
+                              // Remonta el input (no controlado) cuando mA × t = mAs
+                              // completa o recalcula el campo.
+                              key={`${field}-${m[field] ?? ""}`}
+                              type="number"
+                              step="0.01"
+                              className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
+                              defaultValue={m[field] ?? ""}
+                              onBlur={(e) => {
+                                if (!m.id) return;
+                                const val = e.target.value
+                                  ? parseDecimal(e.target.value)
+                                  : undefined;
+                                registrarEdicionFila(m, field, val);
+                                updateNominalConRejilla(m.id, m.programa_clinico, {
+                                  [field]: val,
+                                  ...patchTecnica(CAMPOS_TECNICA_NOMINAL, { ...m, [field]: val }),
+                                });
+                                flash(m.id);
+                              }}
+                            />
+                          </ConRecalcular>
                         </td>
                       )
                     )}

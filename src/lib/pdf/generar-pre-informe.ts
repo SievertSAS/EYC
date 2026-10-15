@@ -1,6 +1,7 @@
 import type { jsPDF } from "jspdf";
 import { db } from "@/lib/db";
 import { formatDecimal } from "@/lib/decimal";
+import { formatFechaParcial } from "@/lib/fecha-parcial";
 import type {
   VisitaEjecucion,
   Equipo,
@@ -1113,7 +1114,7 @@ export async function generarPreInforme(
     ["Marca", datos.equipo?.gen_marca ?? "No reporta"],
     ["Modelo", datos.equipo?.gen_modelo ?? "No reporta"],
     ["No. de Serie", datos.equipo?.gen_numero_serie ?? "No reporta"],
-    ["Fecha de fabricación", datos.equipo?.gen_fecha_fabricacion ?? "No reporta"],
+    ["Fecha de fabricación", formatFechaParcial(datos.equipo?.gen_fecha_fabricacion, "No reporta")],
     ["Fase del generador", datos.equipo?.gen_fase?.replace(/_/g, " ") ?? "No reporta"],
     // Excepción: siempre "No aplica" si está vacío, nunca "No reporta" (regla de negocio).
     [

@@ -10,6 +10,7 @@ import type { EquipoIdentificacion, Sede } from "@/lib/db/types";
 import { matchIdPorNombre } from "@/lib/divipola";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
 import { ImagenConTitulo } from "@/components/imagen-con-titulo";
+import { FechaParcialInput } from "@/components/fecha-parcial-input";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -1292,13 +1293,17 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             value={toStr(equipo?.gen_modelo)}
             onSave={(v) => saveEquipo("gen_modelo", v)}
           />
-          <EditableField
-            label="Fecha de Fabricación"
-            value={toStr(equipo?.gen_fecha_fabricacion)}
-            icon={Calendar}
-            type="date"
-            onSave={(v) => saveEquipo("gen_fecha_fabricacion", v)}
-          />
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+              <Calendar className="w-3 h-3" />
+              Fecha de Fabricación
+            </p>
+            <FechaParcialInput
+              className="h-9"
+              value={toStr(equipo?.gen_fecha_fabricacion)}
+              onChange={(v) => saveEquipo("gen_fecha_fabricacion", v)}
+            />
+          </div>
           <SelectField
             label="Fase del Generador"
             value={toStr(equipo?.gen_fase)}

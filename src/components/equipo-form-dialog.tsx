@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FechaParcialInput } from "@/components/fecha-parcial-input";
 import {
   Select,
   SelectContent,
@@ -639,7 +640,7 @@ export function EquipoFormDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3">
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-600">No. Serie</Label>
                 <Input
@@ -651,12 +652,7 @@ export function EquipoFormDialog({
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-600">Fecha Fabricación</Label>
-                <Input
-                  type="date"
-                  className="rounded-lg border-slate-200 focus:border-primary font-medium h-11"
-                  value={genFechaFab}
-                  onChange={(e) => setGenFechaFab(e.target.value)}
-                />
+                <FechaParcialInput className="h-11" value={genFechaFab} onChange={setGenFechaFab} />
               </div>
             </div>
             <div className="space-y-2">

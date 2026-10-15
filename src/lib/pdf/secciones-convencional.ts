@@ -42,6 +42,7 @@ import {
   calcularResultado28,
 } from "@/lib/equipos/convencional/evaluacion";
 import { LABEL_UNIDAD_DAP, LABEL_UNIDAD_KERMA } from "@/lib/equipos/convencional/unidades-raysafe";
+import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
 import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import {
@@ -2561,7 +2562,9 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
   const sid = m.distancia_foco_sensor_cm != null ? `${m.distancia_foco_sensor_cm} cm` : "—";
   const kv = m.tecnica_kv != null ? `${m.tecnica_kv} kVp` : "—";
   const pixel = m.pixel_size_mm != null ? `${m.pixel_size_mm} mm` : "—";
-  const nyquist = m.nyquist_lpmm != null ? `${m.nyquist_lpmm} lp/mm` : "—";
+  // Nyquist se deriva del píxel; el valor guardado queda para visitas sin píxel.
+  const nyquistLpmm = nyquistDesdePixel(m.pixel_size_mm) ?? m.nyquist_lpmm;
+  const nyquist = nyquistLpmm != null ? `${nyquistLpmm} lp/mm` : "—";
   addParagraph(
     `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, tensión de referencia ${kv}, tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`
   );

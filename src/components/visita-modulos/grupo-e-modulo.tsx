@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
-import { parseDecimal } from "@/lib/decimal";
+import { formatDecimal, parseDecimal } from "@/lib/decimal";
+import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -1227,11 +1228,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           <CollapsibleSection title="Tecnica y parametros">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                ["distancia_foco_sensor_cm", "Foco-sensor (cm)", "150"],
-                ["tecnica_kv", "kVp", "70"],
-                ["pixel_size_mm", "Pixel size (mm)", "0.15"],
-                ["nyquist_lpmm", "Nyquist (lp/mm)", "3.33"],
-              ].map(([field, label, ph]) => (
+                ["distancia_foco_sensor_cm", "Foco-sensor (cm)"],
+                ["tecnica_kv", "kVp"],
+                ["pixel_size_mm", "Pixel size (mm)"],
+              ].map(([field, label]) => (
                 <SetupField
                   key={field}
                   label={label}
@@ -1239,10 +1239,31 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   defaultValue={
                     ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
-                  placeholder={ph}
-                  onSave={(v) => updateMtf({ [field]: v ? parseDecimal(v) : undefined })}
+                  onSave={(v) => {
+                    const val = v ? parseDecimal(v) : undefined;
+                    // Nyquist se deriva del píxel: se guarda junto para el informe.
+                    updateMtf(
+                      field === "pixel_size_mm"
+                        ? { pixel_size_mm: val, nyquist_lpmm: nyquistDesdePixel(val) }
+                        : { [field]: val }
+                    );
+                  }}
                 />
               ))}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-400">Nyquist (lp/mm)</label>
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  title="Calculado: 1 / (2 × pixel size)"
+                  className="rounded-lg h-9 text-sm font-medium bg-slate-50 text-slate-600"
+                  value={formatDecimal(
+                    nyquistDesdePixel(mtfData?.pixel_size_mm) ?? mtfData?.nyquist_lpmm,
+                    2,
+                    ""
+                  )}
+                />
+              </div>
             </div>
           </CollapsibleSection>
 

@@ -100,7 +100,8 @@ export interface ConvRaysafeSetup extends Partial<SyncFields> {
   archivo_raysafe_blob?: Blob;
   archivo_raysafe_nombre?: string;
   /** Unidad de `dap_nominal` — el DAP que reporta el panel del equipo del cliente (#113). */
-  unidad_dap?: "mgy_cm2" | "ugy_cm2" | "dgy_cm2" | "gy_m2";
+  /** "no_aplica": el equipo no tiene medidor de DAP (la 2.8 no aplica). */
+  unidad_dap?: "mgy_cm2" | "ugy_cm2" | "dgy_cm2" | "gy_m2" | "no_aplica";
   /** Unidad de `dosis_medida_mgy`/`dap_medido` — lo que mide el instrumento RaySafe (#113). */
   unidad_kerma?: "ugy" | "mgy" | "cgy" | "dgy" | "gy";
   creado_en?: string;

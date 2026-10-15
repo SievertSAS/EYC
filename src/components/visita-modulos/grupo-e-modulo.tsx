@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
-import { parseDecimal } from "@/lib/decimal";
+import { formatDecimal, parseDecimal } from "@/lib/decimal";
+import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -175,37 +176,6 @@ function ImageSlot({
           e.target.value = "";
         }}
       />
-    </div>
-  );
-}
-
-/** Preview de solo lectura de una foto capturada en otra prueba del Grupo E (#117). */
-function ImagenCompartida({
-  label,
-  origen,
-  evidencia,
-}: {
-  label: string;
-  origen: string;
-  evidencia?: { id?: string; blob_local?: Blob | null; url_storage?: string | null };
-}) {
-  const preview = useImagenSrc(evidencia ?? {});
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-slate-400">
-        {label} — misma foto que en la prueba {origen}
-      </p>
-      {preview ? (
-        <img
-          src={preview}
-          alt={label}
-          className="w-full h-48 object-cover rounded-lg border border-slate-200"
-        />
-      ) : (
-        <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-300 text-xs font-bold">
-          Sin foto capturada en la prueba {origen} todavía
-        </div>
-      )}
     </div>
   );
 }
@@ -688,10 +658,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                 onSave={(v) => updateColimacion({ sid_cm: v ? parseDecimal(v) : 100 })}
               />
               {[
-                ["tecnica_kv", "kVp", "75"],
-                ["tecnica_ma", "mA", ""],
-                ["tecnica_mas", "mAs", ""],
-              ].map(([field, label, ph]) => (
+                ["tecnica_kv", "kVp"],
+                ["tecnica_ma", "mA"],
+                ["tecnica_mas", "mAs"],
+              ].map(([field, label]) => (
                 <SetupField
                   key={field}
                   label={label}
@@ -699,7 +669,6 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   defaultValue={
                     ((colim as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
-                  placeholder={ph}
                   onSave={(v) => updateColimacion({ [field]: v ? parseDecimal(v) : undefined })}
                 />
               ))}
@@ -1055,10 +1024,11 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           </StepHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ImagenCompartida
+            <ImageSlot
               label="Foto montaje experimental"
-              origen="2.3"
-              evidencia={getEvidencia("2.3", "montaje_colimacion")}
+              evidencia={getEvidencia("2.12", "montaje_resolucion")}
+              onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)}
+              onRemove={() => removeImage("2.12", "montaje_resolucion")}
             />
             <ImageSlot
               label="Radiografía del patrón de resolución"
@@ -1148,11 +1118,21 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             Marca los niveles de contraste visibles en la imagen del phantom.
           </StepHeader>
 
-          <ImagenCompartida
-            label="Patrón de bajo contraste"
-            origen="2.3"
-            evidencia={getEvidencia("2.3", "patron_colimacion")}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImageSlot
+              label="Foto montaje experimental"
+              evidencia={getEvidencia("2.13", "montaje_experimental_bajo_contraste")}
+              onCapture={(f) => captureImage("2.13", "montaje_experimental_bajo_contraste", f)}
+              onRemove={() => removeImage("2.13", "montaje_experimental_bajo_contraste")}
+            />
+            {/* El slot del patrón conserva su nombre histórico (`montaje_bajo_contraste`). */}
+            <ImageSlot
+              label="Patrón de bajo contraste"
+              evidencia={getEvidencia("2.13", "montaje_bajo_contraste")}
+              onCapture={(f) => captureImage("2.13", "montaje_bajo_contraste", f)}
+              onRemove={() => removeImage("2.13", "montaje_bajo_contraste")}
+            />
+          </div>
 
           {(() => {
             const formato = bc?.formato ?? "contraste";
@@ -1247,11 +1227,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           <CollapsibleSection title="Tecnica y parametros">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                ["distancia_foco_sensor_cm", "Foco-sensor (cm)", "150"],
-                ["tecnica_kv", "kVp", "70"],
-                ["pixel_size_mm", "Pixel size (mm)", "0.15"],
-                ["nyquist_lpmm", "Nyquist (lp/mm)", "3.33"],
-              ].map(([field, label, ph]) => (
+                ["distancia_foco_sensor_cm", "Foco-sensor (cm)"],
+                ["tecnica_kv", "kVp"],
+                ["pixel_size_mm", "Pixel size (mm)"],
+              ].map(([field, label]) => (
                 <SetupField
                   key={field}
                   label={label}
@@ -1259,10 +1238,31 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
                   defaultValue={
                     ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
                   }
-                  placeholder={ph}
-                  onSave={(v) => updateMtf({ [field]: v ? parseDecimal(v) : undefined })}
+                  onSave={(v) => {
+                    const val = v ? parseDecimal(v) : undefined;
+                    // Nyquist se deriva del píxel: se guarda junto para el informe.
+                    updateMtf(
+                      field === "pixel_size_mm"
+                        ? { pixel_size_mm: val, nyquist_lpmm: nyquistDesdePixel(val) }
+                        : { [field]: val }
+                    );
+                  }}
                 />
               ))}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-400">Nyquist (lp/mm)</label>
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  title="Calculado: 1 / (2 × pixel size)"
+                  className="rounded-lg h-9 text-sm font-medium bg-slate-50 text-slate-600"
+                  value={formatDecimal(
+                    nyquistDesdePixel(mtfData?.pixel_size_mm) ?? mtfData?.nyquist_lpmm,
+                    2,
+                    ""
+                  )}
+                />
+              </div>
             </div>
           </CollapsibleSection>
 

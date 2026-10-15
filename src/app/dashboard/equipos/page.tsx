@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { TIPOS_EQUIPO } from "@/lib/db/types";
 import type { Equipo } from "@/lib/db/types";
+import { formatFechaParcial } from "@/lib/fecha-parcial";
 import { EquipoFormDialog } from "@/components/equipo-form-dialog";
 
 // ============================================================
@@ -242,7 +243,7 @@ export default function EquiposPage() {
                         {equipo.gen_numero_serie ?? "—"}
                       </TableCell>
                       <TableCell className="text-slate-600 whitespace-nowrap">
-                        {equipo.gen_fecha_fabricacion ?? "—"}
+                        {formatFechaParcial(equipo.gen_fecha_fabricacion)}
                       </TableCell>
                       <TableCell>
                         {equipo.tipo_equipo ? (
@@ -324,7 +325,7 @@ export default function EquiposPage() {
                           {equipo.gen_fecha_fabricacion && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {equipo.gen_fecha_fabricacion}
+                              {formatFechaParcial(equipo.gen_fecha_fabricacion)}
                             </span>
                           )}
                         </div>

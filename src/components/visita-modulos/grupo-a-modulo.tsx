@@ -47,6 +47,16 @@ import {
 } from "@/components/ui/combobox";
 import type { ConvInspeccionItem } from "@/lib/equipos/convencional/db/types";
 import { calcularWUsado } from "@/lib/equipos/convencional/carga-trabajo";
+import {
+  campoDeColumna,
+  campoDesactualizado,
+  leerTecnica,
+  patchTecnica,
+  recalcularCampo,
+  registrarEdicion,
+  type CampoTecnica,
+} from "@/lib/tecnica-exposicion";
+import { BotonRecalcular } from "@/components/visita-modulos/boton-recalcular";
 
 // ─── Constants ───
 
@@ -54,6 +64,13 @@ import {
   ITEMS_INSPECCION_EQUIPO,
   ITEMS_CONDICIONES_OPERACION,
 } from "@/lib/equipos/convencional/inspeccion-items";
+
+/** Columnas de la técnica del levantamiento que cumplen mA × t = mAs */
+const CAMPOS_TECNICA_SETUP = {
+  ma: "tecnica_ma",
+  t: "tecnica_tiempo_s",
+  mas: "tecnica_mas",
+} as const;
 
 /** Catálogo de elementos de protección radiológica estandarizados */
 const CATALOGO_ELEMENTOS_PROTECCION = [
@@ -550,6 +567,9 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   // Acumula los campos pendientes — con un solo timer, editar varios campos
   // seguidos descartaba todos menos el último.
   const setupPending = useRef<Record<string, unknown>>({});
+  // Campos de mA / t / mAs editados en esta sesión (más reciente primero):
+  // decide cuál marcar como desactualizado si dejan de cuadrar.
+  const [editadosTecnica, setEditadosTecnica] = useState<CampoTecnica[]>([]);
 
   function updateSetup(fields: Record<string, unknown>) {
     if (!data?.setup?.id) return;
@@ -715,6 +735,10 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
   const modoActivo = cargaTrabajoModo ?? (wEstimada >= W_ESTANDAR ? "estimada" : "tipica");
   const wUsado = calcularWUsado(wEstimada, W_ESTANDAR, cargaTrabajoModo);
   const corrientePrueba = num(setup?.tecnica_ma);
+  const desactualizadoSetup = campoDesactualizado(
+    leerTecnica(CAMPOS_TECNICA_SETUP, setup ?? {}),
+    editadosTecnica
+  );
   const semanasLaborales = num(setup?.semanas_laborales) || 50;
 
   // Recalcular todas las mediciones cuando cambia un parámetro global del cálculo
@@ -904,7 +928,6 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 label="Fondo natural (μSv/h)"
                 step="0.001"
                 defaultValue={setup?.fondo_natural_usv_h ?? ""}
-                placeholder="Ej: 0.08"
                 onSave={(v) =>
                   updateSetup({ fondo_natural_usv_h: v ? parseDecimal(v) : undefined })
                 }
@@ -913,7 +936,6 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                 label="Distancia tubo — operario (m)"
                 step="0.1"
                 defaultValue={setup?.distancia_tubo_operario_m ?? ""}
-                placeholder="Ej: 2.5"
                 onSave={(v) =>
                   updateSetup({ distancia_tubo_operario_m: v ? parseDecimal(v) : undefined })
                 }
@@ -929,21 +951,54 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {(
                 [
-                  ["tecnica_kv", "Tensión (kV)", "70"],
-                  ["tecnica_ma", "Corriente (mA)", "200"],
-                  ["tecnica_tiempo_s", "Tiempo (s)", "0.1"],
-                  ["tecnica_mas", "Exposición (mAs)", "20"],
+                  ["tecnica_kv", "Tensión (kV)"],
+                  ["tecnica_ma", "Corriente (mA)"],
+                  ["tecnica_tiempo_s", "Tiempo (s)"],
+                  ["tecnica_mas", "Exposición (mAs)"],
                 ] as const
-              ).map(([field, label, ph]) => (
-                <SetupField
-                  key={field}
-                  label={label}
-                  step="0.01"
-                  defaultValue={setup?.[field] ?? ""}
-                  placeholder={ph}
-                  onSave={(v) => updateSetup({ [field]: v ? parseDecimal(v) : undefined })}
-                />
-              ))}
+              ).map(([field, label]) => {
+                const campo = campoDeColumna(CAMPOS_TECNICA_SETUP, field);
+                return (
+                  <SetupField
+                    // El valor en la key remonta el input (no controlado) cuando
+                    // mA × t = mAs completa o recalcula el campo.
+                    key={`${field}-${setup?.[field] ?? ""}`}
+                    label={label}
+                    step="0.01"
+                    defaultValue={setup?.[field] ?? ""}
+                    labelExtra={
+                      campo && campo === desactualizadoSetup ? (
+                        <BotonRecalcular
+                          onClick={() => {
+                            const valor = recalcularCampo(
+                              leerTecnica(CAMPOS_TECNICA_SETUP, {
+                                ...setup,
+                                ...setupPending.current,
+                              }),
+                              campo
+                            );
+                            if (valor != null) updateSetup({ [field]: valor });
+                          }}
+                        />
+                      ) : undefined
+                    }
+                    onSave={(v) => {
+                      const val = v ? parseDecimal(v) : undefined;
+                      if (campo && val !== setup?.[field])
+                        setEditadosTecnica((h) => registrarEdicion(h, campo));
+                      updateSetup({
+                        [field]: val,
+                        // Incluye lo que aún espera el debounce de updateSetup.
+                        ...patchTecnica(CAMPOS_TECNICA_SETUP, {
+                          ...setup,
+                          ...setupPending.current,
+                          [field]: val,
+                        }),
+                      });
+                    }}
+                  />
+                );
+              })}
             </div>
           </CollapsibleSection>
 
@@ -1124,7 +1179,6 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
                           step="0.001"
                           className="rounded-lg h-7 text-xs font-medium border-slate-200 w-20"
                           defaultValue={m.tasa_dosis_usv_h ?? ""}
-                          placeholder="0.00"
                           onBlur={(e) => {
                             if (!m.id) return;
                             const usv = e.target.value ? parseDecimal(e.target.value) : undefined;

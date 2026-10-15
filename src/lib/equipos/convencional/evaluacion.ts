@@ -20,6 +20,7 @@ import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones
 import {
   convertirKerma,
   convertirDap,
+  dapNoAplica,
   type UnidadKerma,
 } from "@/lib/equipos/convencional/unidades-raysafe";
 import { promedio, desviacion, cvPct, desvNominal } from "@/lib/equipos/convencional/estadistica";
@@ -113,7 +114,9 @@ export function tolerancia211Default(sistemaAdquisicion?: string): number {
 }
 
 /** Lo único que las reglas automáticas de "no aplica" leen del equipo. */
-export type DatosNoAplicaAutomatico = Pick<DatosEvalConv, "sistema_adquisicion">;
+export type DatosNoAplicaAutomatico = Pick<DatosEvalConv, "sistema_adquisicion"> & {
+  raysafeSetup?: Pick<ConvRaysafeSetup, "unidad_dap">;
+};
 
 export interface ReglaNoAplicaAutomatica {
   /** Motivo que el informe imprime en la Metodología de la prueba. */
@@ -128,11 +131,18 @@ const NO_APLICA_SISTEMA_DR: ReglaNoAplicaAutomatica = {
   nota: "No aplica automáticamente: el equipo es un sistema Digital (DR). Se cambia en la información del equipo.",
 };
 
+const NO_APLICA_SIN_DAP: ReglaNoAplicaAutomatica = {
+  motivo:
+    "NO APLICA, toda vez que el equipo evaluado no cuenta con medidor de producto dosis-área (DAP), por lo que no reporta un valor de DAP nominal con el cual comparar.",
+  nota: "No aplica automáticamente: el equipo no reporta DAP. Se cambia en la unidad DAP nominal del Grupo B.",
+};
+
 /**
  * Reglas automáticas de "no aplica": pruebas que quedan excluidas por un dato
  * del equipo, sin que el físico apague el switch. Es el único lugar donde
  * viven; agregar una regla es agregar un caso aquí.
  *   - #116: 2.14 y 2.15 solo aplican a sistemas CR; no aplican a un equipo DR.
+ *   - 2.8 compara contra el DAP del panel; no aplica si el equipo no reporta DAP.
  * Devuelve undefined si ninguna regla excluye la prueba.
  */
 export function reglaNoAplicaAutomatica(
@@ -141,6 +151,9 @@ export function reglaNoAplicaAutomatica(
 ): ReglaNoAplicaAutomatica | undefined {
   if ((codigo === "2.14" || codigo === "2.15") && sistemaEsDR(datos?.sistema_adquisicion)) {
     return NO_APLICA_SISTEMA_DR;
+  }
+  if (codigo === "2.8" && dapNoAplica(datos?.raysafeSetup?.unidad_dap)) {
+    return NO_APLICA_SIN_DAP;
   }
   return undefined;
 }
@@ -811,7 +824,10 @@ export function calcularResultado28(
     const areaCorr = ancho * largo * factorDist;
     const kermaCorr = kermaVal * factorDist;
     const dapEstimado = kermaCorr * areaCorr;
-    const dapNominal = m.dap_nominal != null ? convertirDap(m.dap_nominal, unidadDap) : null;
+    const dapNominal =
+      m.dap_nominal != null && unidadDap !== "no_aplica"
+        ? convertirDap(m.dap_nominal, unidadDap)
+        : null;
     const factorCorreccion = dapNominal != null && dapNominal > 0 ? dapEstimado / dapNominal : null;
     return {
       kvNominal: m.kv_nominal,

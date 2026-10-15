@@ -3,6 +3,16 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
+import {
+  campoDesactualizado,
+  leerTecnica,
+  patchTecnica,
+  recalcularCampo,
+  registrarEdicion,
+  type CampoTecnica,
+} from "@/lib/tecnica-exposicion";
+import { ConRecalcular } from "@/components/visita-modulos/boton-recalcular";
+import type { ConvRaysafeMedicion } from "@/lib/equipos/convencional/db/types";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -12,7 +22,11 @@ import {
   upsertValoresBaseEquipo,
 } from "@/lib/equipos/convencional/equipo-valores-base-sync";
 import { campoDosisBasePorPrograma } from "@/lib/equipos/convencional/valores-base-equipo";
-import { LABEL_UNIDAD_KERMA, LABEL_UNIDAD_DAP } from "@/lib/equipos/convencional/unidades-raysafe";
+import {
+  LABEL_UNIDAD_KERMA,
+  LABEL_UNIDAD_DAP,
+  DAP_NO_APLICA,
+} from "@/lib/equipos/convencional/unidades-raysafe";
 import {
   calcularResultado24,
   calcularResultado25,
@@ -76,6 +90,19 @@ const GRUPOS_ESPEJO = new Set(
 );
 
 type CampoNominal = "kv_nominal" | "ma_nominal" | "tiempo_nominal_s" | "mas_nominal";
+
+/** Columnas de la técnica nominal que cumplen mA × t = mAs */
+const CAMPOS_TECNICA_NOMINAL = {
+  ma: "ma_nominal",
+  t: "tiempo_nominal_s",
+  mas: "mas_nominal",
+} as const;
+
+const CAMPO_TECNICA_POR_NOMINAL: Partial<Record<CampoNominal, CampoTecnica>> = {
+  ma_nominal: "ma",
+  tiempo_nominal_s: "t",
+  mas_nominal: "mas",
+};
 
 const PROGRAMAS_CLINICOS = ["Extremidad", "Tórax AP", "Columna AP"];
 
@@ -581,6 +608,28 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     }
   }
 
+  // Campos de mA / t / mAs editados en esta sesión, por toma (más reciente
+  // primero): decide cuál marcar como desactualizado si dejan de cuadrar.
+  const [editadosNominal, setEditadosNominal] = useState<Record<string, CampoTecnica[]>>({});
+
+  function registrarEdicionFila(
+    m: ConvRaysafeMedicion,
+    campo: CampoNominal,
+    val: number | undefined
+  ) {
+    const c = CAMPO_TECNICA_POR_NOMINAL[campo];
+    const id = m.id;
+    if (!c || !id || val === (m[campo] ?? undefined)) return;
+    setEditadosNominal((prev) => ({ ...prev, [id]: registrarEdicion(prev[id] ?? [], c) }));
+  }
+
+  function desactualizadoFila(m: ConvRaysafeMedicion): CampoTecnica | null {
+    return campoDesactualizado(
+      leerTecnica(CAMPOS_TECNICA_NOMINAL, m),
+      (m.id && editadosNominal[m.id]) || []
+    );
+  }
+
   /** Propaga la técnica nominal a todas las tomas del mismo grupo (espejo). */
   async function updateNominalGrupo(
     grupoNumero: number | undefined,
@@ -602,19 +651,21 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
   async function updateNominalConRejilla(
     conRejillaId: string,
     programaClinico: string | undefined,
-    field: CampoNominal,
-    value: number | undefined
+    fields: Partial<Record<CampoNominal, number | undefined>>
   ) {
-    await updateAndSync("conv_raysafe_mediciones", conRejillaId, { [field]: value });
+    await updateAndSync("conv_raysafe_mediciones", conRejillaId, fields);
     if (!programaClinico) return;
     const sinRejillaMatch = sinRejilla.find((m) => m.programa_clinico === programaClinico);
     if (sinRejillaMatch?.id) {
-      await updateAndSync("conv_raysafe_mediciones", sinRejillaMatch.id, { [field]: value });
+      await updateAndSync("conv_raysafe_mediciones", sinRejillaMatch.id, fields);
     }
-    if (field === "kv_nominal" || field === "mas_nominal") {
+    const camposKerma = Object.fromEntries(
+      Object.entries(fields).filter(([k]) => k === "kv_nominal" || k === "mas_nominal")
+    );
+    if (Object.keys(camposKerma).length > 0) {
       const kermaMatch = kerma.find((m) => m.programa_clinico === programaClinico);
       if (kermaMatch?.id) {
-        await updateAndSync("conv_raysafe_mediciones", kermaMatch.id, { [field]: value });
+        await updateAndSync("conv_raysafe_mediciones", kermaMatch.id, camposKerma);
       }
     }
   }
@@ -665,6 +716,10 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
 
   // ─── Derived data ───
   const setup = data?.setup;
+  // Unidad del DAP que reporta el panel del equipo; null si el equipo no tiene
+  // medidor de DAP (se ocultan las columnas de DAP y la 2.8 no aplica).
+  const unidadDap = setup?.unidad_dap ?? "mgy_cm2";
+  const labelUnidadDap = unidadDap === DAP_NO_APLICA ? null : LABEL_UNIDAD_DAP[unidadDap];
 
   // Resultados auto-calculados en vivo (2.4/2.5/2.6/2.7/2.21/2.8): las mismas
   // funciones puras que usan el badge del pre-informe y el PDF (evaluacion.ts),
@@ -809,6 +864,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                 <option value="ugy_cm2">µGy·cm²</option>
                 <option value="dgy_cm2">dGy·cm²</option>
                 <option value="gy_m2">Gy·m²</option>
+                <option value={DAP_NO_APLICA}>No aplica (no reporta DAP)</option>
               </select>
             </div>
             <div className="space-y-1">
@@ -881,7 +937,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     ["t med. (s)", "w-20"],
                     [`Dosis (${LABEL_UNIDAD_KERMA[setup?.unidad_kerma ?? "mgy"]})`, "w-20"],
                     ["CHR (mmAl)", "w-20"],
-                    [`DAP (${LABEL_UNIDAD_DAP[setup?.unidad_dap ?? "mgy_cm2"]})`, "w-16"],
+                    ...(labelUnidadDap ? [[`DAP (${labelUnidadDap})`, "w-16"]] : []),
                     ["Para pruebas", "min-w-[120px]"],
                   ].map(([label, cls]) => (
                     <th
@@ -905,6 +961,13 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                   // Técnica nominal: editable en la 1a toma (o grupos sin espejo);
                   // solo lectura en las tomas espejadas. Al editar la 1a toma de un
                   // grupo espejo, el valor se propaga a las demás tomas del grupo.
+                  const guardarNominal = (fields: Record<string, unknown>) => {
+                    if (!m.id) return;
+                    if (esEspejo && isFirstInGroup) updateNominalGrupo(m.grupo_numero, fields);
+                    else updateMedicion(m.id, fields);
+                    flash(m.id);
+                  };
+
                   const celdaNominal = (campo: CampoNominal, widthClass: string, step?: string) =>
                     nominalEspejo ? (
                       <CeldaLectura
@@ -913,20 +976,38 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                         widthClass={widthClass}
                       />
                     ) : (
-                      <Input
-                        type="number"
-                        step={step}
-                        className={`rounded-lg h-7 text-xs font-medium border-slate-200 ${widthClass}`}
-                        defaultValue={m[campo] ?? ""}
-                        onBlur={(e) => {
-                          if (!m.id) return;
-                          const val = e.target.value ? parseDecimal(e.target.value) : undefined;
-                          if (esEspejo && isFirstInGroup)
-                            updateNominalGrupo(m.grupo_numero, { [campo]: val });
-                          else updateMedicion(m.id, { [campo]: val });
-                          flash(m.id);
+                      <ConRecalcular
+                        mostrar={
+                          !!CAMPO_TECNICA_POR_NOMINAL[campo] &&
+                          CAMPO_TECNICA_POR_NOMINAL[campo] === desactualizadoFila(m)
+                        }
+                        onRecalcular={() => {
+                          const c = CAMPO_TECNICA_POR_NOMINAL[campo];
+                          const valor = c
+                            ? recalcularCampo(leerTecnica(CAMPOS_TECNICA_NOMINAL, m), c)
+                            : null;
+                          if (valor != null) guardarNominal({ [campo]: valor });
                         }}
-                      />
+                      >
+                        <Input
+                          // Remonta el input (no controlado) cuando mA × t = mAs
+                          // completa o recalcula el campo.
+                          key={`${campo}-${m[campo] ?? ""}`}
+                          type="number"
+                          step={step}
+                          className={`rounded-lg h-7 text-xs font-medium border-slate-200 ${widthClass}`}
+                          defaultValue={m[campo] ?? ""}
+                          onBlur={(e) => {
+                            if (!m.id) return;
+                            const val = e.target.value ? parseDecimal(e.target.value) : undefined;
+                            registrarEdicionFila(m, campo, val);
+                            guardarNominal({
+                              [campo]: val,
+                              ...patchTecnica(CAMPOS_TECNICA_NOMINAL, { ...m, [campo]: val }),
+                            });
+                          }}
+                        />
+                      </ConRecalcular>
                     );
 
                   return (
@@ -968,22 +1049,26 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                       <td className="py-1.5 px-1">
                         <CeldaLectura value={m.chr_medido_mmal ?? null} widthClass="w-20" />
                       </td>
-                      <td className="py-1.5 px-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-16"
-                          defaultValue={m.dap_medido ?? ""}
-                          placeholder="—"
-                          onBlur={(e) => {
-                            if (!m.id) return;
-                            updateMedicion(m.id, {
-                              dap_medido: e.target.value ? parseDecimal(e.target.value) : undefined,
-                            });
-                            flash(m.id);
-                          }}
-                        />
-                      </td>
+                      {labelUnidadDap && (
+                        <td className="py-1.5 px-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-16"
+                            defaultValue={m.dap_medido ?? ""}
+                            placeholder="—"
+                            onBlur={(e) => {
+                              if (!m.id) return;
+                              updateMedicion(m.id, {
+                                dap_medido: e.target.value
+                                  ? parseDecimal(e.target.value)
+                                  : undefined,
+                              });
+                              flash(m.id);
+                            }}
+                          />
+                        </td>
+                      )}
                       <td className="py-1.5 px-1 text-xs text-slate-400 font-medium">
                         {isFirstInGroup ? grupoInfo?.para : ""}
                       </td>
@@ -1058,22 +1143,43 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     {(["kv_nominal", "ma_nominal", "tiempo_nominal_s", "mas_nominal"] as const).map(
                       (field) => (
                         <td key={field} className="py-1.5 px-1.5">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
-                            defaultValue={m[field] ?? ""}
-                            onBlur={(e) => {
-                              if (!m.id) return;
-                              updateNominalConRejilla(
-                                m.id,
-                                m.programa_clinico,
-                                field,
-                                e.target.value ? parseDecimal(e.target.value) : undefined
-                              );
+                          <ConRecalcular
+                            mostrar={
+                              !!CAMPO_TECNICA_POR_NOMINAL[field] &&
+                              CAMPO_TECNICA_POR_NOMINAL[field] === desactualizadoFila(m)
+                            }
+                            onRecalcular={() => {
+                              const c = CAMPO_TECNICA_POR_NOMINAL[field];
+                              const valor = c
+                                ? recalcularCampo(leerTecnica(CAMPOS_TECNICA_NOMINAL, m), c)
+                                : null;
+                              if (valor == null || !m.id) return;
+                              updateNominalConRejilla(m.id, m.programa_clinico, { [field]: valor });
                               flash(m.id);
                             }}
-                          />
+                          >
+                            <Input
+                              // Remonta el input (no controlado) cuando mA × t = mAs
+                              // completa o recalcula el campo.
+                              key={`${field}-${m[field] ?? ""}`}
+                              type="number"
+                              step="0.01"
+                              className="rounded-lg h-7 text-xs font-medium border-slate-200 w-16"
+                              defaultValue={m[field] ?? ""}
+                              onBlur={(e) => {
+                                if (!m.id) return;
+                                const val = e.target.value
+                                  ? parseDecimal(e.target.value)
+                                  : undefined;
+                                registrarEdicionFila(m, field, val);
+                                updateNominalConRejilla(m.id, m.programa_clinico, {
+                                  [field]: val,
+                                  ...patchTecnica(CAMPOS_TECNICA_NOMINAL, { ...m, [field]: val }),
+                                });
+                                flash(m.id);
+                              }}
+                            />
+                          </ConRecalcular>
                         </td>
                       )
                     )}
@@ -1126,7 +1232,6 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
             <SetupField
               label="Distancia foco-sensor d1 (cm)"
               defaultValue={setup?.distancia_foco_sensor_d1_cm ?? ""}
-              placeholder="100"
               onSave={(v) =>
                 updateSetup({ distancia_foco_sensor_d1_cm: v ? parseDecimal(v) : undefined })
               }
@@ -1134,7 +1239,6 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
             <SetupField
               label="Distancia foco-detector d2 (cm)"
               defaultValue={setup?.distancia_foco_detector_d2_cm ?? ""}
-              placeholder="110"
               onSave={(v) =>
                 updateSetup({ distancia_foco_detector_d2_cm: v ? parseDecimal(v) : undefined })
               }
@@ -1280,7 +1384,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                     "Programa",
                     "kV",
                     "mAs",
-                    `DAP nom. (${LABEL_UNIDAD_DAP[setup?.unidad_dap ?? "mgy_cm2"]})`,
+                    ...(labelUnidadDap ? [`DAP nom. (${labelUnidadDap})`] : []),
                     "Foco-sensor (cm)",
                     "Foco-detector (cm)",
                     "Ancho (cm)",
@@ -1339,26 +1443,31 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
                           "largo_irradiacion_cm",
                           "dosis_medida_mgy",
                         ] as const
-                      ).map((field) => (
-                        <td key={field} className="py-1.5 px-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
-                            defaultValue={
-                              ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
-                            }
-                            placeholder="—"
-                            onBlur={(e) => {
-                              if (!m.id) return;
-                              updateMedicion(m.id, {
-                                [field]: e.target.value ? parseDecimal(e.target.value) : undefined,
-                              });
-                              flash(m.id);
-                            }}
-                          />
-                        </td>
-                      ))}
+                      )
+                        // Sin DAP en el equipo no hay DAP nominal que cargar.
+                        .filter((field) => labelUnidadDap || field !== "dap_nominal")
+                        .map((field) => (
+                          <td key={field} className="py-1.5 px-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="rounded-lg h-7 text-xs font-medium border-blue-200 bg-blue-50/50 w-20"
+                              defaultValue={
+                                ((m as unknown as Record<string, unknown>)[field] as string) ?? ""
+                              }
+                              placeholder="—"
+                              onBlur={(e) => {
+                                if (!m.id) return;
+                                updateMedicion(m.id, {
+                                  [field]: e.target.value
+                                    ? parseDecimal(e.target.value)
+                                    : undefined,
+                                });
+                                flash(m.id);
+                              }}
+                            />
+                          </td>
+                        ))}
                     </tr>
                   );
                 })}
@@ -1504,7 +1613,11 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
           <StepHeader step="Resultados" title="2.8 Factor de corrección PKA" icon={Zap}>
             Solo informativo — esta prueba no tiene criterio de aceptación.
           </StepHeader>
-          {resultadosCalculados.r28.length === 0 ? (
+          {!labelUnidadDap ? (
+            <p className="text-xs font-medium text-slate-500">
+              No aplica: el equipo no reporta DAP.
+            </p>
+          ) : resultadosCalculados.r28.length === 0 ? (
             <ConceptoBadgeChico conforme={null} />
           ) : (
             resultadosCalculados.r28.map((r, i) => (

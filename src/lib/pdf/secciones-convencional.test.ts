@@ -556,7 +556,7 @@ describe("2.21 — encabezado 'Cumple', tabla de valores base y 'Análisis' edit
 
 // ─── #117: montaje/patrón de 2.3 reutilizados en 2.12/2.13 ───
 
-describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 (#117)", () => {
+describe("recopilarDatosConv — fotos212/fotos213 propias, con 2.3 de respaldo (#117)", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "createImageBitmap",
@@ -631,6 +631,60 @@ describe("recopilarDatosConv — fotos212/fotos213 reutilizan evidencias de 2.3 
     const d = await recopilarDatosConv(V);
     expect(d.fotos212).toEqual([]);
     expect(d.fotos213).toEqual([]);
+  });
+
+  // Las fotos propias de 2.12/2.13 vuelven a cargarse; la 2.3 queda solo de
+  // respaldo para visitas hechas mientras se replicaban.
+  function evidencia(id: string, prueba: string, slot: string) {
+    return row({
+      id,
+      visita_id: V,
+      prueba_codigo: prueba,
+      slot,
+      url_storage: `https://example.com/${id}.jpg`,
+      ...ok,
+    });
+  }
+
+  /** fetch que devuelve como contenido la URL pedida, para saber qué foto terminó en el PDF. */
+  function fetchQueIdentificaLaFoto() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => ({
+        ok: true,
+        blob: async () => new Blob([url], { type: "image/jpeg" }),
+      }))
+    );
+  }
+
+  const deFoto = (id: string) => btoa(`https://example.com/${id}.jpg`);
+
+  it("2.12: la foto de montaje propia reemplaza a la de 2.3", async () => {
+    fetchQueIdentificaLaFoto();
+    await db.conv_evidencias.bulkAdd([
+      evidencia("ev-23", "2.3", "montaje_colimacion"),
+      evidencia("ev-212", "2.12", "montaje_resolucion"),
+    ]);
+    const d = await recopilarDatosConv(V);
+    const montaje = d.fotos212?.find((f) => f.label === "Foto montaje experimental");
+    expect(montaje?.dataUrl).toContain(deFoto("ev-212"));
+  });
+
+  it("2.13: montaje y patrón propios reemplazan a los de 2.3", async () => {
+    fetchQueIdentificaLaFoto();
+    await db.conv_evidencias.bulkAdd([
+      evidencia("ev-23-montaje", "2.3", "montaje_colimacion"),
+      evidencia("ev-23-patron", "2.3", "patron_colimacion"),
+      evidencia("ev-213-montaje", "2.13", "montaje_experimental_bajo_contraste"),
+      evidencia("ev-213-patron", "2.13", "montaje_bajo_contraste"),
+    ]);
+    const d = await recopilarDatosConv(V);
+    expect(d.fotos213?.map((f) => f.label)).toEqual([
+      "Foto montaje experimental",
+      "Patrón de bajo contraste",
+    ]);
+    expect(d.fotos213?.[0].dataUrl).toContain(deFoto("ev-213-montaje"));
+    expect(d.fotos213?.[1].dataUrl).toContain(deFoto("ev-213-patron"));
   });
 });
 

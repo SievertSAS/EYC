@@ -12,6 +12,8 @@ interface SetupFieldProps {
   placeholder?: string;
   className?: string;
   onSave: (value: string) => void;
+  /** Elemento chico al final de la fila del label (ej. un botón de recalcular). */
+  labelExtra?: React.ReactNode;
 }
 
 /**
@@ -31,6 +33,7 @@ export function SetupField({
   placeholder,
   className = "rounded-lg h-9 text-sm font-medium",
   onSave,
+  labelExtra,
 }: SetupFieldProps) {
   const [saved, setSaved] = useState(false);
 
@@ -48,6 +51,7 @@ export function SetupField({
       <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
         {label}
         {saved && <Check className="w-3 h-3 text-emerald-500" />}
+        {labelExtra && <span className="ml-auto">{labelExtra}</span>}
       </label>
       <Input
         type={type}

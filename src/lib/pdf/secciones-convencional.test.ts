@@ -944,6 +944,50 @@ describe("2.16 — Análisis (texto fijo) y tabla de valores base de referencia 
     expect(textoConBase).not.toMatch(/variación máxima/);
   });
 
+  it("las condiciones de medición incluyen la técnica completa (mA, t, mAs) cuando está cargada", async () => {
+    const [{ jsPDF }, { default: autoTableReal }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const parrafos: string[] = [];
+    let y = 20;
+    const ctx: InformeCtx = {
+      doc: new jsPDF(),
+      autoTable: autoTableReal,
+      get y() {
+        return y;
+      },
+      set y(v: number) {
+        y = v;
+      },
+      checkPage: () => {},
+      addParagraph: (texto: string) => {
+        parrafos.push(texto);
+      },
+      addSubsectionTitle: () => {},
+    };
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+
+    conv.mtf = row({
+      ...mtfBase,
+      tecnica_kv: 70,
+      tecnica_ma: 200,
+      tecnica_tiempo_s: 0.1,
+      tecnica_mas: 20,
+    });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    expect(parrafos.join(" ")).toContain(
+      "tensión de referencia 70 kVp, corriente 200 mA, tiempo 0,1 s, exposición 20 mAs,"
+    );
+
+    parrafos.length = 0;
+    conv.mtf = row({ ...mtfBase, tecnica_kv: 70 });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    const sinTecnica = parrafos.join(" ");
+    expect(sinTecnica).toContain("tensión de referencia 70 kVp, tamaño de píxel");
+    expect(sinTecnica).not.toMatch(/corriente|exposición \d/);
+  });
+
   it("renderTablaBaseRef216 muestra los valores base reales cuando existen", async () => {
     const { ctx, tablas } = await ctxConTablasCapturadas();
 

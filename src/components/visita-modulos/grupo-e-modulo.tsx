@@ -4,6 +4,16 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { formatDecimal, parseDecimal } from "@/lib/decimal";
 import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
+import {
+  campoDeColumna,
+  campoDesactualizado,
+  leerTecnica,
+  patchTecnica,
+  recalcularCampo,
+  registrarEdicion,
+  type CampoTecnica,
+} from "@/lib/tecnica-exposicion";
+import { BotonRecalcular } from "@/components/visita-modulos/boton-recalcular";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
@@ -45,6 +55,13 @@ import { useRowSavedFlash } from "@/hooks/use-row-saved";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
 
 // ─── Helpers ───
+
+/** Columnas de la técnica de la 2.16 que cumplen mA × t = mAs */
+const CAMPOS_TECNICA_MTF = {
+  ma: "tecnica_ma",
+  t: "tecnica_tiempo_s",
+  mas: "tecnica_mas",
+} as const;
 
 function num(v: unknown): number {
   if (v == null || v === "") return 0;
@@ -276,6 +293,9 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
   const { isReady } = useDb();
   const [manualOpen, setManualOpen] = useState(false);
   const [manualPrueba, setManualPrueba] = useState<string | undefined>();
+  // Campos de mA / t / mAs de la 2.16 editados en esta sesión (más reciente
+  // primero): decide cuál marcar como desactualizado si dejan de cuadrar.
+  const [editadosTecnicaMtf, setEditadosTecnicaMtf] = useState<CampoTecnica[]>([]);
   const pruebasManual = getManualGrupo("E");
   // Indicador liviano de "guardado" para la tabla de uniformidad de
   // detectores — ver useRowSavedFlash.
@@ -583,6 +603,10 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
   const resol = data.resolucion;
   const bc = data.bajoContraste;
   const mtfData = data.mtf;
+  const desactualizadoMtf = campoDesactualizado(
+    leerTecnica(CAMPOS_TECNICA_MTF, mtfData ?? {}),
+    editadosTecnicaMtf
+  );
 
   return (
     <div className="space-y-6 pb-10">
@@ -1226,29 +1250,55 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
 
           <CollapsibleSection title="Tecnica y parametros">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                ["distancia_foco_sensor_cm", "Foco-sensor (cm)"],
-                ["tecnica_kv", "kVp"],
-                ["pixel_size_mm", "Pixel size (mm)"],
-              ].map(([field, label]) => (
-                <SetupField
-                  key={field}
-                  label={label}
-                  step="0.01"
-                  defaultValue={
-                    ((mtfData as Record<string, unknown> | undefined)?.[field] as string) ?? ""
-                  }
-                  onSave={(v) => {
-                    const val = v ? parseDecimal(v) : undefined;
-                    // Nyquist se deriva del píxel: se guarda junto para el informe.
-                    updateMtf(
-                      field === "pixel_size_mm"
-                        ? { pixel_size_mm: val, nyquist_lpmm: nyquistDesdePixel(val) }
-                        : { [field]: val }
-                    );
-                  }}
-                />
-              ))}
+              {(
+                [
+                  ["distancia_foco_sensor_cm", "Foco-sensor (cm)"],
+                  ["tecnica_kv", "kVp"],
+                  ["tecnica_ma", "mA"],
+                  ["tecnica_tiempo_s", "Tiempo (s)"],
+                  ["tecnica_mas", "mAs"],
+                  ["pixel_size_mm", "Pixel size (mm)"],
+                ] as const
+              ).map(([field, label]) => {
+                const campo = campoDeColumna(CAMPOS_TECNICA_MTF, field);
+                return (
+                  <SetupField
+                    // El valor en la key remonta el input (no controlado) cuando
+                    // mA × t = mAs completa o recalcula el campo.
+                    key={`${field}-${mtfData?.[field] ?? ""}`}
+                    label={label}
+                    step="0.01"
+                    defaultValue={mtfData?.[field] ?? ""}
+                    labelExtra={
+                      campo && campo === desactualizadoMtf ? (
+                        <BotonRecalcular
+                          onClick={() => {
+                            const valor = recalcularCampo(
+                              leerTecnica(CAMPOS_TECNICA_MTF, mtfData ?? {}),
+                              campo
+                            );
+                            if (valor != null) updateMtf({ [field]: valor });
+                          }}
+                        />
+                      ) : undefined
+                    }
+                    onSave={(v) => {
+                      const val = v ? parseDecimal(v) : undefined;
+                      if (field === "pixel_size_mm") {
+                        // Nyquist se deriva del píxel: se guarda junto para el informe.
+                        updateMtf({ pixel_size_mm: val, nyquist_lpmm: nyquistDesdePixel(val) });
+                        return;
+                      }
+                      if (campo && val !== mtfData?.[field])
+                        setEditadosTecnicaMtf((h) => registrarEdicion(h, campo));
+                      updateMtf({
+                        [field]: val,
+                        ...patchTecnica(CAMPOS_TECNICA_MTF, { ...mtfData, [field]: val }),
+                      });
+                    }}
+                  />
+                );
+              })}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-400">Nyquist (lp/mm)</label>
                 <Input

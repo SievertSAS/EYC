@@ -2565,8 +2565,17 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
   // Nyquist se deriva del píxel; el valor guardado queda para visitas sin píxel.
   const nyquistLpmm = nyquistDesdePixel(m.pixel_size_mm) ?? m.nyquist_lpmm;
   const nyquist = nyquistLpmm != null ? `${nyquistLpmm} lp/mm` : "—";
+  // mA / t / mAs solo se citan si se cargaron (visitas previas no los tienen).
+  const tecnica = [
+    m.tecnica_ma != null ? `corriente ${formatDecimal(m.tecnica_ma)} mA` : null,
+    m.tecnica_tiempo_s != null ? `tiempo ${formatDecimal(m.tecnica_tiempo_s)} s` : null,
+    m.tecnica_mas != null ? `exposición ${formatDecimal(m.tecnica_mas)} mAs` : null,
+  ]
+    .filter(Boolean)
+    .map((t) => `${t}, `)
+    .join("");
   addParagraph(
-    `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, tensión de referencia ${kv}, tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`
+    `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, tensión de referencia ${kv}, ${tecnica}tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`
   );
 
   // Tabla de valores medidos

@@ -179,37 +179,6 @@ function ImageSlot({
   );
 }
 
-/** Preview de solo lectura de una foto capturada en otra prueba del Grupo E (#117). */
-function ImagenCompartida({
-  label,
-  origen,
-  evidencia,
-}: {
-  label: string;
-  origen: string;
-  evidencia?: { id?: string; blob_local?: Blob | null; url_storage?: string | null };
-}) {
-  const preview = useImagenSrc(evidencia ?? {});
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-slate-400">
-        {label} — misma foto que en la prueba {origen}
-      </p>
-      {preview ? (
-        <img
-          src={preview}
-          alt={label}
-          className="w-full h-48 object-cover rounded-lg border border-slate-200"
-        />
-      ) : (
-        <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-300 text-xs font-bold">
-          Sin foto capturada en la prueba {origen} todavía
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ConceptoBadge({ concepto }: { concepto: "Conforme" | "No_conforme" | null | undefined }) {
   if (!concepto) return <span className="text-xs text-slate-300 font-bold">—</span>;
   return concepto === "Conforme" ? (
@@ -1055,10 +1024,11 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
           </StepHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ImagenCompartida
+            <ImageSlot
               label="Foto montaje experimental"
-              origen="2.3"
-              evidencia={getEvidencia("2.3", "montaje_colimacion")}
+              evidencia={getEvidencia("2.12", "montaje_resolucion")}
+              onCapture={(f) => captureImage("2.12", "montaje_resolucion", f)}
+              onRemove={() => removeImage("2.12", "montaje_resolucion")}
             />
             <ImageSlot
               label="Radiografía del patrón de resolución"
@@ -1148,11 +1118,21 @@ export function GrupoEModulo({ visitaId: id }: { visitaId: string }) {
             Marca los niveles de contraste visibles en la imagen del phantom.
           </StepHeader>
 
-          <ImagenCompartida
-            label="Patrón de bajo contraste"
-            origen="2.3"
-            evidencia={getEvidencia("2.3", "patron_colimacion")}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImageSlot
+              label="Foto montaje experimental"
+              evidencia={getEvidencia("2.13", "montaje_experimental_bajo_contraste")}
+              onCapture={(f) => captureImage("2.13", "montaje_experimental_bajo_contraste", f)}
+              onRemove={() => removeImage("2.13", "montaje_experimental_bajo_contraste")}
+            />
+            {/* El slot del patrón conserva su nombre histórico (`montaje_bajo_contraste`). */}
+            <ImageSlot
+              label="Patrón de bajo contraste"
+              evidencia={getEvidencia("2.13", "montaje_bajo_contraste")}
+              onCapture={(f) => captureImage("2.13", "montaje_bajo_contraste", f)}
+              onRemove={() => removeImage("2.13", "montaje_bajo_contraste")}
+            />
+          </div>
 
           {(() => {
             const formato = bc?.formato ?? "contraste";

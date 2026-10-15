@@ -353,16 +353,14 @@ export async function recopilarDatosConv(
     const img = await resolverImagen(ev);
     if (img) fotos23.push({ label, ...img });
   }
-  // Montaje y patrón de la 2.3 se reutilizan en 2.12/2.13 (#117) — misma
-  // configuración física del detector, no se vuelve a fotografiar.
-  const evMontajeColimacion = evidencias.find(
-    (e) => e.prueba_codigo === "2.3" && e.slot === "montaje_colimacion"
-  );
-  const imgMontajeColimacion = await resolverImagen(evMontajeColimacion);
-  const evPatronColimacion = evidencias.find(
-    (e) => e.prueba_codigo === "2.3" && e.slot === "patron_colimacion"
-  );
-  const imgPatronColimacion = await resolverImagen(evPatronColimacion);
+  // 2.12/2.13 tienen sus propias fotos de montaje y patrón. Entre #117 y su
+  // reversión se reutilizaban las de la 2.3: si la prueba no tiene foto
+  // propia, la de la 2.3 queda de respaldo para no vaciar esos informes.
+  const fotoPropiaO23 = (prueba: string, slot: string, slot23: string) =>
+    resolverImagen(
+      evidencias.find((e) => e.prueba_codigo === prueba && e.slot === slot) ??
+        evidencias.find((e) => e.prueba_codigo === "2.3" && e.slot === slot23)
+    );
 
   // Fotografía de montaje RaySafe (secciones 2.4.7 y 2.5.7 — misma imagen)
   const ev24 = evidencias.find((e) => e.prueba_codigo === "2.4" && e.slot === "montaje_raysafe");
@@ -393,19 +391,22 @@ export async function recopilarDatosConv(
       ...img29,
     });
 
-  // Fotografías patrón bajo contraste para 2.13.7 — el montaje reutiliza
-  // montaje_colimacion de 2.3 (#117), igual que 2.12, seguido del patrón propio.
+  // Fotografías patrón bajo contraste para 2.13.7: montaje y patrón. El slot
+  // del patrón conserva su nombre histórico (`montaje_bajo_contraste`).
   const fotos213: NonNullable<DatosConvencional["fotos213"]> = [];
-  if (imgMontajeColimacion)
-    fotos213.push({ label: "Foto montaje experimental", ...imgMontajeColimacion });
-  if (imgPatronColimacion)
-    fotos213.push({ label: "Patrón de bajo contraste", ...imgPatronColimacion });
+  const imgMontaje213 = await fotoPropiaO23(
+    "2.13",
+    "montaje_experimental_bajo_contraste",
+    "montaje_colimacion"
+  );
+  if (imgMontaje213) fotos213.push({ label: "Foto montaje experimental", ...imgMontaje213 });
+  const imgPatron213 = await fotoPropiaO23("2.13", "montaje_bajo_contraste", "patron_colimacion");
+  if (imgPatron213) fotos213.push({ label: "Patrón de bajo contraste", ...imgPatron213 });
 
-  // Fotografías patrón resolución para 2.12.7 — el montaje reutiliza
-  // montaje_colimacion de 2.3 (#117), el DICOM sigue siendo propio de 2.12
+  // Fotografías patrón resolución para 2.12.7: montaje + DICOM
   const fotos212: NonNullable<DatosConvencional["fotos212"]> = [];
-  if (imgMontajeColimacion)
-    fotos212.push({ label: "Foto montaje experimental", ...imgMontajeColimacion });
+  const imgMontaje212 = await fotoPropiaO23("2.12", "montaje_resolucion", "montaje_colimacion");
+  if (imgMontaje212) fotos212.push({ label: "Foto montaje experimental", ...imgMontaje212 });
   const evDicomResolucion = evidencias.find(
     (e) => e.prueba_codigo === "2.12" && e.slot === "dicom_resolucion"
   );

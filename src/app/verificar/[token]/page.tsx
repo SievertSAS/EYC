@@ -8,6 +8,7 @@ import {
   FileText,
   Download,
 } from "lucide-react";
+import { fechaIsoColombia } from "@/lib/fecha-informe";
 
 // ============================================================
 //  Página pública de verificación de informes (escaneada vía QR)
@@ -101,7 +102,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
     pdfUrl = signed?.signedUrl ?? null;
   }
 
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = fechaIsoColombia();
   const vencido = informe.fecha_vencimiento < hoy;
   const enCorreccion = informe.estado === "correccion_cliente";
   const favorable = informe.concepto_general === "FAVORABLE";

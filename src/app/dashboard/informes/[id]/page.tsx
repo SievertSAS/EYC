@@ -28,6 +28,7 @@ import {
 import Link from "next/link";
 import { generarPreInforme } from "@/lib/pdf/generar-pre-informe";
 import { publicarVersionOficial } from "@/lib/workflow/publicar-informe";
+import { fechaIsoColombia } from "@/lib/fecha-informe";
 
 // ============================================================
 //  Detalle de informe con historial de versiones
@@ -99,7 +100,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
       })
     );
 
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = fechaIsoColombia();
     const vigente = informe.fecha_vencimiento >= hoy;
 
     return {

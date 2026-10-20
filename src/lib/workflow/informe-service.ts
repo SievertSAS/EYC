@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { Informe, InformeVersion } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
+import { fechasDelInforme } from "@/lib/fecha-informe";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import { hasPackage } from "@/lib/equipos/registry";
 import { cargarTablasConv, conceptoEfectivoSeccion } from "@/lib/equipos/convencional/evaluacion";
@@ -85,10 +86,9 @@ export async function crearInformeDesdeVisita(
   if (!visita) throw new Error("Visita no encontrada");
 
   const now = new Date();
-  const fechaEmision = now.toISOString().split("T")[0]; // YYYY-MM-DD
-  const fechaVencimiento = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate())
-    .toISOString()
-    .split("T")[0];
+  // La fecha del informe es siempre la de la visita (también en re-aprobaciones);
+  // lo que cambia con cada versión es `fecha_generacion`.
+  const { fechaEmision, fechaVencimiento } = fechasDelInforme(visita.fecha_visita, now);
   const conceptoGeneral = await determinarConceptoGeneral(visitaId);
 
   const existente = await db.informes.where("visita_id").equals(visitaId).first();

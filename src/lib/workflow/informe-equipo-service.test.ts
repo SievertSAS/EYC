@@ -77,12 +77,25 @@ describe("crearInformeDesdeVisita", () => {
     expect(inf.concepto_general).toBe("NO_FAVORABLE");
   });
 
-  it("vencimiento a 2 años de la emisión", async () => {
+  it("emisión = fecha de la visita y vencimiento = visita + 2 años", async () => {
     const { visita } = await seedGraph();
+    await db.visitas.update(visita!.id!, { fecha_visita: "2026-03-15" });
     const inf = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
-    const emis = new Date(inf.fecha_emision);
-    const venc = new Date(inf.fecha_vencimiento);
-    expect(venc.getFullYear() - emis.getFullYear()).toBe(2);
+    expect(inf.fecha_emision).toBe("2026-03-15");
+    expect(inf.fecha_vencimiento).toBe("2028-03-15");
+  });
+
+  it("re-aprobación conserva la fecha de la visita; solo cambia la fecha de generación", async () => {
+    const { visita } = await seedGraph();
+    await db.visitas.update(visita!.id!, { fecha_visita: "2026-03-15" });
+    const inf1 = await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+    await crearInformeDesdeVisita(visita!.id!, "ing", "tec");
+
+    const inf2 = await db.informes.get(inf1.id!);
+    expect(inf2!.fecha_emision).toBe("2026-03-15");
+    expect(inf2!.fecha_vencimiento).toBe("2028-03-15");
+    const versiones = await db.informe_versiones.where("informe_id").equals(inf1.id!).toArray();
+    expect(versiones.every((v) => !!v.fecha_generacion)).toBe(true);
   });
 
   it("re-aprobación: nueva versión sobre el MISMO informe, no uno nuevo", async () => {

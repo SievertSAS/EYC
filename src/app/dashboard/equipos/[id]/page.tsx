@@ -37,6 +37,10 @@ function nombreEquipo(eq: { gen_marca?: string; gen_modelo?: string; tipo_equipo
 
 function fmtFecha(iso?: string) {
   if (!iso) return "—";
+  // Fechas de solo día: sin `Date`, que las lee como medianoche UTC y en
+  // Colombia las muestra un día antes.
+  const dia = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dia) return `${dia[3]}/${dia[2]}/${dia[1]}`;
   const d = new Date(iso);
   return isNaN(d.getTime()) ? iso : d.toLocaleDateString("es-CO");
 }

@@ -2,6 +2,7 @@ import type { jsPDF } from "jspdf";
 import { db } from "@/lib/db";
 import { formatDecimal } from "@/lib/decimal";
 import { formatFechaParcial } from "@/lib/fecha-parcial";
+import { textoFechaLarga } from "@/lib/fecha-informe";
 import type {
   VisitaEjecucion,
   Equipo,
@@ -806,17 +807,10 @@ export async function generarPreInforme(
   const contactoProgramar = datos.contactos.find((c) => c.para_programar);
   const responsableVisita = datos.contactos.find((c) => c.cargo === "responsable_visita");
 
-  // Formato fecha — fecha_emision del Informe (se actualiza con cada versión
-  // por re-aprobación); si aún no existe el Informe (pre-informe), se usa la
-  // fecha de la visita como respaldo.
-  const fechaInformeRaw = datos.informe?.fecha_emision ?? datos.visita.fecha_visita;
-  const fechaInforme = fechaInformeRaw
-    ? new Date(fechaInformeRaw).toLocaleDateString("es-CO", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "No reporta";
+  // Fecha del informe — siempre la fecha de la visita, tanto en el pre-informe
+  // como en el informe final. La fecha que cambia con cada versión es la de
+  // generación, en el pie de página.
+  const fechaInforme = textoFechaLarga(datos.visita.fecha_visita);
 
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA 1 — PORTADA

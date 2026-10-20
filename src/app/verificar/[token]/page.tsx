@@ -161,7 +161,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-slate-400">Fecha de emisión</p>
+              <p className="text-xs font-medium text-slate-400">Fecha de informe</p>
               <p className="text-sm font-bold text-slate-700">{informe.fecha_emision}</p>
             </div>
             <div className="space-y-1">

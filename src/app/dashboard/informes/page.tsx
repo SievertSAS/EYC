@@ -201,7 +201,7 @@ export default function InformesPage() {
                     <TableHead>Informe</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Equipo</TableHead>
-                    <TableHead>Emisión</TableHead>
+                    <TableHead>Fecha de informe</TableHead>
                     <TableHead>Concepto</TableHead>
                     <TableHead>Vigencia</TableHead>
                     <TableHead className="w-10" aria-label="Abrir" />

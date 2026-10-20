@@ -23,6 +23,18 @@ describe("getAvailableActions", () => {
     expect(actions[0].target).toBe("en_revision");
   });
 
+  it("coordinador can also send a visit in progress to review, with the same gate", () => {
+    const actions = getAvailableActions("en_progreso", "coordinador");
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("enviar_revision");
+    expect(actions[0].hasGate).toBe(true);
+    expect(actions[0].target).toBe("en_revision");
+  });
+
+  it("programador cannot send a visit in progress to review", () => {
+    expect(getAvailableActions("en_progreso", "programador")).toHaveLength(0);
+  });
+
   it("coordinador can approve or return from en_revision", () => {
     const actions = getAvailableActions("en_revision", "coordinador");
     expect(actions).toHaveLength(2);

@@ -223,7 +223,7 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-slate-400">Emisión</p>
+              <p className="text-xs font-medium text-slate-400">Fecha de informe</p>
               <p className="text-sm font-bold text-slate-700">{informe.fecha_emision}</p>
             </div>
             <div className="space-y-1">

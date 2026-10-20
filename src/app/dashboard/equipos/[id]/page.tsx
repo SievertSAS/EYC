@@ -253,7 +253,8 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
                         {inf.numero_informe}
                       </p>
                       <p className="text-[11px] text-slate-400 font-medium">
-                        {inf.estado.replace(/_/g, " ")} · Emitido {fmtFecha(inf.fecha_emision)}
+                        {inf.estado.replace(/_/g, " ")} · Fecha de informe{" "}
+                        {fmtFecha(inf.fecha_emision)}
                       </p>
                     </div>
                     <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />

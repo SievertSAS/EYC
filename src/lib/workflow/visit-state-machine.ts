@@ -66,7 +66,7 @@ const TRANSITIONS: Record<EstadoVisita, ActionDefinition[]> = {
       description:
         "Marcar como lista y enviar al ingeniero para revisión (requiere módulos obligatorios)",
       target: "en_revision",
-      roles: ["tecnico"],
+      roles: ["tecnico", "coordinador"],
       hasGate: true,
       variant: "success",
       icon: "Send",

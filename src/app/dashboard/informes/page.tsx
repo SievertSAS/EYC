@@ -29,6 +29,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { fechaIsoColombia } from "@/lib/fecha-informe";
 
 // ============================================================
 //  Lista de informes con filtros
@@ -63,7 +64,7 @@ export default function InformesPage() {
         const solicitud = visita ? await db.solicitudes.get(visita.solicitud_id) : undefined;
         const cliente = solicitud ? await db.clientes.get(solicitud.cliente_id) : undefined;
 
-        const hoy = new Date().toISOString().split("T")[0];
+        const hoy = fechaIsoColombia();
         const vigente = informe.fecha_vencimiento >= hoy;
 
         return { informe, equipo, ubicacion, cliente, vigente };

@@ -2177,10 +2177,6 @@ const NIVELES_MASAS_MM = [
   { key: "masa_2" as const, label: "6 mm" },
   { key: "masa_3" as const, label: "4 mm" },
   { key: "masa_4" as const, label: "2 mm" },
-  { key: "masa_5" as const, label: "0 mm" },
-  { key: "masa_6" as const, label: "0 mm" },
-  { key: "masa_7" as const, label: "0 mm" },
-  { key: "masa_8" as const, label: "0 mm" },
 ];
 
 function render213(ctx: InformeCtx, conv: DatosConvencional): number {

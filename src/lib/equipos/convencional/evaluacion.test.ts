@@ -517,6 +517,24 @@ describe("2.13 — bajo contraste (detalle213)", () => {
     const bc = rs({ contraste_9_4: true, contraste_8_0: true });
     expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("No_conforme");
   });
+  it("masas: las 4 masas (8/6/4/2 mm) visibles → Conforme", () => {
+    const bc = rs({ formato: "masas", masa_1: true, masa_2: true, masa_3: true, masa_4: true });
+    expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("Conforme");
+    expect(detalle213({ bajoContraste: bc })?.visibles).toBe(4);
+  });
+  it("masas: ignora los slots legacy masa_5..masa_8 (placeholders sin masa real)", () => {
+    const bc = rs({
+      formato: "masas",
+      masa_1: true,
+      masa_2: true,
+      masa_5: true,
+      masa_6: true,
+      masa_7: true,
+      masa_8: true,
+    });
+    expect(detalle213({ bajoContraste: bc })?.visibles).toBe(2);
+    expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("No_conforme");
+  });
 });
 
 // ─── 2.15 uniformidad CR ───

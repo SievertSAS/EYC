@@ -556,16 +556,11 @@ const KEYS_BC = [
   "contraste_0_9",
 ] as const;
 
-const MASAS_MM_KEYS = [
-  "masa_1",
-  "masa_2",
-  "masa_3",
-  "masa_4",
-  "masa_5",
-  "masa_6",
-  "masa_7",
-  "masa_8",
-] as const;
+/**
+ * El maniquí de masas tiene 4 objetos (8/6/4/2 mm). masa_5..masa_8 existen en el
+ * esquema por compatibilidad, pero no representan masas reales y no se cuentan.
+ */
+const MASAS_MM_KEYS = ["masa_1", "masa_2", "masa_3", "masa_4"] as const;
 
 export interface Detalle213 {
   formato: "contraste" | "masas";

@@ -416,7 +416,7 @@ export interface ConvBajoContraste extends Partial<SyncFields> {
   contraste_0_9?: boolean;
   /** Plantilla usada — por defecto "contraste" (compatibilidad con datos existentes) */
   formato?: "contraste" | "masas";
-  /** 8 masas (mm): visible sí/no — plantilla alterna, mismo orden que NIVELES_MASAS */
+  /** Masas (mm): visible sí/no — plantilla alterna. Solo masa_1..4 (8/6/4/2 mm) son reales; 5..8 son legacy sin uso */
   masa_1?: boolean;
   masa_2?: boolean;
   masa_3?: boolean;

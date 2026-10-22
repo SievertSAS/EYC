@@ -366,14 +366,14 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
     metodologiaNoAplica:
       "NO APLICA, toda vez que el equipo no cuenta con receptor de imagen digital.",
     criterio:
-      "Debe observarse una cantidad mayor a tres masas o tener un porcentaje de contraste inferior a 4 %.",
+      "Debe observarse una cantidad igual o mayor a tres masas o tener un porcentaje de contraste inferior a 4 %.",
     comoSeEvalua: {
       datos:
         "El formato del maniquí (objetos de contraste o masas) y cuáles de sus elementos marcó como visibles el técnico.",
       calculo:
         "Cuenta los elementos visibles. En formato de contraste, además revisa si se alcanzó alguno de los cuatro niveles más bajos (2,8 / 1,8 / 1,3 / 0,9).",
       criterio:
-        "Conforme si hay más de 3 elementos visibles, o (en formato de contraste) si se alcanzó alguno de los niveles bajos. Sin maniquí cargado → Pendiente.",
+        "En formato de masas, Conforme si hay 3 o más masas visibles. En formato de contraste, Conforme si hay más de 3 niveles visibles o si se alcanzó alguno de los niveles bajos. Sin maniquí cargado → Pendiente.",
     },
     accionesConforme:
       "No se requieren acciones correctivas. Se recomienda continuar con el programa de control de calidad establecido.",

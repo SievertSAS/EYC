@@ -522,6 +522,18 @@ describe("2.13 — bajo contraste (detalle213)", () => {
     expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("Conforme");
     expect(detalle213({ bajoContraste: bc })?.visibles).toBe(4);
   });
+  it("masas: 3 masas visibles (≥3) → Conforme", () => {
+    const bc = rs({ formato: "masas", masa_1: true, masa_2: true, masa_3: true });
+    expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("Conforme");
+  });
+  it("masas: 2 masas visibles → No_conforme", () => {
+    const bc = rs({ formato: "masas", masa_1: true, masa_2: true });
+    expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("No_conforme");
+  });
+  it("contraste: 3 niveles altos sin umbral bajo sigue siendo No_conforme (>3)", () => {
+    const bc = rs({ contraste_9_4: true, contraste_8_0: true, contraste_5_6: true });
+    expect(ev("2.13", datos({ bajoContraste: bc }))).toBe("No_conforme");
+  });
   it("masas: ignora los slots legacy masa_5..masa_8 (placeholders sin masa real)", () => {
     const bc = rs({
       formato: "masas",

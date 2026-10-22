@@ -579,14 +579,14 @@ export function detalle213(datos: { bajoContraste?: ConvBajoContraste }): Detall
   const formato = bc.formato ?? "contraste";
   if (formato === "masas") {
     const visibles = MASAS_MM_KEYS.filter((k) => bc[k]).length;
-    return { formato, visibles, conforme: visibles > 3 };
+    return { formato, visibles, conforme: visibles >= 3 };
   }
   const visibles = KEYS_BC.filter((k) => bc[k]).length;
   const bajoUmb = bc.contraste_2_8 || bc.contraste_1_8 || bc.contraste_1_3 || bc.contraste_0_9;
   return { formato, visibles, conforme: visibles > 3 || !!bajoUmb };
 }
 
-/** 2.13 — Umbral de bajo contraste (>3 masas visibles o alcanza umbral bajo). */
+/** 2.13 — Umbral de bajo contraste (masas: ≥3 visibles; contraste: >3 niveles o alcanza umbral bajo). */
 function evaluar213(d: DatosEvalConv): Concepto | undefined {
   const det = detalle213(d);
   if (!det) return undefined;

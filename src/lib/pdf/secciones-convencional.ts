@@ -2236,11 +2236,11 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
     ctx.addParagraph("No se registraron datos para esta prueba.");
   } else if (det.conforme) {
     ctx.addParagraph(
-      "Se observa una cantidad de masas superiores a las requeridas por el sistema."
+      "Se observa una cantidad de masas igual o superior a la requerida por el sistema."
     );
   } else if (esMasas) {
     ctx.addParagraph(
-      `Se observa una cantidad de masas visible de ${det.visibles}, que no supera el mínimo requerido.`
+      `Se observa una cantidad de masas visible de ${det.visibles}, que no alcanza el mínimo requerido de 3.`
     );
   } else {
     ctx.addParagraph(

@@ -51,8 +51,16 @@ import {
   COLOR_ALT_ROW,
   COLOR_OK,
   COLOR_BAD,
-  MARGIN,
+  MARGIN_LEFT,
+  CONTENT_WIDTH,
+  CONTENT_TOP,
+  FONT,
+  SPACE,
+  HELV,
+  TABLE_MARGIN,
   TABLE_STYLE,
+  baseDesdeTope,
+  lineaSencilla,
   didParseVeredictoCell,
 } from "./estilo-informe";
 
@@ -535,14 +543,79 @@ function conceptoLabel(c: string | undefined): string {
   return "—";
 }
 
-/** Caption en negrita para tablas y figuras (estilo CE_NIT) */
+/** `true` si el cursor está al inicio del área de contenido (se omite el aire "antes"). */
+function enTopeDePagina(ctx: InformeCtx): boolean {
+  return ctx.y <= CONTENT_TOP + 0.01;
+}
+
+/**
+ * Rótulo de tabla en negrita (estilo CE_NIT). `ctx.y` es el tope de la caja:
+ * aplica el aire antes/después del rótulo y deja el cursor en el tope de la tabla.
+ */
 function addCaption(ctx: InformeCtx, text: string) {
-  ctx.checkPage(8);
-  ctx.doc.setFont("helvetica", "bold");
-  ctx.doc.setFontSize(8);
-  ctx.doc.setTextColor(...COLOR_GRAY);
-  ctx.doc.text(text, MARGIN, ctx.y);
-  ctx.y += 4;
+  const { doc } = ctx;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(FONT.tableCaption);
+  const lineas: string[] = doc.splitTextToSize(text, CONTENT_WIDTH);
+  const lineH = lineaSencilla(FONT.tableCaption);
+  ctx.checkPage(SPACE.tableCaption.before + lineas.length * lineH + SPACE.tableCaption.after);
+  if (!enTopeDePagina(ctx)) ctx.y += SPACE.tableCaption.before;
+  // checkPage puede agregar página nueva y addHeader cambia font/color
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(FONT.tableCaption);
+  doc.setTextColor(...COLOR_GRAY);
+  doc.text(lineas, MARGIN_LEFT, ctx.y + baseDesdeTope(FONT.tableCaption), {
+    lineHeightFactor: HELV,
+  });
+  ctx.y += lineas.length * lineH + SPACE.tableCaption.after;
+}
+
+/**
+ * Rótulo intermedio en negrita dentro de una subsección (p. ej. "a) Evaluación
+ * del rendimiento…" en la 2.7). Mismo aire que un título 3, cuerpo de párrafo.
+ */
+function addEtiqueta(ctx: InformeCtx, text: string) {
+  const { doc } = ctx;
+  const lineH = lineaSencilla(FONT.body);
+  ctx.checkPage(SPACE.h3.before + lineH + SPACE.h3.after + 8);
+  if (!enTopeDePagina(ctx)) ctx.y += SPACE.h3.before;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(FONT.body);
+  doc.setTextColor(...COLOR_BLACK);
+  doc.text(text, MARGIN_LEFT, ctx.y + baseDesdeTope(FONT.body));
+  ctx.y += lineH + SPACE.h3.after;
+}
+
+/** Pie de figura ya partido en líneas, con su alto total (aire antes y después incluido). */
+interface PieFigura {
+  lineas: string[];
+  alto: number;
+}
+
+function prepararPieFigura(doc: jsPDF, texto: string, ancho: number): PieFigura {
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(FONT.figureCaption);
+  const lineas: string[] = doc.splitTextToSize(texto, ancho);
+  const alto =
+    SPACE.figureCaption.before +
+    lineas.length * lineaSencilla(FONT.figureCaption) +
+    SPACE.figureCaption.after;
+  return { lineas, alto };
+}
+
+/** Dibuja el pie de figura (itálica gris) bajo una imagen cuyo borde inferior es `yImagenFin`. */
+function dibujarPieFigura(
+  doc: jsPDF,
+  pie: PieFigura,
+  x: number,
+  yImagenFin: number,
+  align: "left" | "center"
+) {
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(FONT.figureCaption);
+  doc.setTextColor(...COLOR_GRAY);
+  const base = yImagenFin + SPACE.figureCaption.before + baseDesdeTope(FONT.figureCaption);
+  doc.text(pie.lineas, x, base, { align, lineHeightFactor: HELV });
 }
 
 /**
@@ -606,7 +679,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       3: { cellWidth: 40 },
     },
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
   ctx.addParagraph(
     "En cada punto se realizaron varias mediciones consecutivas, registrándose el valor máximo obtenido para su posterior análisis. Los resultados se presentan a continuación."
   );
@@ -630,7 +703,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       ]),
       columnStyles: { 0: { cellWidth: 14 } },
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   // .5 Análisis (carga de trabajo + tabla de dosis anual)
@@ -664,7 +737,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
     ],
     columnStyles: { 0: { cellWidth: 110 } },
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   if (conv.mediciones.length > 0) {
     ctx.checkPage(30);
@@ -699,7 +772,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       columnStyles: { 0: { cellWidth: 12 } },
       didParseCell: colorearConcepto(6),
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   // .6 Criterio (lo agrega el generador con el texto del catálogo)
@@ -720,11 +793,11 @@ export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencio
   const scale = Math.min(maxW / plano.width, maxH / plano.height);
   const w = plano.width * scale;
   const h = plano.height * scale;
-  ctx.checkPage(h + 12);
+  ctx.checkPage(h + SPACE.figureCaption.after);
   try {
-    const x = MARGIN + (170 - w) / 2;
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     ctx.doc.addImage(plano.dataUrl, x, ctx.y, w, h);
-    ctx.y += h + 6;
+    ctx.y += h + SPACE.figureCaption.after;
   } catch {
     ctx.addParagraph("No fue posible incluir la imagen del plano radiométrico.");
   }
@@ -739,8 +812,8 @@ export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional, codigo =
     return;
   }
 
-  const colW = 82; // ancho por columna (mm)
   const gap = 6;
+  const colW = (CONTENT_WIDTH - gap) / 2; // ancho por columna (mm)
   const maxImgH = 55;
 
   for (let i = 0; i < fotos.length; i += 2) {
@@ -748,25 +821,25 @@ export function renderFotos22(ctx: InformeCtx, conv: DatosConvencional, codigo =
       const scale = Math.min(colW / f.width, maxImgH / f.height);
       return { ...f, w: f.width * scale, h: f.height * scale };
     });
-    const rowH = Math.max(...pair.map((r) => r.h)) + 7; // imagen + rótulo
-    ctx.checkPage(rowH + 2);
+    const pies = pair.map((r, idx) =>
+      prepararPieFigura(doc, figCaption(codigo, i + idx + 1, r.label), colW)
+    );
+    // imagen + rótulo
+    const rowH = Math.max(...pair.map((r) => r.h)) + Math.max(...pies.map((pie) => pie.alto));
+    ctx.checkPage(rowH);
     const startY = ctx.y;
 
     pair.forEach((r, idx) => {
-      const x = MARGIN + idx * (colW + gap);
+      const x = MARGIN_LEFT + idx * (colW + gap);
       try {
         doc.addImage(r.dataUrl, x, startY, r.w, r.h);
       } catch {
         // imagen no renderizable — se omite el cuadro
       }
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(figCaption(codigo, i + idx + 1, r.label), colW);
-      doc.text(caption, x, startY + r.h + 4);
+      dibujarPieFigura(doc, pies[idx], x, startY + r.h, "left");
     });
 
-    ctx.y = startY + rowH + 2;
+    ctx.y = startY + rowH;
   }
 }
 
@@ -779,8 +852,8 @@ export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional, codigo =
     return;
   }
 
-  const colW = 82;
   const gap = 6;
+  const colW = (CONTENT_WIDTH - gap) / 2;
   const maxImgH = 70;
 
   for (let i = 0; i < fotos.length; i += 2) {
@@ -788,25 +861,25 @@ export function renderFotos23(ctx: InformeCtx, conv: DatosConvencional, codigo =
       const scale = Math.min(colW / f.width, maxImgH / f.height);
       return { ...f, w: f.width * scale, h: f.height * scale };
     });
-    const rowH = Math.max(...pair.map((r) => r.h)) + 10;
-    ctx.checkPage(rowH + 2);
+    const pies = pair.map((r, idx) =>
+      prepararPieFigura(doc, figCaption(codigo, i + idx + 1, r.label), colW)
+    );
+    // imagen + rótulo
+    const rowH = Math.max(...pair.map((r) => r.h)) + Math.max(...pies.map((pie) => pie.alto));
+    ctx.checkPage(rowH);
     const startY = ctx.y;
 
     pair.forEach((r, idx) => {
-      const x = MARGIN + idx * (colW + gap);
+      const x = MARGIN_LEFT + idx * (colW + gap);
       try {
         doc.addImage(r.dataUrl, x, startY, r.w, r.h);
       } catch {
         // imagen no renderizable
       }
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(figCaption(codigo, i + idx + 1, r.label), colW);
-      doc.text(caption, x, startY + r.h + 4);
+      dibujarPieFigura(doc, pies[idx], x, startY + r.h, "left");
     });
 
-    ctx.y = startY + rowH + 2;
+    ctx.y = startY + rowH;
   }
 }
 
@@ -818,27 +891,23 @@ export function renderFotos24(ctx: InformeCtx, conv: DatosConvencional, codigo =
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170; // ancho de contenido (mm)
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -850,27 +919,23 @@ export function renderFotos28(ctx: InformeCtx, conv: DatosConvencional, codigo =
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -882,27 +947,23 @@ export function renderFotos29(ctx: InformeCtx, conv: DatosConvencional, codigo =
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -914,26 +975,22 @@ export function renderFotos213(ctx: InformeCtx, conv: DatosConvencional, codigo 
     ctx.addParagraph("No se adjuntó evidencia gráfica del patrón de bajo contraste.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.7;
+    const maxW = CONTENT_WIDTH * 0.7;
     const scale = Math.min(maxW / f.width, 100 / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 16);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       /* no renderizable */
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -945,32 +1002,31 @@ export function renderFotos212(ctx: InformeCtx, conv: DatosConvencional, codigo 
     ctx.addParagraph("No se adjuntó evidencia gráfica del patrón de resolución.");
     return;
   }
-  const CWIDTH = 170;
   const fotosPerRow = 2;
-  const colW = CWIDTH / fotosPerRow;
+  const colW = CONTENT_WIDTH / fotosPerRow;
   for (let i = 0; i < fotos.length; i += fotosPerRow) {
     const grupo = fotos.slice(i, i + fotosPerRow);
     const maxH = 80;
     const scales = grupo.map((f) => Math.min((colW * 0.9) / f.width, maxH / f.height, 1));
     const rowH = Math.max(...grupo.map((f, j) => f.height * scales[j]));
-    ctx.checkPage(rowH + 16);
+    const pies = grupo.map((f, j) =>
+      prepararPieFigura(doc, figCaption(codigo, i + j + 1, f.label), colW - 4)
+    );
+    const altoPies = Math.max(...pies.map((pie) => pie.alto));
+    ctx.checkPage(rowH + altoPies);
     grupo.forEach((f, j) => {
       const scale = scales[j];
       const w = f.width * scale;
       const h = f.height * scale;
-      const x = MARGIN + j * colW + (colW - w) / 2;
+      const x = MARGIN_LEFT + j * colW + (colW - w) / 2;
       try {
         doc.addImage(f.dataUrl, x, ctx.y, w, h);
       } catch {
         /* no renderizable */
       }
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(figCaption(codigo, i + j + 1, f.label), colW - 4);
-      doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
+      dibujarPieFigura(doc, pies[j], MARGIN_LEFT + j * colW + colW / 2, ctx.y + rowH, "center");
     });
-    ctx.y += rowH + 12;
+    ctx.y += rowH + altoPies;
   }
 }
 
@@ -982,32 +1038,31 @@ export function renderFotos211(ctx: InformeCtx, conv: DatosConvencional, codigo 
     ctx.addParagraph("No se adjuntaron imágenes DICOM de la prueba de uniformidad.");
     return;
   }
-  const CWIDTH = 170;
   const fotosPerRow = 2;
-  const colW = CWIDTH / fotosPerRow;
+  const colW = CONTENT_WIDTH / fotosPerRow;
   for (let i = 0; i < fotos.length; i += fotosPerRow) {
     const grupo = fotos.slice(i, i + fotosPerRow);
     const maxH = 80;
     const scales = grupo.map((f) => Math.min((colW * 0.9) / f.width, maxH / f.height, 1));
     const rowH = Math.max(...grupo.map((f, j) => f.height * scales[j]));
-    ctx.checkPage(rowH + 16);
+    const pies = grupo.map((f, j) =>
+      prepararPieFigura(doc, figCaption(codigo, i + j + 1, f.label), colW - 4)
+    );
+    const altoPies = Math.max(...pies.map((pie) => pie.alto));
+    ctx.checkPage(rowH + altoPies);
     grupo.forEach((f, j) => {
       const scale = scales[j];
       const w = f.width * scale;
       const h = f.height * scale;
-      const x = MARGIN + j * colW + (colW - w) / 2;
+      const x = MARGIN_LEFT + j * colW + (colW - w) / 2;
       try {
         doc.addImage(f.dataUrl, x, ctx.y, w, h);
       } catch {
         /* no renderizable */
       }
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      doc.setTextColor(...COLOR_GRAY);
-      const caption = doc.splitTextToSize(figCaption(codigo, i + j + 1, f.label), colW - 4);
-      doc.text(caption, MARGIN + j * colW + colW / 2, ctx.y + rowH + 4, { align: "center" });
+      dibujarPieFigura(doc, pies[j], MARGIN_LEFT + j * colW + colW / 2, ctx.y + rowH, "center");
     });
-    ctx.y += rowH + 12;
+    ctx.y += rowH + altoPies;
   }
 }
 
@@ -1019,27 +1074,23 @@ export function renderFotos210(ctx: InformeCtx, conv: DatosConvencional, codigo 
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -1051,27 +1102,23 @@ export function renderFotos27(ctx: InformeCtx, conv: DatosConvencional, codigo =
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -1083,27 +1130,23 @@ export function renderFotos221(ctx: InformeCtx, conv: DatosConvencional, codigo 
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -1115,27 +1158,23 @@ export function renderFotos26(ctx: InformeCtx, conv: DatosConvencional, codigo =
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -1147,27 +1186,23 @@ export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional, codigo =
     ctx.addParagraph("No se adjuntó evidencia gráfica del montaje experimental.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const f of fotos) {
-    const maxW = CWIDTH * 0.5;
+    const maxW = CONTENT_WIDTH * 0.5;
     const maxH = 80;
     const scale = Math.min(maxW / f.width, maxH / f.height, 1);
     const w = f.width * scale;
     const h = f.height * scale;
-    ctx.checkPage(h + 14);
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, f.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       doc.addImage(f.dataUrl, x, ctx.y, w, h);
     } catch {
       // imagen no renderizable
     }
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    doc.setTextColor(...COLOR_GRAY);
-    const caption = doc.splitTextToSize(figCaption(codigo, ++nFig, f.label), CWIDTH);
-    doc.text(caption, MARGIN + CWIDTH / 2, ctx.y + h + 4, { align: "center" });
-    ctx.y += h + 12;
+    dibujarPieFigura(doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   }
 }
 
@@ -1214,7 +1249,7 @@ function render22(
       body: zonas,
       columnStyles: { 0: { cellWidth: 16, halign: "center", fontStyle: "bold" } },
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   // Dimensiones de la sala en mini-tabla horizontal
@@ -1242,7 +1277,7 @@ function render22(
       bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" },
       headStyles: { ...TABLE_STYLE.headStyles, halign: "center" },
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   // .5 Resultados
@@ -1276,7 +1311,7 @@ function render22(
       columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 95 }, 2: { cellWidth: 22 } },
       didParseCell: colorearConcepto(2),
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   };
 
   if (equipoItems.length === 0 && operacionItems.length === 0) {
@@ -1316,7 +1351,7 @@ function render22(
       columnStyles: { 0: { cellWidth: 10 }, 2: { cellWidth: 16 }, 3: { cellWidth: 18 } },
       didParseCell: colorearConcepto(4),
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   return 6;
@@ -1355,11 +1390,12 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
       1: { cellWidth: 20 },
       2: { cellWidth: 32, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
       3: { cellWidth: 20 },
-      4: { cellWidth: 52, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
+      // 51 (no 52): las seis columnas suman el ancho útil de 169 mm.
+      4: { cellWidth: 51, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
       5: { cellWidth: 18 },
     },
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const sid = c.sid_cm || 100;
   const DIRS = [
@@ -1428,7 +1464,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 } },
     didParseCell: colorearConcepto(6),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const esfera = c.posicion_esfera;
   const CRITERIO_ESFERA: Record<string, string> = {
@@ -1461,7 +1497,7 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 70, fontStyle: "bold", fillColor: COLOR_ALT_ROW } },
     didParseCell: didParseVeredictoCell(1),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // .5 Análisis — texto auto-generado según la fórmula del Excel
   ctx.addSubsectionTitle("2.3.5.", "Análisis");
@@ -1536,10 +1572,12 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
       ],
     ],
     body: rows,
-    columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
+    // CV con ancho fijo: a 8,5 pt el reparto automático lo dejaba tan angosto
+    // que "0,63 %" se partía en dos líneas.
+    columnStyles: { 0: { cellWidth: 32 }, 4: { cellWidth: 16 }, 5: { cellWidth: 24 } },
     didParseCell: colorearConcepto(5),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   ctx.addParagraph(
     "La exactitud del tiempo de exposición se evaluó mediante la desviación máxima porcentual entre el tiempo nominal seleccionado y el tiempo medido con mayor desviación."
@@ -1604,10 +1642,12 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
       ],
     ],
     body: rows,
-    columnStyles: { 0: { cellWidth: 32 }, 5: { cellWidth: 24 } },
+    // CV con ancho fijo: a 8,5 pt el reparto automático lo dejaba tan angosto
+    // que "0,63 %" se partía en dos líneas.
+    columnStyles: { 0: { cellWidth: 32 }, 4: { cellWidth: 16 }, 5: { cellWidth: 24 } },
     didParseCell: colorearConcepto(5),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   ctx.addParagraph(
     "La exactitud de la tensión del tubo se evaluó mediante la desviación máxima porcentual entre la tensión nominal seleccionada y la tensión medida con mayor desviación."
@@ -1663,7 +1703,7 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
     columnStyles: { 0: { cellWidth: 36 }, 3: { cellWidth: 28 } },
     didParseCell: colorearConcepto(3),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   ctx.addParagraph(
     "Para la evaluación del cumplimiento se compararon los valores medidos con los valores mínimos de referencia de capa hemirreductora correspondientes a cada nivel de tensión."
@@ -1700,9 +1740,9 @@ export function renderTablaChrRef(ctx: InformeCtx) {
       0: { halign: "center" as const, cellWidth: 45 },
       1: { halign: "center" as const, cellWidth: 45 },
     },
-    margin: { left: MARGIN + (170 - 90) / 2 },
+    margin: { ...TABLE_MARGIN, left: MARGIN_LEFT + (CONTENT_WIDTH - 90) / 2 },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 }
 
 export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
@@ -1728,7 +1768,7 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
       ],
     ],
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 }
 
 /** Tabla de valores base de referencia MTF (solo 2.16) */
@@ -1755,7 +1795,7 @@ export function renderTablaBaseRef216(ctx: InformeCtx, conv: DatosConvencional) 
     ],
     columnStyles: { 0: { halign: "left" as const } },
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 }
 
 /**
@@ -1783,7 +1823,7 @@ export function renderTablaBaseRef221(ctx: InformeCtx, conv: DatosConvencional) 
     body: filas.length > 0 ? filas : [["—", "—", "—", "—"]],
     columnStyles: { 0: { halign: "left" as const } },
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 }
 
 function render27(ctx: InformeCtx, conv: DatosConvencional): number {
@@ -1823,12 +1863,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   // ── Tabla 2.7.1: Rendimiento y linealidad (grupos 2-5, variación de mAs) ──
-  ctx.checkPage(8);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...COLOR_BLACK);
-  doc.text("a) Evaluación del rendimiento del tubo de rayos X y linealidad", MARGIN, ctx.y);
-  ctx.y += 6;
+  addEtiqueta(ctx, "a) Evaluación del rendimiento del tubo de rayos X y linealidad");
 
   if (resultado.linealidad.length > 0) {
     const rowsLin = resultado.linealidad.map(
@@ -1856,7 +1891,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
       body: rowsLin,
       columnStyles: { 0: { cellWidth: 38 } },
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   ctx.addParagraph(
@@ -1871,12 +1906,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const conformeLin = resultado.conformeLin;
   const linMaxPct = resultado.linealidadMaxPct;
 
-  ctx.checkPage(8);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...COLOR_BLACK);
-  doc.text("b) Evaluación de la repetibilidad de la radiación de salida", MARGIN, ctx.y);
-  ctx.y += 6;
+  addEtiqueta(ctx, "b) Evaluación de la repetibilidad de la radiación de salida");
 
   ctx.addParagraph(
     "La repetibilidad se evaluó a partir de exposiciones repetidas bajo las mismas condiciones " +
@@ -1902,7 +1932,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
         0: { cellWidth: 60, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
       },
     });
-    ctx.y = finalY(doc) + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
   }
 
   // ── 2.7.5 Análisis ──
@@ -1979,7 +2009,7 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
     body: rows.map((r) => [r.kv, r.mas, r.dapNom, r.dapEst, r.fc]),
     columnStyles: { 4: { cellWidth: 32 } },
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // ── 2.8.5 Análisis ──
   ctx.addSubsectionTitle("2.8.5.", "Análisis");
@@ -2027,7 +2057,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
       ],
     ],
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // Cálculo de desviaciones
   const eiDev =
@@ -2079,7 +2109,7 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
     ],
     didParseCell: colorearConcepto(4),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   return 6; // 2.9.4 y 2.9.5 renderizados; caller inicia en 6 (Criterio)
 }
@@ -2145,7 +2175,7 @@ function render210(ctx: InformeCtx, conv: DatosConvencional): number {
     ],
     didParseCell: colorearConcepto(4),
   });
-  ctx.y = finalY(doc) + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const conforme210 = eiCv == null || eiCv <= 20;
 
@@ -2203,7 +2233,7 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
     bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
     columnStyles: { 0: { halign: "left" as const }, 2: { halign: "left" as const } },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const det = detalle213(conv);
   const esMasas = (bc?.formato ?? "contraste") === "masas";
@@ -2227,7 +2257,7 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
       }
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // ── 2.13.5 Análisis ──
   ctx.addSubsectionTitle("2.13.5.", "Análisis");
@@ -2278,7 +2308,7 @@ function render212(ctx: InformeCtx, conv: DatosConvencional): number {
     bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
     columnStyles: { 0: { halign: "left" as const }, 2: { halign: "left" as const } },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   ctx.addParagraph(
     "Se registró el grupo máximo de pares de líneas por milímetro visible de forma distinguible en la imagen obtenida."
@@ -2299,7 +2329,7 @@ function render212(ctx: InformeCtx, conv: DatosConvencional): number {
     bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
     columnStyles: { 0: { halign: "left" as const } },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // ── 2.12.5 Análisis ──
   ctx.addSubsectionTitle("2.12.5.", "Análisis");
@@ -2377,7 +2407,7 @@ function render211(ctx: InformeCtx, conv: DatosConvencional): number {
         bodyStyles: { ...TABLE_STYLE.bodyStyles, halign: "center" as const },
         columnStyles: { 0: { halign: "left" as const } },
       });
-      ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+      ctx.y = finalY(doc) + SPACE.table.after;
     }
   }
 
@@ -2478,7 +2508,7 @@ function render214(ctx: InformeCtx, conv: DatosConvencional): number {
     },
     startY: ctx.y,
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addSubsectionTitle("2.14.5.", "Análisis");
 
@@ -2513,29 +2543,24 @@ export function renderFotos216(ctx: InformeCtx, conv: DatosConvencional, codigo 
     ctx.addParagraph("No se adjuntó evidencia gráfica para el análisis MTF.");
     return;
   }
-  const CWIDTH = 170;
   let nFig = 0;
   for (const foto of fotos) {
     ctx.checkPage(70);
-    const maxW = CWIDTH;
+    const maxW = CONTENT_WIDTH;
     const maxH = 80;
     const ratio = Math.min(maxW / foto.width, maxH / foto.height);
     const w = foto.width * ratio;
     const h = foto.height * ratio;
-    const x = MARGIN + (CWIDTH - w) / 2;
+    const pie = prepararPieFigura(ctx.doc, figCaption(codigo, ++nFig, foto.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     try {
       ctx.doc.addImage(foto.dataUrl, "JPEG", x, ctx.y, w, h);
     } catch {
       ctx.doc.addImage(foto.dataUrl, "PNG", x, ctx.y, w, h);
     }
-    ctx.y += h + 2;
-    ctx.doc.setFont("helvetica", "italic");
-    ctx.doc.setFontSize(7);
-    ctx.doc.setTextColor(...COLOR_GRAY);
-    ctx.doc.text(figCaption(codigo, ++nFig, foto.label), MARGIN + CWIDTH / 2, ctx.y, {
-      align: "center",
-    });
-    ctx.y += 6;
+    dibujarPieFigura(ctx.doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
     ctx.doc.setFont("helvetica", "normal");
     ctx.doc.setTextColor(...COLOR_BLACK);
   }
@@ -2594,7 +2619,7 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
     didDrawPage: undefined,
     startY: ctx.y,
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addSubsectionTitle("2.16.5.", "Análisis");
 
@@ -2651,7 +2676,7 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
     ]),
     startY: ctx.y,
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // Calcular promedio y CV del EI
   const eiVals = filas.map((u) => u.ei ?? 0).filter((v) => v > 0);
@@ -2722,26 +2747,32 @@ export function renderFotos217(ctx: InformeCtx, conv: DatosConvencional, codigo 
     return;
   }
   const { doc, autoTable } = ctx;
-  const CONTENT_W = doc.internal.pageSize.getWidth() - 40;
   let nFig = 0;
   for (const foto of fotos) {
-    const maxW = 170;
+    const maxW = CONTENT_WIDTH;
     const maxH = 80;
     const ratio = Math.min(maxW / foto.width, maxH / foto.height, 1);
     const w = foto.width * ratio;
     const h = foto.height * ratio;
-    const x = 20 + (CONTENT_W - w) / 2;
-    ctx.checkPage(h + 14);
+    const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
+    const pie = prepararPieFigura(doc, figCaption(codigo, ++nFig, foto.label), CONTENT_WIDTH);
+    ctx.checkPage(h + pie.alto);
     doc.addImage(foto.dataUrl, "JPEG", x, ctx.y, w, h);
-    ctx.y += h + 2;
+    // El pie va como tabla "plain" de una celda: su relleno superior hace de
+    // aire "antes" del pie de figura.
     autoTable(doc, {
-      body: [[figCaption(codigo, ++nFig, foto.label)]],
-      startY: ctx.y,
-      styles: { fontSize: 7, fontStyle: "italic", halign: "center", textColor: COLOR_GRAY },
+      body: [[pie.lineas.join(" ")]],
+      startY: ctx.y + h,
+      styles: {
+        fontSize: FONT.figureCaption,
+        fontStyle: "italic",
+        halign: "center",
+        textColor: COLOR_GRAY,
+      },
       theme: "plain",
-      margin: { left: 20, right: 20 },
+      margin: TABLE_MARGIN,
     });
-    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    ctx.y = finalY(doc) + SPACE.figureCaption.after;
   }
 }
 
@@ -2790,7 +2821,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   // Análisis
   addSubsectionTitle("2.17.5.", "Análisis");
@@ -2841,7 +2872,7 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
       },
       didParseCell: colorearConcepto(4),
     });
-    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
 
     const vals217 = [varMas, varEi, varDi].filter((v): v is number => v != null);
     const conforme217 = vals217.length === 0 || Math.max(...vals217) <= 0.5;
@@ -2894,7 +2925,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addSubsectionTitle("2.18.5.", "Análisis");
 
@@ -2930,7 +2961,7 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
     },
     didParseCell: colorearConcepto(3),
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const vals218 = [varMas, varEi].filter((v): v is number => v != null);
   const conforme218 = vals218.length === 0 || Math.max(...vals218) <= 0.3;
@@ -2987,7 +3018,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addSubsectionTitle("2.19.5.", "Análisis");
 
@@ -3027,7 +3058,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
     },
     didParseCell: colorearConcepto(4),
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const vals219 = [cvMas, cvEi].filter((v): v is number => v != null);
   const conforme219 = vals219.length === 0 || Math.max(...vals219) <= 0.1;
@@ -3098,7 +3129,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addSubsectionTitle("2.20.5.", "Análisis");
 
@@ -3142,7 +3173,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addParagraph(
     "Los valores de carga (mAs), indicador de exposición (EI) y desviación del indicador (D.I.) obtenidos para los diferentes espesores evaluados fueron comparados con los valores iniciales de referencia correspondientes."
@@ -3176,7 +3207,7 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   const vals220 = [
     pv(t1?.carga_mas, s?.mas_base_60kv),
@@ -3248,7 +3279,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
       ctx.y = 30;
     },
   });
-  ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  ctx.y = finalY(doc) + SPACE.table.after;
 
   addSubsectionTitle("2.21.5.", "Análisis");
 
@@ -3285,7 +3316,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
       },
       didParseCell: colorearConcepto(4),
     });
-    ctx.y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    ctx.y = finalY(doc) + SPACE.table.after;
 
     const diffs221 = resultado.filas.map((f) => f.diferencia).filter((v): v is number => v != null);
     const conforme221 = diffs221.length === 0 || Math.max(...diffs221) < 0.01;
@@ -3437,7 +3468,7 @@ export async function textoAnalisisPredeterminado(
   ]);
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  let y = MARGIN;
+  let y = CONTENT_TOP;
   let enAnalisis = false;
   let huboAnalisis = false;
   const parrafos: string[] = [];

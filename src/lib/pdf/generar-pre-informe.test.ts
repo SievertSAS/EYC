@@ -28,6 +28,19 @@ import {
   textoCampo,
   textoFecha,
 } from "./generar-pre-informe";
+import {
+  CONTENT_TOP,
+  CONTENT_WIDTH,
+  FONT,
+  LINE_H,
+  MARGIN_BOTTOM,
+  MARGIN_LEFT,
+  MARGIN_RIGHT,
+  MARGIN_TOP,
+  PAGE_BOTTOM,
+  SPACE,
+  TABLE_STYLE,
+} from "./estilo-informe";
 
 // jsPDF no comprime por defecto → el texto dibujado queda legible en el
 // buffer crudo del PDF (operadores `(str) Tj`). Alcanza para tests de
@@ -1097,5 +1110,111 @@ describe("'No aplica' automático: 2.14 y 2.15 en equipos DR (#116)", () => {
     const text = await pdfDeSeccion("2.14", "Digital", { incluida: false });
     expect(text).toContain("(2.14.4. Resultados) Tj");
     expect(text).toContain(MARCA_MOTIVO_DR);
+  });
+});
+
+describe("Estándar de documentación — márgenes, tipografía y espaciado", () => {
+  /**
+   * Tamaño de fuente (pt) vigente al dibujar `marca`: el último operador
+   * `/Fn <size> Tf` del buffer crudo antes de la primera aparición de la marca.
+   */
+  function tamanoAntesDe(text: string, marca: string, ultima = false): number | undefined {
+    const i = ultima ? text.lastIndexOf(marca) : text.indexOf(marca);
+    if (i < 0) return undefined;
+    const tfs = [...text.slice(0, i).matchAll(/\/F\d+ ([\d.]+) Tf/g)];
+    return tfs.length ? Number(tfs[tfs.length - 1][1]) : undefined;
+  }
+
+  /** Coordenada x (mm) del operador `Td` que posiciona `marca`. */
+  function xDe(text: string, marca: string): number | undefined {
+    const i = text.indexOf(marca);
+    if (i < 0) return undefined;
+    const tds = [...text.slice(0, i).matchAll(/([\d.]+) ([\d.]+) Td/g)];
+    return tds.length ? (Number(tds[tds.length - 1][1]) * 25.4) / 72 : undefined;
+  }
+
+  it("constantes de página: márgenes 22,5/18/21/20, ancho útil 169 y fondo 279", () => {
+    expect(MARGIN_TOP).toBe(22.5);
+    expect(MARGIN_BOTTOM).toBe(18);
+    expect(MARGIN_LEFT).toBe(21);
+    expect(MARGIN_RIGHT).toBe(20);
+    expect(CONTENT_WIDTH).toBe(169);
+    expect(CONTENT_TOP).toBe(22.5);
+    expect(PAGE_BOTTOM).toBe(279);
+  });
+
+  it("interlineado del cuerpo: 9 pt × 1,149 × 1,12 ≈ 4,09 mm", () => {
+    expect(LINE_H).toBeCloseTo(4.09, 2);
+  });
+
+  it("tamaños de fuente del estándar", () => {
+    expect(FONT).toMatchObject({
+      coverTitle: 22,
+      h1: 13,
+      h2: 11,
+      h3: 9.5,
+      body: 9,
+      tableCaption: 8.5,
+      tableHead: 8.5,
+      tableBody: 8.5,
+      figureCaption: 8.5,
+      headerFooter: 8,
+      tocTitle: 13,
+      tocEntry: 9,
+    });
+  });
+
+  it("espaciado antes/después (mm) del estándar", () => {
+    expect(SPACE.h1.before).toBeCloseTo(4.2, 1);
+    expect(SPACE.h1.after).toBeCloseTo(2.1, 1);
+    expect(SPACE.h2.before).toBeCloseTo(3.2, 1);
+    expect(SPACE.h2.after).toBeCloseTo(1.4, 1);
+    expect(SPACE.h3.before).toBeCloseTo(2.1, 1);
+    expect(SPACE.h3.after).toBeCloseTo(1.1, 1);
+    expect(SPACE.paragraph.after).toBeCloseTo(2.1, 1);
+    expect(SPACE.tableCaption.before).toBeCloseTo(2.8, 1);
+    expect(SPACE.tableCaption.after).toBeCloseTo(1.4, 1);
+    expect(SPACE.table.after).toBeCloseTo(2.8, 1);
+    expect(SPACE.figureCaption.before).toBeCloseTo(1.4, 1);
+    expect(SPACE.figureCaption.after).toBeCloseTo(2.8, 1);
+    expect(SPACE.tocTitle.after).toBeCloseTo(4.2, 1);
+  });
+
+  it("TABLE_STYLE: 8,5 pt en encabezado y cuerpo, filas sin partir y márgenes de página", () => {
+    expect(TABLE_STYLE.headStyles.fontSize).toBe(8.5);
+    expect(TABLE_STYLE.bodyStyles.fontSize).toBe(8.5);
+    expect(TABLE_STYLE.rowPageBreak).toBe("avoid");
+    expect(TABLE_STYLE.margin).toEqual({ top: 22.5, right: 20, bottom: 18, left: 21 });
+  });
+
+  it("el PDF dibuja cada jerarquía con su tamaño: portada 22, título 1 13, título 3 9,5, pie 8", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+
+    expect(tamanoAntesDe(text, "(FT-LEC-6c CONTROL")).toBe(22);
+    expect(tamanoAntesDe(text, "(CONTENIDO) Tj")).toBe(13);
+    // Índice primero, sección real después: se mira la última aparición.
+    expect(tamanoAntesDe(text, "(INTRODUCCI", true)).toBe(13);
+    const tituloPrueba = text.slice(0, text.indexOf("(2.1.1. Objetivo) Tj"));
+    expect(tamanoAntesDe(tituloPrueba, "(2.1 ", true)).toBe(11);
+    expect(tamanoAntesDe(text, "(2.1.1. Objetivo) Tj")).toBe(9.5);
+    expect(tamanoAntesDe(text, "(Página 1 de")).toBe(8);
+    expect(tamanoAntesDe(text, "(www.sievert.com.co) Tj")).toBe(8);
+  });
+
+  it("el contenido arranca en el margen izquierdo de 21 mm", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(xDe(text, "(CONTENIDO) Tj")).toBeCloseTo(21, 1);
+    expect(xDe(text, "(INTRODUCCI")).toBeCloseTo(21, 1);
+    expect(xDe(text, "(FT-LEC-6c |")).toBeCloseTo(21, 1);
+  });
+
+  it("índice: entradas de nivel 1 y 2 a 9 pt", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    // La primera aparición de cada título es la del índice (va tras la portada).
+    expect(tamanoAntesDe(text, "(1. INFORMACI")).toBe(9);
+    expect(tamanoAntesDe(text, "(2.4 Exactitud")).toBe(9);
   });
 });

@@ -30,11 +30,22 @@ import {
   COLOR_GRAY,
   COLOR_BLACK,
   COLOR_ALT_ROW,
-  MARGIN,
+  MARGIN_LEFT,
   PAGE_WIDTH,
   PAGE_HEIGHT,
   CONTENT_WIDTH,
-  HEADER_HEIGHT,
+  CONTENT_RIGHT,
+  CONTENT_TOP,
+  PAGE_BOTTOM,
+  LINE_H,
+  FONT,
+  SPACE,
+  TABLE_MARGIN,
+  TITLE_RULE_GAP,
+  HELV,
+  baseDesdeTope,
+  lineaSencilla,
+  pt,
   veredictoColor,
   didParseVeredictoCell,
   dato,
@@ -222,8 +233,8 @@ export function subseccionesNoAplica(codigo: string): string[] {
   return titulos.map((titulo, i) => `${codigo}.${i + 4}. ${titulo}`);
 }
 
-/** Alto de cada fila de la grilla "No aplica": título (5 mm) + una línea de párrafo (4,2 + 2 mm). */
-const NO_APLICA_ALTO_FILA = 11.2;
+/** Alto de cada fila de la grilla "No aplica": título 3 + una línea de párrafo + aire de párrafo. */
+const NO_APLICA_ALTO_FILA = lineaSencilla(FONT.h3) + LINE_H + SPACE.paragraph.after;
 
 // ─── Tipos internos ───
 
@@ -495,7 +506,7 @@ export async function generarPreInforme(
   if (conv) inyectarDatosEquipo(conv, datos.equipo);
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  let y = MARGIN;
+  let y = CONTENT_TOP;
   let pageCount = 0;
   // Títulos de sección en orden de aparición, para la página de "CONTENIDO"
   // insertada al final (una vez que se conocen todos). `pagina` se registra
@@ -514,25 +525,55 @@ export async function generarPreInforme(
 
   // ─── Helpers ───
 
-  function checkPage(needed: number) {
-    if (y + needed > 275) {
-      doc.addPage();
-      y = MARGIN + HEADER_HEIGHT;
-      addHeader(doc, datos, logoBase64);
-    }
+  // `y` es el tope de la caja del próximo elemento (texto, tabla o imagen).
+  // Los textos se dibujan en su línea base: `y + baseDesdeTope(...)`.
+
+  // Páginas (numeración previa al índice) que ya tienen encabezado. Las que
+  // crea autoTable al partir una tabla no pasan por `nuevaPagina`: se les
+  // dibuja el encabezado antes de insertar el índice (ver más abajo).
+  const paginasConHeader = new Set<number>();
+
+  function nuevaPagina() {
+    doc.addPage();
+    y = CONTENT_TOP;
+    addHeader(doc, datos, logoBase64);
+    paginasConHeader.add(doc.getNumberOfPages());
   }
 
-  function addParagraph(text: string, fontSize = 9, indent = 0, color: RGB = COLOR_BLACK) {
+  function checkPage(needed: number) {
+    if (y + needed > PAGE_BOTTOM) nuevaPagina();
+  }
+
+  /** `true` si el cursor está al inicio del área de contenido (se omite el aire "antes"). */
+  function enTopeDePagina(): boolean {
+    return y <= CONTENT_TOP + 0.01;
+  }
+
+  /** Alto (mm) que ocupará un párrafo: líneas × LINE_H + aire posterior. */
+  function altoParrafo(text: string, fontSize: number = FONT.body, indent = 0): number {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    const lines: string[] = doc.splitTextToSize(text, CONTENT_WIDTH - indent);
+    return lines.length * LINE_H + SPACE.paragraph.after;
+  }
+
+  function addParagraph(
+    text: string,
+    fontSize: number = FONT.body,
+    indent = 0,
+    color: RGB = COLOR_BLACK
+  ) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     const width = CONTENT_WIDTH - indent;
     const lines: string[] = doc.splitTextToSize(text, width);
-    checkPage(lines.length * 4.2 + 2);
+    checkPage(lines.length * LINE_H + SPACE.paragraph.after);
     // Re-aplicar estilos: checkPage puede agregar página nueva y addHeader cambia font/color
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(...color);
-    const x0 = MARGIN + indent;
+    const x0 = MARGIN_LEFT + indent;
+    const base0 = y + baseDesdeTope(fontSize, LINE_H);
     const spaceWidth = doc.getTextWidth(" ");
     // Tope al ensanchado por hueco: si repartir el sobrante deja huecos mayores
     // que ~3 espacios, la línea se ve como un "río" — se deja al ras izquierdo.
@@ -543,7 +584,7 @@ export async function generarPreInforme(
     // la última línea. Aquí solo se justifican las líneas intermedias con 3+
     // palabras y sin huecos excesivos; el resto va al ras izquierdo.
     lines.forEach((line, i) => {
-      const lineY = y + i * 4.2;
+      const lineY = base0 + i * LINE_H;
       const words = line.split(" ").filter(Boolean);
       const isLast = i === lines.length - 1;
       const naturalWidth = doc.getTextWidth(line);
@@ -562,7 +603,7 @@ export async function generarPreInforme(
         }
       });
     });
-    y += lines.length * 4.2 + 2;
+    y += lines.length * LINE_H + SPACE.paragraph.after;
   }
 
   /**
@@ -592,12 +633,14 @@ export async function generarPreInforme(
     // Reservar el título + un mínimo de contenido: si no entra, saltar de página
     // ANTES del título para que no quede huérfano al pie (issue: título abajo,
     // contenido arriba en la hoja siguiente).
-    checkPage(6 + keepWithMm);
+    const lineH = lineaSencilla(FONT.h3);
+    checkPage(SPACE.h3.before + lineH + SPACE.h3.after + keepWithMm);
+    if (!enTopeDePagina()) y += SPACE.h3.before;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(FONT.h3);
     doc.setTextColor(...COLOR_BLACK);
-    doc.text(`${number} ${title}`, MARGIN, y);
-    y += 5;
+    doc.text(`${number} ${title}`, MARGIN_LEFT, y + baseDesdeTope(FONT.h3));
+    y += lineH + SPACE.h3.after;
   }
 
   /**
@@ -612,15 +655,11 @@ export async function generarPreInforme(
     number: string,
     title: string,
     text: string,
-    fontSize = 9,
+    fontSize: number = FONT.body,
     indent = 0,
     color: RGB = COLOR_BLACK
   ) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(fontSize);
-    const lines: string[] = doc.splitTextToSize(text, CONTENT_WIDTH - indent);
-    const alturaParrafo = lines.length * 4.2 + 2;
-    addSubsectionTitle(number, title, alturaParrafo);
+    addSubsectionTitle(number, title, altoParrafo(text, fontSize, indent));
     addParagraph(text, fontSize, indent, color);
   }
 
@@ -635,17 +674,31 @@ export async function generarPreInforme(
     checkPage(filas * NO_APLICA_ALTO_FILA);
     const anchoColumna = CONTENT_WIDTH / 2;
     titulos.forEach((titulo, i) => {
-      const x = MARGIN + (i % 2) * anchoColumna;
+      const x = MARGIN_LEFT + (i % 2) * anchoColumna;
       const yCelda = y + Math.floor(i / 2) * NO_APLICA_ALTO_FILA;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
+      doc.setFontSize(FONT.h3);
       doc.setTextColor(...COLOR_BLACK);
-      doc.text(titulo, x, yCelda);
+      doc.text(titulo, x, yCelda + baseDesdeTope(FONT.h3));
       doc.setFont("helvetica", "normal");
+      doc.setFontSize(FONT.body);
       doc.setTextColor(...COLOR_GRAY);
-      doc.text("No aplica.", x, yCelda + 5);
+      const yTexto = yCelda + lineaSencilla(FONT.h3) + baseDesdeTope(FONT.body, LINE_H);
+      doc.text("No aplica.", x, yTexto);
     });
     y += filas * NO_APLICA_ALTO_FILA;
+  }
+
+  /** Alto de la línea de veredicto (FAVORABLE / NO FAVORABLE…) bajo "Concepto". */
+  const ALTO_VEREDICTO = LINE_H + SPACE.paragraph.after;
+
+  /** Veredicto de la prueba en negrita y con su color, como una línea de párrafo. */
+  function dibujarVeredicto(label: string) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(FONT.body);
+    doc.setTextColor(...veredictoColor(label));
+    doc.text(label, MARGIN_LEFT, y + baseDesdeTope(FONT.body, LINE_H));
+    y += ALTO_VEREDICTO;
   }
 
   /**
@@ -670,22 +723,22 @@ export async function generarPreInforme(
     const cardW = imgW + pad * 2;
     const cardH = headerH + pad + imgH + pad;
 
-    checkPage(cardH + 6);
+    checkPage(cardH + SPACE.table.after);
 
-    drawCardBg(MARGIN, y, cardW, cardH);
+    drawCardBg(MARGIN_LEFT, y, cardW, cardH);
 
     // Rótulo
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(...COLOR_PRIMARY);
-    doc.text(caption.toUpperCase(), MARGIN + pad, y + headerH - 3);
+    doc.text(caption.toUpperCase(), MARGIN_LEFT + pad, y + headerH - 3);
 
     // Imagen
     try {
-      const imgX = MARGIN + pad;
+      const imgX = MARGIN_LEFT + pad;
       const imgY = y + headerH + pad;
       doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
-      y += cardH + 6;
+      y += cardH + SPACE.table.after;
       return true;
     } catch {
       y += headerH + 4;
@@ -695,6 +748,21 @@ export async function generarPreInforme(
 
   const lastAutoTableFinalY = () =>
     (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+  /**
+   * Alto real (mm) que tendrá una tabla, dibujándola en un documento
+   * descartable. Lo usan las tarjetas que pintan su fondo ANTES de la tabla:
+   * con una estimación fija, una fila que se parte en dos líneas deja la
+   * tabla saliéndose de la tarjeta.
+   */
+  function medirAltoTabla(opciones: Parameters<typeof autoTable>[1]): number {
+    const medidor = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    autoTable(medidor, { ...opciones, startY: CONTENT_TOP });
+    return (
+      (medidor as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY -
+      CONTENT_TOP
+    );
+  }
 
   /**
    * Subsección de características del equipo (generador / tubo / colimador).
@@ -719,7 +787,7 @@ export async function generarPreInforme(
     const gap = 8;
     const imgBoxW = 70;
     const imgBoxH = 90;
-    const tableLeft = MARGIN + pad + imgBoxW + gap;
+    const tableLeft = MARGIN_LEFT + pad + imgBoxW + gap;
     const tableWidth = CONTENT_WIDTH - pad * 2 - imgBoxW - gap;
     const labelW = 42;
 
@@ -746,50 +814,53 @@ export async function generarPreInforme(
       }
     }
 
-    // Alto estimado del cuerpo (filas de tabla vs. alto de la foto, si hay).
-    const estBodyH = dataUrl ? Math.max(filas.length * 8.6, imgH) : filas.length * 8.6;
-    const cardH = estBodyH + pad * 2;
-
-    addSubsectionTitle("", titulo, cardH + 6);
-
     if (!dataUrl) {
-      autoTable(doc, {
-        startY: y,
-        margin: { left: MARGIN, right: MARGIN },
+      const opcionesTabla = {
+        margin: TABLE_MARGIN,
         body: filas,
-        theme: "grid",
-        bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+        theme: "grid" as const,
+        rowPageBreak: "avoid" as const,
+        bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
+          0: { fontStyle: "bold" as const, cellWidth: 60, fillColor: COLOR_HEADER_BG },
           1: { cellWidth: CONTENT_WIDTH - 60 },
         },
-      });
-      y = lastAutoTableFinalY() + 6;
+      };
+      addSubsectionTitle("", titulo, medirAltoTabla(opcionesTabla) + SPACE.table.after);
+      autoTable(doc, { ...opcionesTabla, startY: y });
+      y = lastAutoTableFinalY() + SPACE.table.after;
       return;
     }
 
-    // El bloque título+tarjeta ya se reservó junto en addSubsectionTitle;
-    // este checkPage es un resguardo, no debería disparar en la práctica.
-    checkPage(cardH + 6);
-    const startY = y;
-
-    drawCardBg(MARGIN, startY, CONTENT_WIDTH, cardH);
-
-    autoTable(doc, {
-      startY: startY + pad,
-      margin: { left: tableLeft, right: MARGIN + pad },
+    const opcionesTablaCard = {
+      margin: { ...TABLE_MARGIN, left: tableLeft, right: TABLE_MARGIN.right + pad },
       tableWidth,
       body: filas,
-      theme: "grid",
-      bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+      theme: "grid" as const,
+      rowPageBreak: "avoid" as const,
+      bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
       columnStyles: {
-        0: { fontStyle: "bold", cellWidth: labelW, fillColor: [255, 255, 255] },
+        0: { fontStyle: "bold" as const, cellWidth: labelW, fillColor: [255, 255, 255] as RGB },
         1: { cellWidth: tableWidth - labelW },
       },
-    });
+    };
+    // Alto del cuerpo: la tabla medida vs. el alto de la foto.
+    const estBodyH = Math.max(medirAltoTabla(opcionesTablaCard), imgH);
+    const cardH = estBodyH + pad * 2;
+
+    addSubsectionTitle("", titulo, cardH + SPACE.table.after);
+
+    // El bloque título+tarjeta ya se reservó junto en addSubsectionTitle;
+    // este checkPage es un resguardo, no debería disparar en la práctica.
+    checkPage(cardH + SPACE.table.after);
+    const startY = y;
+
+    drawCardBg(MARGIN_LEFT, startY, CONTENT_WIDTH, cardH);
+
+    autoTable(doc, { ...opcionesTablaCard, startY: startY + pad });
 
     // Foto centrada dentro de su box (vertical respecto al alto de la tarjeta)
-    const imgX = MARGIN + pad + (imgBoxW - imgW) / 2;
+    const imgX = MARGIN_LEFT + pad + (imgBoxW - imgW) / 2;
     const imgY = startY + pad + (estBodyH - imgH) / 2;
     try {
       doc.addImage(dataUrl, imgX, imgY, imgW, imgH);
@@ -797,7 +868,7 @@ export async function generarPreInforme(
       // sin imagen utilizable: la tarjeta queda solo con la tabla
     }
 
-    y = startY + cardH + 6;
+    y = startY + cardH + SPACE.table.after;
   }
 
   // Contactos helper
@@ -822,15 +893,15 @@ export async function generarPreInforme(
 
   // Logo
   try {
-    doc.addImage(logoBase64, "PNG", MARGIN, 8, 55, 18);
+    doc.addImage(logoBase64, "PNG", MARGIN_LEFT, 8, 55, 18);
   } catch {
     // Fallback si el logo no se puede cargar
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.setTextColor(...COLOR_PRIMARY);
-    doc.text("Sievert", MARGIN, 20);
+    doc.text("Sievert", MARGIN_LEFT, 20);
     doc.setFontSize(8);
-    doc.text("Protección Radiológica", MARGIN, 24);
+    doc.text("Protección Radiológica", MARGIN_LEFT, 24);
   }
 
   // Tipo de informe
@@ -838,34 +909,41 @@ export async function generarPreInforme(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...COLOR_GRAY);
-  doc.text("Informe Técnico:", MARGIN, y);
+  doc.text("Informe Técnico:", MARGIN_LEFT, y);
   y += 6;
 
+  // Título del informe (22 pt, interlineado sencillo). La primera línea base
+  // baja lo que crece la altura de mayúscula respecto del cuerpo de 13 pt
+  // anterior, para no acercarse a "Informe Técnico:" ni al rótulo del QR.
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(FONT.coverTitle);
   doc.setTextColor(...COLOR_PRIMARY);
-  doc.text("FT-LEC-6c CONTROL DE CALIDAD Y ESTUDIO AMBIENTAL EN", MARGIN, y);
-  y += 5;
-  doc.text("UNIDADES DE RADIOGRAFÍA GENERAL", MARGIN, y);
-  y += 8;
+  const lineasTitulo: string[] = doc.splitTextToSize(
+    "FT-LEC-6c CONTROL DE CALIDAD Y ESTUDIO AMBIENTAL EN UNIDADES DE RADIOGRAFÍA GENERAL",
+    CONTENT_WIDTH
+  );
+  const pasoTitulo = lineaSencilla(FONT.coverTitle);
+  y += pt(FONT.coverTitle - 13) * 0.72;
+  doc.text(lineasTitulo, MARGIN_LEFT, y, { lineHeightFactor: HELV });
+  y += (lineasTitulo.length - 1) * pasoTitulo + 8;
 
   // Número, fecha y versión
   doc.setFontSize(10);
   doc.setTextColor(...COLOR_BLACK);
   if (datos.informe?.numero_informe) {
     doc.setFont("helvetica", "bold");
-    doc.text("N° de Informe:", MARGIN, y);
+    doc.text("N° de Informe:", MARGIN_LEFT, y);
     doc.setFont("helvetica", "normal");
-    doc.text(datos.informe.numero_informe, MARGIN + 40, y);
+    doc.text(datos.informe.numero_informe, MARGIN_LEFT + 40, y);
     y += 6;
   }
   doc.setFont("helvetica", "bold");
-  doc.text("Fecha de Informe:", MARGIN, y);
+  doc.text("Fecha de Informe:", MARGIN_LEFT, y);
   doc.setFont("helvetica", "normal");
-  doc.text(fechaInforme, MARGIN + 40, y);
+  doc.text(fechaInforme, MARGIN_LEFT + 40, y);
   y += 6;
   doc.setFont("helvetica", "bold");
-  doc.text("Versión:", MARGIN, y);
+  doc.text("Versión:", MARGIN_LEFT, y);
   doc.setFont("helvetica", "normal");
   const numeroVersion = datos.informe?.version_actual;
   const textoVersion = esFinal
@@ -875,12 +953,12 @@ export async function generarPreInforme(
     : numeroVersion != null
       ? `PRE-INFORME — ${numeroVersion}`
       : "PRE-INFORME";
-  doc.text(textoVersion, MARGIN + 40, y);
+  doc.text(textoVersion, MARGIN_LEFT + 40, y);
 
   // QR de verificación (solo en la versión oficial, si se proveyó)
   if (opts?.qrDataUrl) {
     const qrSize = 26;
-    const qrX = PAGE_WIDTH - MARGIN - qrSize;
+    const qrX = CONTENT_RIGHT - qrSize;
     const qrY = 8;
     try {
       doc.addImage(opts.qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
@@ -908,8 +986,8 @@ export async function generarPreInforme(
   // Valores largos (direcciones sobre todo) se parten en varias líneas en vez
   // de desbordar el recuadro — la altura de la tarjeta se calcula recién acá,
   // una vez medidas.
-  const valueX = MARGIN + 50;
-  const valueMaxWidth = MARGIN + CONTENT_WIDTH - 5 - valueX;
+  const valueX = MARGIN_LEFT + 50;
+  const valueMaxWidth = MARGIN_LEFT + CONTENT_WIDTH - 5 - valueX;
   doc.setFontSize(9);
   const infoInstalacionLineas = infoInstalacion.map(([label, value]) => ({
     label,
@@ -921,20 +999,20 @@ export async function generarPreInforme(
   );
 
   y += 12;
-  drawCardBg(MARGIN, y, CONTENT_WIDTH, 20 + infoInstalacionAltura);
+  drawCardBg(MARGIN_LEFT, y, CONTENT_WIDTH, 20 + infoInstalacionAltura);
 
   y += 7;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...COLOR_PRIMARY);
-  doc.text("Identificación de la Instalación", MARGIN + 5, y);
+  doc.text("Identificación de la Instalación", MARGIN_LEFT + 5, y);
   y += 6;
 
   doc.setFontSize(9);
   for (const { label, lineas } of infoInstalacionLineas) {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...COLOR_BLACK);
-    doc.text(label, MARGIN + 5, y);
+    doc.text(label, MARGIN_LEFT + 5, y);
     doc.setFont("helvetica", "normal");
     doc.text(lineas, valueX, y);
     y += lineas.length * 5;
@@ -942,23 +1020,23 @@ export async function generarPreInforme(
 
   // Recuadro: Identificación de la unidad evaluada
   y += 14;
-  drawCardBg(MARGIN, y, CONTENT_WIDTH, 30);
+  drawCardBg(MARGIN_LEFT, y, CONTENT_WIDTH, 30);
 
   y += 7;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...COLOR_PRIMARY);
-  doc.text("Identificación de la Unidad evaluada", MARGIN + 5, y);
+  doc.text("Identificación de la Unidad evaluada", MARGIN_LEFT + 5, y);
   y += 6;
 
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
   doc.setFont("helvetica", "normal");
-  doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN + 5, y);
+  doc.text(`${datos.equipo?.tipo_equipo?.replace(/_/g, " ") ?? "Rayos X"}`, MARGIN_LEFT + 5, y);
   y += 5;
   doc.text(
     `Marca: ${datos.equipo?.gen_marca ?? "No reporta"}    Modelo: ${datos.equipo?.gen_modelo ?? "No reporta"}    Serie: ${datos.equipo?.gen_numero_serie ?? "No reporta"}`,
-    MARGIN + 5,
+    MARGIN_LEFT + 5,
     y
   );
   y += 5;
@@ -966,25 +1044,23 @@ export async function generarPreInforme(
   // Vigencia — mismo gap (14) que separa las dos tarjetas de arriba.
   y += 14;
   doc.setFillColor(255, 251, 235);
-  doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 12, 2, 2, "F");
+  doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, 12, 2, 2, "F");
   doc.setDrawColor(245, 158, 11);
-  doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 12, 2, 2, "S");
+  doc.roundedRect(MARGIN_LEFT, y, CONTENT_WIDTH, 12, 2, 2, "S");
   y += 7;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(180, 120, 0);
   doc.text(
     "Vigencia del Informe: Dos (2) años contados a partir de la fecha de emisión, conforme a la Resolución 1811 de 2025",
-    MARGIN + 5,
+    MARGIN_LEFT + 5,
     y
   );
 
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA 2 — INTRODUCCIÓN (primera sección, sin numerar)
   // ═══════════════════════════════════════════════════════════
-  doc.addPage();
-  y = MARGIN + HEADER_HEIGHT;
-  addHeader(doc, datos, logoBase64);
+  nuevaPagina();
 
   y = addSectionTitle(doc, "INTRODUCCIÓN", y);
   registrarToc("INTRODUCCIÓN");
@@ -1008,9 +1084,7 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   //  PÁGINA — 1. INFORMACIÓN DE LA PRÁCTICA
   // ═══════════════════════════════════════════════════════════
-  doc.addPage();
-  y = MARGIN + HEADER_HEIGHT;
-  addHeader(doc, datos, logoBase64);
+  nuevaPagina();
 
   y = addSectionTitle(doc, "1. INFORMACIÓN DE LA PRÁCTICA", y);
   registrarToc("1. INFORMACIÓN DE LA PRÁCTICA");
@@ -1049,10 +1123,11 @@ export async function generarPreInforme(
 
   autoTable(doc, {
     startY: y,
-    margin: { left: MARGIN, right: MARGIN },
+    margin: TABLE_MARGIN,
     body: datosGenerales,
     theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+    rowPageBreak: "avoid",
+    bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
     alternateRowStyles: { fillColor: COLOR_ALT_ROW },
     columnStyles: {
       0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
@@ -1060,7 +1135,7 @@ export async function generarPreInforme(
     },
   });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  y = lastAutoTableFinalY() + SPACE.table.after;
 
   // Datos de la Instalación
   checkPage(50);
@@ -1090,10 +1165,11 @@ export async function generarPreInforme(
 
   autoTable(doc, {
     startY: y,
-    margin: { left: MARGIN, right: MARGIN },
+    margin: TABLE_MARGIN,
     body: datosInstalacion,
     theme: "grid",
-    bodyStyles: { fontSize: 8, textColor: COLOR_BLACK },
+    rowPageBreak: "avoid",
+    bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
     alternateRowStyles: { fillColor: COLOR_ALT_ROW },
     columnStyles: {
       0: { fontStyle: "bold", cellWidth: 60, fillColor: COLOR_HEADER_BG },
@@ -1101,7 +1177,7 @@ export async function generarPreInforme(
     },
   });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  y = lastAutoTableFinalY() + SPACE.table.after;
 
   // Características del Generador
   const datosGenerador = [
@@ -1157,18 +1233,30 @@ export async function generarPreInforme(
   checkPage(15);
   addSubsectionTitle("", "Condiciones ambientales");
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`Temperatura (°C): ${datos.visita.temperatura_c ?? "No reporta"}`, MARGIN, y);
-  y += 5;
-  doc.text(`Presión (hPa): ${datos.visita.presion_hpa ?? "No reporta"}`, MARGIN, y);
-  y += 8;
+  doc.setFontSize(FONT.body);
+  doc.setTextColor(...COLOR_BLACK);
+  {
+    const base = y + baseDesdeTope(FONT.body, LINE_H);
+    doc.text(`Temperatura (°C): ${datos.visita.temperatura_c ?? "No reporta"}`, MARGIN_LEFT, base);
+    doc.text(
+      `Presión (hPa): ${datos.visita.presion_hpa ?? "No reporta"}`,
+      MARGIN_LEFT,
+      base + LINE_H
+    );
+    y += 2 * LINE_H + SPACE.paragraph.after;
+  }
 
   // Otras identificaciones del equipo de rayos X — lista título + imagen (#61)
   {
     const otras = datos.identificaciones.filter((i) => (i.subtabla ?? "otra") === "otra");
     if (otras.length > 0) {
       checkPage(20);
-      addSubsectionTitle("", "Otras identificaciones del equipo de rayos X");
+      // Se reserva junto con la primera tarjeta (rótulo 8 + 2×5 de aire + foto 44).
+      addSubsectionTitle(
+        "",
+        "Otras identificaciones del equipo de rayos X",
+        otras[0].dataUrl ? 62 + SPACE.table.after : 14
+      );
       otras.forEach((iden) => {
         if (iden.dataUrl) {
           drawImagenCard(iden.nombre, iden.dataUrl);
@@ -1177,18 +1265,19 @@ export async function generarPreInforme(
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8);
           doc.setTextColor(...COLOR_GRAY);
-          doc.text(iden.nombre, MARGIN, y);
-          y += 6;
+          doc.text(iden.nombre, MARGIN_LEFT, y + baseDesdeTope(8));
+          y += lineaSencilla(8) + SPACE.paragraph.after;
         }
       });
-      y += 2;
     }
   }
 
   // ═══════════════════════════════════════════════════════════
   //  SECCIÓN — PRUEBAS DE CONTROL DE CALIDAD
   // ═══════════════════════════════════════════════════════════
-  y += 4;
+  // Título + la reserva de la primera prueba (checkPage(60) más abajo): sin
+  // esto el título 1 puede quedar solo al pie de la página.
+  checkPage(75);
   y = addSectionTitle(doc, "2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL", y);
   registrarToc("2. PRUEBAS DE CONTROL DE CALIDAD EN RADIOLOGÍA GENERAL");
 
@@ -1234,7 +1323,6 @@ export async function generarPreInforme(
 
       // Título de la prueba
       checkPage(60);
-      y += 2;
       y = addSectionTitle(doc, `${codigo} ${cat.nombre}`, y, 2);
       registrarToc(`${codigo} ${cat.nombre}`, 2);
 
@@ -1251,13 +1339,14 @@ export async function generarPreInforme(
         const titulosGrilla = subseccionesNoAplica(codigo);
         // Metodología + grilla reservadas como un solo bloque: si no, el motivo
         // puede quedar al pie de una página y la grilla sola en la siguiente.
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        const alturaMotivo = doc.splitTextToSize(motivo, CONTENT_WIDTH).length * 4.2 + 2;
-        checkPage(6 + alturaMotivo + Math.ceil(titulosGrilla.length / 2) * NO_APLICA_ALTO_FILA);
+        const altoTitulo3 = SPACE.h3.before + lineaSencilla(FONT.h3) + SPACE.h3.after;
+        checkPage(
+          altoTitulo3 +
+            altoParrafo(motivo) +
+            Math.ceil(titulosGrilla.length / 2) * NO_APLICA_ALTO_FILA
+        );
         addSubsectionParagraph(`${codigo}.3.`, "Metodología", motivo);
         renderNoAplicaCompacto(titulosGrilla);
-        y += 4;
         // No cuenta como no conforme ni como pendiente para el concepto general.
         resumenRows.push([`${codigo} ${cat.nombre}`, "NO APLICA"]);
         continue;
@@ -1267,7 +1356,14 @@ export async function generarPreInforme(
       // Resultados (+ análisis en 2.1, descripción en 2.2)
       let nextSub: number;
       if (!aplica) {
-        addSubsectionParagraph(`${codigo}.4.`, "Resultados", "NO APLICA.", 9, 0, COLOR_GRAY);
+        addSubsectionParagraph(
+          `${codigo}.4.`,
+          "Resultados",
+          "NO APLICA.",
+          FONT.body,
+          0,
+          COLOR_GRAY
+        );
         nextSub = 5;
       } else {
         // El físico puede sobreescribir el texto del Análisis de cualquier
@@ -1861,17 +1957,9 @@ export async function generarPreInforme(
 
       // Título + veredicto + párrafo, reservados como un solo bloque — la
       // altura real (con o sin conceptoParrafo) recién se conoce acá.
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      const alturaConcepto = conceptoParrafo
-        ? doc.splitTextToSize(conceptoParrafo, CONTENT_WIDTH).length * 4.2 + 2
-        : 0;
-      addSubsectionTitle(numConcepto, "Concepto", 6 + alturaConcepto);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(...veredictoColor(conceptoLabel));
-      doc.text(conceptoLabel, MARGIN, y);
-      y += 6;
+      const alturaConcepto = conceptoParrafo ? altoParrafo(conceptoParrafo) : 0;
+      addSubsectionTitle(numConcepto, "Concepto", ALTO_VEREDICTO + alturaConcepto);
+      dibujarVeredicto(conceptoLabel);
       if (conceptoParrafo) {
         addParagraph(conceptoParrafo);
       }
@@ -1880,7 +1968,6 @@ export async function generarPreInforme(
 
       // Acciones correctivas
       addSubsectionParagraph(`${codigo}.${nextSub}.`, "Acciones Correctivas", accionesTexto);
-      y += 4;
 
       resumenRows.push([`${codigo} ${cat.nombre}`, conceptoLabel]);
       if (esNoConforme) conceptoGeneralOk = false;
@@ -1903,7 +1990,6 @@ export async function generarPreInforme(
 
     // Título de la prueba
     checkPage(60);
-    y += 2;
     y = addSectionTitle(doc, `${numPrueba} ${nombre}`, y, 2);
     registrarToc(`${numPrueba} ${nombre}`, 2);
 
@@ -1926,28 +2012,21 @@ export async function generarPreInforme(
     // autoTable, que repite el encabezado: no necesitan esta reserva.
     let keepWithMmResultados = 14;
     if (resultadosEsTexto) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
       if (prueba.concepto === "NO_APLICA") {
-        let h = doc.splitTextToSize("NO APLICA.", CONTENT_WIDTH).length * 4.2 + 2;
-        if (prueba.acciones_correctivas) {
-          h += doc.splitTextToSize(prueba.acciones_correctivas, CONTENT_WIDTH).length * 4.2 + 2;
-        }
+        let h = altoParrafo("NO APLICA.");
+        if (prueba.acciones_correctivas) h += altoParrafo(prueba.acciones_correctivas);
         keepWithMmResultados = h;
       } else {
-        keepWithMmResultados =
-          doc.splitTextToSize("Sin datos registrados para esta prueba.", CONTENT_WIDTH).length *
-            4.2 +
-          2;
+        keepWithMmResultados = altoParrafo("Sin datos registrados para esta prueba.");
       }
     }
     addSubsectionTitle(`${numPrueba}.4.`, "Resultados", keepWithMmResultados);
 
     if (resultadosEsTexto) {
       if (prueba.concepto === "NO_APLICA") {
-        addParagraph("NO APLICA.", 9, 0, COLOR_GRAY);
+        addParagraph("NO APLICA.", FONT.body, 0, COLOR_GRAY);
         if (prueba.acciones_correctivas) {
-          addParagraph(prueba.acciones_correctivas, 9, 0, COLOR_GRAY);
+          addParagraph(prueba.acciones_correctivas, FONT.body, 0, COLOR_GRAY);
         }
       } else {
         addParagraph("Sin datos registrados para esta prueba.");
@@ -1957,7 +2036,8 @@ export async function generarPreInforme(
       if (codigo === "LEV" && datos.mediciones.length > 0) {
         autoTable(doc, {
           startY: y,
-          margin: { left: MARGIN, right: MARGIN },
+          margin: TABLE_MARGIN,
+          rowPageBreak: "avoid",
           head: [
             [
               "#",
@@ -1983,20 +2063,21 @@ export async function generarPreInforme(
             fillColor: COLOR_PRIMARY,
             textColor: [255, 255, 255],
             fontStyle: "bold",
-            fontSize: 7,
+            fontSize: FONT.tableHead,
           },
-          bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
+          bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
           alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           columnStyles: { 0: { cellWidth: 8 } },
         });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+        y = lastAutoTableFinalY() + SPACE.table.after;
       }
       // Para INS, mostrar tablas de inspección
       else if (codigo === "INS" && datos.partes.length > 0) {
         // Tabla de inspección del equipo
         autoTable(doc, {
           startY: y,
-          margin: { left: MARGIN, right: MARGIN },
+          margin: TABLE_MARGIN,
+          rowPageBreak: "avoid",
           head: [["Componente", "Estado", "Observaciones"]],
           body: datos.partes.map((p) => [
             p.parte_nombre,
@@ -2008,25 +2089,31 @@ export async function generarPreInforme(
             fillColor: COLOR_PRIMARY,
             textColor: [255, 255, 255],
             fontStyle: "bold",
-            fontSize: 7,
+            fontSize: FONT.tableHead,
           },
-          bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
+          bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
           alternateRowStyles: { fillColor: COLOR_ALT_ROW },
         });
-        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+        y = lastAutoTableFinalY() + SPACE.table.after;
 
         // Elementos de protección
         if (datos.elementos.length > 0) {
           checkPage(20);
+          y += SPACE.tableCaption.before;
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
+          doc.setFontSize(FONT.tableCaption);
           doc.setTextColor(...COLOR_BLACK);
-          doc.text("Elementos de protección radiológica", MARGIN, y);
-          y += 5;
+          doc.text(
+            "Elementos de protección radiológica",
+            MARGIN_LEFT,
+            y + baseDesdeTope(FONT.tableCaption)
+          );
+          y += lineaSencilla(FONT.tableCaption) + SPACE.tableCaption.after;
 
           autoTable(doc, {
             startY: y,
-            margin: { left: MARGIN, right: MARGIN },
+            margin: TABLE_MARGIN,
+            rowPageBreak: "avoid",
             head: [["No.", "Descripción", "Cantidad", "Concepto", "Observaciones"]],
             body: datos.elementos.map((e, i) => [
               String(i + 1),
@@ -2040,12 +2127,12 @@ export async function generarPreInforme(
               fillColor: COLOR_PRIMARY,
               textColor: [255, 255, 255],
               fontStyle: "bold",
-              fontSize: 7,
+              fontSize: FONT.tableHead,
             },
-            bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
+            bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
             alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           });
-          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+          y = lastAutoTableFinalY() + SPACE.table.after;
         }
       }
       // Para las demás pruebas, tabla genérica de mediciones
@@ -2058,7 +2145,8 @@ export async function generarPreInforme(
 
           autoTable(doc, {
             startY: y,
-            margin: { left: MARGIN, right: MARGIN },
+            margin: TABLE_MARGIN,
+            rowPageBreak: "avoid",
             head: [headers],
             body: mediciones.map((m) => keys.map((k) => String(m[k] ?? "—"))),
             theme: "grid",
@@ -2066,12 +2154,12 @@ export async function generarPreInforme(
               fillColor: COLOR_PRIMARY,
               textColor: [255, 255, 255],
               fontStyle: "bold",
-              fontSize: 7,
+              fontSize: FONT.tableHead,
             },
-            bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
+            bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
             alternateRowStyles: { fillColor: COLOR_ALT_ROW },
           });
-          y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+          y = lastAutoTableFinalY() + SPACE.table.after;
         }
       }
     }
@@ -2083,7 +2171,7 @@ export async function generarPreInforme(
 
     // Concepto
     checkPage(15);
-    addSubsectionTitle(`${numPrueba}.6.`, "Concepto");
+    addSubsectionTitle(`${numPrueba}.6.`, "Concepto", ALTO_VEREDICTO);
     const conceptoText =
       prueba.concepto === "FAVORABLE"
         ? "FAVORABLE"
@@ -2091,11 +2179,7 @@ export async function generarPreInforme(
           ? "NO FAVORABLE"
           : "NO APLICA";
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(...veredictoColor(conceptoText));
-    doc.text(conceptoText, MARGIN, y);
-    y += 6;
+    dibujarVeredicto(conceptoText);
 
     // Acciones correctivas
     addSubsectionParagraph(
@@ -2104,12 +2188,10 @@ export async function generarPreInforme(
       prueba.acciones_correctivas && prueba.acciones_correctivas.trim()
         ? prueba.acciones_correctivas
         : "No se requieren acciones correctivas.",
-      9,
+      FONT.body,
       0,
       conceptoText === "NO APLICA" ? COLOR_GRAY : COLOR_BLACK
     );
-
-    y += 4;
 
     resumenRows.push([`${numPrueba} ${nombre}`, conceptoText]);
     if (prueba.concepto === "NO_FAVORABLE") conceptoGeneralOk = false;
@@ -2134,7 +2216,8 @@ export async function generarPreInforme(
 
   autoTable(doc, {
     startY: y,
-    margin: { left: MARGIN, right: MARGIN },
+    margin: TABLE_MARGIN,
+    rowPageBreak: "avoid",
     tableWidth: CONTENT_WIDTH,
     head: [["Prueba realizada", "Concepto"]],
     body: resumenRows,
@@ -2143,9 +2226,9 @@ export async function generarPreInforme(
       fillColor: COLOR_PRIMARY,
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 8,
+      fontSize: FONT.tableHead,
     },
-    bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
+    bodyStyles: { fontSize: FONT.tableBody, textColor: COLOR_BLACK },
     alternateRowStyles: { fillColor: COLOR_ALT_ROW },
     // Col 0 ocupa el resto; "Concepto" con ancho fijo → la tabla nunca se
     // desborda del margen aunque un nombre de prueba sea largo.
@@ -2153,7 +2236,7 @@ export async function generarPreInforme(
     didParseCell: didParseVeredictoCell(1),
   });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+  y = lastAutoTableFinalY() + SPACE.table.after;
 
   // CONCEPTO GENERAL
   checkPage(30);
@@ -2173,11 +2256,14 @@ export async function generarPreInforme(
     "Con base en los resultados obtenidos en las pruebas de control de calidad realizadas al equipo de radiografía general, y de acuerdo con los criterios establecidos en los protocolos de control de calidad aplicables, se concluye que el desempeño del equipo evaluado es:"
   );
 
+  checkPage(lineaSencilla(14));
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...veredictoColor(conceptoGeneral));
-  doc.text(conceptoGeneral, PAGE_WIDTH / 2, y, { align: "center" });
-  y += 10;
+  doc.text(conceptoGeneral, MARGIN_LEFT + CONTENT_WIDTH / 2, y + baseDesdeTope(14), {
+    align: "center",
+  });
+  y += lineaSencilla(14) + SPACE.paragraph.after;
 
   if (conceptoGeneral === "PENDIENTE") {
     const nPend = resumenRows.filter((r) => r[1] === "PENDIENTE").length;
@@ -2194,7 +2280,6 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   const OBSERVACIONES_GENERALES_HABILITADA = false;
   if (OBSERVACIONES_GENERALES_HABILITADA && datos.visita.observaciones) {
-    y += 4;
     checkPage(25);
     y = addSectionTitle(doc, "OBSERVACIONES GENERALES", y);
     registrarToc("OBSERVACIONES GENERALES");
@@ -2204,61 +2289,66 @@ export async function generarPreInforme(
   // ═══════════════════════════════════════════════════════════
   //  FIRMAS
   // ═══════════════════════════════════════════════════════════
-  checkPage(90);
-  y += 10;
+  // Bloque completo de firmas: título 1 + tres responsables (102 mm entre la
+  // primera y la última línea base) — se reserva entero para que no se parta
+  // ni se salga por el pie.
+  const ALTO_FIRMAS =
+    SPACE.h1.before + baseDesdeTope(FONT.h1) + TITLE_RULE_GAP + SPACE.h1.after + 3 + 102 + 2;
+  checkPage(ALTO_FIRMAS);
   y = addSectionTitle(doc, "5. FIRMAS", y);
   registrarToc("5. FIRMAS");
-  y += 5;
+  // Desde acá `y` es la línea base de cada renglón del bloque de firmas.
+  y += baseDesdeTope(FONT.body);
 
   // Responsable Sievert
   doc.setDrawColor(...COLOR_GRAY);
-  doc.line(MARGIN, y + 15, MARGIN + 70, y + 15);
+  doc.line(MARGIN_LEFT, y + 15, MARGIN_LEFT + 70, y + 15);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
-  doc.text("Responsable Sievert S.A.S:", MARGIN, y);
+  doc.text("Responsable Sievert S.A.S:", MARGIN_LEFT, y);
   y += 20;
-  doc.text("Director Técnico", MARGIN, y);
+  doc.text("Director Técnico", MARGIN_LEFT, y);
   y += 4;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLOR_GRAY);
-  doc.text("Sievert Protección Radiológica S.A.S.", MARGIN, y);
+  doc.text("Sievert Protección Radiológica S.A.S.", MARGIN_LEFT, y);
 
   // Responsable de visita — contacto del cliente (no el técnico de Sievert que ejecuta la visita)
   y += 15;
   doc.setDrawColor(...COLOR_GRAY);
-  doc.line(MARGIN, y + 15, MARGIN + 70, y + 15);
+  doc.line(MARGIN_LEFT, y + 15, MARGIN_LEFT + 70, y + 15);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
-  doc.text("Responsable de visita:", MARGIN, y);
+  doc.text("Responsable de visita:", MARGIN_LEFT, y);
   y += 20;
-  doc.text(responsableVisita?.nombre ?? "—", MARGIN, y);
+  doc.text(responsableVisita?.nombre ?? "—", MARGIN_LEFT, y);
   y += 4;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLOR_GRAY);
-  doc.text(`C.C. ${responsableVisita?.cedula ?? "—"}`, MARGIN, y);
+  doc.text(`C.C. ${responsableVisita?.cedula ?? "—"}`, MARGIN_LEFT, y);
 
   // Responsable de generación de documento — usuario que generó/publicó el
   // informe (#109), con su firma tomada automáticamente del módulo de usuario.
   y += 15;
   doc.setDrawColor(...COLOR_GRAY);
-  doc.line(MARGIN, y + 15, MARGIN + 70, y + 15);
+  doc.line(MARGIN_LEFT, y + 15, MARGIN_LEFT + 70, y + 15);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
-  doc.text("Responsable de generación de documento:", MARGIN, y);
+  doc.text("Responsable de generación de documento:", MARGIN_LEFT, y);
   if (firmaGeneracionDataUrl) {
     try {
-      doc.addImage(firmaGeneracionDataUrl, MARGIN, y + 1, 40, 13);
+      doc.addImage(firmaGeneracionDataUrl, MARGIN_LEFT, y + 1, 40, 13);
     } catch {
       // firma no utilizable: la línea queda en blanco, igual que sin firma
     }
   }
   y += 20;
-  doc.text(datos.responsableGeneracion?.nombre ?? "—", MARGIN, y);
+  doc.text(datos.responsableGeneracion?.nombre ?? "—", MARGIN_LEFT, y);
   y += 4;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
@@ -2266,7 +2356,7 @@ export async function generarPreInforme(
   doc.text(
     datos.responsableGeneracion?.titulo_firma?.trim() ||
       (datos.responsableGeneracion ? ROL_LABELS[datos.responsableGeneracion.cargo] : "—"),
-    MARGIN,
+    MARGIN_LEFT,
     y
   );
 
@@ -2275,26 +2365,28 @@ export async function generarPreInforme(
   // Nivel 1 = secciones ("CONCEPTO", "FIRMAS"...), nivel 2 = cada prueba
   // ("2.8 ..."). Sin Objetivo/Instrumentación/Metodología/Resultados: esos
   // nunca llaman a `registrarToc`, así que quedan fuera por diseño.
-  const TOC_FONT_L1 = 10;
-  const TOC_FONT_L2 = 9;
-  const TOC_LINEH_L1 = 6;
-  const TOC_LINEH_L2 = 5.2;
-  const TOC_INDENT_L2 = 6;
+  // Ambos niveles a 9 pt (nivel 1 en negrita) con paso de fila de 7,5 mm; una
+  // entrada que se parte en varias líneas las separa a interlineado sencillo.
+  const TOC_PASO_FILA = 7.5;
+  const TOC_INDENT_L2 = 5;
   const TOC_PAGE_NUM_W = 14;
-  const TOC_TOP = MARGIN + HEADER_HEIGHT + 16; // debajo del título "CONTENIDO"
-  const TOC_BOTTOM = 275;
+  // Tope de las filas: debajo del título "CONTENIDO" (una línea) + 12 pt de aire.
+  const TOC_TOP =
+    CONTENT_TOP + baseDesdeTope(FONT.tocTitle) + TITLE_RULE_GAP + SPACE.tocTitle.after;
 
   interface TocRow {
     lines: string[];
     nivel: 1 | 2;
     pagina: number;
-    lineH: number;
+    alto: number;
   }
   const tocRows: TocRow[] = toc.map(({ titulo, nivel, pagina }) => {
-    doc.setFontSize(nivel === 1 ? TOC_FONT_L1 : TOC_FONT_L2);
+    doc.setFont("helvetica", nivel === 1 ? "bold" : "normal");
+    doc.setFontSize(FONT.tocEntry);
     const indent = nivel === 2 ? TOC_INDENT_L2 : 0;
     const lines: string[] = doc.splitTextToSize(titulo, CONTENT_WIDTH - indent - TOC_PAGE_NUM_W);
-    return { lines, nivel, pagina, lineH: nivel === 1 ? TOC_LINEH_L1 : TOC_LINEH_L2 };
+    const alto = TOC_PASO_FILA + (lines.length - 1) * lineaSencilla(FONT.tocEntry);
+    return { lines, nivel, pagina, alto };
   });
 
   // Distribuye las filas en tantas páginas como hagan falta — "CONTENIDO" se
@@ -2302,8 +2394,8 @@ export async function generarPreInforme(
   const tocPages: TocRow[][] = [[]];
   let tocCursor = TOC_TOP;
   for (const row of tocRows) {
-    const alto = row.lines.length * row.lineH;
-    if (tocCursor + alto > TOC_BOTTOM) {
+    const alto = row.alto;
+    if (tocCursor + alto > PAGE_BOTTOM) {
       tocPages.push([]);
       tocCursor = TOC_TOP;
     }
@@ -2316,6 +2408,13 @@ export async function generarPreInforme(
   // tras la portada. Cada entrada del toc había registrado su número de
   // página ANTES de esta inserción — se corrige sumando la cantidad de
   // páginas de CONTENIDO insertadas.
+  // Encabezado en las páginas que autoTable agregó al partir una tabla (no
+  // pasan por `nuevaPagina`). Se hace antes de insertar el índice, mientras
+  // la numeración coincide con la registrada en `paginasConHeader`.
+  for (let p = 2; p <= doc.getNumberOfPages(); p++) {
+    if (!paginasConHeader.has(p)) addHeader(doc, datos, logoBase64, p);
+  }
+
   const numPaginasToc = tocPages.length;
   for (let i = 0; i < numPaginasToc; i++) {
     doc.insertPage(2 + i);
@@ -2323,18 +2422,21 @@ export async function generarPreInforme(
 
   tocPages.forEach((filas, i) => {
     addHeader(doc, datos, logoBase64, 2 + i);
-    let tocY = addSectionTitle(doc, "CONTENIDO", MARGIN + HEADER_HEIGHT);
+    let tocY = addSectionTitle(doc, "CONTENIDO", CONTENT_TOP, 1, SPACE.tocTitle.after);
     for (const fila of filas) {
+      const base = tocY + baseDesdeTope(FONT.tocEntry);
       doc.setFont("helvetica", fila.nivel === 1 ? "bold" : "normal");
-      doc.setFontSize(fila.nivel === 1 ? TOC_FONT_L1 : TOC_FONT_L2);
+      doc.setFontSize(FONT.tocEntry);
       doc.setTextColor(...COLOR_BLACK);
-      doc.text(fila.lines, MARGIN + (fila.nivel === 2 ? TOC_INDENT_L2 : 0), tocY);
+      doc.text(fila.lines, MARGIN_LEFT + (fila.nivel === 2 ? TOC_INDENT_L2 : 0), base, {
+        lineHeightFactor: HELV,
+      });
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...COLOR_PRIMARY);
-      doc.text(String(fila.pagina + numPaginasToc), MARGIN + CONTENT_WIDTH, tocY, {
+      doc.text(String(fila.pagina + numPaginasToc), CONTENT_RIGHT, base, {
         align: "right",
       });
-      tocY += fila.lines.length * fila.lineH;
+      tocY += fila.alto;
     }
   });
 
@@ -2352,7 +2454,7 @@ export async function generarPreInforme(
         addHeader(doc, datos, logoBase64);
       }
       doc.setPage(doc.getNumberOfPages());
-      doc.addImage(pieFooterBase64, MARGIN, yBanner, wBanner, hBanner);
+      doc.addImage(pieFooterBase64, MARGIN_LEFT, yBanner, wBanner, hBanner);
     }
   } catch {
     // banner no utilizable (asset corrupto o no decodificable): se omite
@@ -2433,24 +2535,36 @@ export async function generarPreInforme(
 
 /**
  * Único componente de jerarquía de título del informe.
- *  - `level` 1: secciones ("INFORMACIÓN DE LA PRÁCTICA", "CONCEPTO"…) — 12pt, regla 0.5
+ *  - `level` 1: secciones ("INFORMACIÓN DE LA PRÁCTICA", "CONCEPTO"…) — 13pt, regla 0.5
  *  - `level` 2: título de cada prueba ("2.8 Determinación…") — 11pt, regla 0.3
- * Ajusta el texto largo a varias líneas dentro del ancho de contenido.
+ * `y` es el tope de la caja del título. Aplica el aire "antes" (salvo al
+ * inicio del área de contenido) y devuelve el tope del siguiente elemento:
+ * regla + aire "después" (`after` lo reemplaza, p. ej. tras "CONTENIDO").
+ * Ajusta el texto largo a varias líneas, a interlineado sencillo.
  */
-function addSectionTitle(doc: jsPDF, title: string, y: number, level: 1 | 2 = 1): number {
-  const fontSize = level === 1 ? 12 : 11;
+function addSectionTitle(
+  doc: jsPDF,
+  title: string,
+  y: number,
+  level: 1 | 2 = 1,
+  after?: number
+): number {
+  const fontSize = level === 1 ? FONT.h1 : FONT.h2;
+  const espacio = level === 1 ? SPACE.h1 : SPACE.h2;
   const lineWidth = level === 1 ? 0.5 : 0.3;
-  const lineH = level === 1 ? 5.5 : 5;
+  const lineH = lineaSencilla(fontSize);
+  if (y > CONTENT_TOP + 0.01) y += espacio.before;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(fontSize);
   doc.setTextColor(...COLOR_PRIMARY);
   const lines: string[] = doc.splitTextToSize(title, CONTENT_WIDTH);
-  doc.text(lines, MARGIN, y);
-  y += (lines.length - 1) * lineH + 2;
+  const base = y + baseDesdeTope(fontSize);
+  doc.text(lines, MARGIN_LEFT, base, { lineHeightFactor: HELV });
+  const yRegla = base + (lines.length - 1) * lineH + TITLE_RULE_GAP;
   doc.setDrawColor(...COLOR_PRIMARY);
   doc.setLineWidth(lineWidth);
-  doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
-  return y + 7;
+  doc.line(MARGIN_LEFT, yRegla, CONTENT_RIGHT, yRegla);
+  return yRegla + (after ?? espacio.after);
 }
 
 function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string, targetPage?: number) {
@@ -2459,37 +2573,40 @@ function addHeader(doc: jsPDF, datos: DatosInforme, logoBase64: string, targetPa
 
   // Logo pequeño en header
   try {
-    doc.addImage(logoBase64, "PNG", MARGIN, 8, 35, 12);
+    doc.addImage(logoBase64, "PNG", MARGIN_LEFT, 8, 35, 12);
   } catch {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...COLOR_PRIMARY);
-    doc.text("Sievert", MARGIN, 15);
+    doc.text("Sievert", MARGIN_LEFT, 15);
   }
 
-  // Tipo de informe y equipo en header
+  // Tipo de informe y equipo en header (dos líneas a interlineado sencillo)
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(FONT.headerFooter);
   doc.setTextColor(...COLOR_GRAY);
   doc.text(
     `Control de Calidad — ${datos.equipo?.gen_marca ?? ""} ${datos.equipo?.gen_modelo ?? ""}`,
-    PAGE_WIDTH - MARGIN,
+    CONTENT_RIGHT,
     12,
     { align: "right" }
   );
-  doc.text(datos.cliente?.nombre_cliente?.substring(0, 60) ?? "", PAGE_WIDTH - MARGIN, 16, {
-    align: "right",
-  });
+  doc.text(
+    datos.cliente?.nombre_cliente?.substring(0, 60) ?? "",
+    CONTENT_RIGHT,
+    12 + lineaSencilla(FONT.headerFooter),
+    { align: "right" }
+  );
 }
 
 function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPages: number) {
   // Línea separadora superior
   doc.setDrawColor(...COLOR_GRAY);
   doc.setLineWidth(0.1);
-  doc.line(MARGIN, 287, PAGE_WIDTH - MARGIN, 287);
+  doc.line(MARGIN_LEFT, 287, CONTENT_RIGHT, 287);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(FONT.headerFooter);
   doc.setTextColor(...COLOR_GRAY);
 
   const esFinal =
@@ -2503,9 +2620,9 @@ function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPa
         : "PRE-INFORME";
   const fechaGeneracion = new Date().toLocaleDateString("es-CO");
 
-  doc.text(`FT-LEC-6c | ${versionTexto} | Generado: ${fechaGeneracion}`, MARGIN, 292);
+  doc.text(`FT-LEC-6c | ${versionTexto} | Generado: ${fechaGeneracion}`, MARGIN_LEFT, 292);
   doc.text("www.sievert.com.co", PAGE_WIDTH / 2, 292, { align: "center" });
-  doc.text(`Página ${currentPage} de ${totalPages}`, PAGE_WIDTH - MARGIN, 292, { align: "right" });
+  doc.text(`Página ${currentPage} de ${totalPages}`, CONTENT_RIGHT, 292, { align: "right" });
 
   // Línea inferior púrpura
   doc.setFillColor(...COLOR_PRIMARY);

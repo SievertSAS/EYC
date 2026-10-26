@@ -4,6 +4,7 @@ import { resetTestDb } from "@/test/db-reset";
 import {
   recopilarDatosConv,
   renderResultadosSeccion,
+  renderEvidenciaGrafica,
   renderTablaBaseRef216,
   renderTablaBaseRef221,
   renderTablaChrRef,
@@ -130,6 +131,7 @@ const visitaFixture = row({ id: V, estado_visita: "asignada" });
 interface TablaCapturada {
   head: unknown[];
   body: unknown[][];
+  opts: Record<string, unknown>;
 }
 
 /** Ctx real (jsPDF + autoTable) que además captura head/body de cada tabla dibujada. */
@@ -144,6 +146,7 @@ async function ctxConTablasCapturadas(): Promise<{ ctx: InformeCtx; tablas: Tabl
     tablas.push({
       head: (opts.head?.[0] as unknown[]) ?? [],
       body: (opts.body as unknown[][]) ?? [],
+      opts: opts as Record<string, unknown>,
     });
     return autoTableReal(d, opts);
   };
@@ -1615,5 +1618,67 @@ describe("analisisPredeterminadoDeVisita — predeterminado del editor leído de
     expect(await analisisPredeterminadoDeVisita("no-existe", "2.4")).toBeNull();
     await db.visitas.add(row({ id: V, estado_visita: "en_progreso" }));
     expect(await analisisPredeterminadoDeVisita(V, "2.4")).toBeNull();
+  });
+});
+
+describe("Estándar de documentación — tablas, rótulos y figuras", () => {
+  const PNG_1X1 =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+  function tamanoAntesDe(text: string, marca: string): number | undefined {
+    const i = text.indexOf(marca);
+    if (i < 0) return undefined;
+    const tfs = [...text.slice(0, i).matchAll(/\/F\d+ ([\d.]+) Tf/g)];
+    return tfs.length ? Number(tfs[tfs.length - 1][1]) : undefined;
+  }
+
+  async function convConDatos(): Promise<DatosConvencional> {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mediciones = [
+      row({ id: "m1", visita_id: V, punto_numero: 1, ubicacion_descripcion: "Puerta" }),
+    ];
+    conv.ddiMediciones = [
+      row({ id: "dd0", visita_id: V, grupo: 1, toma_numero: 1, ei: 100, ei_base: 100 }),
+    ];
+    conv.uniformidadCr = [row({ id: "u1", visita_id: V, ei: 100, serie_cassette: "S1" })];
+    return conv;
+  }
+
+  it("todas las tablas de las 21 pruebas usan los márgenes de página y fuente ≥ 7,5 pt", async () => {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const conv = await convConDatos();
+    for (let i = 1; i <= 21; i++) {
+      renderResultadosSeccion(ctx, `2.${i}`, visitaFixture, conv, undefined);
+    }
+    expect(tablas.length).toBeGreaterThan(10);
+    for (const t of tablas) {
+      const margin = t.opts.margin as Record<string, number>;
+      expect(margin.top, JSON.stringify(t.head)).toBe(22.5);
+      expect(margin.bottom, JSON.stringify(t.head)).toBe(18);
+      expect(margin.right, JSON.stringify(t.head)).toBe(20);
+      expect(margin.left, JSON.stringify(t.head)).toBeGreaterThanOrEqual(21);
+      const head = t.opts.headStyles as { fontSize?: number } | undefined;
+      const body = t.opts.bodyStyles as { fontSize?: number } | undefined;
+      const styles = t.opts.styles as { fontSize?: number } | undefined;
+      const tam = [head?.fontSize, body?.fontSize, styles?.fontSize].filter(
+        (v): v is number => v != null
+      );
+      expect(tam.length, JSON.stringify(t.head)).toBeGreaterThan(0);
+      for (const v of tam) expect(v, JSON.stringify(t.head)).toBeGreaterThanOrEqual(7.5);
+    }
+  });
+
+  it("rótulo de tabla a 8,5 pt", async () => {
+    const { ctx } = await ctxConTablasCapturadas();
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, await convConDatos(), undefined);
+    expect(tamanoAntesDe(ctx.doc.output(), "(Tabla 2.1.1.")).toBe(8.5);
+  });
+
+  it("pie de figura a 8,5 pt", async () => {
+    const { ctx } = await ctxConTablasCapturadas();
+    const conv = await convConDatos();
+    conv.fotos24 = [{ label: "Montaje", dataUrl: PNG_1X1, width: 100, height: 100 }];
+    renderEvidenciaGrafica(ctx, conv, "2.4");
+    expect(tamanoAntesDe(ctx.doc.output(), "(Fig. 2.4.1.")).toBe(8.5);
   });
 });

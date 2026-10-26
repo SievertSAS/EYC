@@ -22,28 +22,97 @@ export const COLOR_BAD: RGB = [220, 50, 50];
 /** Veredicto pendiente (ámbar). */
 export const COLOR_PENDIENTE: RGB = [217, 119, 6];
 
+// ─── Unidades tipográficas ───
+
+/** Milímetros por punto tipográfico. */
+export const PT = 0.3528;
+/** Interlineado sencillo natural de Helvetica (múltiplo del cuerpo). */
+export const HELV = 1.149;
+/** Descendente de Helvetica como fracción del cuerpo. */
+const DESCENT = 0.21;
+
+/** Convierte puntos a milímetros. */
+export function pt(valor: number): number {
+  return valor * PT;
+}
+
+/** Interlineado sencillo (mm) para un cuerpo de `size` pt. */
+export function lineaSencilla(size: number): number {
+  return size * HELV * PT;
+}
+
+/**
+ * Distancia (mm) desde el borde superior de la caja de una línea hasta su
+ * línea base. La caja mide `lineH` de alto y la línea base queda un
+ * descendente por encima de su borde inferior (modelo de Word).
+ */
+export function baseDesdeTope(size: number, lineH: number = lineaSencilla(size)): number {
+  return lineH - size * PT * DESCENT;
+}
+
 // ─── Geometría (mm, A4 vertical) ───
 
-export const MARGIN = 20;
 export const PAGE_WIDTH = 210;
 export const PAGE_HEIGHT = 297;
-export const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
-export const HEADER_HEIGHT = 22;
+export const MARGIN_TOP = 22.5;
+export const MARGIN_BOTTOM = 18;
+export const MARGIN_LEFT = 21;
+export const MARGIN_RIGHT = 20;
+export const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
+/** Borde derecho del área de contenido (x de los textos alineados a la derecha). */
+export const CONTENT_RIGHT = PAGE_WIDTH - MARGIN_RIGHT;
+/** Borde superior del contenido en páginas con encabezado. */
+export const CONTENT_TOP = MARGIN_TOP;
 /** Límite inferior de contenido antes de forzar salto de página. */
-export const PAGE_BOTTOM = 275;
-/** Alto de línea de párrafo. */
-export const LINE_H = 4.2;
+export const PAGE_BOTTOM = PAGE_HEIGHT - MARGIN_BOTTOM;
 
-// ─── Espaciado vertical ───
+// ─── Tipografía (pt) ───
 
-/** Aire después de un bloque (tabla / imagen / figura). */
-export const GAP_AFTER_BLOCK = 8;
-/** Aire antes de un título de subsección. */
-export const GAP_BEFORE_TITLE = 6;
-/** Aire después de un título de subsección, antes de su contenido. */
-export const GAP_AFTER_TITLE = 3;
+export const FONT = {
+  coverTitle: 22,
+  h1: 13,
+  h2: 11,
+  h3: 9.5,
+  body: 9,
+  tableCaption: 8.5,
+  tableHead: 8.5,
+  tableBody: 8.5,
+  /** Piso para tablas anchas que no entran a 8,5 pt (dejar comentario del motivo). */
+  tableMin: 7.5,
+  figureCaption: 8.5,
+  headerFooter: 8,
+  tocTitle: 13,
+  tocEntry: 9,
+} as const;
+
+/** Alto de línea de párrafo: 9 pt × interlineado Helvetica × 1,12. */
+export const LINE_H = FONT.body * HELV * 1.12 * PT;
+
+// ─── Espaciado vertical (mm) ───
+
+export const SPACE = {
+  h1: { before: pt(12), after: pt(6) },
+  h2: { before: pt(9), after: pt(4) },
+  h3: { before: pt(6), after: pt(3) },
+  paragraph: { after: pt(6) },
+  tableCaption: { before: pt(8), after: pt(4) },
+  table: { after: pt(8) },
+  figureCaption: { before: pt(4), after: pt(8) },
+  tocTitle: { after: pt(12) },
+} as const;
+
+/** Distancia de la línea base (última línea) de un título 1/2 a su regla inferior. */
+export const TITLE_RULE_GAP = 2;
 
 // ─── Tablas ───
+
+/** Márgenes de página para autoTable: las tablas que saltan de página respetan encabezado y pie. */
+export const TABLE_MARGIN = {
+  top: MARGIN_TOP,
+  right: MARGIN_RIGHT,
+  bottom: MARGIN_BOTTOM,
+  left: MARGIN_LEFT,
+};
 
 export const TABLE_STYLE = {
   theme: "grid" as const,
@@ -51,11 +120,12 @@ export const TABLE_STYLE = {
     fillColor: COLOR_PRIMARY,
     textColor: [255, 255, 255] as RGB,
     fontStyle: "bold" as const,
-    fontSize: 7,
+    fontSize: FONT.tableHead as number,
   },
-  bodyStyles: { fontSize: 7, textColor: COLOR_BLACK },
+  bodyStyles: { fontSize: FONT.tableBody as number, textColor: COLOR_BLACK },
   alternateRowStyles: { fillColor: COLOR_ALT_ROW },
-  margin: { left: MARGIN, right: MARGIN },
+  rowPageBreak: "avoid" as const,
+  margin: TABLE_MARGIN,
 };
 
 type PlainObject = Record<string, unknown>;

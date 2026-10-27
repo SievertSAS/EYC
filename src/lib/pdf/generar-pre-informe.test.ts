@@ -1202,6 +1202,14 @@ describe("Estándar de documentación — márgenes, tipografía y espaciado", (
     expect(tamanoAntesDe(text, "(www.sievert.com.co) Tj")).toBe(8);
   });
 
+  it("el pie de página incluye el correo y el teléfono de contacto", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+
+    expect(tamanoAntesDe(text, "(coord.estudiosycontroles@sievert.com.co) Tj")).toBe(8);
+    expect(tamanoAntesDe(text, "(316 523 6658) Tj")).toBe(8);
+  });
+
   it("el contenido arranca en el margen izquierdo de 21 mm", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     const text = await pdfText((await generarPreInforme(visita!.id!))!);

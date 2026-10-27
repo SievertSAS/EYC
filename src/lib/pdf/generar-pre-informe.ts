@@ -2448,7 +2448,8 @@ export async function generarPreInforme(
       const propsBanner = doc.getImageProperties(pieFooterBase64);
       const wBanner = CONTENT_WIDTH;
       const hBanner = (propsBanner.height / propsBanner.width) * wBanner;
-      const yBanner = 289 - hBanner;
+      // Termina sobre la línea separadora del pie (286,5 mm).
+      const yBanner = 285.5 - hBanner;
       if (y > yBanner - 6) {
         doc.addPage();
         addHeader(doc, datos, logoBase64);
@@ -2603,7 +2604,7 @@ function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPa
   // Línea separadora superior
   doc.setDrawColor(...COLOR_GRAY);
   doc.setLineWidth(0.1);
-  doc.line(MARGIN_LEFT, 287, CONTENT_RIGHT, 287);
+  doc.line(MARGIN_LEFT, 286.5, CONTENT_RIGHT, 286.5);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(FONT.headerFooter);
@@ -2620,11 +2621,65 @@ function addFooter(doc: jsPDF, datos: DatosInforme, currentPage: number, totalPa
         : "PRE-INFORME";
   const fechaGeneracion = new Date().toLocaleDateString("es-CO");
 
-  doc.text(`FT-LEC-6c | ${versionTexto} | Generado: ${fechaGeneracion}`, MARGIN_LEFT, 292);
-  doc.text("www.sievert.com.co", PAGE_WIDTH / 2, 292, { align: "center" });
-  doc.text(`Página ${currentPage} de ${totalPages}`, CONTENT_RIGHT, 292, { align: "right" });
+  doc.text(`FT-LEC-6c | ${versionTexto} | Generado: ${fechaGeneracion}`, MARGIN_LEFT, 289.4);
+  doc.text(`Página ${currentPage} de ${totalPages}`, CONTENT_RIGHT, 289.4, { align: "right" });
+
+  addContactosFooter(doc, 293.6);
 
   // Línea inferior púrpura
   doc.setFillColor(...COLOR_PRIMARY);
   doc.rect(0, 295, PAGE_WIDTH, 2, "F");
+}
+
+type IconoContacto = "web" | "correo" | "telefono";
+
+const CONTACTOS_FOOTER: { icono: IconoContacto; texto: string }[] = [
+  { icono: "web", texto: "www.sievert.com.co" },
+  { icono: "correo", texto: "coord.estudiosycontroles@sievert.com.co" },
+  { icono: "telefono", texto: "316 523 6658" },
+];
+
+const ICONO_FOOTER = 2.4;
+const GAP_ICONO_TEXTO = 1.2;
+const GAP_CONTACTOS = 6;
+
+/** Fila centrada de contactos, cada uno con un ícono vectorial a la izquierda. */
+function addContactosFooter(doc: jsPDF, baseline: number) {
+  const anchos = CONTACTOS_FOOTER.map(
+    (c) => ICONO_FOOTER + GAP_ICONO_TEXTO + doc.getTextWidth(c.texto)
+  );
+  const total =
+    anchos.reduce((suma, ancho) => suma + ancho, 0) + GAP_CONTACTOS * (CONTACTOS_FOOTER.length - 1);
+  let x = (PAGE_WIDTH - total) / 2;
+  const topIcono = baseline - 2.2;
+
+  CONTACTOS_FOOTER.forEach((contacto, i) => {
+    dibujarIconoContacto(doc, contacto.icono, x, topIcono, ICONO_FOOTER);
+    doc.setTextColor(...COLOR_GRAY);
+    doc.text(contacto.texto, x + ICONO_FOOTER + GAP_ICONO_TEXTO, baseline);
+    x += anchos[i] + GAP_CONTACTOS;
+  });
+}
+
+function dibujarIconoContacto(doc: jsPDF, icono: IconoContacto, x: number, top: number, s: number) {
+  doc.setDrawColor(...COLOR_PRIMARY);
+  doc.setLineWidth(0.2);
+
+  if (icono === "web") {
+    const r = s / 2;
+    const cx = x + r;
+    const cy = top + r;
+    doc.circle(cx, cy, r, "S");
+    doc.ellipse(cx, cy, r * 0.45, r, "S");
+    doc.line(cx - r, cy, cx + r, cy);
+  } else if (icono === "correo") {
+    const yTop = top + s * 0.15;
+    const h = s * 0.7;
+    doc.rect(x, yTop, s, h, "S");
+    doc.line(x, yTop, x + s / 2, yTop + h * 0.55);
+    doc.line(x + s / 2, yTop + h * 0.55, x + s, yTop);
+  } else {
+    doc.roundedRect(x + s * 0.2, top, s * 0.6, s, 0.3, 0.3, "S");
+    doc.line(x + s * 0.42, top + s * 0.83, x + s * 0.58, top + s * 0.83);
+  }
 }

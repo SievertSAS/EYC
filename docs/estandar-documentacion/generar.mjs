@@ -287,7 +287,7 @@ tarjeta("Información del documento", [
   ["Aplica a:", "Informes técnicos de control de calidad y estudio ambiental (FT-LEC-6c)"],
   ["Formato de entrega:", "PDF, tamaño A4, generado por el sistema de información de Sievert"],
   ["Sitio web:", "www.sievert.com.co"],
-  ["Correo:", "coord.estudiosycontroles@sievert.com.co"],
+  ["Correo:", "estudiosycontroles@sievert.com.co"],
   ["Teléfono:", "316 523 6658"],
 ]);
 y += 14;
@@ -557,7 +557,7 @@ for (const e of toc) {
 // ═══════════════════════════ PIE ═══════════════════════════
 const CONTACTOS = [
   ["web", "www.sievert.com.co"],
-  ["correo", "coord.estudiosycontroles@sievert.com.co"],
+  ["correo", "estudiosycontroles@sievert.com.co"],
   ["telefono", "316 523 6658"],
 ];
 const ICONO = 2.4;

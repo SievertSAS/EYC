@@ -2635,7 +2635,7 @@ type IconoContacto = "web" | "correo" | "telefono";
 
 const CONTACTOS_FOOTER: { icono: IconoContacto; texto: string }[] = [
   { icono: "web", texto: "www.sievert.com.co" },
-  { icono: "correo", texto: "coord.estudiosycontroles@sievert.com.co" },
+  { icono: "correo", texto: "estudiosycontroles@sievert.com.co" },
   { icono: "telefono", texto: "316 523 6658" },
 ];
 

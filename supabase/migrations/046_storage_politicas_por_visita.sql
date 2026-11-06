@@ -172,11 +172,23 @@ CREATE POLICY "evidencias_coordinador_all" ON storage.objects
   USING (bucket_id = 'evidencias' AND public.is_coordinador())
   WITH CHECK (bucket_id = 'evidencias' AND public.is_coordinador());
 
--- 3. Bucket `informes`. Se crea solo si falta: si ya existe (producción),
---    no se cambia su configuración.
+-- 3. Bucket `informes`. En producción ya existía (creado a mano: privado,
+--    sin límite de tamaño ni de tipo). Se crea si falta y se le fijan los
+--    límites: solo PDF (la app sube con contentType application/pdf), 50 MB.
+--    `public` se fuerza a false: el PDF oficial se lee con URL firmada.
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('informes', 'informes', false, 52428800, ARRAY['application/pdf'])
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+  SET public = false,
+      file_size_limit = EXCLUDED.file_size_limit,
+      allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- Políticas creadas a mano desde el dashboard en producción (INSERT/UPDATE/
+-- SELECT para cualquier autenticado). Las políticas se SUMAN: si quedan,
+-- cualquier usuario podría seguir sobrescribiendo PDF oficiales.
+DROP POLICY IF EXISTS "pdfs 2yh3h3_0" ON storage.objects;
+DROP POLICY IF EXISTS "pdfs 2yh3h3_1" ON storage.objects;
+DROP POLICY IF EXISTS "pdfs 2yh3h3_2" ON storage.objects;
 
 DROP POLICY IF EXISTS "informes_auth_select" ON storage.objects;
 CREATE POLICY "informes_auth_select" ON storage.objects

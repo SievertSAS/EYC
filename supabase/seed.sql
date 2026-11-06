@@ -7,6 +7,9 @@
 --    tecnico@eyc.local      → cargo tecnico (asignado a la visita)
 --    programador@eyc.local  → cargo programador (admin)
 --
+--  Director Técnico (configuracion_informe, no es un usuario): ficticio, sin
+--  firma (ver docs/entorno-local.md para subir una).
+--
 --  Escenario: un cliente ficticio con una sala de RX convencional (CR,
 --  "Digitalizado") y una visita `en_progreso` con datos capturados de las
 --  21 pruebas TECDOC, lista para generar el pre-informe. Valores con
@@ -88,6 +91,13 @@ VALUES
   ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000003',
    'Programador Local', '9000000003', 'programador', 'programador@eyc.local', '3000000003', true, NULL)
 ON CONFLICT (id) DO NOTHING;
+
+-- Datos del Director Técnico que firma todos los informes (#194/#195). La fila
+-- 'global' la crea la migración 044; aquí solo se le ponen datos ficticios.
+INSERT INTO configuracion_informe (id, director_nombre, director_titulo)
+VALUES ('global', 'Directora Técnica Ficticia', 'Directora Técnica — Licencia de prueba N.º 0001')
+ON CONFLICT (id) DO UPDATE
+  SET director_nombre = EXCLUDED.director_nombre, director_titulo = EXCLUDED.director_titulo;
 
 -- ============================================================
 --  3. Cliente, contactos, sede, ubicación (sala), equipo

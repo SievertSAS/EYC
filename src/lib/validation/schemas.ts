@@ -60,3 +60,26 @@ export const patchUsuarioSchema = z
   .refine((o) => Object.keys(o).length > 0, { message: "Nada que actualizar" });
 
 export type PatchUsuarioInput = z.infer<typeof patchUsuarioSchema>;
+
+/** Texto opcional: recortado; vacío → null (el PDF usa su texto por defecto). */
+const textoOpcionalNulo = (max: number) =>
+  z
+    .string()
+    .max(max)
+    .nullable()
+    .transform((v) => (v == null || v.trim() === "" ? null : v.trim().replace(/\s+/g, " ")));
+
+/**
+ * Datos del Director Técnico en la configuración global del informe
+ * (#194/#195). La firma llega como archivo aparte (multipart); por este
+ * campo solo se puede quitar (null).
+ */
+export const patchConfiguracionInformeSchema = z
+  .object({
+    director_nombre: textoOpcionalNulo(150).optional(),
+    director_titulo: textoOpcionalNulo(150).optional(),
+    director_firma_url: z.null().optional(),
+  })
+  .strict();
+
+export type PatchConfiguracionInformeInput = z.infer<typeof patchConfiguracionInformeSchema>;

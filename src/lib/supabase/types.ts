@@ -163,6 +163,36 @@ export type Database = {
           },
         ];
       };
+      configuracion_informe: {
+        Row: {
+          actualizado_por: string | null;
+          creado_en: string;
+          director_firma_url: string | null;
+          director_nombre: string | null;
+          director_titulo: string | null;
+          id: string;
+          last_modified: string;
+        };
+        Insert: {
+          actualizado_por?: string | null;
+          creado_en?: string;
+          director_firma_url?: string | null;
+          director_nombre?: string | null;
+          director_titulo?: string | null;
+          id?: string;
+          last_modified?: string;
+        };
+        Update: {
+          actualizado_por?: string | null;
+          creado_en?: string;
+          director_firma_url?: string | null;
+          director_nombre?: string | null;
+          director_titulo?: string | null;
+          id?: string;
+          last_modified?: string;
+        };
+        Relationships: [];
+      };
       contactos: {
         Row: {
           cargo: string | null;

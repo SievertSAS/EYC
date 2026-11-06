@@ -79,6 +79,7 @@ const TABLE_LABELS: Record<string, string> = {
   informes: "Informes",
   informe_versiones: "Versiones de informe",
   rol_permisos: "Permisos",
+  configuracion_informe: "Configuración del informe",
   conv_levantamiento_setup: "Setup levantamiento",
   conv_mediciones: "Mediciones radiométricas Conv.",
   conv_inspeccion_items: "Inspección visual",
@@ -284,6 +285,9 @@ export const MASTER_TABLES = [
   "prueba_definiciones",
   "grupo_pruebas",
   "rol_permisos",
+  // #194: datos del Director Técnico — se escriben solo vía
+  // /api/configuracion-informe (coordinador).
+  "configuracion_informe",
 ] as const;
 
 /**

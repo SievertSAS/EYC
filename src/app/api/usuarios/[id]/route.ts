@@ -4,32 +4,16 @@ import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { requireCoordinador } from "../helpers";
 import { EVIDENCIAS_BUCKET } from "@/lib/supabase/storage";
+import { leerBodyConArchivo } from "@/lib/api/leer-body";
 
-/**
- * Lee el body como JSON normal, o como `multipart/form-data` cuando trae la
- * firma (#109) — un archivo no cabe en JSON. Los campos de texto llegan como
- * strings sueltas en el FormData; `activo` se normaliza a boolean.
- */
+/** Body del PATCH: JSON, o multipart cuando trae la firma (#109). */
 async function leerBody(
   request: NextRequest
 ): Promise<{ campos: Record<string, unknown>; firma: File | null }> {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.includes("multipart/form-data")) {
-    return { campos: await request.json(), firma: null };
-  }
-
-  const form = await request.formData();
-  const campos: Record<string, unknown> = {};
-  let firma: File | null = null;
-  for (const [key, value] of form.entries()) {
-    if (key === "firma" && value instanceof File) {
-      firma = value;
-      continue;
-    }
-    campos[key] = value;
-  }
+  const { campos, archivo } = await leerBodyConArchivo(request, "firma");
+  // En el FormData `activo` llega como string.
   if (typeof campos.activo === "string") campos.activo = campos.activo === "true";
-  return { campos, firma };
+  return { campos, firma: archivo };
 }
 
 /**

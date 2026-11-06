@@ -408,6 +408,29 @@ export interface Usuario {
   titulo_firma?: string | null;
 }
 
+// ─── Configuración global del informe ───
+
+/** Id de la única fila de `configuracion_informe`. */
+export const CONFIGURACION_INFORME_ID = "global";
+
+/**
+ * Configuración global del informe (#194/#195): datos del Director Técnico
+ * que firma el bloque "Responsable Sievert S.A.S." de TODOS los informes. No
+ * es un usuario de la app: lo edita el coordinador en Configuración. Tabla
+ * maestra de una sola fila; se escribe solo vía /api/configuracion-informe.
+ */
+export interface ConfiguracionInforme {
+  id: string;
+  director_nombre?: string | null;
+  /** Título bajo la firma; vacío → "Director Técnico". */
+  director_titulo?: string | null;
+  /** Path en el bucket `evidencias` (misma convención que `usuarios.firma_url`). */
+  director_firma_url?: string | null;
+  actualizado_por?: string | null;
+  creado_en?: string;
+  last_modified?: string;
+}
+
 // ─── Acciones de permiso por módulo ───
 
 export type AccionPermiso = "ver" | "crear" | "editar" | "eliminar";

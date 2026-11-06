@@ -75,7 +75,7 @@ supabase db reset
 
 Borra la base local, reaplica las migraciones y vuelve a cargar el seed. Las modificaciones hechas desde la app se pierden.
 
-## 6. Firma del coordinador (opcional)
+## 6. Firmas del coordinador y del Director Técnico (opcional)
 
 `usuarios.firma_url` guarda un path del bucket `evidencias`, y el archivo no se puede crear desde SQL, así que el seed la deja vacía. Para probar la firma en el informe, subir cualquier PNG y enlazarlo (repetir después de cada `db reset`):
 
@@ -86,6 +86,13 @@ curl -s -X POST "http://127.0.0.1:55321/storage/v1/object/evidencias/firmas/coor
   --data-binary @ruta/a/firma.png
 docker exec supabase_db_eyc psql -U postgres \
   -c "update usuarios set firma_url='firmas/coordinador-local.png' where email='coordinador@eyc.local'"
+```
+
+El Director Técnico no es un usuario: sus datos viven en la fila única de `configuracion_informe` (el seed pone un nombre y título ficticios). Su firma se puede cargar desde la app (Configuración → Informe, como coordinador) o con el mismo procedimiento, subiendo a `firmas/director-local.png` y enlazándola así:
+
+```bash
+docker exec supabase_db_eyc psql -U postgres \
+  -c "update configuracion_informe set director_firma_url='firmas/director-local.png' where id='global'"
 ```
 
 ## 7. Importante: IndexedDB y producción

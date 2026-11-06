@@ -17,6 +17,7 @@ import type {
   ValoresReferencia,
   Usuario,
   RolPermiso,
+  ConfiguracionInforme,
   Cotizacion,
   Solicitud,
   VisitaEjecucion,
@@ -194,6 +195,7 @@ class EyCDatabase extends Dexie {
   conv_informe_secciones!: EntityTable<ConvInformeSeccion, "id">;
   conv_resultados_prueba!: EntityTable<ConvResultadoPrueba, "id">;
   conv_evidencias!: EntityTable<ConvEvidencia, "id">;
+  configuracion_informe!: EntityTable<ConfiguracionInforme, "id">;
 
   constructor() {
     super("SievertEyC");
@@ -520,6 +522,14 @@ class EyCDatabase extends Dexie {
       conv_cae_mediciones: "id, visita_id, toma_numero, &[visita_id+toma_numero], sync_status",
       conv_ddi_mediciones:
         "id, visita_id, grupo, toma_numero, &[visita_id+grupo+toma_numero], sync_status",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v23 — configuración global del informe (#194/#195): datos del
+    //  Director Técnico. Tabla maestra de una fila (solo baja por el pull).
+    // ─────────────────────────────────────────────────────────────
+    this.version(23).stores({
+      configuracion_informe: "id",
     });
   }
 }

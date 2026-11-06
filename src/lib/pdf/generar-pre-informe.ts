@@ -24,6 +24,7 @@ import { CONFIGURACION_INFORME_ID, ROL_LABELS, type ConfiguracionInforme } from 
 import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
+import { reducirParaPdf } from "@/lib/pdf/imagen-pdf";
 import {
   COLOR_PRIMARY,
   COLOR_HEADER_BG,
@@ -164,10 +165,11 @@ async function imagenDataUrl(
   blobLocal: Blob | null | undefined,
   urlStorage: string | null | undefined
 ): Promise<string | undefined> {
-  if (blobLocal) return blobADataUrl(blobLocal).catch(() => undefined);
+  // reducirParaPdf: la foto local viene a resolución de cámara (#123).
+  if (blobLocal) return blobADataUrl(await reducirParaPdf(blobLocal)).catch(() => undefined);
   if (!urlStorage) return undefined;
   const bajado = await descargarEvidencia(urlStorage);
-  return bajado ? blobADataUrl(bajado).catch(() => undefined) : undefined;
+  return bajado ? blobADataUrl(await reducirParaPdf(bajado)).catch(() => undefined) : undefined;
 }
 
 /** "No reporta" (o el `fallback` dado) para null / undefined / "" ; el valor tal cual si tiene contenido. */
@@ -415,7 +417,11 @@ export async function generarPreInforme(
   // evaluarConceptoPrueba() y los renderizadores los vean en `conv`.
   if (conv) inyectarDatosEquipo(conv, datos.equipo);
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  // compress: sin esto jsPDF escribe los PNG como píxeles RGB crudos
+  // (ancho × alto × 3 bytes): un informe real pesaba 21 MB, 13,5 de ellos
+  // en PNG sin comprimir (#123). Con el filtro FlateEncode activo, addImage
+  // también comprime las imágenes (sin pérdida).
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
   let y = CONTENT_TOP;
   let pageCount = 0;
   // Títulos de sección en orden de aparición, para la página de "CONTENIDO"

@@ -16,7 +16,7 @@ const VERSION = "1.0";
 const FECHA = "Octubre de 2026";
 const SALIDA = resolve(HERE, "Estandar_Documentacion_Informes_Sievert.pdf");
 const LOGO =
-  "data:image/png;base64," + readFileSync(resolve(ROOT, "public/logo-informe.png")).toString("base64");
+  "data:image/png;base64," + readFileSync(resolve(ROOT, "public/logo-informe-v2.png")).toString("base64");
 
 // ─── Estilo del informe (colores y fuente sin cambios) ───
 const COLOR_PRIMARY = [51, 65, 85];

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { inflateSync } from "node:zlib";
 
-// getLogoBase64 hace fetch("/logo-informe.png") — se mockea con un PNG mínimo.
+// getLogoBase64 hace fetch("/logo-informe-v2.png") — se mockea con un PNG mínimo.
 function okPngFetch() {
   return vi.fn().mockResolvedValue({
     ok: true,

@@ -188,7 +188,7 @@ Pipeline de la **solicitud**: `solicitudes (por programar) → programacion → 
 >
 > - ✅ **Corregido (Tier 7, PR #56) — T7-2:** el **detalle** de informe (`/dashboard/informes/[id]`) **no tenía gate de rol** (la lista sí) y el botón "Publicar versión oficial" **no chequeaba permiso** — cualquier usuario interno con la URL podía publicar la versión oficial. Ahora: gate de página `hasPermission("informes")` + botón condicionado a `informes:editar`.
 > - 🟡 **Backlog — #51:** `recopilarDatosConv` (arma los datos del PDF) filtra `deleted_at` en **solo 6 de 19** tablas `conv_*` → una medición borrada de RaySafe/CAE/DDI **sigue apareciendo en el PDF oficial**.
-> - 🟡 **Backlog — #52:** `getLogoBase64` no tiene `try/catch` — un **404 del logo** (`/logo-informe.png`) **rompe la generación completa** del PDF.
+> - 🟡 **Backlog — #52:** `getLogoBase64` no tiene `try/catch` — un **404 del logo** (`/logo-informe-v2.png`) **rompe la generación completa** del PDF.
 
 ---
 

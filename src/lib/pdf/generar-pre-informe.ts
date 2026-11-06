@@ -127,7 +127,7 @@ async function cargarAssetPublico(url: string, nombre: string): Promise<string> 
  */
 export async function getLogoBase64(): Promise<string> {
   if (_logoCache !== null) return _logoCache;
-  _logoCache = await cargarAssetPublico("/logo-informe.png", "el logo del informe");
+  _logoCache = await cargarAssetPublico("/logo-informe-v2.png", "el logo del informe");
   return _logoCache;
 }
 

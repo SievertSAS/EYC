@@ -1,14 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "sonner";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { NumberWheelGuard } from "@/components/number-wheel-guard";
 import "./globals.css";
 
-const inter = Inter({
+// Inter servida desde el repo (fuente variable, subset latino, OFL — ver
+// fonts/Inter-OFL.txt). Con next/font/google el build descargaba la fuente
+// en cada deploy y dos deploys de Vercel fallaron por eso.
+const inter = localFont({
+  src: "./fonts/inter-latin-wght-normal.woff2",
   variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  weight: "300 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

@@ -26,7 +26,7 @@ Consumido por: `informes/[id]` (descarga), `pre-informe-modulo` (preview),
 | `render*(ctx, conv)` (~30 en `secciones-convencional.ts`) | dibujan cada sección/foto/tabla                                                                                                                               |
 
 - **Marca de agua**: se omite si la visita está `aprobada` o `enviada` (versión final).
-- **Logo**: `fetch("/logo-informe.png")` cacheado en módulo — **sin manejo de
+- **Logo**: `fetch("/logo-informe-v2.png")` cacheado en módulo — **sin manejo de
   error si el fetch falla** (finding menor).
 - **Veredicto por prueba** (línea 1123): delega en `evaluarConceptoPrueba` /
   `tieneCriterio` de `evaluacion.ts` — nunca se recalcula en el PDF,
@@ -49,7 +49,7 @@ Consumido por: `informes/[id]` (descarga), `pre-informe-modulo` (preview),
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | **deleted_at inconsistente en `recopilarDatosConv`**           | `conv_mediciones`, `conv_elementos_proteccion`, `conv_evidencias`, `conv_uniformidad_detector`, `conv_cassette_inspeccion`, `conv_uniformidad_cr` **filtran** `deleted_at`. `conv_raysafe_mediciones`, `conv_ddi_mediciones`, `conv_cae_mediciones` y las tablas de setup **NO** → una medición RaySafe/CAE/DDI borrada sigue apareciendo en el PDF | **issue** (extiende #34) — pin en `secciones-convencional.test.ts` |
 | `recopilarDatos` lee `db.elementos_proteccion`                 | la tabla legacy sin sync (issue #34 / #36) — el camino convencional usa `conv_elementos_proteccion`                                                                                                                                                                                                                                                 | ya trackeado (#34)                                                 |
-| `getLogoBase64` sin try/catch                                  | si `/logo-informe.png` falla, `generarPreInforme` lanza entero                                                                                                                                                                                                                                                                                      | **issue menor**                                                    |
+| `getLogoBase64` sin try/catch                                  | si `/logo-informe-v2.png` falla, `generarPreInforme` lanza entero                                                                                                                                                                                                                                                                                   | **issue menor**                                                    |
 | `secciones-convencional.ts` ~30 `renderFotosXX` casi idénticas | mucho copy-paste                                                                                                                                                                                                                                                                                                                                    | fuera de alcance (no es bug)                                       |
 
 ## 4. Cobertura nueva
@@ -71,7 +71,7 @@ al documento, extrayendo el texto del PDF crudo.
 | Falla                                       | Efecto                                        | Manejo                |
 | ------------------------------------------- | --------------------------------------------- | --------------------- |
 | Medición conv\_\* borrada (raysafe/cae/ddi) | aparece en el PDF                             | ninguno — issue       |
-| `/logo-informe.png` 404                     | `generarPreInforme` lanza                     | ninguno — issue menor |
+| `/logo-informe-v2.png` 404                  | `generarPreInforme` lanza                     | ninguno — issue menor |
 | Visita sin equipo / sin datos               | genera un PDF con secciones vacías (no lanza) | ok                    |
 
 ---

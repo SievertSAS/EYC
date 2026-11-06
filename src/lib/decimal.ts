@@ -74,6 +74,22 @@ export function formatDecimal(
 }
 
 /**
+ * Formatea un valor CAPTURADO (digitado por el ingeniero o leído del
+ * instrumento/consola) tal cual, con coma decimal: sin redondear (hasta
+ * `maxDec` decimales) y sin rellenar con ceros. 2.5 → "2,5"; 0.0025 →
+ * "0,0025"; 9 → "9". Los valores calculados siguen usando `formatDecimal`
+ * con precisión fija (#199).
+ */
+export function formatCapturado(n: number | null | undefined, maxDec = 6, fallback = "—"): string {
+  if (n == null || !Number.isFinite(n)) return fallback;
+  return new Intl.NumberFormat("es-CO", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDec,
+    useGrouping: false,
+  }).format(n);
+}
+
+/**
  * Igual que `formatDecimal` pero pensado para el `value` de un input de
  * texto: string vacío si no hay número (no "—"), sin agrupar.
  */

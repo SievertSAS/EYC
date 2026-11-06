@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDecimal, formatDecimal, decimalInputValue } from "./decimal";
+import { parseDecimal, formatDecimal, formatCapturado, decimalInputValue } from "./decimal";
 
 describe("parseDecimal", () => {
   it.each<[unknown, number | undefined]>([
@@ -54,6 +54,33 @@ describe("formatDecimal (es-CO, coma)", () => {
     expect(formatDecimal(undefined)).toBe("—");
     expect(formatDecimal(NaN)).toBe("—");
     expect(formatDecimal(undefined, 2, "No aplica")).toBe("No aplica");
+  });
+});
+
+describe("formatCapturado — valor capturado tal cual (#199)", () => {
+  it("no redondea ni rellena con ceros", () => {
+    expect(formatCapturado(2.5)).toBe("2,5");
+    expect(formatCapturado(0.0025)).toBe("0,0025");
+    expect(formatCapturado(9)).toBe("9");
+    expect(formatCapturado(9.0)).toBe("9");
+    expect(formatCapturado(8.5)).toBe("8,5");
+    expect(formatCapturado(12.5)).toBe("12,5");
+    expect(formatCapturado(0.125)).toBe("0,125");
+  });
+  it("no agrupa miles", () => {
+    expect(formatCapturado(1234)).toBe("1234");
+    expect(formatCapturado(1234.56)).toBe("1234,56");
+  });
+  it("hasta 6 decimales por defecto; `maxDec` lo ajusta", () => {
+    expect(formatCapturado(0.000123)).toBe("0,000123");
+    expect(formatCapturado(1 / 3)).toBe("0,333333");
+    expect(formatCapturado(1 / 3, 2)).toBe("0,33");
+  });
+  it("null / undefined / NaN → fallback", () => {
+    expect(formatCapturado(null)).toBe("—");
+    expect(formatCapturado(undefined)).toBe("—");
+    expect(formatCapturado(NaN)).toBe("—");
+    expect(formatCapturado(undefined, 6, "No aplica")).toBe("No aplica");
   });
 });
 

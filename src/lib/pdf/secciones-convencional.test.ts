@@ -238,7 +238,8 @@ describe("2.9/2.10/2.15 — columnas D.I./TEI ocultas según reporta_di/reporta_
     renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
     const tabla291 = tablas.find((t) => t.head.includes("Tensión (kVp)"));
     expect(tabla291!.head).toEqual(["Tensión (kVp)", "Carga (mAs)", "EI", "D.I."]);
-    expect(tabla291!.body[0]).toEqual(["70", "—", "100", "4,50"]);
+    // D.I. capturado: se muestra tal cual, sin relleno de ceros (#199).
+    expect(tabla291!.body[0]).toEqual(["70", "—", "100", "4,5"]);
   });
 });
 
@@ -299,9 +300,10 @@ describe("2.7/2.8/2.21 — conversión de unidad según unidad_dap/unidad_kerma 
     const tabla281 = tablas.find((t) => t.head.includes("Factor de corrección"));
     expect(tabla281).toBeDefined();
     const [, , dapNom, dapEst, fc] = tabla281!.body[0];
-    expect(dapNom).toBe("50,00");
+    // DAP nominal capturado → exacto; DAP estimado y factor calculados → precisión fija (#199).
+    expect(dapNom).toBe("50");
     expect(dapEst).toBe("50,00");
-    expect(fc).toBe("1,0");
+    expect(fc).toBe("1,00");
   });
 
   it("2.8: sin unidad configurada → mismo resultado que antes (comportamiento actual)", async () => {
@@ -324,9 +326,10 @@ describe("2.7/2.8/2.21 — conversión de unidad según unidad_dap/unidad_kerma 
     renderResultadosSeccion(ctx, "2.8", visitaFixture, conv, undefined);
     const tabla281 = tablas.find((t) => t.head.includes("Factor de corrección"));
     const [, , dapNom, dapEst, fc] = tabla281!.body[0];
-    expect(dapNom).toBe("50,00");
+    // DAP nominal capturado → exacto; DAP estimado y factor calculados → precisión fija (#199).
+    expect(dapNom).toBe("50");
     expect(dapEst).toBe("50,00");
-    expect(fc).toBe("1,0");
+    expect(fc).toBe("1,00");
   });
 });
 
@@ -506,7 +509,8 @@ describe("2.21 — encabezado 'Cumple', tabla de valores base y 'Análisis' edit
       "Carga (mAs)",
       "Dosis al receptor base (mGy)",
     ]);
-    expect(tabla.body).toEqual([["Tórax AP", "90", "5,0", "0,31900"]]);
+    // Valores base capturados: sin relleno de ceros (#199).
+    expect(tabla.body).toEqual([["Tórax AP", "90", "5", "0,319"]]);
   });
 
   async function ctxConTextoCapturado(): Promise<{ ctx: InformeCtx; parrafos: string[] }> {
@@ -1008,7 +1012,8 @@ describe("2.16 — Análisis (texto fijo) y tabla de valores base de referencia 
     const tablaBase = tablas.find((t) => t.head.includes("MTF50 (lp/mm)"));
     expect(tablaBase).toBeDefined();
     expect(tablaBase!.body).toEqual([
-      ["Horizontal", "1,30", "2,20"],
+      // MTF base capturada: exacta, igual que la MTF medida (#199).
+      ["Horizontal", "1,3", "2,2"],
       ["Vertical", "1,25", "2,15"],
     ]);
   });
@@ -1709,5 +1714,216 @@ describe("2.2.4 — párrafo de ubicación física (#197)", () => {
     expect(textoUbicacionFisica("  Sala 1  ")).toBe("Sala 1");
     expect(textoUbicacionFisica("   ")).toBeUndefined();
     expect(textoUbicacionFisica(undefined)).toBeUndefined();
+  });
+});
+
+// ─── #199: valores capturados se muestran exactos; calculados con precisión coherente ───
+
+describe("#199 — el informe muestra los valores capturados exactos, sin redondear", () => {
+  async function ctxTablasYTexto(): Promise<{
+    ctx: InformeCtx;
+    tablas: TablaCapturada[];
+    parrafos: string[];
+  }> {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const parrafos: string[] = [];
+    ctx.addParagraph = (texto: string) => {
+      parrafos.push(texto);
+    };
+    return { ctx, tablas, parrafos };
+  }
+
+  const colimacion = (extra: Record<string, unknown> = {}) =>
+    row({
+      id: "c1",
+      visita_id: V,
+      sid_cm: 100,
+      tecnica_kv: 70,
+      tecnica_mas: 2.25,
+      anodo_nominal: 9.0,
+      anodo_medido: 8.5,
+      catodo_nominal: 7.0,
+      catodo_medido: 6.5,
+      izquierda_nominal: 10,
+      izquierda_medido: 10.3,
+      derecha_nominal: 10,
+      derecha_medido: 10.3,
+      posicion_esfera: "Centro",
+      ...extra,
+    });
+
+  it("2.1: la técnica muestra kV, mA, mAs y tiempo tal cual se capturaron", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.setup = row({
+      id: "s1",
+      visita_id: V,
+      tecnica_kv: 81.5,
+      tecnica_ma: 12.5,
+      tecnica_mas: 2.5,
+      tecnica_tiempo_s: 0.125,
+    });
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, conv, undefined);
+
+    const tecnica = tablas.find((t) => t.body[0]?.[0] === "Tensión (kV)");
+    expect(tecnica).toBeDefined();
+    expect(tecnica!.body[0]).toEqual(["Tensión (kV)", "81,5", "Tiempo (s)", "0,125"]);
+    expect(tecnica!.body[1]).toEqual(["Corriente (mA)", "12,5", "Exposición (mAs)", "2,5"]);
+
+    const carga = tablas.find((t) => t.head.includes("Parámetro"));
+    const filaI = carga!.body.find((f) => String(f[0]).startsWith("Corriente utilizada"));
+    expect(filaI![1]).toBe("12,5");
+  });
+
+  it("2.1: la lectura de tasa de dosis no se rellena con ceros", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mediciones = [row({ id: "m1", visita_id: V, punto_numero: 1, tasa_dosis_msv_h: 0.0025 })];
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, conv, undefined);
+    const tabla211 = tablas.find((t) => t.head.includes("Lectura (mSv/h)"));
+    expect(tabla211!.body[0][2]).toBe("0,0025");
+  });
+
+  it("2.3: campo luminoso 9,0 / radiación 8,5 → '9' | '8,5' (no '9' | '9')", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.colimacion = colimacion();
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+
+    const tabla = tablas.find((t) => t.body.some((f) => f[0] === "Ánodo (cabeza)"));
+    expect(tabla).toBeDefined();
+    const anodo = tabla!.body.find((f) => f[0] === "Ánodo (cabeza)")!;
+    const catodo = tabla!.body.find((f) => f[0] === "Cátodo (pies)")!;
+    expect(anodo.slice(1, 4)).toEqual(["9", "8,5", "0,5"]);
+    expect(catodo.slice(1, 4)).toEqual(["7", "6,5", "0,5"]);
+  });
+
+  it("2.3: la técnica (kV, mAs, SID) se muestra exacta", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.colimacion = colimacion({ tecnica_kv: 81.5, sid_cm: 100.5 });
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+    const tecnica = tablas.find((t) => t.body[0]?.[0] === "Tensión (kV)");
+    expect(tecnica!.body[0]).toEqual([
+      "Tensión (kV)",
+      "81,5",
+      "Exposición (mAs)",
+      "2,25",
+      "Distancia foco-receptor, SID (cm)",
+      "100,5",
+    ]);
+  });
+
+  it("2.3: el análisis cita la variación total con 1 decimal (1,6 %, no 2 %)", async () => {
+    const { ctx, parrafos } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.colimacion = colimacion();
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+    const texto = parrafos.join(" ");
+    expect(texto).toContain("la desviación total fue de 1,6 %");
+  });
+
+  it("2.17: carga 0,25 mAs se muestra '0,25' en el registro y en el análisis", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeSetup = row({ id: "s1", visita_id: V, mas_base_217: 0.25, ei_base_217: 100 });
+    conv.caeMediciones = [
+      row({ id: "m9", visita_id: V, toma_numero: 9, kv_nominal: 70, carga_mas: 0.25, ei: 100 }),
+    ];
+    renderResultadosSeccion(ctx, "2.17", visitaFixture, conv, undefined);
+
+    const registro = tablas.find((t) => t.head.includes("Posición Sensor CAE"));
+    expect(registro!.body[0][4]).toBe("0,25");
+    const analisis = tablas.find((t) => t.head.includes("% Variación"));
+    expect(analisis!.body[0].slice(1, 4)).toEqual(["0,25", "0,25", "0,0 %"]);
+  });
+
+  it("2.19: promedio y desviación de mAs con la misma precisión (3 decimales); CV con 1", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [3, 9, 10, 11, 12].map((toma, i) =>
+      row({
+        id: `m${toma}`,
+        visita_id: V,
+        toma_numero: toma,
+        carga_mas: [2.5, 2.5, 2.5, 2.5, 2.6][i],
+        ei: 100,
+      })
+    );
+    renderResultadosSeccion(ctx, "2.19", visitaFixture, conv, undefined);
+    const analisis = tablas.find((t) => t.head.includes("Desviación estándar"));
+    const [, prom, desv, cv] = analisis!.body[0];
+    expect(prom).toBe("2,520");
+    expect(desv).toBe("0,045");
+    expect(cv).toBe("1,8 %");
+  });
+
+  it("2.18: el promedio de EI usa 1 decimal, igual que 2.19", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [2, 3].map((toma, i) =>
+      row({ id: `m${toma}`, visita_id: V, toma_numero: toma, carga_mas: 2.5, ei: [100, 101][i] })
+    );
+    renderResultadosSeccion(ctx, "2.18", visitaFixture, conv, undefined);
+    const analisis = tablas.find((t) => t.head.includes("Valor promedio"));
+    expect(analisis!.body[0][1]).toBe("2,500");
+    expect(analisis!.body[1][1]).toBe("100,5");
+  });
+
+  it("2.17: EI y D.I. capturados se muestran con coma decimal, no con punto", async () => {
+    const { ctx, tablas } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.caeMediciones = [
+      row({
+        id: "m9",
+        visita_id: V,
+        toma_numero: 9,
+        kv_nominal: 70,
+        carga_mas: 2.5,
+        ei: 250.5,
+        di: 0.12,
+      }),
+    ];
+    renderResultadosSeccion(ctx, "2.17", visitaFixture, conv, undefined);
+
+    const registro = tablas.find((t) => t.head.includes("Posición Sensor CAE"));
+    expect(registro!.body[0]).toContain("250,5");
+    expect(registro!.body[0]).toContain("0,12");
+    expect(registro!.body[0]).not.toContain("250.5");
+  });
+
+  it("2.16: SID, kV, píxel y Nyquist de las condiciones de medición usan coma decimal", async () => {
+    const { ctx, parrafos } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.mtf = row({
+      id: "mtf1",
+      visita_id: V,
+      distancia_foco_sensor_cm: 100.5,
+      tecnica_kv: 70.5,
+      pixel_size_mm: 0.143,
+      mtf50_horizontal: 1.2,
+    });
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+
+    const condiciones = parrafos.find((p) => p.includes("frecuencia de Nyquist"));
+    expect(condiciones).toContain("100,5 cm");
+    expect(condiciones).toContain("70,5 kVp");
+    expect(condiciones).toContain("0,143 mm");
+    expect(condiciones).toContain("3,5 lp/mm");
+  });
+
+  it("2.21: las distancias d1 y d2 usan coma decimal", async () => {
+    const { ctx, parrafos } = await ctxTablasYTexto();
+    const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeSetup = row({
+      id: "rs1",
+      visita_id: V,
+      distancia_foco_sensor_d1_cm: 90.5,
+      distancia_foco_detector_d2_cm: 100,
+    });
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+
+    expect(parrafos).toContain("Distancia foco-sensor d1 (cm): 90,5");
+    expect(parrafos).toContain("Distancia foco-detector de imagen d2 (cm): 100");
   });
 });

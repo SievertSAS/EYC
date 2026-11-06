@@ -46,3 +46,7 @@ next-env.d.ts
 /.atl/
 /.codegraph/
 
+
+# Supabase CLI (estado local)
+supabase/.branches/
+supabase/.temp/start-secrets/

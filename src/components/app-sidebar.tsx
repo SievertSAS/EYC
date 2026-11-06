@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Building2,
   Briefcase,
+  FileCog,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -75,6 +76,12 @@ const menuItems: MenuGroup[] = [
         href: "/dashboard/configuracion",
         icon: Settings,
         module: "configuracion",
+      },
+      {
+        title: "Plantillas",
+        href: "/dashboard/plantillas",
+        icon: FileCog,
+        module: "plantillas",
       },
     ],
   },

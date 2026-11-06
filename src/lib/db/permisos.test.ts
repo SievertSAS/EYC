@@ -89,6 +89,12 @@ describe("permisoDefault", () => {
     }
   });
 
+  it("#196: el módulo de plantillas de informe es exclusivo del coordinador", () => {
+    for (const rol of ROLES_DISPONIBLES) {
+      expect(permisoDefault(rol, "plantillas").ver, rol).toBe(rol === "coordinador");
+    }
+  });
+
   it("módulo sin acceso de ver tampoco tiene acciones (matriz consistente)", () => {
     for (const rol of ROLES_DISPONIBLES) {
       for (const modulo of MODULOS_APP) {

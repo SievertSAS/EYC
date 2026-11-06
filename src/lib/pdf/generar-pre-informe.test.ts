@@ -448,6 +448,87 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("Coordinador");
   });
 
+  it("#195: 'Responsable Sievert S.A.S.' toma nombre y título del Director Técnico configurado", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "DIRECTORA-TECNICA-MARCADOR",
+      director_titulo: "Fisica Medica Licencia 1234",
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Responsable Sievert S.A.S");
+    expect(text).toContain("DIRECTORA-TECNICA-MARCADOR");
+    expect(text).toContain("Fisica Medica Licencia 1234");
+  });
+
+  it("#195: sin título configurado → cae a 'Director Técnico' bajo el nombre", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({ id: "global", director_nombre: "DIRECTOR-SIN-TITULO" });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("DIRECTOR-SIN-TITULO");
+    expect(text).not.toContain("Sievert Protecci");
+    expect(text).toContain("Director T");
+  });
+
+  it("#195: sin configuración → el renglón genérico de siempre, el PDF no se rompe", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Director T");
+    expect(text).toContain("Sievert Protecci");
+  });
+
+  it("#195: la firma configurada se dibuja como imagen", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({ id: "global", director_nombre: "DIRECTOR-CON-FIRMA" });
+    const contarImagenes = (t: string) => (t.match(/\/Subtype \/Image/g) ?? []).length;
+
+    const sinFirma = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(sinFirma).toContain("DIRECTOR-CON-FIRMA");
+
+    // `director_firma_url` como URL completa: descargarEvidencia la baja con fetch.
+    await db.configuracion_informe.update("global", {
+      director_firma_url: "https://firmas.test/director.png",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url === "https://firmas.test/director.png"
+          ? { ok: true, blob: async () => tinyPngBlob() }
+          : {
+              ok: true,
+              blob: async () =>
+                new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], {
+                  type: "image/png",
+                }),
+            }
+      )
+    );
+    resetLogoCache();
+    const conFirma = await pdfText((await generarPreInforme(visita!.id!))!);
+    // (> y no +1: un PNG con alfa agrega además su máscara /SMask como imagen)
+    expect(contarImagenes(conFirma)).toBeGreaterThan(contarImagenes(sinFirma));
+  });
+
+  it("#195: una firma configurada pero inservible no rompe el PDF", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "DIRECTOR-FIRMA-ROTA",
+      director_firma_url: "https://firmas.test/no-existe.png",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, blob: async () => new Blob() }))
+    );
+    resetLogoCache();
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).toBeInstanceOf(Blob);
+    expect(await pdfText(blob!)).toContain("DIRECTOR-FIRMA-ROTA");
+  });
+
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
     // Un informe OFICIAL no se emite con pruebas PENDIENTE: se excluyen todas
@@ -1216,5 +1297,80 @@ describe("Estándar de documentación — márgenes, tipografía y espaciado", (
     // La primera aparición de cada título es la del índice (va tras la portada).
     expect(tamanoAntesDe(text, "(1. INFORMACI")).toBe(9);
     expect(tamanoAntesDe(text, "(2.4 Exactitud")).toBe(9);
+  });
+});
+
+describe("#196 — textos desde la plantilla de informe vigente", () => {
+  async function publicarPlantilla(over: Record<string, unknown> = {}) {
+    await db.plantillas_informe.add({
+      id: randomUUID(),
+      tipo_equipo: "CONVENCIONAL",
+      codigo: "FT-PLANTILLA-9",
+      version: 7,
+      estado: "publicada",
+      contenido: {
+        introduccion: "INTRO-PLANTILLA-MARCADOR primer parrafo.\n\nSegundo parrafo.",
+        pruebas: {
+          "2.1": { objetivo: "OBJETIVO-PLANTILLA-MARCADOR" },
+          "2.2": { analisis: "ANALISIS-PLANTILLA-MARCADOR" },
+        },
+      },
+      publicada_por: "dt-1",
+      publicada_en: "2026-10-01T00:00:00Z",
+      ...over,
+    });
+  }
+
+  it("usa la última versión publicada: código (portada y pie), introducción y textos de prueba", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla();
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("(FT-PLANTILLA-9 CONTROL");
+    expect(text).toContain("(FT-PLANTILLA-9 |");
+    expect(text).toContain("INTRO-PLANTILLA-MARCADOR");
+    expect(text).toContain("OBJETIVO-PLANTILLA-MARCADOR");
+    expect(text).not.toContain("FT-LEC-6c");
+  });
+
+  it("un borrador no se usa: sin versión publicada salen los textos del sistema", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla({ estado: "borrador", version: null, publicada_en: null });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toContain("OBJETIVO-PLANTILLA-MARCADOR");
+    expect(text).toContain("(FT-LEC-6c CONTROL");
+  });
+
+  it("la edición por visita gana sobre la plantilla (Análisis de la 2.2)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla();
+    const seccionId = randomUUID();
+    await db.conv_informe_secciones.add({
+      id: seccionId,
+      visita_id: visita!.id!,
+      prueba_codigo: "2.2",
+      orden: 2,
+      incluida: true,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    } as ConvInformeSeccion);
+
+    const conPlantilla = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(conPlantilla).toContain("ANALISIS-PLANTILLA-MARCADOR");
+
+    await db.conv_informe_secciones.update(seccionId, { observaciones: "ANALISIS-INGENIERO" });
+    const conEdicion = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(conEdicion).toContain("ANALISIS-INGENIERO");
+    expect(conEdicion).not.toContain("ANALISIS-PLANTILLA-MARCADOR");
+  });
+
+  it("no imprime el número de versión de la plantilla (es interno)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla({ version: 77 });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toMatch(/\(Plantilla[^)]*77/);
+    expect(text).not.toContain("v77");
   });
 });

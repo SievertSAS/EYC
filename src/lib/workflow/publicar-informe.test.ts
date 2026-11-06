@@ -144,4 +144,34 @@ describe("publicarVersionOficial", () => {
     expect(result).toEqual({ success: false, error: "bucket lleno" });
     expect(updateAndSync).not.toHaveBeenCalled();
   });
+
+  it("#196: registra en la versión oficial qué plantilla publicada se usó (y la pasa al PDF)", async () => {
+    const { visita, informeId, versionId } = await seedInforme();
+    await db.plantillas_informe.add({
+      id: "plantilla-v4",
+      tipo_equipo: "CONVENCIONAL",
+      codigo: "FT-LEC-6c",
+      version: 4,
+      estado: "publicada",
+      contenido: { pruebas: {} },
+      publicada_por: "dt-1",
+      publicada_en: "2026-10-01T00:00:00Z",
+    });
+
+    await publicarVersionOficial(informeId, visita.id!);
+
+    const opts = generarPreInforme.mock.calls[0][1] as { plantilla?: { plantillaId: string } };
+    expect(opts.plantilla?.plantillaId).toBe("plantilla-v4");
+    const version = await db.informe_versiones.get(versionId);
+    expect(version?.plantilla_version_id).toBe("plantilla-v4");
+  });
+
+  it("#196: sin plantilla publicada (textos del sistema) → plantilla_version_id null", async () => {
+    const { visita, informeId, versionId } = await seedInforme();
+
+    await publicarVersionOficial(informeId, visita.id!);
+
+    const version = await db.informe_versiones.get(versionId);
+    expect(version?.plantilla_version_id).toBeNull();
+  });
 });

@@ -31,6 +31,7 @@ import {
   Trash2,
   Camera,
   PenLine,
+  FileText,
 } from "lucide-react";
 import type { RolUsuario, ModuloApp, AccionPermiso, RolPermiso } from "@/lib/db/types";
 import { randomUUID } from "@/lib/uuid";
@@ -46,6 +47,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { compressImage, resolverImagenSrc } from "@/lib/supabase/storage";
 import { logger } from "@/lib/logger";
+import { DirectorTecnicoForm } from "@/components/configuracion/director-tecnico-form";
 
 export default function ConfiguracionPage() {
   const { isReady } = useDb();
@@ -89,6 +91,10 @@ export default function ConfiguracionPage() {
             <Shield className="w-4 h-4" />
             Roles y Permisos
           </TabsTrigger>
+          <TabsTrigger value="informe" className="gap-1.5">
+            <FileText className="w-4 h-4" />
+            Informe
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="usuarios">
@@ -96,6 +102,9 @@ export default function ConfiguracionPage() {
         </TabsContent>
         <TabsContent value="roles">
           <RolesTab />
+        </TabsContent>
+        <TabsContent value="informe">
+          <DirectorTecnicoForm />
         </TabsContent>
       </Tabs>
     </div>

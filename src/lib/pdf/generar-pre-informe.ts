@@ -20,7 +20,7 @@ import type {
   ParteEquipo,
   Informe,
 } from "@/lib/db/types";
-import { ROL_LABELS } from "@/lib/db/types";
+import { CONFIGURACION_INFORME_ID, ROL_LABELS, type ConfiguracionInforme } from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
@@ -234,6 +234,8 @@ interface DatosInforme {
   tecnico?: Usuario;
   /** Usuario que genera/publica el informe (#109) — firma "Responsable de generación de documento". */
   responsableGeneracion?: Usuario;
+  /** Director Técnico configurado (#195) — firma "Responsable Sievert S.A.S.". */
+  configuracionInforme?: ConfiguracionInforme;
   contactos: Contacto[];
   pruebas: (PruebaResultado & { definicion?: PruebaDefinicion })[];
   mediciones: MedicionRadiometrica[];
@@ -471,6 +473,13 @@ export async function generarPreInforme(
   const firmaGeneracionDataUrl = await imagenDataUrl(
     undefined,
     datos.responsableGeneracion?.firma_url
+  );
+  // #195: Director Técnico configurado por el coordinador (configuración
+  // global, no un usuario). Sale SIEMPRE: pre-informe y versión oficial.
+  datos.configuracionInforme = await db.configuracion_informe.get(CONFIGURACION_INFORME_ID);
+  const firmaDirectorDataUrl = await imagenDataUrl(
+    undefined,
+    datos.configuracionInforme?.director_firma_url
   );
   // Versión oficial: la visita ya fue aprobada o entregada. Cambia la marca
   // de agua de "PRE-INFORME" al sello Sievert (ver más abajo).
@@ -2289,13 +2298,29 @@ export async function generarPreInforme(
   doc.setFontSize(9);
   doc.setTextColor(...COLOR_BLACK);
   doc.text("Responsable Sievert S.A.S:", MARGIN_LEFT, y);
+  // #195: firma, nombre y título del Director Técnico configurado. Sin
+  // configuración (o sin firma) la línea queda en blanco, como antes.
+  const directorNombre = datos.configuracionInforme?.director_nombre?.trim();
+  if (firmaDirectorDataUrl) {
+    try {
+      doc.addImage(firmaDirectorDataUrl, MARGIN_LEFT, y + 1, 40, 13);
+    } catch {
+      // firma no utilizable: la línea queda en blanco, igual que sin firma
+    }
+  }
   y += 20;
-  doc.text("Director Técnico", MARGIN_LEFT, y);
+  doc.text(directorNombre || "Director Técnico", MARGIN_LEFT, y);
   y += 4;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLOR_GRAY);
-  doc.text("Sievert Protección Radiológica S.A.S.", MARGIN_LEFT, y);
+  doc.text(
+    directorNombre
+      ? datos.configuracionInforme?.director_titulo?.trim() || "Director Técnico"
+      : "Sievert Protección Radiológica S.A.S.",
+    MARGIN_LEFT,
+    y
+  );
 
   // Responsable de visita — contacto del cliente (no el técnico de Sievert que ejecuta la visita)
   y += 15;

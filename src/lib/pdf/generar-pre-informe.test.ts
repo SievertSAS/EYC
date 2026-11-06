@@ -448,6 +448,87 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("Coordinador");
   });
 
+  it("#195: 'Responsable Sievert S.A.S.' toma nombre y título del Director Técnico configurado", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "DIRECTORA-TECNICA-MARCADOR",
+      director_titulo: "Fisica Medica Licencia 1234",
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Responsable Sievert S.A.S");
+    expect(text).toContain("DIRECTORA-TECNICA-MARCADOR");
+    expect(text).toContain("Fisica Medica Licencia 1234");
+  });
+
+  it("#195: sin título configurado → cae a 'Director Técnico' bajo el nombre", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({ id: "global", director_nombre: "DIRECTOR-SIN-TITULO" });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("DIRECTOR-SIN-TITULO");
+    expect(text).not.toContain("Sievert Protecci");
+    expect(text).toContain("Director T");
+  });
+
+  it("#195: sin configuración → el renglón genérico de siempre, el PDF no se rompe", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("Director T");
+    expect(text).toContain("Sievert Protecci");
+  });
+
+  it("#195: la firma configurada se dibuja como imagen", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({ id: "global", director_nombre: "DIRECTOR-CON-FIRMA" });
+    const contarImagenes = (t: string) => (t.match(/\/Subtype \/Image/g) ?? []).length;
+
+    const sinFirma = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(sinFirma).toContain("DIRECTOR-CON-FIRMA");
+
+    // `director_firma_url` como URL completa: descargarEvidencia la baja con fetch.
+    await db.configuracion_informe.update("global", {
+      director_firma_url: "https://firmas.test/director.png",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url === "https://firmas.test/director.png"
+          ? { ok: true, blob: async () => tinyPngBlob() }
+          : {
+              ok: true,
+              blob: async () =>
+                new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], {
+                  type: "image/png",
+                }),
+            }
+      )
+    );
+    resetLogoCache();
+    const conFirma = await pdfText((await generarPreInforme(visita!.id!))!);
+    // (> y no +1: un PNG con alfa agrega además su máscara /SMask como imagen)
+    expect(contarImagenes(conFirma)).toBeGreaterThan(contarImagenes(sinFirma));
+  });
+
+  it("#195: una firma configurada pero inservible no rompe el PDF", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "DIRECTOR-FIRMA-ROTA",
+      director_firma_url: "https://firmas.test/no-existe.png",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, blob: async () => new Blob() }))
+    );
+    resetLogoCache();
+    const blob = await generarPreInforme(visita!.id!);
+    expect(blob).toBeInstanceOf(Blob);
+    expect(await pdfText(blob!)).toContain("DIRECTOR-FIRMA-ROTA");
+  });
+
   it("versión oficial: acepta un qrDataUrl sin romper", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita: "aprobada" });
     // Un informe OFICIAL no se emite con pruebas PENDIENTE: se excluyen todas

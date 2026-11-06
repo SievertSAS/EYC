@@ -33,6 +33,9 @@ const state = {
   },
 };
 const updateSpy = vi.fn();
+// Cabeceras mínimas reales (#207): la API detecta el tipo por los bytes.
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
 const uploadSpy = vi.fn(async (..._args: unknown[]) => ({
   error: null as { message: string } | null,
 }));
@@ -162,7 +165,7 @@ describe("PATCH /api/usuarios/[id]", () => {
   it("#109: multipart con firma → sube a Storage y guarda el path en firma_url", async () => {
     const form = new FormData();
     form.append("nombre", "Nombre Nuevo");
-    form.append("firma", new File([new Uint8Array([1, 2, 3])], "firma.png"));
+    form.append("firma", new File([PNG_BYTES], "firma.png"));
 
     const res = await PATCH(
       {
@@ -173,9 +176,10 @@ describe("PATCH /api/usuarios/[id]", () => {
     );
 
     expect(res.status).toBe(200);
+    // #207: el contentType sale de los bytes reales (PNG), no del nombre.
     expect(uploadSpy).toHaveBeenCalledWith("usuarios/u-1/firma.jpg", expect.anything(), {
       upsert: true,
-      contentType: "image/jpeg",
+      contentType: "image/png",
     });
     expect(updateSpy).toHaveBeenCalledWith({
       nombre: "Nombre Nuevo",
@@ -185,7 +189,7 @@ describe("PATCH /api/usuarios/[id]", () => {
 
   it("#109: multipart solo con firma (sin otros campos) no cae en 'nada que actualizar'", async () => {
     const form = new FormData();
-    form.append("firma", new File([new Uint8Array([1, 2, 3])], "firma.png"));
+    form.append("firma", new File([JPEG_BYTES], "firma.png"));
 
     const res = await PATCH(
       {
@@ -197,6 +201,28 @@ describe("PATCH /api/usuarios/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(updateSpy).toHaveBeenCalledWith({ firma_url: "usuarios/u-1/firma.jpg" });
+  });
+
+  it("#207: firma que no es JPEG/PNG/WebP por sus bytes → 400 y no sube nada", async () => {
+    const form = new FormData();
+    // Un PDF disfrazado de imagen: el nombre y el type no cuentan.
+    form.append(
+      "firma",
+      new File([new TextEncoder().encode("%PDF-1.7 ...")], "firma.png", { type: "image/png" })
+    );
+
+    const res = await PATCH(
+      {
+        headers: { get: (h: string) => (h === "content-type" ? "multipart/form-data" : null) },
+        formData: async () => form,
+      } as unknown as Parameters<typeof PATCH>[0],
+      { params: Promise.resolve({ id: "u-1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Formato de imagen no válido");
+    expect(uploadSpy).not.toHaveBeenCalled();
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it("#109: acepta titulo_firma como texto libre, distinto del cargo", async () => {

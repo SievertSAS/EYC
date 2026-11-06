@@ -40,6 +40,12 @@ function responder(c: ConsultaMock): RespuestaMock {
 }
 let mock = crearSupabaseAdminMock(responder);
 
+// Cabeceras mínimas reales (#207): la API detecta el tipo por los bytes.
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+const WEBP_BYTES = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20,
+]);
+
 vi.mock("next/headers", () => ({
   cookies: async () => ({ getAll: () => [] }),
   headers: async () => new Map([["x-forwarded-for", state.ip]]),
@@ -129,11 +135,12 @@ describe("PATCH /api/configuracion-informe", () => {
   });
 
   it("con firma (multipart) la sube al bucket evidencias y guarda el path", async () => {
-    const firma = new File([new Uint8Array([1, 2, 3])], "firma.jpg", { type: "image/jpeg" });
+    const firma = new File([JPEG_BYTES], "firma.jpg", { type: "image/jpeg" });
     const res = await PATCH(reqMultipart({ director_nombre: "Ana" }, firma));
     expect(res.status).toBe(200);
     const upload = mock.consultas.find((c) => c.op === "upload");
     expect(upload?.tabla).toBe("evidencias");
+    expect(upload?.payload).toEqual({ upsert: true, contentType: "image/jpeg" });
     const path = upload?.filtros.path as string;
     expect(path).toMatch(/^configuracion\/director-firma-\d+\.jpg$/);
     const upsert = mock.consultas.find((c) => c.op === "upsert");
@@ -142,10 +149,26 @@ describe("PATCH /api/configuracion-informe", () => {
 
   it("si falla la subida de la firma → 500 y no toca la fila", async () => {
     state.upload = { data: null, error: { message: "bucket" } };
-    const firma = new File([new Uint8Array([1])], "firma.jpg", { type: "image/jpeg" });
+    const firma = new File([JPEG_BYTES], "firma.jpg", { type: "image/jpeg" });
     const res = await PATCH(reqMultipart({}, firma));
     expect(res.status).toBe(500);
     expect(mock.consultas.some((c) => c.op === "upsert")).toBe(false);
+  });
+
+  it("#207: firma WebP (por sus bytes) se sube con contentType image/webp", async () => {
+    const firma = new File([WEBP_BYTES], "firma.jpg", { type: "image/jpeg" });
+    const res = await PATCH(reqMultipart({}, firma));
+    expect(res.status).toBe(200);
+    const upload = mock.consultas.find((c) => c.op === "upload");
+    expect(upload?.payload).toEqual({ upsert: true, contentType: "image/webp" });
+  });
+
+  it("#207: firma que no es JPEG/PNG/WebP por sus bytes → 400, sin subir ni tocar la fila", async () => {
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const res = await PATCH(reqMultipart({}, new File([svg], "firma.png", { type: "image/png" })));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Formato de imagen no válido");
+    expect(mock.consultas.some((c) => c.op === "upload" || c.op === "upsert")).toBe(false);
   });
 
   it("director_firma_url: null quita la firma", async () => {

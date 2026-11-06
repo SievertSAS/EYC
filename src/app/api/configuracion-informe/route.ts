@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCargo } from "@/lib/auth/require-cargo";
 import { leerBodyConArchivo } from "@/lib/api/leer-body";
+import { detectarTipoImagen, FORMATO_IMAGEN_INVALIDO } from "@/lib/api/tipo-imagen";
 import { rateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { patchConfiguracionInformeSchema } from "@/lib/validation/schemas";
@@ -51,14 +52,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
   }
 
+  // #207: el tipo real sale de los bytes, no del nombre ni del `type` del File.
+  const buffer = firma ? Buffer.from(await firma.arrayBuffer()) : null;
+  const tipoFirma = buffer ? detectarTipoImagen(buffer) : null;
+  if (buffer && !tipoFirma) {
+    logger.warn("configuracion-informe", "Firma con formato no permitido");
+    return NextResponse.json({ error: FORMATO_IMAGEN_INVALIDO }, { status: 400 });
+  }
+
   const cambios: Record<string, unknown> = { ...parsed.data };
-  if (firma) {
+  if (buffer && tipoFirma) {
     // Path nuevo por subida: evita servir una firma vieja cacheada.
     const path = `configuracion/director-firma-${Date.now()}.jpg`;
-    const buffer = Buffer.from(await firma.arrayBuffer());
     const { error: uploadError } = await supabaseAdmin.storage
       .from(EVIDENCIAS_BUCKET)
-      .upload(path, buffer, { upsert: true, contentType: "image/jpeg" });
+      .upload(path, buffer, { upsert: true, contentType: tipoFirma });
     if (uploadError) {
       logger.error("configuracion-informe", "Subida de firma falló", uploadError);
       return NextResponse.json({ error: "Error al subir la firma" }, { status: 500 });

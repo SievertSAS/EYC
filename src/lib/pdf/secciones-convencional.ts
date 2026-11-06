@@ -1208,6 +1208,16 @@ export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional, codigo =
 
 // ─── Renderizador 2.2: Inspección visual ───
 
+/**
+ * Párrafo de ubicación física de 2.2.4: el texto del ingeniero tal cual (ya
+ * redacta la oración completa), con punto final solo si le falta (#197).
+ */
+export function textoUbicacionFisica(texto: string | null | undefined): string | undefined {
+  const t = texto?.trim();
+  if (!t) return undefined;
+  return t.endsWith(".") ? t : `${t}.`;
+}
+
 function render22(
   ctx: InformeCtx,
   conv: DatosConvencional,
@@ -1221,9 +1231,8 @@ function render22(
   ctx.addParagraph(
     "La distribución de las áreas colindantes y de las barreras estructurales de protección radiológica se presenta en el diagrama radiométrico de la instalación."
   );
-  if (ubicacion?.ubicacion_fisica?.trim()) {
-    ctx.addParagraph(`El equipo se encuentra ubicado en el ${ubicacion.ubicacion_fisica.trim()}.`);
-  }
+  const textoUbicacion = textoUbicacionFisica(ubicacion?.ubicacion_fisica);
+  if (textoUbicacion) ctx.addParagraph(textoUbicacion);
 
   // Zonas colindantes en tabla (en vez de párrafos sueltos)
   const zonas = (

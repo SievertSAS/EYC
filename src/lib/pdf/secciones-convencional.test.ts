@@ -12,6 +12,7 @@ import {
   textoAnalisisPredeterminado,
   inyectarDatosEquipo,
   analisisPredeterminadoDeVisita,
+  textoUbicacionFisica,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
@@ -1680,5 +1681,30 @@ describe("Estándar de documentación — tablas, rótulos y figuras", () => {
     conv.fotos24 = [{ label: "Montaje", dataUrl: PNG_1X1, width: 100, height: 100 }];
     renderEvidenciaGrafica(ctx, conv, "2.4");
     expect(tamanoAntesDe(ctx.doc.output(), "(Fig. 2.4.1.")).toBe(8.5);
+  });
+});
+
+describe("2.2.4 — párrafo de ubicación física (#197)", () => {
+  it("usa el texto del ingeniero tal cual, sin el prefijo fijo 'El equipo se encuentra ubicado en el'", () => {
+    const texto = "El equipo de rayos X es de uso exclusivo en la sala de rayos X.";
+    expect(textoUbicacionFisica(texto)).toBe(texto);
+  });
+
+  it("no duplica el punto final cuando el texto ya termina en punto", () => {
+    expect(textoUbicacionFisica("Sala de rayos X del primer piso.")).toBe(
+      "Sala de rayos X del primer piso."
+    );
+  });
+
+  it("agrega el punto final cuando falta", () => {
+    expect(textoUbicacionFisica("Sala de rayos X del primer piso")).toBe(
+      "Sala de rayos X del primer piso."
+    );
+  });
+
+  it("recorta espacios y no devuelve párrafo cuando el texto está vacío", () => {
+    expect(textoUbicacionFisica("  Sala 1  ")).toBe("Sala 1.");
+    expect(textoUbicacionFisica("   ")).toBeUndefined();
+    expect(textoUbicacionFisica(undefined)).toBeUndefined();
   });
 });

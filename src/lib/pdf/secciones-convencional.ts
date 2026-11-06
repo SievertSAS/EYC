@@ -1,7 +1,7 @@
 import type { jsPDF } from "jspdf";
 import type autoTableType from "jspdf-autotable";
 import { db } from "@/lib/db";
-import { formatDecimal } from "@/lib/decimal";
+import { formatCapturado, formatDecimal } from "@/lib/decimal";
 import type { Equipo, VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
 import type {
   ConvLevantamientoSetup,
@@ -658,14 +658,24 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
     ...TABLE_STYLE,
     startY: ctx.y,
     body: [
-      ["Tensión (kV)", fmt(setup?.tecnica_kv, 0), "Tiempo (s)", fmt(setup?.tecnica_tiempo_s, 2)],
-      ["Corriente (mA)", fmt(setup?.tecnica_ma, 0), "Exposición (mAs)", fmt(setup?.tecnica_mas, 0)],
+      [
+        "Tensión (kV)",
+        formatCapturado(setup?.tecnica_kv),
+        "Tiempo (s)",
+        formatCapturado(setup?.tecnica_tiempo_s),
+      ],
+      [
+        "Corriente (mA)",
+        formatCapturado(setup?.tecnica_ma),
+        "Exposición (mAs)",
+        formatCapturado(setup?.tecnica_mas),
+      ],
       [
         "Fondo natural (mSv/h)",
         {
           content:
             setup?.fondo_natural_usv_h != null
-              ? formatDecimal(setup.fondo_natural_usv_h / 1000, 5)
+              ? formatCapturado(setup.fondo_natural_usv_h / 1000)
               : "—",
           colSpan: 3,
           styles: { fontStyle: "normal", fillColor: [255, 255, 255] },
@@ -699,7 +709,7 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       body: conv.mediciones.map((m) => [
         String(m.punto_numero),
         m.ubicacion_descripcion || "—",
-        m.tasa_dosis_msv_h != null ? formatDecimal(m.tasa_dosis_msv_h, 5) : "—",
+        formatCapturado(m.tasa_dosis_msv_h),
       ]),
       columnStyles: { 0: { cellWidth: 14 } },
     });
@@ -726,12 +736,12 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
     startY: ctx.y,
     head: [["Parámetro", "Valor"]],
     body: [
-      ["Radiografías por semana (NR)", fmt(nr, 0)],
-      ["Exposición máxima clínica (mAs)", fmt(masMax, 0)],
+      ["Radiografías por semana (NR)", formatCapturado(nr)],
+      ["Exposición máxima clínica (mAs)", formatCapturado(masMax)],
       ["Carga de trabajo W estimada (mA·min/sem)", fmt(wEstimada)],
       ["Carga de trabajo estándar (mA·min/sem)", fmt(wEstandar, 0)],
       ["Carga de trabajo W usada = max(estimada, estándar)", fmt(wUsado)],
-      ["Corriente utilizada en la prueba I (mA)", fmt(setup?.tecnica_ma, 0)],
+      ["Corriente utilizada en la prueba I (mA)", formatCapturado(setup?.tecnica_ma)],
       ["Factor de uso (U)", "Según punto de medición (Tabla 2.1.2)"],
       ["Semanas laborales", fmt(semanas, 0)],
     ],
@@ -763,8 +773,8 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
         // `decimals` ya lo hace (maximumFractionDigits 3, minimum 0); el
         // `.replace(/\.?0+$/)` anterior asumía punto decimal y dejaba "1," con
         // valores enteros ahora que se formatea con coma (es-CO).
-        formatDecimal(m.factor_ocupacion_t) || "—",
-        fmt(m.factor_uso_u, 1),
+        formatCapturado(m.factor_ocupacion_t),
+        formatCapturado(m.factor_uso_u),
         m.dosis_anual_msv != null ? formatDecimal(m.dosis_anual_msv, 6) : "—",
         capitalizar(m.tipo_area),
         conceptoLabel(m.concepto),
@@ -1277,9 +1287,9 @@ function render22(
       head: [["Ancho", "Largo", "Altura", "Área"]],
       body: [
         [
-          `${fmt(ubicacion.ancho_m)} m`,
-          `${fmt(ubicacion.largo_m)} m`,
-          `${fmt(ubicacion.alto_m)} m`,
+          `${formatCapturado(ubicacion.ancho_m)} m`,
+          `${formatCapturado(ubicacion.largo_m)} m`,
+          `${formatCapturado(ubicacion.alto_m)} m`,
           area,
         ],
       ],
@@ -1387,11 +1397,11 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Tensión (kV)",
-        fmt(c.tecnica_kv, 0),
+        formatCapturado(c.tecnica_kv),
         "Exposición (mAs)",
-        fmt(c.tecnica_mas, 1),
+        formatCapturado(c.tecnica_mas),
         "Distancia foco-receptor, SID (cm)",
-        fmt(c.sid_cm, 0),
+        formatCapturado(c.sid_cm),
       ],
     ],
     columnStyles: {
@@ -1427,8 +1437,8 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const rows = items.map(({ label, nom, med, diff, varPct, concepto }) => [
     label,
-    fmt(nom, 0),
-    fmt(med, 0),
+    formatCapturado(nom),
+    formatCapturado(med),
     formatDecimal(diff, 1),
     formatDecimal(varPct, 1) + " %",
     "< 2 %",
@@ -1511,7 +1521,9 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
   // .5 Análisis — texto auto-generado según la fórmula del Excel
   ctx.addSubsectionTitle("2.3.5.", "Análisis");
 
-  const totalVarStr = formatDecimal(totalVar, 0);
+  // Misma precisión que la columna de la tabla (1 decimal): con 0 decimales
+  // 1,6 % salía "2 %" y contradecía la tabla y el criterio (#199).
+  const totalVarStr = formatDecimal(totalVar, 1);
   let analisisTexto: string;
   if (conceptoTotal === "Conforme" && perpConcepto === "Conforme") {
     analisisTexto = `Los resultados obtenidos evidencian que la coincidencia entre el campo luminoso y el campo de radiación cumple con los criterios de aceptación establecidos, ya que las desviaciones individuales fueron inferiores al 2 % y la desviación total fue de ${totalVarStr} %. Adicionalmente, la perpendicularidad del rayo central presentó una desviación angular menor o igual a 3°, por lo que la prueba se considera conforme.`;
@@ -1554,7 +1566,7 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   const statsPorGrupo = [...resultado].sort((a, b) => b.tiempoNominal - a.tiempoNominal);
 
   const rows = statsPorGrupo.map(({ tiempoNominal, tiempoProm, desvPct, std, cvPct, conforme }) => [
-    formatDecimal(tiempoNominal),
+    formatCapturado(tiempoNominal),
     formatDecimal(tiempoProm, 3),
     formatDecimal(desvPct, 2) + " %",
     formatDecimal(std, 5),
@@ -1624,7 +1636,7 @@ function render25(ctx: InformeCtx, conv: DatosConvencional): number {
   const statsPorGrupo = [...resultado].sort((a, b) => a.kvNominal - b.kvNominal);
 
   const rows = statsPorGrupo.map(({ kvNominal, kvProm, desvPct, std, cvPct, conforme }) => [
-    formatDecimal(kvNominal, 0),
+    formatCapturado(kvNominal),
     formatDecimal(kvProm, 1),
     formatDecimal(desvPct, 2) + " %",
     formatDecimal(std, 2),
@@ -1691,7 +1703,7 @@ function render26(ctx: InformeCtx, conv: DatosConvencional): number {
   if (resultado.length === 0) return SIN_DATOS(ctx);
 
   const rows = resultado.map(({ kvNominal, chrProm, chrMin, conforme }) => [
-    formatDecimal(kvNominal, 0),
+    formatCapturado(kvNominal),
     formatDecimal(chrProm, 1),
     chrMin != null ? formatDecimal(chrMin, 1) : "—",
     conforme ? "Conforme" : "No conforme",
@@ -1770,10 +1782,10 @@ export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
     head: [["Tensión (kVp)", "Carga (mAs)", "EI", ...(reportaDi ? ["D.I."] : [])]],
     body: [
       [
-        kv != null ? formatDecimal(kv, 1) : "—",
-        mas != null ? formatDecimal(mas, 1) : "—",
-        eiBase != null ? String(eiBase) : "—",
-        ...(reportaDi ? [diBase != null ? formatDecimal(diBase, 2) : "—"] : []),
+        formatCapturado(kv),
+        formatCapturado(mas),
+        formatCapturado(eiBase),
+        ...(reportaDi ? [formatCapturado(diBase)] : []),
       ],
     ],
   });
@@ -1793,13 +1805,13 @@ export function renderTablaBaseRef216(ctx: InformeCtx, conv: DatosConvencional) 
     body: [
       [
         "Horizontal",
-        m?.mtf50_base_horizontal != null ? formatDecimal(m.mtf50_base_horizontal, 2) : "—",
-        m?.mtf20_base_horizontal != null ? formatDecimal(m.mtf20_base_horizontal, 2) : "—",
+        formatCapturado(m?.mtf50_base_horizontal),
+        formatCapturado(m?.mtf20_base_horizontal),
       ],
       [
         "Vertical",
-        m?.mtf50_base_vertical != null ? formatDecimal(m.mtf50_base_vertical, 2) : "—",
-        m?.mtf20_base_vertical != null ? formatDecimal(m.mtf20_base_vertical, 2) : "—",
+        formatCapturado(m?.mtf50_base_vertical),
+        formatCapturado(m?.mtf20_base_vertical),
       ],
     ],
     columnStyles: { 0: { halign: "left" as const } },
@@ -1819,9 +1831,9 @@ export function renderTablaBaseRef221(ctx: InformeCtx, conv: DatosConvencional) 
     .filter((m) => m.tipo_medicion === "sin_rejilla" && m.dosis_base_mgy != null)
     .map((m) => [
       m.programa_clinico ?? "—",
-      fmt(m.kv_nominal, 0),
-      fmt(m.mas_nominal),
-      formatDecimal(m.dosis_base_mgy!, 5),
+      formatCapturado(m.kv_nominal),
+      formatCapturado(m.mas_nominal),
+      formatCapturado(m.dosis_base_mgy),
     ]);
   ctx.checkPage(30);
   addCaption(ctx, "Valores base de referencia");
@@ -1850,7 +1862,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
     )?.kv_nominal ?? 80;
   ctx.addParagraph(
     "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
-      `Tensión programada: ${formatDecimal(kvProgramada, 0)} kVp\n` +
+      `Tensión programada: ${formatCapturado(kvProgramada)} kVp\n` +
       `Distancia foco-detector: ${distancia} cm\n` +
       "Estimación del rendimiento: normalizado a 80 kVp y 100 centímetros\n" +
       "Factor de corrección por presión y temperatura del analizador: 1,0"
@@ -1877,7 +1889,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   if (resultado.linealidad.length > 0) {
     const rowsLin = resultado.linealidad.map(
       ({ masNominal, kermaProm, rendimiento, linealidadPct }) => [
-        formatDecimal(masNominal, 1),
+        formatCapturado(masNominal),
         formatDecimal(kermaProm, 3),
         formatDecimal(rendimiento, 1),
         linealidadPct != null ? formatDecimal(linealidadPct, 2) + " %" : "-%",
@@ -1923,7 +1935,7 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   if (kermasRep.length > 0) {
-    const rowsIndiv: string[][] = kermasRep.map((v, i) => [String(i + 1), formatDecimal(v, 4)]);
+    const rowsIndiv: string[][] = kermasRep.map((v, i) => [String(i + 1), formatCapturado(v)]);
 
     ctx.checkPage(40);
     addCaption(ctx, "Tabla 2.7.2. Repetibilidad de la radiación de salida");
@@ -1993,11 +2005,11 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const resultado = calcularResultado28(conv.raysafeMediciones, conv.raysafeSetup);
   const rows = resultado.map((r) => ({
-    kv: r.kvNominal != null ? formatDecimal(r.kvNominal, 1) : "—",
-    mas: r.masNominal != null ? formatDecimal(r.masNominal, 1) : "—",
-    dapNom: r.dapNominal != null ? formatDecimal(r.dapNominal, 2) : "—",
+    kv: formatCapturado(r.kvNominal),
+    mas: formatCapturado(r.masNominal),
+    dapNom: formatCapturado(r.dapNominal),
     dapEst: r.dapEstimado > 0 ? formatDecimal(r.dapEstimado, 2) : "—",
-    fc: r.factorCorreccion != null ? formatDecimal(r.factorCorreccion, 1) : "—",
+    fc: r.factorCorreccion != null ? formatDecimal(r.factorCorreccion, 2) : "—",
   }));
 
   ctx.checkPage(40);
@@ -2059,10 +2071,10 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
     head: [["Tensión (kVp)", "Carga (mAs)", "EI", ...(reportaDi ? ["D.I."] : [])]],
     body: [
       [
-        kv ? String(kv) : "—",
-        mas ? String(mas) : "—",
-        ei != null ? String(ei) : "—",
-        ...(reportaDi ? [di != null ? formatDecimal(di, 2) : "—"] : []),
+        kv ? formatCapturado(kv) : "—",
+        mas ? formatCapturado(mas) : "—",
+        formatCapturado(ei),
+        ...(reportaDi ? [formatCapturado(di)] : []),
       ],
     ],
   });
@@ -2099,8 +2111,8 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "EI",
-        ei != null ? String(ei) : "—",
-        eiBase != null ? String(eiBase) : "—",
+        formatCapturado(ei),
+        formatCapturado(eiBase),
         eiDev != null ? `${formatDecimal(eiDev, 1)}%` : "—",
         eiConf,
       ],
@@ -2108,8 +2120,8 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
         ? [
             [
               "D.I.",
-              di != null ? formatDecimal(di, 2) : "—",
-              diBase != null ? formatDecimal(diBase, 2) : "—",
+              formatCapturado(di),
+              formatCapturado(diBase),
               diDev != null ? `${formatDecimal(diDev, 1)}%` : "—",
               diConf,
             ],
@@ -2233,9 +2245,9 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Distancia foco-receptor, SID (cm):",
-        fmt(bc?.sid_cm, 0),
+        formatCapturado(bc?.sid_cm),
         "Tensión (kVp):",
-        fmt(bc?.tecnica_kv, 0),
+        formatCapturado(bc?.tecnica_kv),
       ],
     ],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
@@ -2308,9 +2320,9 @@ function render212(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Distancia foco-receptor, SID (cm):",
-        fmt(resol?.sid_cm, 0),
+        formatCapturado(resol?.sid_cm),
         "Tensión (kVp):",
-        fmt(resol?.tecnica_kv, 0),
+        formatCapturado(resol?.tecnica_kv),
       ],
     ],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
@@ -2331,7 +2343,7 @@ function render212(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Cantidad de pares de líneas visibles (pl/mm)",
-        plmm != null ? `${formatDecimal(plmm, 1)} pl/mm` : "—",
+        plmm != null ? `${formatCapturado(plmm)} pl/mm` : "—",
       ],
     ],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
@@ -2589,17 +2601,18 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   // Condiciones de medición
-  const sid = m.distancia_foco_sensor_cm != null ? `${m.distancia_foco_sensor_cm} cm` : "—";
-  const kv = m.tecnica_kv != null ? `${m.tecnica_kv} kVp` : "—";
-  const pixel = m.pixel_size_mm != null ? `${m.pixel_size_mm} mm` : "—";
+  const sid =
+    m.distancia_foco_sensor_cm != null ? `${formatCapturado(m.distancia_foco_sensor_cm)} cm` : "—";
+  const kv = m.tecnica_kv != null ? `${formatCapturado(m.tecnica_kv)} kVp` : "—";
+  const pixel = m.pixel_size_mm != null ? `${formatCapturado(m.pixel_size_mm)} mm` : "—";
   // Nyquist se deriva del píxel; el valor guardado queda para visitas sin píxel.
   const nyquistLpmm = nyquistDesdePixel(m.pixel_size_mm) ?? m.nyquist_lpmm;
-  const nyquist = nyquistLpmm != null ? `${nyquistLpmm} lp/mm` : "—";
+  const nyquist = nyquistLpmm != null ? `${formatCapturado(nyquistLpmm)} lp/mm` : "—";
   // mA / t / mAs solo se citan si se cargaron (visitas previas no los tienen).
   const tecnica = [
-    m.tecnica_ma != null ? `corriente ${formatDecimal(m.tecnica_ma)} mA` : null,
-    m.tecnica_tiempo_s != null ? `tiempo ${formatDecimal(m.tecnica_tiempo_s)} s` : null,
-    m.tecnica_mas != null ? `exposición ${formatDecimal(m.tecnica_mas)} mAs` : null,
+    m.tecnica_ma != null ? `corriente ${formatCapturado(m.tecnica_ma)} mA` : null,
+    m.tecnica_tiempo_s != null ? `tiempo ${formatCapturado(m.tecnica_tiempo_s)} s` : null,
+    m.tecnica_mas != null ? `exposición ${formatCapturado(m.tecnica_mas)} mAs` : null,
   ]
     .filter(Boolean)
     .map((t) => `${t}, `)
@@ -2614,16 +2627,8 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
     ...TABLE_STYLE,
     head: [["Dirección", "MTF50 (lp/mm)", "MTF20 (lp/mm)"]],
     body: [
-      [
-        "Horizontal",
-        m.mtf50_horizontal != null ? formatDecimal(m.mtf50_horizontal, 3) : "—",
-        m.mtf20_horizontal != null ? formatDecimal(m.mtf20_horizontal, 3) : "—",
-      ],
-      [
-        "Vertical",
-        m.mtf50_vertical != null ? formatDecimal(m.mtf50_vertical, 3) : "—",
-        m.mtf20_vertical != null ? formatDecimal(m.mtf20_vertical, 3) : "—",
-      ],
+      ["Horizontal", formatCapturado(m.mtf50_horizontal), formatCapturado(m.mtf20_horizontal)],
+      ["Vertical", formatCapturado(m.mtf50_vertical), formatCapturado(m.mtf20_vertical)],
     ],
     didDrawPage: undefined,
     startY: ctx.y,
@@ -2678,10 +2683,10 @@ function render215(ctx: InformeCtx, conv: DatosConvencional): number {
     body: filas.map((u, i) => [
       i + 1,
       u.serie_cassette ?? "—",
-      u.carga_mas != null ? formatDecimal(u.carga_mas, 1) : "—",
-      u.ei != null ? formatDecimal(u.ei, 1) : "—",
-      ...(reportaDi ? [u.di != null ? formatDecimal(u.di, 2) : "—"] : []),
-      ...(reportaTei ? [u.tei != null ? formatDecimal(u.tei, 1) : "—"] : []),
+      formatCapturado(u.carga_mas),
+      formatCapturado(u.ei),
+      ...(reportaDi ? [formatCapturado(u.di)] : []),
+      ...(reportaTei ? [formatCapturado(u.tei)] : []),
     ]),
     startY: ctx.y,
   });
@@ -2737,7 +2742,9 @@ function renderGenerico(ctx: InformeCtx, codigo: string, conv: DatosConvencional
   }
   for (const [clave, valor] of Object.entries(resultado.datos_calculados ?? {})) {
     if (valor == null || typeof valor === "object") continue;
-    lineas.push(`${clave.replace(/_/g, " ")}: ${String(valor)}`);
+    lineas.push(
+      `${clave.replace(/_/g, " ")}: ${typeof valor === "number" ? formatCapturado(valor) : String(valor)}`
+    );
   }
   if (lineas.length === 0) {
     ctx.addParagraph("Prueba ejecutada — los resultados detallados se registran en la aplicación.");
@@ -2811,12 +2818,12 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const filas217 = conv.caeMediciones.map((m) => [
     String(m.toma_numero),
-    fmt(m.kv_nominal, 0),
-    m.espesor_cu_mm != null ? `Cu ${m.espesor_cu_mm} mm` : "—",
+    formatCapturado(m.kv_nominal),
+    m.espesor_cu_mm != null ? `Cu ${formatCapturado(m.espesor_cu_mm)} mm` : "—",
     m.posicion_sensor ?? "—",
-    fmt(m.carga_mas),
-    m.ei != null ? String(m.ei) : "—",
-    m.di != null ? String(m.di) : "—",
+    formatCapturado(m.carga_mas),
+    formatCapturado(m.ei),
+    formatCapturado(m.di),
   ]);
 
   checkPage(20);
@@ -2855,8 +2862,8 @@ function render217(ctx: InformeCtx, conv: DatosConvencional): number {
       body: [
         [
           "Carga (mAs)",
-          fmt(t9.carga_mas),
-          fmt(s?.mas_base_217),
+          formatCapturado(t9.carga_mas),
+          formatCapturado(s?.mas_base_217),
           fmtPct(varMas),
           varMas == null ? "—" : varMas <= 0.5 ? "Conforme" : "No conforme",
         ],
@@ -2919,9 +2926,9 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
 
   const filas218 = tomas218.map((m) => [
     m.posicion_sensor ?? "—",
-    fmt(m.carga_mas),
-    m.ei != null ? String(m.ei) : "—",
-    m.di != null ? String(m.di) : "—",
+    formatCapturado(m.carga_mas),
+    formatCapturado(m.ei),
+    formatCapturado(m.di),
   ]);
 
   addCaption(ctx, "Tabla 2.18.1. Resultados consistencia entre los sensores del CAE");
@@ -2953,13 +2960,13 @@ function render218(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Carga (mAs)",
-        promMas != null ? fmt(promMas) : "—",
+        promMas != null ? fmt(promMas, 3) : "—",
         fmtPct(varMas),
         varMas == null ? "—" : varMas <= 0.3 ? "Conforme" : "No conforme",
       ],
       [
         "EI",
-        promEi != null ? fmt(promEi, 0) : "—",
+        promEi != null ? fmt(promEi, 1) : "—",
         fmtPct(varEi),
         varEi == null ? "—" : varEi <= 0.3 ? "Conforme" : "No conforme",
       ],
@@ -2995,7 +3002,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   function fmtPct(v: number | null) {
-    return v == null ? "—" : `${formatDecimal(v * 100, 2)} %`;
+    return v == null ? "—" : `${formatDecimal(v * 100, 1)} %`;
   }
 
   // Tomas 3, 9, 10, 11, 12 (5 repeticiones 70kVp, Cu 1mm, Centro)
@@ -3010,11 +3017,11 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
   );
 
   const filas219 = tomasRep.map((m) => [
-    m.espesor_cu_mm != null ? `Cu ${m.espesor_cu_mm} mm` : "—",
+    m.espesor_cu_mm != null ? `Cu ${formatCapturado(m.espesor_cu_mm)} mm` : "—",
     m.posicion_sensor ?? "—",
-    fmt(m.carga_mas),
-    m.ei != null ? String(m.ei) : "—",
-    m.di != null ? String(m.di) : "—",
+    formatCapturado(m.carga_mas),
+    formatCapturado(m.ei),
+    formatCapturado(m.di),
   ]);
 
   addCaption(ctx, "Tabla 2.19.1. Resultados de repetibilidad del CAE");
@@ -3048,7 +3055,7 @@ function render219(ctx: InformeCtx, conv: DatosConvencional): number {
     body: [
       [
         "Carga (mAs)",
-        promMas != null ? fmt(promMas) : "—",
+        promMas != null ? fmt(promMas, 3) : "—",
         desvMas != null ? fmt(desvMas, 3) : "—",
         fmtPct(cvMas),
         cvMas == null ? "—" : cvMas <= 0.1 ? "Conforme" : "No conforme",
@@ -3121,9 +3128,9 @@ function render220(ctx: InformeCtx, conv: DatosConvencional): number {
       String(kv),
       "Centro",
       esp,
-      m?.carga_mas != null ? fmt(m.carga_mas) : "—",
-      m?.ei != null ? String(m.ei) : "—",
-      m?.di != null ? String(m.di) : "—",
+      formatCapturado(m?.carga_mas),
+      formatCapturado(m?.ei),
+      formatCapturado(m?.di),
     ];
   });
 
@@ -3257,14 +3264,14 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   addParagraph(
     `La dosis al receptor de imagen se calculó a partir de la dosis medida, aplicando la corrección geométrica por distancia de acuerdo con la ecuación 19 del IAEA-TECDOC-1958.`
   );
-  addParagraph(`Distancia foco-sensor d1 (cm): ${d1}`);
-  addParagraph(`Distancia foco-detector de imagen d2 (cm): ${d2}`);
+  addParagraph(`Distancia foco-sensor d1 (cm): ${formatCapturado(d1)}`);
+  addParagraph(`Distancia foco-detector de imagen d2 (cm): ${formatCapturado(d2)}`);
 
   const filas221 = resultado.filas.map((f) => [
     f.programa,
-    fmt(f.kvNominal, 0),
-    fmt(f.masNominal),
-    f.dosisMedida != null ? formatDecimal(f.dosisMedida, 5) : "—",
+    formatCapturado(f.kvNominal),
+    formatCapturado(f.masNominal),
+    formatCapturado(f.dosisMedida),
     "1",
     f.dosisReceptor != null ? formatDecimal(f.dosisReceptor, 5) : "—",
   ]);
@@ -3300,7 +3307,7 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
     const filas221Analisis = resultado.filas.map((f) => [
       f.programa,
       f.dosisReceptor != null ? formatDecimal(f.dosisReceptor, 5) : "—",
-      f.dosisBase != null ? formatDecimal(f.dosisBase, 5) : "—",
+      formatCapturado(f.dosisBase),
       f.diferencia != null ? formatDecimal(f.diferencia, 5) : "—",
       f.conforme == null ? "—" : f.conforme ? "Conforme" : "No conforme",
     ]);

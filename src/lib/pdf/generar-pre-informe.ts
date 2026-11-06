@@ -1,6 +1,6 @@
 import type { jsPDF } from "jspdf";
 import { db } from "@/lib/db";
-import { formatDecimal } from "@/lib/decimal";
+import { formatCapturado, formatDecimal } from "@/lib/decimal";
 import { formatFechaParcial } from "@/lib/fecha-parcial";
 import { textoFechaLarga } from "@/lib/fecha-informe";
 import type {
@@ -2033,10 +2033,11 @@ export async function generarPreInforme(
           body: datos.mediciones.map((m) => [
             String(m.punto_numero),
             m.ubicacion_descripcion || "—",
-            formatDecimal(m.tasa_dosis_msv_h, 5),
+            formatCapturado(m.tasa_dosis_msv_h),
             m.factor_ocupacion ?? "—",
             m.tipo_area ? m.tipo_area.charAt(0).toUpperCase() + m.tipo_area.slice(1) : "—",
-            formatDecimal(m.dosis_anual_msv, 4),
+            // Misma precisión que la Tabla 2.1.2 de secciones-convencional (#199).
+            formatDecimal(m.dosis_anual_msv, 6),
             m.concepto?.replace(/_/g, " ") ?? "—",
           ]),
           theme: "grid",

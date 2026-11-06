@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { inflateSync } from "node:zlib";
 
 // getLogoBase64 hace fetch("/logo-informe.png") — se mockea con un PNG mínimo.
 function okPngFetch() {
@@ -40,14 +41,35 @@ import {
   TABLE_STYLE,
 } from "./estilo-informe";
 
-// jsPDF no comprime por defecto → el texto dibujado queda legible en el
-// buffer crudo del PDF (operadores `(str) Tj`). Alcanza para tests de
+function latin1(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return s;
+}
+
+// El informe se genera comprimido (#123): los streams van con FlateDecode.
+// Se devuelve el buffer crudo más cada stream descomprimido, así el texto
+// dibujado (operadores `(str) Tj`) queda legible. Alcanza para tests de
 // contrato: "¿el dato X llegó al documento?", sin snapshots de píxeles.
 async function pdfText(blob: Blob): Promise<string> {
   const buf = new Uint8Array(await blob.arrayBuffer());
-  let s = "";
-  for (const b of buf) s += String.fromCharCode(b);
-  return s;
+  const crudo = latin1(buf);
+  const partes = [crudo];
+  const re = /stream\r?\n/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(crudo))) {
+    const inicio = m.index + m[0].length;
+    const fin = crudo.indexOf("endstream", inicio);
+    if (fin < 0) break;
+    try {
+      partes.push(latin1(inflateSync(buf.subarray(inicio, fin))));
+    } catch {
+      // stream sin comprimir o no-Flate (ej. JPEG): ya está en el crudo
+    }
+    // Seguir después de "endstream": si no, "endstream\n" vuelve a matchear "stream\n".
+    re.lastIndex = fin + "endstream".length;
+  }
+  return partes.join("\n");
 }
 
 // PNG 1x1 válido → doc.getImageProperties devuelve dimensiones reales y
@@ -72,6 +94,13 @@ beforeEach(async () => {
 describe("generarPreInforme — contrato de datos", () => {
   it("visita inexistente → null", async () => {
     expect(await generarPreInforme("no-existe")).toBeNull();
+  });
+
+  it("#123: el PDF se genera comprimido (FlateDecode) — los PNG no quedan como píxeles crudos", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const blob = await generarPreInforme(visita!.id!);
+    const crudo = latin1(new Uint8Array(await blob!.arrayBuffer()));
+    expect(crudo).toContain("/FlateDecode");
   });
 
   it("genera un Blob application/pdf para una visita CONVENCIONAL", async () => {

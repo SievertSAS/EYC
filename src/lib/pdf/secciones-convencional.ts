@@ -45,6 +45,7 @@ import { LABEL_UNIDAD_DAP, LABEL_UNIDAD_KERMA } from "@/lib/equipos/convencional
 import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
 import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import { descargarEvidencia } from "@/lib/supabase/storage";
+import { reducirParaPdf } from "@/lib/pdf/imagen-pdf";
 import {
   COLOR_GRAY,
   COLOR_BLACK,
@@ -171,12 +172,14 @@ async function cargarImagen(
   if (!evidencia) return undefined;
   // El blob local solo existe en el dispositivo que capturó la foto; en
   // cualquier otro hay que bajarla del bucket con el `url_storage` del sync.
-  const blob =
+  const original =
     evidencia.blob_local instanceof Blob
       ? evidencia.blob_local
       : await descargarEvidencia(evidencia.url_storage);
-  if (!blob) return undefined;
+  if (!original) return undefined;
   try {
+    // La foto local viene a resolución de cámara: se reduce al tamaño útil (#123).
+    const blob = await reducirParaPdf(original);
     const bitmap = await createImageBitmap(blob);
     const dataUrl = await blobADataUrl(blob);
     return { dataUrl, width: bitmap.width, height: bitmap.height };

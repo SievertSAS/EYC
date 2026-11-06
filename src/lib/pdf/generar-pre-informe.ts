@@ -78,7 +78,6 @@ import {
 
 let _logoCache: string | null = null;
 let _marcaAguaCache: string | null = null;
-let _pieFooterCache: string | null = null;
 
 /** Vacía el cache del logo. Solo para tests (forzar la ruta de recarga). */
 export function resetLogoCache(): void {
@@ -88,11 +87,6 @@ export function resetLogoCache(): void {
 /** Vacía el cache de la marca de agua. Solo para tests. */
 export function resetMarcaAguaCache(): void {
   _marcaAguaCache = null;
-}
-
-/** Vacía el cache del pie de página de cierre. Solo para tests. */
-export function resetPieFooterCache(): void {
-  _pieFooterCache = null;
 }
 
 /**
@@ -140,16 +134,6 @@ export async function getMarcaAguaBase64(): Promise<string> {
     "la marca de agua del informe"
   );
   return _marcaAguaCache;
-}
-
-/** Banner de contacto Sievert que cierra la última página del informe. */
-export async function getPieFooterBase64(): Promise<string> {
-  if (_pieFooterCache !== null) return _pieFooterCache;
-  _pieFooterCache = await cargarAssetPublico(
-    "/pie-pagina-sievert.png",
-    "el pie de página de cierre del informe"
-  );
-  return _pieFooterCache;
 }
 
 // ─── Formateo de campos del informe ───
@@ -492,10 +476,7 @@ export async function generarPreInforme(
   // de agua de "PRE-INFORME" al sello Sievert (ver más abajo).
   const esFinal =
     datos.visita.estado_visita === "aprobada" || datos.visita.estado_visita === "enviada";
-  const [marcaAguaBase64, pieFooterBase64] = await Promise.all([
-    esFinal ? getMarcaAguaBase64() : Promise.resolve(""),
-    getPieFooterBase64(),
-  ]);
+  const marcaAguaBase64 = esFinal ? await getMarcaAguaBase64() : "";
 
   // Equipos con paquete dedicado (CONVENCIONAL) usan las tablas conv_*
   const esConv = !!datos.equipo?.tipo_equipo && hasPackage(datos.equipo.tipo_equipo);
@@ -2439,27 +2420,6 @@ export async function generarPreInforme(
       tocY += fila.alto;
     }
   });
-
-  // ─── Banner de cierre Sievert (solo en la última página) ───
-  // Va antes de las marcas de agua para que estas cubran también la página
-  // nueva si el banner no cupo en la última página de contenido.
-  try {
-    if (pieFooterBase64) {
-      const propsBanner = doc.getImageProperties(pieFooterBase64);
-      const wBanner = CONTENT_WIDTH;
-      const hBanner = (propsBanner.height / propsBanner.width) * wBanner;
-      // Termina sobre la línea separadora del pie (286,5 mm).
-      const yBanner = 285.5 - hBanner;
-      if (y > yBanner - 6) {
-        doc.addPage();
-        addHeader(doc, datos, logoBase64);
-      }
-      doc.setPage(doc.getNumberOfPages());
-      doc.addImage(pieFooterBase64, MARGIN_LEFT, yBanner, wBanner, hBanner);
-    }
-  } catch {
-    // banner no utilizable (asset corrupto o no decodificable): se omite
-  }
 
   // ─── Marca de agua PRE-INFORME (solo mientras no sea la versión oficial) ───
   if (!esFinal) {

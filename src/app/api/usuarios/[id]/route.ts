@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { requireCoordinador } from "../helpers";
 import { EVIDENCIAS_BUCKET } from "@/lib/supabase/storage";
 import { leerBodyConArchivo } from "@/lib/api/leer-body";
+import { detectarTipoImagen, FORMATO_IMAGEN_INVALIDO } from "@/lib/api/tipo-imagen";
 
 /** Body del PATCH: JSON, o multipart cuando trae la firma (#109). */
 async function leerBody(
@@ -61,16 +62,23 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
   }
 
+  // #207: el tipo real sale de los bytes, no del nombre ni del `type` del File.
+  const buffer = firma ? Buffer.from(await firma.arrayBuffer()) : null;
+  const tipoFirma = buffer ? detectarTipoImagen(buffer) : null;
+  if (buffer && !tipoFirma) {
+    logger.warn("usuarios", "PATCH: firma con formato no permitido", { id });
+    return NextResponse.json({ error: FORMATO_IMAGEN_INVALIDO }, { status: 400 });
+  }
+
   const { telefono, ...rest } = datosValidados;
   const cambios: Record<string, unknown> = { ...rest };
   if (telefono !== undefined) cambios.telefono = telefono || null;
 
-  if (firma) {
+  if (buffer && tipoFirma) {
     const path = `usuarios/${id}/firma.jpg`;
-    const buffer = Buffer.from(await firma.arrayBuffer());
     const { error: uploadError } = await supabaseAdmin.storage
       .from(EVIDENCIAS_BUCKET)
-      .upload(path, buffer, { upsert: true, contentType: "image/jpeg" });
+      .upload(path, buffer, { upsert: true, contentType: tipoFirma });
     if (uploadError) {
       logger.error("usuarios", "PATCH: subida de firma falló", { id, uploadError });
       return NextResponse.json({ error: "Error al subir la firma" }, { status: 500 });

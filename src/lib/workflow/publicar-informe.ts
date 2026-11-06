@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { generarPreInforme } from "@/lib/pdf/generar-pre-informe";
 import { updateAndSync } from "@/lib/supabase/sync-engine";
 import { logger } from "@/lib/logger";
+import { obtenerPlantillaVigente } from "@/lib/plantillas/resolver";
 
 // ============================================================
 //  Publicación de la versión oficial de un informe:
@@ -38,7 +39,13 @@ export async function publicarVersionOficial(
     const qrUrl = `${window.location.origin}/verificar/${informe.qr_token}`;
     const qrDataUrl = await QRCode.toDataURL(qrUrl, { errorCorrectionLevel: "M" });
 
-    const blob = await generarPreInforme(visitaId, { qrDataUrl, usuarioGeneradorId });
+    // #196: la plantilla se resuelve aquí (y no dentro del generador) para
+    // registrar en la versión oficial exactamente la que se imprimió.
+    const visita = await db.visitas.get(visitaId);
+    const equipo = visita?.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
+    const plantilla = await obtenerPlantillaVigente(equipo?.tipo_equipo ?? "CONVENCIONAL");
+
+    const blob = await generarPreInforme(visitaId, { qrDataUrl, usuarioGeneradorId, plantilla });
     if (!blob) return { success: false, error: "No se pudo generar el PDF" };
 
     const hash = await hashBlob(blob);
@@ -60,7 +67,11 @@ export async function publicarVersionOficial(
       .and((v) => v.numero_version === informe.version_actual)
       .first();
     if (version?.id) {
-      await updateAndSync("informe_versiones", version.id, { pdf_url: path, pdf_hash: hash });
+      await updateAndSync("informe_versiones", version.id, {
+        pdf_url: path,
+        pdf_hash: hash,
+        plantilla_version_id: plantilla.plantillaId,
+      });
     }
     if (!informe.qr_url) {
       await updateAndSync("informes", informeId, { qr_url: qrUrl });

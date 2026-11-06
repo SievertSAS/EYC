@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
+import type { PlantillaInforme } from "@/lib/plantillas/types";
 import type {
   Cliente,
   Contacto,
@@ -196,6 +197,7 @@ class EyCDatabase extends Dexie {
   conv_resultados_prueba!: EntityTable<ConvResultadoPrueba, "id">;
   conv_evidencias!: EntityTable<ConvEvidencia, "id">;
   configuracion_informe!: EntityTable<ConfiguracionInforme, "id">;
+  plantillas_informe!: EntityTable<PlantillaInforme, "id">;
 
   constructor() {
     super("SievertEyC");
@@ -530,6 +532,14 @@ class EyCDatabase extends Dexie {
     // ─────────────────────────────────────────────────────────────
     this.version(23).stores({
       configuracion_informe: "id",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v24 — plantillas de informe versionadas por tipo de equipo (#196).
+    //  Tabla maestra: solo baja por el pull; se escribe vía /api/plantillas.
+    // ─────────────────────────────────────────────────────────────
+    this.version(24).stores({
+      plantillas_informe: "id, tipo_equipo, estado, [tipo_equipo+estado]",
     });
   }
 }

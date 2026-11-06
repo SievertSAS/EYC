@@ -35,19 +35,26 @@ describe("seedRolPermisos", () => {
     expect(after2).toBe(after1);
   });
 
-  it("db-S13 (pin): con datos parciales NO completa lo que falta", async () => {
-    // Simula un seed interrumpido: solo 1 fila.
+  it("db-S13: con datos parciales completa SOLO los pares (rol, módulo) que faltan", async () => {
+    // Simula un dispositivo con permisos ya sembrados (y uno editado desde
+    // Configuración) antes de que existiera un módulo nuevo (#196: plantillas).
     await db.rol_permisos.add({
-      id: "solo-una",
-      rol: "coordinador",
-      modulo: "dashboard",
-      activo: true,
+      id: "editada",
+      rol: "tecnico",
+      modulo: "clientes",
+      activo: true, // override: por defecto el técnico NO ve clientes
     });
 
     await seedRolPermisos();
 
-    // El guard `count > 0` lo da por completo → sigue con 1 fila.
-    expect(await db.rol_permisos.count()).toBe(1);
+    expect(await db.rol_permisos.count()).toBe(ROLES_DISPONIBLES.length * MODULOS_APP.length);
+    // El override existente no se pisa.
+    expect((await db.rol_permisos.get("editada"))?.activo).toBe(true);
+    // El módulo nuevo queda con su fila (si no, sería invisible para todos).
+    const plantillas = await db.rol_permisos
+      .where({ rol: "coordinador", modulo: "plantillas" })
+      .first();
+    expect(plantillas?.activo).toBe(true);
   });
 });
 
@@ -70,7 +77,7 @@ describe("seedPruebaDefiniciones", () => {
     expect(await db.prueba_definiciones.count()).toBe(after1);
   });
 
-  it("db-S14: rol_permisos ya poblada → siembra pruebas, permisos no-op", async () => {
+  it("db-S14: rol_permisos ya completa → siembra pruebas, permisos no-op", async () => {
     await seedRolPermisos();
     const permisosAntes = await db.rol_permisos.count();
 

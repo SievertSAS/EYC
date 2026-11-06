@@ -1785,6 +1785,7 @@ export type Database = {
           numero_version: number;
           pdf_hash: string | null;
           pdf_url: string | null;
+          plantilla_version_id: string | null;
           revisado_por_id: string | null;
           sync_status: string;
         };
@@ -1803,6 +1804,7 @@ export type Database = {
           numero_version: number;
           pdf_hash?: string | null;
           pdf_url?: string | null;
+          plantilla_version_id?: string | null;
           revisado_por_id?: string | null;
           sync_status?: string;
         };
@@ -1821,6 +1823,7 @@ export type Database = {
           numero_version?: number;
           pdf_hash?: string | null;
           pdf_url?: string | null;
+          plantilla_version_id?: string | null;
           revisado_por_id?: string | null;
           sync_status?: string;
         };
@@ -2055,6 +2058,51 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      plantillas_informe: {
+        Row: {
+          codigo: string;
+          contenido: Json;
+          creada_por: string | null;
+          creado_en: string;
+          deleted_at: string | null;
+          estado: string;
+          id: string;
+          last_modified: string;
+          publicada_en: string | null;
+          publicada_por: string | null;
+          tipo_equipo: string;
+          version: number | null;
+        };
+        Insert: {
+          codigo: string;
+          contenido: Json;
+          creada_por?: string | null;
+          creado_en?: string;
+          deleted_at?: string | null;
+          estado?: string;
+          id?: string;
+          last_modified?: string;
+          publicada_en?: string | null;
+          publicada_por?: string | null;
+          tipo_equipo: string;
+          version?: number | null;
+        };
+        Update: {
+          codigo?: string;
+          contenido?: Json;
+          creada_por?: string | null;
+          creado_en?: string;
+          deleted_at?: string | null;
+          estado?: string;
+          id?: string;
+          last_modified?: string;
+          publicada_en?: string | null;
+          publicada_por?: string | null;
+          tipo_equipo?: string;
+          version?: number | null;
+        };
+        Relationships: [];
       };
       prueba_definiciones: {
         Row: {

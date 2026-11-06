@@ -1299,3 +1299,78 @@ describe("Estándar de documentación — márgenes, tipografía y espaciado", (
     expect(tamanoAntesDe(text, "(2.4 Exactitud")).toBe(9);
   });
 });
+
+describe("#196 — textos desde la plantilla de informe vigente", () => {
+  async function publicarPlantilla(over: Record<string, unknown> = {}) {
+    await db.plantillas_informe.add({
+      id: randomUUID(),
+      tipo_equipo: "CONVENCIONAL",
+      codigo: "FT-PLANTILLA-9",
+      version: 7,
+      estado: "publicada",
+      contenido: {
+        introduccion: "INTRO-PLANTILLA-MARCADOR primer parrafo.\n\nSegundo parrafo.",
+        pruebas: {
+          "2.1": { objetivo: "OBJETIVO-PLANTILLA-MARCADOR" },
+          "2.2": { analisis: "ANALISIS-PLANTILLA-MARCADOR" },
+        },
+      },
+      publicada_por: "dt-1",
+      publicada_en: "2026-10-01T00:00:00Z",
+      ...over,
+    });
+  }
+
+  it("usa la última versión publicada: código (portada y pie), introducción y textos de prueba", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla();
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("(FT-PLANTILLA-9 CONTROL");
+    expect(text).toContain("(FT-PLANTILLA-9 |");
+    expect(text).toContain("INTRO-PLANTILLA-MARCADOR");
+    expect(text).toContain("OBJETIVO-PLANTILLA-MARCADOR");
+    expect(text).not.toContain("FT-LEC-6c");
+  });
+
+  it("un borrador no se usa: sin versión publicada salen los textos del sistema", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla({ estado: "borrador", version: null, publicada_en: null });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toContain("OBJETIVO-PLANTILLA-MARCADOR");
+    expect(text).toContain("(FT-LEC-6c CONTROL");
+  });
+
+  it("la edición por visita gana sobre la plantilla (Análisis de la 2.2)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla();
+    const seccionId = randomUUID();
+    await db.conv_informe_secciones.add({
+      id: seccionId,
+      visita_id: visita!.id!,
+      prueba_codigo: "2.2",
+      orden: 2,
+      incluida: true,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+    } as ConvInformeSeccion);
+
+    const conPlantilla = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(conPlantilla).toContain("ANALISIS-PLANTILLA-MARCADOR");
+
+    await db.conv_informe_secciones.update(seccionId, { observaciones: "ANALISIS-INGENIERO" });
+    const conEdicion = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(conEdicion).toContain("ANALISIS-INGENIERO");
+    expect(conEdicion).not.toContain("ANALISIS-PLANTILLA-MARCADOR");
+  });
+
+  it("no imprime el número de versión de la plantilla (es interno)", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await publicarPlantilla({ version: 77 });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).not.toMatch(/\(Plantilla[^)]*77/);
+    expect(text).not.toContain("v77");
+  });
+});

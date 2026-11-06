@@ -254,15 +254,38 @@ const PRUEBAS_CATALOGO: Omit<PruebaDefinicion, "id" | "creado_en">[] = [
   },
 ];
 
+/**
+ * Pruebas del catálogo genérico que aplican a un tipo de equipo, en el
+ * orden del catálogo. Lo usa la plantilla de informe v0 (#196) para los
+ * tipos sin paquete dedicado.
+ */
+export function pruebasGenericasDeTipo(
+  tipo: TipoEquipo
+): Pick<PruebaDefinicion, "codigo" | "nombre" | "plantilla_informe">[] {
+  return PRUEBAS_CATALOGO.filter((p) => p.tipos_equipo_aplicables.includes(tipo)).map((p) => ({
+    codigo: p.codigo,
+    nombre: p.nombre,
+    plantilla_informe: p.plantilla_informe,
+  }));
+}
+
+/**
+ * Siembra los permisos por defecto de cada par (rol × módulo) que todavía no
+ * tenga fila. Nunca pisa una fila existente (puede ser un override hecho por
+ * el coordinador desde Configuración). Completar en vez de "todo o nada" es
+ * lo que permite que un módulo nuevo (#196: plantillas) aparezca en
+ * dispositivos que ya tenían la tabla poblada.
+ */
 export async function seedRolPermisos(): Promise<void> {
-  const count = await db.rol_permisos.count();
-  if (count > 0) return;
+  const existentes = await db.rol_permisos.toArray();
+  const yaSembrado = new Set(existentes.map((p) => `${p.rol}:${p.modulo}`));
 
   const now = new Date().toISOString();
   const records: RolPermiso[] = [];
 
   for (const rol of ROLES_DISPONIBLES) {
     for (const modulo of MODULOS_APP) {
+      if (yaSembrado.has(`${rol}:${modulo}`)) continue;
       const acciones = permisoDefault(rol, modulo);
       records.push({
         id: randomUUID(),
@@ -277,6 +300,7 @@ export async function seedRolPermisos(): Promise<void> {
     }
   }
 
+  if (records.length === 0) return;
   await db.rol_permisos.bulkPut(records);
   console.log(`[Seed] ${records.length} permisos de rol cargados`);
 }

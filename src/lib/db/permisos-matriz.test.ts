@@ -1,5 +1,5 @@
-// Pin COMPLETO de la matriz de permisos por defecto (4 roles × 9 módulos ×
-// 4 acciones = 144 decisiones). `permisos.test.ts` valida patrones; esto fija
+// Pin COMPLETO de la matriz de permisos por defecto (4 roles × 10 módulos ×
+// 4 acciones = 160 decisiones). `permisos.test.ts` valida patrones; esto fija
 // cada celda para que cualquier edición accidental de PERMISOS_DEFAULT_MATRIZ
 // salte. Ver docs/modules/02-permisos.md.
 
@@ -15,15 +15,17 @@ const GEST: AccionesPermiso = { ver: true, crear: true, editar: true, eliminar: 
 const EJEC: AccionesPermiso = { ver: true, crear: false, editar: true, eliminar: false };
 
 // Matriz esperada. Orden de módulos = MODULOS_APP:
-// dashboard, clientes, solicitudes, visitas, revision, equipos, informes, sync, configuracion
+// dashboard, clientes, solicitudes, visitas, revision, equipos, informes, sync, configuracion,
+// plantillas
 const ESPERADO: Record<string, AccionesPermiso[]> = {
-  coordinador: [TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL],
-  programador: [VER, VER, GEST, GEST, VER, VER, VER, VER, NADA],
-  tecnico: [VER, NADA, NADA, EJEC, VER, EJEC, VER, VER, NADA],
-  comercial: [VER, GEST, GEST, NADA, NADA, NADA, NADA, NADA, NADA],
+  // #196: el módulo de plantillas de informe es exclusivo del coordinador.
+  coordinador: [TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL, TOTAL],
+  programador: [VER, VER, GEST, GEST, VER, VER, VER, VER, NADA, NADA],
+  tecnico: [VER, NADA, NADA, EJEC, VER, EJEC, VER, VER, NADA, NADA],
+  comercial: [VER, GEST, GEST, NADA, NADA, NADA, NADA, NADA, NADA, NADA],
 };
 
-describe("PERMISOS_DEFAULT_MATRIZ — pin completo (144 celdas)", () => {
+describe("PERMISOS_DEFAULT_MATRIZ — pin completo (160 celdas)", () => {
   it("MODULOS_APP tiene el orden que asume ESPERADO", () => {
     expect(MODULOS_APP).toEqual([
       "dashboard",
@@ -35,6 +37,7 @@ describe("PERMISOS_DEFAULT_MATRIZ — pin completo (144 celdas)", () => {
       "informes",
       "sync",
       "configuracion",
+      "plantillas",
     ]);
     expect(ROLES_DISPONIBLES).toEqual(["coordinador", "programador", "tecnico", "comercial"]);
   });

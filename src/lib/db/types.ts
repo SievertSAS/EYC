@@ -75,6 +75,26 @@ export const TIPOS_EQUIPO = [
 ] as const;
 export type TipoEquipo = (typeof TIPOS_EQUIPO)[number];
 
+export const TIPO_LABELS: Record<TipoEquipo, string> = {
+  CONVENCIONAL: "Convencional",
+  CT: "CT (Tomógrafo)",
+  CT_DENTAL: "CT Dental",
+  MAMOGRAFO: "Mamógrafo",
+  PANORAMICO: "Panorámico",
+  PERIAPICAL: "Periapical",
+  PERIAPICAL_PORTATIL: "Periapical Portátil",
+  RX_PORTATIL: "RX Portátil",
+  ARCOENC: "Arco en C",
+  FLUOROSCOPIOS: "Fluoroscopio",
+  DENSITOMETRO: "Densitómetro",
+  ANGIOGRAFO: "Angiógrafo",
+  INDUSTRIAL: "Industrial",
+  VETERINARIO: "Veterinario",
+  MULTIPROPOSITO: "Multipropósito",
+  LITOTRIPTOR: "Litotriptor",
+  VARIOS_RX: "Varios RX",
+};
+
 // ─── Sistema de adquisición de imágenes ───
 // Opciones cerradas del informe FT-LEC-6c. Compartidas entre el diálogo de
 // creación de equipo y el módulo de Información General para que la captura
@@ -377,6 +397,7 @@ export const MODULOS_APP = [
   "informes",
   "sync",
   "configuracion",
+  "plantillas",
 ] as const;
 export type ModuloApp = (typeof MODULOS_APP)[number];
 
@@ -390,6 +411,7 @@ export const MODULO_LABELS: Record<ModuloApp, string> = {
   informes: "Informes",
   sync: "Sincronización",
   configuracion: "Configuración",
+  plantillas: "Plantillas de informe",
 };
 
 export interface Usuario {
@@ -486,6 +508,8 @@ const PERMISOS_DEFAULT_MATRIZ: Record<RolUsuario, Partial<Record<ModuloApp, Acci
     informes: ACCESO_TOTAL,
     sync: ACCESO_TOTAL,
     configuracion: ACCESO_TOTAL,
+    // #196: editor de plantillas de informe — exclusivo del coordinador.
+    plantillas: ACCESO_TOTAL,
   },
   programador: {
     dashboard: SOLO_VER,
@@ -529,7 +553,7 @@ export function permisoDefault(rol: RolUsuario, modulo: ModuloApp): AccionesPerm
  * al default de la matriz. `crear/editar/eliminar` SÍ caen al default
  * si son null/undefined. Consecuencia: `resolverPermiso(undefined, …)`
  * siempre da `false` (sin fila `rol_permisos`, el módulo es invisible).
- * En producción funciona porque `seedRolPermisos()` crea las 36 filas.
+ * En producción funciona porque `seedRolPermisos()` crea una fila por (rol × módulo).
  */
 export function accionesEfectivas(
   permiso: RolPermiso | undefined,
@@ -910,6 +934,12 @@ export interface InformeVersion extends Partial<SyncFields> {
   pdf_url?: string;
   /** SHA-256 (hex) del PDF oficial almacenado — fingerprint anti-manipulación */
   pdf_hash?: string;
+  /**
+   * #196: plantilla de informe publicada (plantillas_informe.id) con la que se
+   * generó el PDF oficial; null = textos del sistema (v0). Solo trazabilidad:
+   * la versión de la plantilla no se imprime en el informe.
+   */
+  plantilla_version_id?: string | null;
   fecha_generacion: string;
   fecha_revision?: string;
   fecha_aprobacion?: string;

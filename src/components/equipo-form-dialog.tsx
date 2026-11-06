@@ -5,6 +5,7 @@ import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import {
   TIPOS_EQUIPO,
+  TIPO_LABELS,
   SISTEMAS_ADQUISICION,
   type Equipo,
   type Tubo,
@@ -51,26 +52,6 @@ interface EquipoFormDialogProps {
   equipo?: Equipo;
   onSaved?: () => void;
 }
-
-const TIPO_LABELS: Record<string, string> = {
-  CONVENCIONAL: "Convencional",
-  CT: "CT (Tomógrafo)",
-  CT_DENTAL: "CT Dental",
-  MAMOGRAFO: "Mamógrafo",
-  PANORAMICO: "Panorámico",
-  PERIAPICAL: "Periapical",
-  PERIAPICAL_PORTATIL: "Periapical Portátil",
-  RX_PORTATIL: "RX Portátil",
-  ARCOENC: "Arco en C",
-  FLUOROSCOPIOS: "Fluoroscopio",
-  DENSITOMETRO: "Densitómetro",
-  ANGIOGRAFO: "Angiógrafo",
-  INDUSTRIAL: "Industrial",
-  VETERINARIO: "Veterinario",
-  MULTIPROPOSITO: "Multipropósito",
-  LITOTRIPTOR: "Litotriptor",
-  VARIOS_RX: "Varios RX",
-};
 
 function CollapsibleSection({
   title,
@@ -555,7 +536,7 @@ export function EquipoFormDialog({
               <Select value={tipoEquipo} onValueChange={(v) => setTipoEquipo(v ?? "")}>
                 <SelectTrigger className="w-full rounded-lg border-slate-200 h-11 data-[size=default]:h-11 font-medium">
                   <SelectValue placeholder="Seleccionar tipo...">
-                    {(v) => TIPO_LABELS[v as string] ?? (v as string) ?? "Seleccionar tipo..."}
+                    {(v) => TIPO_LABELS[v as TipoEquipo] ?? (v as string) ?? "Seleccionar tipo..."}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>

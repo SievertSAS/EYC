@@ -37,6 +37,11 @@ import { irAModulo } from "@/lib/modulo-nav";
 import { logger } from "@/lib/logger";
 import { getCamposFaltantesInfo, type CampoFaltante } from "@/lib/workflow/module-completeness";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
+import {
+  obtenerPlantillaVigente,
+  resolverPlantilla,
+  seccionConPlantilla,
+} from "@/lib/plantillas/resolver";
 import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 import {
   cargarTablasConv,
@@ -69,6 +74,9 @@ type ConceptoType = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_
  * `undefined` y el informe sigue usando el predeterminado vigente, en vez de
  * quedar congelado en una copia.
  */
+/** Textos del código mientras carga la plantilla vigente (evita parpadeo vacío). */
+const PLANTILLA_V0_CONVENCIONAL = resolverPlantilla("CONVENCIONAL");
+
 function CampoTextoPredeterminado({
   seccionId,
   etiqueta,
@@ -697,11 +705,19 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   }, [data?.secciones]);
 
   // ─── Catalog map ───
+  // #196: textos predeterminados = plantilla publicada vigente del tipo
+  // (este módulo es del paquete CONVENCIONAL) sobre el catálogo en código.
+  // Lo que el ingeniero guarda en la sección sigue teniendo prioridad.
+  const plantilla = useLiveQuery(
+    () => obtenerPlantillaVigente("CONVENCIONAL"),
+    [],
+    PLANTILLA_V0_CONVENCIONAL
+  );
   const catalogoMap = useMemo(() => {
     const m = new Map<string, (typeof CATALOGO_SECCIONES)[0]>();
-    for (const c of CATALOGO_SECCIONES) m.set(c.codigo, c);
+    for (const c of CATALOGO_SECCIONES) m.set(c.codigo, seccionConPlantilla(c, plantilla));
     return m;
-  }, []);
+  }, [plantilla]);
 
   // ─── Update helpers ───
   async function updateSeccion(id: string, fields: Partial<ConvInformeSeccion>) {

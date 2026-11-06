@@ -1209,13 +1209,12 @@ export function renderFotos25(ctx: InformeCtx, conv: DatosConvencional, codigo =
 // ─── Renderizador 2.2: Inspección visual ───
 
 /**
- * Párrafo de ubicación física de 2.2.4: el texto del ingeniero tal cual (ya
- * redacta la oración completa), con punto final solo si le falta (#197).
+ * Párrafo de ubicación física de 2.2.4: el texto del ingeniero tal cual, sin
+ * prefijo ni puntuación agregada — él redacta el párrafo completo y puede
+ * terminarlo como quiera (ej. "…son las siguientes:") (#197).
  */
 export function textoUbicacionFisica(texto: string | null | undefined): string | undefined {
-  const t = texto?.trim();
-  if (!t) return undefined;
-  return t.endsWith(".") ? t : `${t}.`;
+  return texto?.trim() || undefined;
 }
 
 function render22(

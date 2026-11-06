@@ -1696,14 +1696,17 @@ describe("2.2.4 — párrafo de ubicación física (#197)", () => {
     );
   });
 
-  it("agrega el punto final cuando falta", () => {
+  it("no agrega puntuación: el texto termina como lo escribió el ingeniero", () => {
     expect(textoUbicacionFisica("Sala de rayos X del primer piso")).toBe(
-      "Sala de rayos X del primer piso."
+      "Sala de rayos X del primer piso"
+    );
+    expect(textoUbicacionFisica("Las descripciones de las barreras son las siguientes:")).toBe(
+      "Las descripciones de las barreras son las siguientes:"
     );
   });
 
   it("recorta espacios y no devuelve párrafo cuando el texto está vacío", () => {
-    expect(textoUbicacionFisica("  Sala 1  ")).toBe("Sala 1.");
+    expect(textoUbicacionFisica("  Sala 1  ")).toBe("Sala 1");
     expect(textoUbicacionFisica("   ")).toBeUndefined();
     expect(textoUbicacionFisica(undefined)).toBeUndefined();
   });

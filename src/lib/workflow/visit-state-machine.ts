@@ -183,9 +183,41 @@ const SOLICITUD_SYNC: Partial<Record<EstadoVisita, string>> = {
 // ─── API pública ───
 
 /**
- * Devuelve las acciones disponibles para el estado y rol actuales.
+ * Contexto de la visita sobre la que se pregunta. `esAsignado` es true solo si
+ * el usuario actual ES el técnico de la visita (`visitas.tecnico_id`).
  */
-export function getAvailableActions(estado: EstadoVisita, cargo: RolUsuario): ActionDefinition[] {
+export interface VisitActionContext {
+  esAsignado?: boolean;
+}
+
+export const ERROR_NO_ASIGNADO =
+  "Solo el técnico asignado o un coordinador puede realizar esta acción";
+
+/**
+ * True si el usuario es el técnico asignado a la visita. Sin técnico en la
+ * visita o sin usuario no hay asignación probada.
+ */
+export function esTecnicoAsignado(
+  tecnicoId: string | null | undefined,
+  usuarioId: string | null | undefined
+): boolean {
+  return !!tecnicoId && !!usuarioId && tecnicoId === usuarioId;
+}
+
+/**
+ * Devuelve las acciones disponibles para el estado y rol actuales.
+ *
+ * #211: un técnico solo puede actuar sobre SU visita (la RLS de la 048 rechaza
+ * las escrituras de los demás). Por defecto seguro, un técnico sin asignación
+ * probada (`ctx.esAsignado !== true`) no recibe ninguna acción. Los roles
+ * administrativos (coordinador, programador) no dependen de la asignación.
+ */
+export function getAvailableActions(
+  estado: EstadoVisita,
+  cargo: RolUsuario,
+  ctx?: VisitActionContext
+): ActionDefinition[] {
+  if (cargo === "tecnico" && ctx?.esAsignado !== true) return [];
   return (TRANSITIONS[estado] ?? []).filter((t) => t.roles.includes(cargo));
 }
 
@@ -195,9 +227,10 @@ export function getAvailableActions(estado: EstadoVisita, cargo: RolUsuario): Ac
 export function canTransition(
   estado: EstadoVisita,
   action: VisitAction,
-  cargo: RolUsuario
+  cargo: RolUsuario,
+  ctx?: VisitActionContext
 ): boolean {
-  return getAvailableActions(estado, cargo).some((t) => t.action === action);
+  return getAvailableActions(estado, cargo, ctx).some((t) => t.action === action);
 }
 
 /**
@@ -239,7 +272,9 @@ export async function checkGate(visitaId: string, action: VisitAction): Promise<
 
 /**
  * Ejecuta una transición de estado en la base de datos.
- * Valida rol, estado actual, y gates antes de proceder.
+ * Valida rol, asignación del técnico (#211), estado actual y gates antes de
+ * proceder. La asignación se calcula aquí con `extra.usuarioId`: un técnico
+ * que no pase su usuarioId no puede actuar.
  */
 export async function executeTransition(
   visitaId: string,
@@ -252,10 +287,18 @@ export async function executeTransition(
     return { success: false, error: "Visita no encontrada" };
   }
 
-  const actionDef = getAvailableActions(visita.estado_visita, cargo).find(
+  const esAsignado = esTecnicoAsignado(visita.tecnico_id, extra?.usuarioId);
+  const actionDef = getAvailableActions(visita.estado_visita, cargo, { esAsignado }).find(
     (t) => t.action === action
   );
   if (!actionDef) {
+    // El rol podría hacerlo en este estado, pero el técnico no es el asignado.
+    if (
+      cargo === "tecnico" &&
+      canTransition(visita.estado_visita, action, cargo, { esAsignado: true })
+    ) {
+      return { success: false, error: ERROR_NO_ASIGNADO };
+    }
     return {
       success: false,
       error: `Acción "${action}" no permitida en estado "${visita.estado_visita}" para rol "${cargo}"`,

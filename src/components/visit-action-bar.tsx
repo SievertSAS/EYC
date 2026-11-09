@@ -17,6 +17,7 @@ import { useRole } from "@/components/role-provider";
 import {
   getAvailableActions,
   executeTransition,
+  esTecnicoAsignado,
   checkGate,
   type ActionDefinition,
   type GateResult,
@@ -47,6 +48,11 @@ const VARIANT_CLASSES: Record<string, string> = {
 interface VisitActionBarProps {
   visitaId: string;
   estadoVisita: EstadoVisita;
+  /**
+   * Técnico asignado a la visita (`visitas.tecnico_id`). Un técnico solo ve
+   * acciones si es él (#211); sin este dato no se le ofrece ninguna.
+   */
+  tecnicoId?: string | null;
   /** Callback tras una transición exitosa */
   onTransition?: (newState: EstadoVisita) => void;
   /** Info de progreso para mostrar junto al botón */
@@ -56,6 +62,7 @@ interface VisitActionBarProps {
 export function VisitActionBar({
   visitaId,
   estadoVisita,
+  tecnicoId,
   onTransition,
   progressText,
 }: VisitActionBarProps) {
@@ -67,10 +74,12 @@ export function VisitActionBar({
 
   if (!role) return null;
 
-  const actions = getAvailableActions(estadoVisita, role.cargo);
+  const actions = getAvailableActions(estadoVisita, role.cargo, {
+    esAsignado: esTecnicoAsignado(tecnicoId, role.usuarioId),
+  });
 
   if (actions.length === 0) {
-    // Estado sin acciones para este rol
+    // Estado sin acciones para este rol (o técnico que no es el asignado)
     if (estadoVisita === "en_revision" && role.cargo === "tecnico") {
       return (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 md:static md:border-0 md:bg-transparent md:p-0 md:mt-6 z-20">

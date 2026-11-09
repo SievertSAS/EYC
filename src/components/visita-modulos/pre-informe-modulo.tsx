@@ -47,6 +47,7 @@ import {
   cargarTablasConv,
   conceptoEfectivoSeccion,
   reglaNoAplicaAutomatica,
+  incluidaPorDefecto,
   tieneCriterio,
   type ReglaNoAplicaAutomatica,
 } from "@/lib/equipos/convencional/evaluacion";
@@ -674,7 +675,8 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       visita_id: visitaId,
       prueba_codigo: cat.codigo,
       orden: cat.orden,
-      incluida: true,
+      // #187: el portátil arranca con el CAE en "No aplica" (re-activable).
+      incluida: incluidaPorDefecto(cat.codigo, data.datos),
       creado_en: now,
       // Sin esto la fila queda invisible para pushAllPending/fullSync (filtran
       // por sync_status="pending") -- nunca sale del dispositivo salvo que
@@ -708,9 +710,11 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
   // #196: textos predeterminados = plantilla publicada vigente del tipo
   // (este módulo es del paquete CONVENCIONAL) sobre el catálogo en código.
   // Lo que el ingeniero guarda en la sección sigue teniendo prioridad.
+  // #187: el portátil usa la variante portátil de la plantilla.
+  const tipoInstalacion = datos?.tipo_instalacion ?? "fijo";
   const plantilla = useLiveQuery(
-    () => obtenerPlantillaVigente("CONVENCIONAL"),
-    [],
+    () => obtenerPlantillaVigente("CONVENCIONAL", tipoInstalacion),
+    [tipoInstalacion],
     PLANTILLA_V0_CONVENCIONAL
   );
   const catalogoMap = useMemo(() => {

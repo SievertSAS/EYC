@@ -20,7 +20,12 @@ import type {
   ParteEquipo,
   Informe,
 } from "@/lib/db/types";
-import { CONFIGURACION_INFORME_ID, ROL_LABELS, type ConfiguracionInforme } from "@/lib/db/types";
+import {
+  CONFIGURACION_INFORME_ID,
+  ROL_LABELS,
+  esPortatil,
+  type ConfiguracionInforme,
+} from "@/lib/db/types";
 import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
@@ -395,7 +400,12 @@ export async function generarPreInforme(
   );
   // #196: textos genéricos desde la plantilla publicada vigente (o el catálogo).
   const plantilla =
-    opts?.plantilla ?? (await obtenerPlantillaVigente(datos.equipo?.tipo_equipo ?? "CONVENCIONAL"));
+    opts?.plantilla ??
+    (await obtenerPlantillaVigente(
+      datos.equipo?.tipo_equipo ?? "CONVENCIONAL",
+      // #187: el portátil usa la variante portátil de la plantilla.
+      datos.equipo?.tipo_instalacion ?? "fijo"
+    ));
   // #195: Director Técnico configurado por el coordinador (configuración
   // global, no un usuario). Sale SIEMPRE: pre-informe y versión oficial.
   datos.configuracionInforme = await db.configuracion_informe.get(CONFIGURACION_INFORME_ID);
@@ -1110,7 +1120,11 @@ export async function generarPreInforme(
       ["kV máx", String(tuboItem.kv_max ?? "No reporta")],
       ["mA máx", String(tuboItem.ma_max ?? "No reporta")],
       ["Foco fino (mm)", String(tuboItem.foco_fino_mm ?? "No reporta")],
-      ["Foco grueso (mm)", String(tuboItem.foco_grueso_mm ?? "No reporta")],
+      // #187: la mayoría de portátiles solo tiene foco fino (CE_NIT!D146).
+      [
+        "Foco grueso (mm)",
+        String(tuboItem.foco_grueso_mm ?? (esPortatil(datos.equipo) ? "No aplica" : "No reporta")),
+      ],
     ];
 
     renderTablaEquipo(titulo, datosTubo, { subtabla: "tubo", refId: tuboItem.id });
@@ -1282,11 +1296,12 @@ export async function generarPreInforme(
             codigo,
             datos.visita,
             conv,
-            datos.ubicacion
+            datos.ubicacion,
+            cat
           );
           personalizado.flush();
         } else {
-          nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.ubicacion);
+          nextSub = renderResultadosSeccion(ctx, codigo, datos.visita, conv, datos.ubicacion, cat);
         }
       }
 

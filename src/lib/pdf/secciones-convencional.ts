@@ -2,7 +2,8 @@ import type { jsPDF } from "jspdf";
 import type autoTableType from "jspdf-autotable";
 import { db } from "@/lib/db";
 import { formatCapturado, formatDecimal } from "@/lib/decimal";
-import type { Equipo, VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
+import type { Equipo, TipoInstalacion, VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
+import type { TextosPrueba } from "@/lib/plantillas/types";
 import type {
   ConvLevantamientoSetup,
   ConvMedicionRadiometrica,
@@ -25,12 +26,13 @@ import type {
   ConvMtf,
 } from "@/lib/equipos/convencional/db/types";
 import {
-  ITEMS_INSPECCION_EQUIPO,
+  itemsInspeccionEquipo,
   ITEMS_CONDICIONES_OPERACION,
 } from "@/lib/equipos/convencional/inspeccion-items";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import {
   detalle213,
+  incluidaPorDefecto,
   tolerancia211Default,
   CHR_MIN,
   GRUPOS_LINEALIDAD_27,
@@ -95,6 +97,8 @@ export interface DatosConvencional {
   /** `equipo.reporta_di`/`reporta_tei` (#111) -- inyectados por el caller. */
   reporta_di?: boolean;
   reporta_tei?: boolean;
+  /** `equipo.tipo_instalacion` (#187) -- inyectado por el caller; sin marcar = fijo. */
+  tipo_instalacion?: TipoInstalacion;
   secciones: ConvInformeSeccion[];
   setup?: ConvLevantamientoSetup;
   mediciones: ConvMedicionRadiometrica[];
@@ -513,16 +517,26 @@ export async function recopilarDatosConv(
 /**
  * Inyecta en `conv` los datos que viven en el equipo y no en las tablas conv_*.
  * #116: `sistema_adquisicion` determina la tolerancia de la 2.11 y la
- * aplicabilidad de 2.14/2.15. #111: `reporta_di`/`reporta_tei` controlan si se
+ * aplicabilidad de 2.14/2.15. #187: `tipo_instalacion` (portátil) cambia el
+ * valor inicial del switch del CAE y algunos textos. #111: `reporta_di`/`reporta_tei` controlan si se
  * muestran las columnas D.I./TEI de 2.9/2.10 y 2.15 (por defecto, sí).
  */
 export function inyectarDatosEquipo(
   conv: DatosConvencional,
-  equipo: Pick<Equipo, "sistema_adquisicion" | "reporta_di" | "reporta_tei"> | undefined
+  equipo:
+    | Pick<Equipo, "sistema_adquisicion" | "reporta_di" | "reporta_tei" | "tipo_instalacion">
+    | undefined
 ): void {
   conv.sistema_adquisicion = equipo?.sistema_adquisicion;
   conv.reporta_di = equipo?.reporta_di ?? true;
   conv.reporta_tei = equipo?.reporta_tei ?? true;
+  conv.tipo_instalacion = equipo?.tipo_instalacion ?? "fijo";
+  // #187: si el pre-informe nunca se abrió, las secciones son las del
+  // catálogo (sin id): se les aplica el valor inicial del switch según el
+  // equipo, el mismo con el que el editor las crearía.
+  for (const s of conv.secciones) {
+    if (!s.id) s.incluida = incluidaPorDefecto(s.prueba_codigo, conv);
+  }
 }
 
 // ─── Helpers de render ───
@@ -1230,19 +1244,23 @@ export function textoUbicacionFisica(texto: string | null | undefined): string |
   return texto?.trim() || undefined;
 }
 
+/** Párrafo inicial de 2.2.4 del catálogo (si la plantilla no trae uno). */
+const DESCRIPCION_INSTALACION_22 =
+  CATALOGO_SECCIONES.find((c) => c.codigo === "2.2")?.descripcionInstalacion ?? "";
+
 function render22(
   ctx: InformeCtx,
   conv: DatosConvencional,
-  ubicacion: UbicacionRx | undefined
+  ubicacion: UbicacionRx | undefined,
+  textos?: TextosRender
 ): number {
   const { doc, autoTable } = ctx;
   const cod = "2.2";
 
-  // .4 Descripción de la instalación y blindajes
+  // .4 Descripción de la instalación y blindajes — el párrafo inicial sale de
+  // la plantilla (el portátil tiene el suyo, #187).
   ctx.addSubsectionTitle(`${cod}.4.`, "Descripción de la instalación y blindajes");
-  ctx.addParagraph(
-    "La distribución de las áreas colindantes y de las barreras estructurales de protección radiológica se presenta en el diagrama radiométrico de la instalación."
-  );
+  ctx.addParagraph(textos?.descripcionInstalacion?.trim() || DESCRIPCION_INSTALACION_22);
   const textoUbicacion = textoUbicacionFisica(ubicacion?.ubicacion_fisica);
   if (textoUbicacion) ctx.addParagraph(textoUbicacion);
 
@@ -1341,7 +1359,7 @@ function render22(
     tablaInspeccion(
       "Tabla 2.2.1. Inspección visual del equipo",
       equipoItems,
-      ITEMS_INSPECCION_EQUIPO
+      itemsInspeccionEquipo(conv.tipo_instalacion)
     );
     tablaInspeccion(
       "Tabla 2.2.2. Condiciones de operación del equipo",
@@ -3353,18 +3371,22 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
  * Renderiza las subsecciones de resultados de una prueba (a partir de la .4).
  * Retorna el número de la siguiente subsección disponible (para Criterio).
  */
+/** Textos de plantilla que algunos renderizadores imprimen dentro de sus resultados. */
+export type TextosRender = Pick<TextosPrueba, "descripcionInstalacion">;
+
 export function renderResultadosSeccion(
   ctx: InformeCtx,
   codigo: string,
   visita: VisitaEjecucion,
   conv: DatosConvencional,
-  ubicacion: UbicacionRx | undefined
+  ubicacion: UbicacionRx | undefined,
+  textos?: TextosRender
 ): number {
   switch (codigo) {
     case "2.1":
       return render21(ctx, visita, conv);
     case "2.2":
-      return render22(ctx, conv, ubicacion);
+      return render22(ctx, conv, ubicacion, textos);
     case "2.3":
       return render23(ctx, conv);
     case "2.4":

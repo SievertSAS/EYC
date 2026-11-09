@@ -43,7 +43,10 @@ export async function publicarVersionOficial(
     // registrar en la versión oficial exactamente la que se imprimió.
     const visita = await db.visitas.get(visitaId);
     const equipo = visita?.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
-    const plantilla = await obtenerPlantillaVigente(equipo?.tipo_equipo ?? "CONVENCIONAL");
+    const plantilla = await obtenerPlantillaVigente(
+      equipo?.tipo_equipo ?? "CONVENCIONAL",
+      equipo?.tipo_instalacion ?? "fijo"
+    );
 
     const blob = await generarPreInforme(visitaId, { qrDataUrl, usuarioGeneradorId, plantilla });
     if (!blob) return { success: false, error: "No se pudo generar el PDF" };

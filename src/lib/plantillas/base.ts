@@ -2,8 +2,13 @@ import type { TipoEquipo } from "@/lib/db/types";
 import { pruebasGenericasDeTipo } from "@/lib/db/seed";
 import { getPackage } from "@/lib/equipos/registry";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
-import { CAMPOS_TEXTO_PRUEBA, type TextosPrueba } from "./types";
+import { CAMPOS_TEXTO_PRUEBA, type TextosPrueba, type VariantesPlantilla } from "./types";
 import { TEXTOS_PRUEBA_GENERICOS, TEXTO_PRUEBA_GENERICO_DEFECTO } from "./textos-genericos";
+import {
+  INTRO_P1_PORTATIL,
+  INTRO_SELECCION_PRUEBAS_PORTATIL,
+  PRUEBAS_PORTATIL_DEFECTO,
+} from "./variante-portatil";
 
 // ============================================================
 //  Plantilla "v0": los textos que vienen en el código. Es lo que usa el
@@ -18,12 +23,24 @@ export const CODIGO_INFORME_DEFECTO = "FT-LEC-6c";
 export const TITULO_INFORME_DEFECTO =
   "CONTROL DE CALIDAD Y ESTUDIO AMBIENTAL EN UNIDADES DE RADIOGRAFÍA GENERAL";
 
-export const INTRODUCCION_DEFECTO = [
+const PARRAFOS_INTRODUCCION_DEFECTO = [
   "El presente informe técnico documenta los resultados del control de calidad efectuado al equipo generador de radiación ionizante destinado a la práctica de radiología general y emite el correspondiente concepto técnico, en cumplimiento de la Resolución 1811 de 2025 del Ministerio de Salud y Protección Social y demás disposiciones vigentes en materia de protección radiológica.",
   "Las pruebas fueron realizadas conforme a los lineamientos establecidos en el documento IAEA-TECDOC-1958: Protocolos de Control de Calidad para Radiodiagnóstico en América Latina y el Caribe, específicamente en el capítulo correspondiente a Radiología General, aplicando la estructura metodológica definida para cada ensayo técnico.",
   "El control de calidad se ejecutó mediante un procedimiento técnico no invasivo, desarrollado bajo condiciones normales de operación del equipo y sin intervención física sobre sus componentes internos, con el fin de verificar que los parámetros físicos y operacionales del sistema radiográfico se encuentren dentro de los criterios de aceptación establecidos.",
   "El presente informe tendrá una vigencia máxima de dos (2) años, contados a partir de la fecha de su emisión, siempre que no se presenten modificaciones técnicas, estructurales u operativas que alteren las condiciones evaluadas.",
-].join("\n\n");
+];
+
+export const INTRODUCCION_DEFECTO = PARRAFOS_INTRODUCCION_DEFECTO.join("\n\n");
+
+/**
+ * Introducción del portátil (#187): P1 propio (CE_NIT!A184), P2 y P3 del fijo
+ * (pendiente de confirmar si cambian también para el fijo) y un párrafo nuevo
+ * (CE_NIT!A196) antes del de vigencia.
+ */
+export const INTRODUCCION_PORTATIL_DEFECTO = (() => {
+  const [, p2, p3, vigencia] = PARRAFOS_INTRODUCCION_DEFECTO;
+  return [INTRO_P1_PORTATIL, p2, p3, INTRO_SELECCION_PRUEBAS_PORTATIL, vigencia].join("\n\n");
+})();
 
 export interface PruebaBase {
   codigo: string;
@@ -39,6 +56,8 @@ export interface PlantillaBase {
   pruebas: PruebaBase[];
   /** Texto para una prueba que no está en `pruebas` (solo tipos sin paquete). */
   textoPorDefecto: TextosPrueba;
+  /** Variantes por tipo de instalación (solo CONVENCIONAL: el portátil, #187). */
+  variantes?: VariantesPlantilla;
 }
 
 /** Copia solo los campos de texto definidos (no vacíos) de un objeto. */
@@ -77,6 +96,12 @@ export function plantillaBase(tipo: TipoEquipo): PlantillaBase {
         textos: soloTextos(c as unknown as Record<string, unknown>),
       })),
       textoPorDefecto: {},
+      variantes: {
+        portatil: {
+          introduccion: INTRODUCCION_PORTATIL_DEFECTO,
+          pruebas: PRUEBAS_PORTATIL_DEFECTO,
+        },
+      },
     };
   }
   return {

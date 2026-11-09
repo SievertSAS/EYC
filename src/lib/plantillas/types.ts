@@ -17,6 +17,7 @@ export const CAMPOS_TEXTO_PRUEBA = [
   "metodologia",
   "metodologiaNoAplica",
   "criterio",
+  "descripcionInstalacion",
   "analisis",
   "accionesConforme",
   "accionesNoConforme",
@@ -29,6 +30,7 @@ export const CAMPO_TEXTO_LABELS: Record<CampoTextoPrueba, string> = {
   metodologia: "Metodología",
   metodologiaNoAplica: 'Motivo de "No aplica"',
   criterio: "Criterio de aceptación",
+  descripcionInstalacion: "Descripción de la instalación y blindajes",
   analisis: "Análisis",
   accionesConforme: "Acciones correctivas (Conforme)",
   accionesNoConforme: "Acciones correctivas (No conforme)",
@@ -37,6 +39,22 @@ export const CAMPO_TEXTO_LABELS: Record<CampoTextoPrueba, string> = {
 /** Textos de una prueba. Un campo ausente o vacío cae al texto del catálogo. */
 export type TextosPrueba = Partial<Record<CampoTextoPrueba, string>>;
 
+/**
+ * Variante de texto de la plantilla para un tipo de instalación (#187). Mismo
+ * formato que la plantilla, pero solo con lo que cambia: al resolver se
+ * combina campo a campo sobre los textos del equipo fijo, y un campo ausente
+ * o vacío cae al del fijo.
+ */
+export interface VariantePlantilla {
+  introduccion?: string;
+  pruebas?: Record<string, TextosPrueba>;
+}
+
+/** Variantes por tipo de instalación. El fijo es la plantilla misma. */
+export interface VariantesPlantilla {
+  portatil?: VariantePlantilla;
+}
+
 /** Contenido de una plantilla: textos de informe + textos por código de prueba. */
 export interface ContenidoPlantilla {
   /** Título de la portada (va después del código del informe). */
@@ -44,6 +62,8 @@ export interface ContenidoPlantilla {
   /** INTRODUCCIÓN — párrafos separados por una línea en blanco. */
   introduccion?: string;
   pruebas: Record<string, TextosPrueba>;
+  /** Textos que cambian según el tipo de instalación (hoy solo el portátil, #187). */
+  variantes?: VariantesPlantilla;
 }
 
 export type EstadoPlantilla = "borrador" | "publicada";
@@ -75,13 +95,20 @@ export const textosPruebaSchema = z
   .object(Object.fromEntries(CAMPOS_TEXTO_PRUEBA.map((c) => [c, texto.optional()])))
   .strict();
 
+const pruebasSchema = z
+  .record(z.string().regex(/^[A-Za-z0-9_.]{1,20}$/), textosPruebaSchema)
+  .refine((p) => Object.keys(p).length <= 200, { message: "Demasiadas pruebas" });
+
+const varianteSchema = z
+  .object({ introduccion: texto.optional(), pruebas: pruebasSchema.optional() })
+  .strict();
+
 export const contenidoPlantillaSchema = z
   .object({
     tituloInforme: z.string().max(500).optional(),
     introduccion: texto.optional(),
-    pruebas: z
-      .record(z.string().regex(/^[A-Za-z0-9_.]{1,20}$/), textosPruebaSchema)
-      .refine((p) => Object.keys(p).length <= 200, { message: "Demasiadas pruebas" }),
+    pruebas: pruebasSchema,
+    variantes: z.object({ portatil: varianteSchema.optional() }).strict().optional(),
   })
   .strict();
 

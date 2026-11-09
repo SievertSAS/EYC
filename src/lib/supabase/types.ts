@@ -1512,6 +1512,7 @@ export type Database = {
           sistema_adquisicion: string | null;
           sync_status: string;
           tipo_equipo: string | null;
+          tipo_instalacion: string;
           ubicacion_id: string;
         };
         Insert: {
@@ -1534,6 +1535,7 @@ export type Database = {
           sistema_adquisicion?: string | null;
           sync_status?: string;
           tipo_equipo?: string | null;
+          tipo_instalacion?: string;
           ubicacion_id: string;
         };
         Update: {
@@ -1556,6 +1558,7 @@ export type Database = {
           sistema_adquisicion?: string | null;
           sync_status?: string;
           tipo_equipo?: string | null;
+          tipo_instalacion?: string;
           ubicacion_id?: string;
         };
         Relationships: [

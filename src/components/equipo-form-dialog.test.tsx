@@ -242,4 +242,60 @@ describe("EquipoFormDialog", () => {
     expect(tubos).toHaveLength(1);
     expect(tubos[0].marca).toBe("Toshiba");
   });
+
+  describe("#187 — tipo de instalación (fijo / portátil)", () => {
+    function abrir(equipo: Equipo, onSaved = vi.fn()) {
+      render(
+        <EquipoFormDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          ubicacionId="ubicacion-1"
+          equipo={equipo}
+          onSaved={onSaved}
+        />
+      );
+      return onSaved;
+    }
+
+    it("CONVENCIONAL: marcar portátil se guarda en el equipo y deja el Bucky en 'No'", async () => {
+      const equipo = await seedEquipo({ tipo_equipo: "CONVENCIONAL" });
+      const onSaved = abrir(equipo);
+
+      const portatil = await waitFor(() => screen.getByRole("radio", { name: "Portátil" }));
+      expect(screen.getByRole("radio", { name: "Fijo" }).getAttribute("aria-checked")).toBe("true");
+      fireEvent.click(portatil);
+      fireEvent.click(screen.getByRole("button", { name: /^guardar$/i }));
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.tipo_instalacion).toBe("portatil");
+      expect(fresh!.bucky).toBe("No");
+    });
+
+    it("reabre un portátil marcado y lo puede volver a fijo sin tocar el Bucky ya elegido", async () => {
+      const equipo = await seedEquipo({
+        tipo_equipo: "CONVENCIONAL",
+        tipo_instalacion: "portatil",
+        bucky: "Si",
+      });
+      const onSaved = abrir(equipo);
+
+      const portatil = await waitFor(() => screen.getByRole("radio", { name: "Portátil" }));
+      await waitFor(() => expect(portatil.getAttribute("aria-checked")).toBe("true"));
+      fireEvent.click(screen.getByRole("radio", { name: "Fijo" }));
+      fireEvent.click(screen.getByRole("button", { name: /^guardar$/i }));
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.tipo_instalacion).toBe("fijo");
+      expect(fresh!.bucky).toBe("Si");
+    });
+
+    it("otros tipos de equipo no muestran el selector", async () => {
+      const equipo = await seedEquipo({ tipo_equipo: "PANORAMICO" });
+      abrir(equipo);
+      await waitFor(() => screen.getByDisplayValue("Siemens"));
+      expect(screen.queryByRole("radio", { name: "Portátil" })).toBeNull();
+    });
+  });
 });

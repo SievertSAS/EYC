@@ -1,3 +1,5 @@
+import type { TipoInstalacion } from "@/lib/db/types";
+
 // ============================================================
 //  Textos del checklist de inspección visual (prueba 2.2)
 //  Compartidos entre la página del Grupo A y el pre-informe PDF.
@@ -11,6 +13,25 @@ export const ITEMS_INSPECCION_EQUIPO = [
   "Inspección visual del cabezal del tubo para identificar posibles fugas de aceite o deterioro del encapsulado.",
   "Verificación del funcionamiento de los indicadores del panel del generador: indicador de exposición, selección de punto focal y parámetros de irradiación (kV, mA, tiempo o mAs).",
 ];
+
+/**
+ * Ítems 1 y 2 del checklist del equipo en el portátil (#187): sin mesa
+ * radiográfica ni Bucky vertical. Fuente: libro "PORT DR.xlsx", hoja
+ * '2.1 , 2' (B72, B74). Los ítems 3 y 4 son los mismos del fijo.
+ * Pendiente de confirmación del físico.
+ */
+export const ITEMS_INSPECCION_EQUIPO_PORTATIL = [
+  "Inspección del estado de los componentes y accesorios del equipo: sistema de soporte y posicionamiento, consola del generador y cables de alimentación y control, verificando ausencia de desgaste o deterioro.",
+  "Verificación de la estabilidad del cabezal del tubo y del funcionamiento mecánico del sistema de colimación, así como de los movimientos, sistemas de soporte, posicionamiento y frenos del equipo, cuando aplique.",
+  ...ITEMS_INSPECCION_EQUIPO.slice(2),
+];
+
+/** Textos del checklist del equipo según el tipo de instalación (mismo `item_numero`). */
+export function itemsInspeccionEquipo(tipoInstalacion: TipoInstalacion | undefined): string[] {
+  return tipoInstalacion === "portatil"
+    ? ITEMS_INSPECCION_EQUIPO_PORTATIL
+    : ITEMS_INSPECCION_EQUIPO;
+}
 
 export const ITEMS_CONDICIONES_OPERACION = [
   "Indicadores de parámetros técnicos visibles y con funcionamiento adecuado.",

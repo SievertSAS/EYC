@@ -95,6 +95,23 @@ export const TIPO_LABELS: Record<TipoEquipo, string> = {
   VARIOS_RX: "Varios RX",
 };
 
+// ─── Tipo de instalación (#187) ───
+// El rayos X portátil NO es un tipo de equipo aparte: es un CONVENCIONAL
+// (mismo paquete, mismas 21 pruebas y cálculos) marcado como portátil. Solo
+// cambian algunos textos del informe y algunos valores por defecto.
+export const TIPOS_INSTALACION = ["fijo", "portatil"] as const;
+export type TipoInstalacion = (typeof TIPOS_INSTALACION)[number];
+
+export const TIPO_INSTALACION_LABELS: Record<TipoInstalacion, string> = {
+  fijo: "Fijo",
+  portatil: "Portátil",
+};
+
+/** `true` si el equipo está marcado como portátil (sin marca = fijo). */
+export function esPortatil(equipo: { tipo_instalacion?: TipoInstalacion } | undefined): boolean {
+  return equipo?.tipo_instalacion === "portatil";
+}
+
 // ─── Sistema de adquisición de imágenes ───
 // Opciones cerradas del informe FT-LEC-6c. Compartidas entre el diálogo de
 // creación de equipo y el módulo de Información General para que la captura
@@ -212,6 +229,11 @@ export interface Equipo extends Partial<SyncFields> {
   sistema_adquisicion?: string;
   distancia_foco_paciente?: number;
   bucky?: "Si" | "No" | "No_aplica";
+  /**
+   * Fijo o portátil (#187). Solo se captura en el CONVENCIONAL; en la base es
+   * NOT NULL DEFAULT 'fijo', así que `undefined` en Dexie equivale a fijo.
+   */
+  tipo_instalacion?: TipoInstalacion;
   // Identificación y características del equipo. La plantilla oficial las
   // rotula "del generador" (gen_*): en esta app hay UN solo aparato físico.
   gen_marca?: string;

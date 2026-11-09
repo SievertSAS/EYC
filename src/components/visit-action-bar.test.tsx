@@ -44,9 +44,9 @@ describe("VisitActionBar", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("ofrece 'Iniciar Visita' a un técnico en estado asignada", () => {
+  it("ofrece 'Iniciar Visita' al técnico asignado en estado asignada", () => {
     asRole("tecnico");
-    render(<VisitActionBar visitaId="v1" estadoVisita="asignada" />);
+    render(<VisitActionBar visitaId="v1" estadoVisita="asignada" tecnicoId="u1" />);
     expect(screen.getByRole("button", { name: /Iniciar Visita/i })).toBeInTheDocument();
   });
 
@@ -62,7 +62,7 @@ describe("VisitActionBar", () => {
       canProceed: false,
       errors: [{ moduleId: "grupo-a", message: "Grupo A incompleto" }],
     });
-    render(<VisitActionBar visitaId="v1" estadoVisita="en_progreso" />);
+    render(<VisitActionBar visitaId="v1" estadoVisita="en_progreso" tecnicoId="u1" />);
 
     fireEvent.click(screen.getByRole("button", { name: /Enviar a Revisión/i }));
 
@@ -74,7 +74,14 @@ describe("VisitActionBar", () => {
   it("ejecuta la transición y notifica onTransition cuando el gate pasa", async () => {
     asRole("tecnico");
     const onTransition = vi.fn();
-    render(<VisitActionBar visitaId="v1" estadoVisita="en_progreso" onTransition={onTransition} />);
+    render(
+      <VisitActionBar
+        visitaId="v1"
+        estadoVisita="en_progreso"
+        tecnicoId="u1"
+        onTransition={onTransition}
+      />
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Enviar a Revisión/i }));
 
@@ -114,13 +121,57 @@ describe("VisitActionBar", () => {
 
   it("muestra el estado terminal cuando no hay acciones (aprobada)", () => {
     asRole("tecnico");
-    render(<VisitActionBar visitaId="v1" estadoVisita="aprobada" />);
+    render(<VisitActionBar visitaId="v1" estadoVisita="aprobada" tecnicoId="u1" />);
     expect(screen.getByText(/Visita aprobada/i)).toBeInTheDocument();
   });
 
   it("muestra el estado terminal 'enviada' sin acciones para un técnico", () => {
     asRole("tecnico");
-    render(<VisitActionBar visitaId="v1" estadoVisita="enviada" />);
+    render(<VisitActionBar visitaId="v1" estadoVisita="enviada" tecnicoId="u1" />);
     expect(screen.getByText(/Informe enviado al cliente/i)).toBeInTheDocument();
+  });
+
+  // ─── #211: solo el técnico asignado (o un admin) actúa sobre la visita ───
+
+  it("el técnico asignado ve Aprobar / Devolver en revisión", () => {
+    asRole("tecnico");
+    render(<VisitActionBar visitaId="v1" estadoVisita="en_revision" tecnicoId="u1" />);
+    expect(screen.getByRole("button", { name: /Aprobar/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Devolver con Observaciones/i })).toBeInTheDocument();
+  });
+
+  it("un técnico NO asignado no ve acciones en asignada ni en progreso", () => {
+    asRole("tecnico");
+    for (const estado of ["asignada", "en_progreso"] as const) {
+      const { container } = render(
+        <VisitActionBar visitaId="v1" estadoVisita={estado} tecnicoId="otro" />
+      );
+      expect(container).toBeEmptyDOMElement();
+      cleanup();
+    }
+  });
+
+  it("un técnico NO asignado en revisión solo ve el aviso de espera, sin Aprobar/Devolver", () => {
+    asRole("tecnico");
+    render(<VisitActionBar visitaId="v1" estadoVisita="en_revision" tecnicoId="otro" />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText(/En espera de revisión del ingeniero/i)).toBeInTheDocument();
+  });
+
+  it("sin técnico conocido en la visita, un técnico no recibe acciones (default seguro)", () => {
+    asRole("tecnico");
+    const { container } = render(<VisitActionBar visitaId="v1" estadoVisita="asignada" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("coordinador y programador actúan aunque no sean el técnico asignado", () => {
+    asRole("coordinador");
+    render(<VisitActionBar visitaId="v1" estadoVisita="asignada" tecnicoId="otro" />);
+    expect(screen.getByRole("button", { name: /Iniciar Visita/i })).toBeInTheDocument();
+    cleanup();
+
+    asRole("programador");
+    render(<VisitActionBar visitaId="v1" estadoVisita="en_revision" tecnicoId="otro" />);
+    expect(screen.getByRole("button", { name: /Aprobar/i })).toBeInTheDocument();
   });
 });

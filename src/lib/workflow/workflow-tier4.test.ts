@@ -118,8 +118,11 @@ describe("gate — pruebas pendientes bloquean enviar_revision / aprobar", () =>
 describe("#9 interino — estado consistente", () => {
   it("iniciar_visita: visita y solicitud avanzan juntas", async () => {
     const { visita, solicitud } = await seedGraph({ estadoVisita: "asignada" });
+    await db.visitas.update(visita!.id!, { tecnico_id: "tec-1" });
 
-    const res = await executeTransition(visita!.id!, "iniciar_visita", "tecnico");
+    const res = await executeTransition(visita!.id!, "iniciar_visita", "tecnico", {
+      usuarioId: "tec-1",
+    });
     expect(res.success).toBe(true);
     expect((await db.visitas.get(visita!.id!))?.estado_visita).toBe("en_progreso");
     expect((await db.solicitudes.get(solicitud!.id!))?.pipeline_estado).toBe("ejecucion");
@@ -141,6 +144,78 @@ describe("#9 interino — estado consistente", () => {
   it("visita consistente → sin issues", async () => {
     const { visita } = await seedGraph({ estadoVisita: "asignada" });
     expect(await checkVisitConsistency(visita!.id!)).toEqual([]);
+  });
+});
+
+// ─── #211: solo el técnico asignado (o un admin) actúa sobre la visita ───
+
+describe("#211 — asignación del técnico", () => {
+  const NO_ASIGNADO = "Solo el técnico asignado o un coordinador puede realizar esta acción";
+
+  it("técnico NO asignado → rechazado, la visita no cambia y no se encola nada", async () => {
+    const { visita } = await seedGraph({ estadoVisita: "asignada" });
+    await db.visitas.update(visita!.id!, { tecnico_id: "tec-1" });
+
+    const res = await executeTransition(visita!.id!, "iniciar_visita", "tecnico", {
+      usuarioId: "tec-2",
+    });
+    expect(res.success).toBe(false);
+    expect(res.error).toBe(NO_ASIGNADO);
+    const despues = await db.visitas.get(visita!.id!);
+    expect(despues?.estado_visita).toBe("asignada");
+    expect(despues?.sync_status).toBe("synced");
+    expect(pushSingle).not.toHaveBeenCalled();
+  });
+
+  it("técnico NO asignado no puede aprobar ni devolver una visita en revisión", async () => {
+    const { visita } = await seedGraph({ estadoVisita: "en_revision" });
+    await db.visitas.update(visita!.id!, { tecnico_id: "tec-1" });
+
+    for (const action of ["aprobar", "devolver"] as const) {
+      const res = await executeTransition(visita!.id!, action, "tecnico", {
+        usuarioId: "tec-2",
+        observaciones_revision: "x",
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe(NO_ASIGNADO);
+    }
+    expect((await db.visitas.get(visita!.id!))?.estado_visita).toBe("en_revision");
+    expect(crearInformeDesdeVisita).not.toHaveBeenCalled();
+  });
+
+  it("técnico sin usuarioId o visita sin técnico → rechazado (no se asume asignación)", async () => {
+    const { visita } = await seedGraph({ estadoVisita: "asignada" });
+
+    const sinTecnico = await executeTransition(visita!.id!, "iniciar_visita", "tecnico", {
+      usuarioId: "tec-1",
+    });
+    expect(sinTecnico.error).toBe(NO_ASIGNADO);
+
+    await db.visitas.update(visita!.id!, { tecnico_id: "tec-1" });
+    const sinUsuario = await executeTransition(visita!.id!, "iniciar_visita", "tecnico");
+    expect(sinUsuario.error).toBe(NO_ASIGNADO);
+  });
+
+  it("coordinador actúa aunque no sea el técnico asignado", async () => {
+    const { visita } = await seedGraph({ estadoVisita: "asignada" });
+    await db.visitas.update(visita!.id!, { tecnico_id: "tec-1" });
+
+    const res = await executeTransition(visita!.id!, "iniciar_visita", "coordinador", {
+      usuarioId: "coord-1",
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it("programador devuelve una visita en revisión aunque no sea el técnico asignado", async () => {
+    const { visita } = await seedGraph({ estadoVisita: "en_revision" });
+    await db.visitas.update(visita!.id!, { tecnico_id: "tec-1" });
+
+    const res = await executeTransition(visita!.id!, "devolver", "programador", {
+      usuarioId: "prog-1",
+      observaciones_revision: "Falta calibrar",
+    });
+    expect(res.success).toBe(true);
+    expect(res.newState).toBe("en_progreso");
   });
 });
 

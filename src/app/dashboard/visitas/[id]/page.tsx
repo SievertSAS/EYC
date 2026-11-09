@@ -261,6 +261,7 @@ export default function VisitaWorkspacePage({ params }: { params: Promise<{ id: 
     <VisitActionBar
       visitaId={visitaId}
       estadoVisita={visita.estado_visita}
+      tecnicoId={visita.tecnico_id}
       onTransition={() => {
         // useLiveQuery se actualiza automáticamente
       }}

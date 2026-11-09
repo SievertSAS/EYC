@@ -5,7 +5,7 @@ import { db, noBorrado } from "@/lib/db";
 import { useDb } from "@/components/db-provider";
 import { useRole } from "@/components/role-provider";
 import { Card, CardContent } from "@/components/ui/card";
-import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
+import { ESTADO_CONFIG, esTecnicoAsignado } from "@/lib/workflow/visit-state-machine";
 import { getVisitCompleteness } from "@/lib/workflow/module-completeness";
 import {
   ShieldCheck,
@@ -21,7 +21,8 @@ import Link from "next/link";
 
 // ============================================================
 //  Dashboard de revisión para ingenieros
-//  Muestra visitas en estado pre_informe y en_revision
+//  Muestra visitas en estado en_revision. Un técnico solo ve las suyas
+//  (#211: solo el técnico asignado o un admin decide sobre la visita).
 // ============================================================
 
 export default function RevisionPage() {
@@ -32,9 +33,9 @@ export default function RevisionPage() {
     if (!isReady) return undefined;
 
     // Obtener visitas pendientes de revisión
-    const pendientes = (
-      await db.visitas.where("estado_visita").equals("en_revision").toArray()
-    ).filter(noBorrado);
+    const pendientes = (await db.visitas.where("estado_visita").equals("en_revision").toArray())
+      .filter(noBorrado)
+      .filter((v) => role?.cargo !== "tecnico" || esTecnicoAsignado(v.tecnico_id, role.usuarioId));
 
     const enriched = await Promise.all(
       pendientes.map(async (visita) => {
@@ -63,7 +64,7 @@ export default function RevisionPage() {
     );
 
     return enriched;
-  }, [isReady]);
+  }, [isReady, role?.cargo, role?.usuarioId]);
 
   if (!isReady || visitas === undefined) {
     return (

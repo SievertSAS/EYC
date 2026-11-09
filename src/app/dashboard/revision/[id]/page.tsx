@@ -10,8 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StateTimeline } from "@/components/state-timeline";
-import { ESTADO_CONFIG } from "@/lib/workflow/visit-state-machine";
-import { executeTransition } from "@/lib/workflow/visit-state-machine";
+import {
+  ESTADO_CONFIG,
+  canTransition,
+  esTecnicoAsignado,
+  executeTransition,
+} from "@/lib/workflow/visit-state-machine";
 import { getVisitCompleteness } from "@/lib/workflow/module-completeness";
 import {
   ArrowLeft,
@@ -159,6 +163,14 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
 
   const estadoConfig = ESTADO_CONFIG[visita.estado_visita];
 
+  // #211: solo el técnico asignado o un admin decide sobre la visita; a los
+  // demás técnicos no se les ofrecen Aprobar / Devolver (la RLS los rechazaría).
+  const ctxAccion = { esAsignado: esTecnicoAsignado(visita.tecnico_id, role?.usuarioId) };
+  const puedeAprobar =
+    !!role && canTransition(visita.estado_visita, "aprobar", role.cargo, ctxAccion);
+  const puedeDevolver =
+    !!role && canTransition(visita.estado_visita, "devolver", role.cargo, ctxAccion);
+
   async function handleAprobar() {
     if (!role) return;
     setLoading("aprobar");
@@ -184,6 +196,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
     try {
       const result = await executeTransition(visitaId, "devolver", role.cargo, {
         observaciones_revision: observaciones.trim(),
+        usuarioId: role.usuarioId,
       });
       if (result.success) {
         router.push("/dashboard/revision");
@@ -306,7 +319,7 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Acciones de revisión */}
-      {visita.estado_visita === "en_revision" && (
+      {(puedeAprobar || puedeDevolver) && (
         <div className="space-y-4">
           <h3 className="text-base md:text-xl font-semibold text-slate-800 tracking-tight">
             Decisión
@@ -358,26 +371,30 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
 
           {!showObservaciones && (
             <div className="flex gap-3">
-              <Button
-                onClick={handleAprobar}
-                disabled={loading === "aprobar"}
-                className="rounded-lg font-medium bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-6"
-              >
-                {loading === "aprobar" ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <BadgeCheck className="w-4 h-4 mr-2" />
-                )}
-                Aprobar Informe
-              </Button>
-              <Button
-                onClick={() => setShowObservaciones(true)}
-                variant="outline"
-                className="rounded-lg font-medium border-amber-300 text-amber-700 hover:bg-amber-50 h-12 px-6"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Devolver
-              </Button>
+              {puedeAprobar && (
+                <Button
+                  onClick={handleAprobar}
+                  disabled={loading === "aprobar"}
+                  className="rounded-lg font-medium bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-6"
+                >
+                  {loading === "aprobar" ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <BadgeCheck className="w-4 h-4 mr-2" />
+                  )}
+                  Aprobar Informe
+                </Button>
+              )}
+              {puedeDevolver && (
+                <Button
+                  onClick={() => setShowObservaciones(true)}
+                  variant="outline"
+                  className="rounded-lg font-medium border-amber-300 text-amber-700 hover:bg-amber-50 h-12 px-6"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Devolver
+                </Button>
+              )}
             </div>
           )}
         </div>

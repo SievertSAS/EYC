@@ -72,6 +72,7 @@ export function DirectorTecnicoForm() {
 
 function Formulario({ config }: { config: ConfiguracionInforme | null }) {
   const [nombre, setNombre] = useState(config?.director_nombre ?? "");
+  const [cedula, setCedula] = useState(config?.director_cedula ?? "");
   const [titulo, setTitulo] = useState(config?.director_titulo ?? "");
   const [licencia, setLicencia] = useState(config?.director_licencia ?? "");
   const [firmaFile, setFirmaFile] = useState<Blob | null>(null);
@@ -111,6 +112,7 @@ function Formulario({ config }: { config: ConfiguracionInforme | null }) {
     try {
       const cambios: Record<string, string | null> = {
         director_nombre: nombre,
+        director_cedula: cedula,
         director_titulo: titulo,
         director_licencia: licencia,
       };
@@ -143,6 +145,20 @@ function Formulario({ config }: { config: ConfiguracionInforme | null }) {
               value={nombre}
               maxLength={150}
               onChange={(e) => setNombre(e.target.value)}
+              className="rounded-lg"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="director-cedula" className="font-bold text-xs text-slate-600">
+              Cédula
+            </Label>
+            <Input
+              id="director-cedula"
+              value={cedula}
+              maxLength={30}
+              inputMode="numeric"
+              placeholder="Se imprime como C.C. …"
+              onChange={(e) => setCedula(e.target.value)}
               className="rounded-lg"
             />
           </div>

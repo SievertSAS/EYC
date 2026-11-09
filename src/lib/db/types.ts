@@ -495,6 +495,8 @@ export interface ConfiguracionInforme {
   director_nombre?: string | null;
   /** Título bajo la firma; vacío → "Director Técnico". */
   director_titulo?: string | null;
+  /** Cédula; se imprime como "C.C. …" bajo el nombre. */
+  director_cedula?: string | null;
   /** Licencia profesional; se imprime tal cual bajo el cargo. */
   director_licencia?: string | null;
   /** Path en el bucket `evidencias` (misma convención que `usuarios.firma_url`). */

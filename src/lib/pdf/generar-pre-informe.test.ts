@@ -491,21 +491,24 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("Fisica Medica Licencia 1234");
   });
 
-  it("firma del director: nombre, luego cargo y por último la licencia", async () => {
+  it("firma del director: nombre, cédula, cargo y por último la licencia", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.configuracion_informe.put({
       id: "global",
       director_nombre: "NOMBRE-DIRECTOR",
+      director_cedula: "987654321",
       director_titulo: "CARGO-DIRECTOR",
       director_licencia: "LICENCIA-DIRECTOR-0001",
     });
 
     const text = await pdfText((await generarPreInforme(visita!.id!))!);
     const iNombre = text.indexOf("NOMBRE-DIRECTOR");
+    const iCedula = text.indexOf("C.C. 987654321");
     const iCargo = text.indexOf("CARGO-DIRECTOR");
     const iLicencia = text.indexOf("LICENCIA-DIRECTOR-0001");
     expect(iNombre).toBeGreaterThan(-1);
-    expect(iCargo).toBeGreaterThan(iNombre);
+    expect(iCedula).toBeGreaterThan(iNombre);
+    expect(iCargo).toBeGreaterThan(iCedula);
     expect(iLicencia).toBeGreaterThan(iCargo);
   });
 

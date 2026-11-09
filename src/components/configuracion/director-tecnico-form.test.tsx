@@ -77,6 +77,27 @@ describe("DirectorTecnicoForm", () => {
     );
   });
 
+  it("precarga la cédula y la envía al guardar", async () => {
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "Directora",
+      director_cedula: "11111111",
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ configuracion: { id: "global", director_cedula: "22222222" } }),
+    });
+    render(<DirectorTecnicoForm />);
+    const cedula = (await screen.findByLabelText(/Cédula/i)) as HTMLInputElement;
+    await waitFor(() => expect(cedula.value).toBe("11111111"));
+    fireEvent.change(cedula, { target: { value: "22222222" } });
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toMatchObject({ director_cedula: "22222222" });
+  });
+
   it("precarga la licencia y la envía al guardar", async () => {
     await db.configuracion_informe.put({
       id: "global",

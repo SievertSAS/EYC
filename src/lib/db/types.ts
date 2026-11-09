@@ -75,6 +75,21 @@ export const TIPOS_EQUIPO = [
 ] as const;
 export type TipoEquipo = (typeof TIPOS_EQUIPO)[number];
 
+/**
+ * Tipos que ya no se ofrecen al crear un equipo. `RX_PORTATIL`: el portátil es
+ * un CONVENCIONAL marcado con `tipo_instalacion = "portatil"` (#187); el tipo
+ * se conserva para que los equipos viejos sigan mostrándose.
+ */
+const TIPOS_EQUIPO_RETIRADOS: readonly TipoEquipo[] = ["RX_PORTATIL"];
+
+/**
+ * Tipos para el selector del formulario de equipo. Un tipo retirado solo
+ * aparece si es el del equipo que se está editando.
+ */
+export function tiposEquipoSeleccionables(actual?: string): TipoEquipo[] {
+  return TIPOS_EQUIPO.filter((t) => !TIPOS_EQUIPO_RETIRADOS.includes(t) || t === actual);
+}
+
 export const TIPO_LABELS: Record<TipoEquipo, string> = {
   CONVENCIONAL: "Convencional",
   CT: "CT (Tomógrafo)",

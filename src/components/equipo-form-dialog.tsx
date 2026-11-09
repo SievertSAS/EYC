@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import {
-  TIPOS_EQUIPO,
+  tiposEquipoSeleccionables,
   TIPO_LABELS,
   SISTEMAS_ADQUISICION,
   type Equipo,
@@ -550,7 +550,7 @@ export function EquipoFormDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {TIPOS_EQUIPO.map((tipo) => (
+                  {tiposEquipoSeleccionables(tipoEquipo).map((tipo) => (
                     <SelectItem key={tipo} value={tipo}>
                       {TIPO_LABELS[tipo] ?? tipo}
                     </SelectItem>

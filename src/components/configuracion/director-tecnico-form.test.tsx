@@ -76,4 +76,27 @@ describe("DirectorTecnicoForm", () => {
       expect((await db.configuracion_informe.get("global"))?.director_nombre).toBe("Nuevo Director")
     );
   });
+
+  it("precarga la licencia y la envía al guardar", async () => {
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "Directora",
+      director_licencia: "Licencia N.º 0001",
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        configuracion: { id: "global", director_licencia: "Licencia N.º 0002" },
+      }),
+    });
+    render(<DirectorTecnicoForm />);
+    const licencia = (await screen.findByLabelText(/Licencia/i)) as HTMLInputElement;
+    await waitFor(() => expect(licencia.value).toBe("Licencia N.º 0001"));
+    fireEvent.change(licencia, { target: { value: "Licencia N.º 0002" } });
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toMatchObject({ director_licencia: "Licencia N.º 0002" });
+  });
 });

@@ -73,6 +73,7 @@ export function DirectorTecnicoForm() {
 function Formulario({ config }: { config: ConfiguracionInforme | null }) {
   const [nombre, setNombre] = useState(config?.director_nombre ?? "");
   const [titulo, setTitulo] = useState(config?.director_titulo ?? "");
+  const [licencia, setLicencia] = useState(config?.director_licencia ?? "");
   const [firmaFile, setFirmaFile] = useState<Blob | null>(null);
   const [quitarFirma, setQuitarFirma] = useState(false);
   const [firmaGuardadaSrc, setFirmaGuardadaSrc] = useState<string | null>(null);
@@ -111,6 +112,7 @@ function Formulario({ config }: { config: ConfiguracionInforme | null }) {
       const cambios: Record<string, string | null> = {
         director_nombre: nombre,
         director_titulo: titulo,
+        director_licencia: licencia,
       };
       if (quitarFirma && !firmaFile) cambios.director_firma_url = null;
       const r = await guardarConfiguracion(cambios, firmaFile);
@@ -154,6 +156,19 @@ function Formulario({ config }: { config: ConfiguracionInforme | null }) {
               maxLength={150}
               placeholder="Director Técnico"
               onChange={(e) => setTitulo(e.target.value)}
+              className="rounded-lg"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="director-licencia" className="font-bold text-xs text-slate-600">
+              Licencia
+            </Label>
+            <Input
+              id="director-licencia"
+              value={licencia}
+              maxLength={150}
+              placeholder="Ej.: Licencia N.º 0000 de 2024"
+              onChange={(e) => setLicencia(e.target.value)}
               className="rounded-lg"
             />
           </div>

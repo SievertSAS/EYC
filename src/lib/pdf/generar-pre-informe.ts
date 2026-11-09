@@ -2122,10 +2122,10 @@ export async function generarPreInforme(
   //  FIRMAS
   // ═══════════════════════════════════════════════════════════
   // Bloque completo de firmas: título 1 + tres responsables (102 mm entre la
-  // primera y la última línea base) — se reserva entero para que no se parta
-  // ni se salga por el pie.
+  // primera y la última línea base, + 4 mm del renglón de licencia del
+  // director) — se reserva entero para que no se parta ni se salga por el pie.
   const ALTO_FIRMAS =
-    SPACE.h1.before + baseDesdeTope(FONT.h1) + TITLE_RULE_GAP + SPACE.h1.after + 3 + 102 + 2;
+    SPACE.h1.before + baseDesdeTope(FONT.h1) + TITLE_RULE_GAP + SPACE.h1.after + 3 + 106 + 2;
   checkPage(ALTO_FIRMAS);
   y = addSectionTitle(doc, "5. FIRMAS", y);
   registrarToc("5. FIRMAS");
@@ -2162,6 +2162,12 @@ export async function generarPreInforme(
     MARGIN_LEFT,
     y
   );
+  // Orden del bloque: firma, nombre, cargo y por último la licencia.
+  const directorLicencia = datos.configuracionInforme?.director_licencia?.trim();
+  if (directorNombre && directorLicencia) {
+    y += 4;
+    doc.text(directorLicencia, MARGIN_LEFT, y);
+  }
 
   // Responsable de visita — contacto del cliente (no el técnico de Sievert que ejecuta la visita)
   y += 15;

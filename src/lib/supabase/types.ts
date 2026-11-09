@@ -207,6 +207,7 @@ export type Database = {
           creado_en: string;
           director_firma_url: string | null;
           director_nombre: string | null;
+          director_licencia: string | null;
           director_titulo: string | null;
           id: string;
           last_modified: string;
@@ -216,6 +217,7 @@ export type Database = {
           creado_en?: string;
           director_firma_url?: string | null;
           director_nombre?: string | null;
+          director_licencia?: string | null;
           director_titulo?: string | null;
           id?: string;
           last_modified?: string;
@@ -225,6 +227,7 @@ export type Database = {
           creado_en?: string;
           director_firma_url?: string | null;
           director_nombre?: string | null;
+          director_licencia?: string | null;
           director_titulo?: string | null;
           id?: string;
           last_modified?: string;

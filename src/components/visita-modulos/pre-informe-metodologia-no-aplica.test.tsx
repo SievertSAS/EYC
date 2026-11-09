@@ -377,3 +377,51 @@ describe("'No aplica' automático — 2.14 y 2.15 en equipos DR (#116)", () => {
     });
   });
 });
+
+describe("#187 — equipo portátil: el CAE arranca en 'No aplica' y se puede reactivar", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    useDb.mockReturnValue({ isReady: true });
+  });
+
+  async function abrirPreInforme(tipoInstalacion: "fijo" | "portatil") {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipos.update(equipo.id!, { tipo_instalacion: tipoInstalacion });
+    render(<PreInformeModulo visitaId={visita!.id!} />);
+    const visitaId = visita!.id!;
+    // Espera a que el editor cree las 21 secciones.
+    await vi.waitFor(async () =>
+      expect(await db.conv_informe_secciones.where("visita_id").equals(visitaId).count()).toBe(21)
+    );
+    return db.conv_informe_secciones.where("visita_id").equals(visitaId).toArray();
+  }
+
+  it("portátil: crea 2.17–2.20 apagadas (el switch sigue habilitado) y el resto encendidas", async () => {
+    const secciones = await abrirPreInforme("portatil");
+    const apagadas = secciones.filter((s) => !s.incluida).map((s) => s.prueba_codigo);
+    expect(apagadas.sort()).toEqual(["2.17", "2.18", "2.19", "2.20"]);
+    const sw = await screen.findByRole("switch", { name: "La prueba 2.17 aplica" });
+    expect((sw as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("portátil: el motivo predeterminado del CAE es el de la variante portátil", async () => {
+    await abrirPreInforme("portatil");
+    fireEvent.click(await screen.findByRole("button", { name: "Ver detalle de la prueba 2.17" }));
+    await vi.waitFor(() =>
+      expect(
+        (
+          screen.getByPlaceholderText(
+            "Motivo por el que la prueba no aplica..."
+          ) as HTMLTextAreaElement
+        ).value
+      ).toBe(
+        "NO APLICA. Dado que el sistema evaluado NO cuenta con control automático de exposición."
+      )
+    );
+  });
+
+  it("fijo: todas las secciones se crean encendidas, como antes", async () => {
+    const secciones = await abrirPreInforme("fijo");
+    expect(secciones.every((s) => s.incluida)).toBe(true);
+  });
+});

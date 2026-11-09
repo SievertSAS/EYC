@@ -7,6 +7,7 @@ import {
   motivoNoAplicaAutomatico,
   reglaNoAplicaAutomatica,
   seccionAplica,
+  incluidaPorDefecto,
   rendimiento27,
   calcularResultado24,
   calcularResultado25,
@@ -934,5 +935,30 @@ describe("seccionAplica — switch del pre-informe + reglas automáticas", () =>
     const seccion = { incluida: true, prueba_codigo: "2.15" };
     expect(seccionAplica(seccion, datos({ sistema_adquisicion: "Digital" }))).toBe(false);
     expect(seccionAplica(seccion, datos({ sistema_adquisicion: "Digitalizado" }))).toBe(true);
+  });
+});
+
+describe("incluidaPorDefecto — valor inicial del switch 'aplica' (#187)", () => {
+  const CAE = ["2.17", "2.18", "2.19", "2.20"];
+
+  it("portátil: las pruebas del CAE arrancan en 'No aplica'; el resto aplica", () => {
+    const port = { tipo_instalacion: "portatil" as const };
+    for (const codigo of CAE) expect(incluidaPorDefecto(codigo, port), codigo).toBe(false);
+    for (let i = 1; i <= 16; i++) expect(incluidaPorDefecto(`2.${i}`, port)).toBe(true);
+    expect(incluidaPorDefecto("2.21", port)).toBe(true);
+  });
+
+  it("fijo o sin tipo de instalación: todas aplican (comportamiento previo)", () => {
+    for (const codigo of CAE) {
+      expect(incluidaPorDefecto(codigo, { tipo_instalacion: "fijo" })).toBe(true);
+      expect(incluidaPorDefecto(codigo, {})).toBe(true);
+      expect(incluidaPorDefecto(codigo, undefined)).toBe(true);
+    }
+  });
+
+  it("es solo un valor inicial: no es una regla automática (el ingeniero puede reactivarla)", () => {
+    const port = datos({ tipo_instalacion: "portatil" });
+    expect(reglaNoAplicaAutomatica("2.17", port)).toBeUndefined();
+    expect(seccionAplica({ incluida: true, prueba_codigo: "2.17" }, port)).toBe(true);
   });
 });

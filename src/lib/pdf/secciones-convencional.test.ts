@@ -1589,6 +1589,32 @@ describe("recopilarDatosConv({ sinImagenes }) e inyectarDatosEquipo — carga li
   });
 });
 
+describe("inyectarDatosEquipo — tipo de instalación (#187)", () => {
+  it("copia tipo_instalacion; sin marcar → fijo", async () => {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    inyectarDatosEquipo(conv, row({ tipo_instalacion: "portatil" }));
+    expect(conv.tipo_instalacion).toBe("portatil");
+    inyectarDatosEquipo(conv, row({}));
+    expect(conv.tipo_instalacion).toBe("fijo");
+  });
+
+  it("portátil sin secciones guardadas: el CAE arranca en 'No aplica', el resto aplica", async () => {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    inyectarDatosEquipo(conv, row({ tipo_instalacion: "portatil" }));
+    const apagadas = conv.secciones.filter((s) => !s.incluida).map((s) => s.prueba_codigo);
+    expect(apagadas).toEqual(["2.17", "2.18", "2.19", "2.20"]);
+  });
+
+  it("portátil con secciones guardadas: respeta el switch del ingeniero", async () => {
+    await db.conv_informe_secciones.add(
+      row({ id: "s17", visita_id: V, prueba_codigo: "2.17", orden: 17, incluida: true, ...ok })
+    );
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    inyectarDatosEquipo(conv, row({ tipo_instalacion: "portatil" }));
+    expect(conv.secciones.find((s) => s.prueba_codigo === "2.17")?.incluida).toBe(true);
+  });
+});
+
 describe("analisisPredeterminadoDeVisita — predeterminado del editor leído de la base local", () => {
   it("arma el texto con las mediciones guardadas de la visita", async () => {
     await db.visitas.add(row({ id: V, estado_visita: "en_progreso" }));

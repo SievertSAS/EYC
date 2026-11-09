@@ -31,6 +31,11 @@ export interface SeccionInfoCatalogo {
    */
   analisis?: string;
   /**
+   * Párrafo inicial de "Descripción de la instalación y blindajes" (solo 2.2,
+   * subsección .4). Texto de plantilla: el portátil tiene el suyo (#187).
+   */
+  descripcionInstalacion?: string;
+  /**
    * Explicación en lenguaje llano de cómo `evaluacion.ts` decide el concepto:
    * qué datos toma, qué cálculo hace y qué regla exacta determina el estado.
    * Se muestra en el editor del pre-informe (solo visual, no afecta el veredicto).
@@ -85,6 +90,8 @@ export const CATALOGO_SECCIONES: SeccionInfoCatalogo[] = [
       "NO APLICA, toda vez que la inspección visual no hace parte del alcance del servicio realizado.",
     criterio:
       "La inspección visual se considera aceptable cuando los componentes visibles del equipo y las condiciones de operación de la instalación se encuentran en buen estado físico, sin deterioros, fugas o defectos que puedan comprometer la protección radiológica del operador, los pacientes o el público.",
+    descripcionInstalacion:
+      "La distribución de las áreas colindantes y de las barreras estructurales de protección radiológica se presenta en el diagrama radiométrico de la instalación.",
     comoSeEvalua: {
       datos:
         "El concepto que el técnico marcó en cada ítem de la lista de inspección visual y en cada elemento de protección cargado (delantal, protector tiroideo, gafas, etc.).",

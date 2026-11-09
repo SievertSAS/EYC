@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { TipoInstalacion } from "@/lib/db/types";
 import type {
   ConvMedicionRadiometrica,
   ConvInspeccionItem,
@@ -90,6 +91,8 @@ export interface DatosEvalConv {
   caeMediciones: ConvCaeMedicion[];
   /** `equipo.sistema_adquisicion` (#116) — determina tolerancia 2.11 y aplicabilidad 2.14/2.15. */
   sistema_adquisicion?: string;
+  /** `equipo.tipo_instalacion` (#187) — el portátil arranca con el CAE en "No aplica". */
+  tipo_instalacion?: TipoInstalacion;
 }
 
 /**
@@ -164,6 +167,24 @@ export function motivoNoAplicaAutomatico(
   datos: DatosNoAplicaAutomatico | undefined
 ): string | undefined {
   return reglaNoAplicaAutomatica(codigo, datos)?.motivo;
+}
+
+/** Pruebas del control automático de exposición (CAE). */
+const CODIGOS_CAE = new Set(["2.17", "2.18", "2.19", "2.20"]);
+
+/**
+ * Valor inicial del switch "aplica" (`incluida`) de una prueba al crear las
+ * secciones del pre-informe (#187). A diferencia de `reglaNoAplicaAutomatica`,
+ * NO es una regla: el ingeniero puede volver a encender la prueba (hay
+ * portátiles con CAE). El motivo del "No aplica" sale de la plantilla (la
+ * variante portátil trae el suyo para 2.17–2.20).
+ *   - Portátil: las pruebas del CAE arrancan en "No aplica" (la mayoría no tiene).
+ */
+export function incluidaPorDefecto(
+  codigo: string,
+  datos: Pick<DatosEvalConv, "tipo_instalacion"> | undefined
+): boolean {
+  return !(datos?.tipo_instalacion === "portatil" && CODIGOS_CAE.has(codigo));
 }
 
 /**
@@ -949,6 +970,7 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     uniformidadDetector,
     resolucion,
     sistema_adquisicion: equipo?.sistema_adquisicion,
+    tipo_instalacion: equipo?.tipo_instalacion,
     bajoContraste,
     cassettes,
     uniformidadCr,
@@ -983,7 +1005,8 @@ export async function getEstadoPruebasPorGrupo(
   for (const cat of CATALOGO_SECCIONES) {
     const g = (porGrupo[cat.grupo] ??= { total: 0, pendientes: 0 });
     g.total++;
-    const incluida = inclMap.get(cat.codigo) ?? true;
+    // Sin fila (el pre-informe aún no se abrió): el valor inicial del switch.
+    const incluida = inclMap.get(cat.codigo) ?? incluidaPorDefecto(cat.codigo, datos);
     if (!incluida || !tieneCriterio(cat.codigo)) continue;
     if (evaluarConceptoPrueba(cat.codigo, datos) == null) g.pendientes++;
   }

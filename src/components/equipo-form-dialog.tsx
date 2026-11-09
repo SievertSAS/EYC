@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useReseedOnOpen } from "@/hooks/use-reseed-on-open";
 import { db } from "@/lib/db";
 import {
-  TIPOS_EQUIPO,
+  tiposEquipoSeleccionables,
   TIPO_LABELS,
   SISTEMAS_ADQUISICION,
   type Equipo,
@@ -12,8 +12,10 @@ import {
   type Colimador,
   type Gantry,
   type TipoEquipo,
+  type TipoInstalacion,
   type SubtablaIdentificacion,
 } from "@/lib/db/types";
+import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -157,6 +159,10 @@ export function EquipoFormDialog({
     equipo?.distancia_foco_paciente?.toString() ?? ""
   );
   const [bucky, setBucky] = useState(equipo?.bucky ?? "");
+  // #187: solo CONVENCIONAL. Sin valor = fijo (default de la base).
+  const [tipoInstalacion, setTipoInstalacion] = useState<TipoInstalacion>(
+    equipo?.tipo_instalacion ?? "fijo"
+  );
 
   // Generador (en la práctica son los datos del equipo — un solo aparato físico)
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
@@ -242,6 +248,7 @@ export function EquipoFormDialog({
       setSistemaAdq(equipo?.sistema_adquisicion ?? "");
       setDistanciaFoco(equipo?.distancia_foco_paciente?.toString() ?? "");
       setBucky(equipo?.bucky ?? "");
+      setTipoInstalacion(equipo?.tipo_instalacion ?? "fijo");
       setGenMarca(equipo?.gen_marca ?? "");
       setGenModelo(equipo?.gen_modelo ?? "");
       setGenSerie(equipo?.gen_numero_serie ?? "");
@@ -325,6 +332,9 @@ export function EquipoFormDialog({
         sistema_adquisicion: sistemaAdq || undefined,
         distancia_foco_paciente: parseDecimal(distanciaFoco),
         bucky: (bucky as Equipo["bucky"]) || undefined,
+        // Otros tipos no lo capturan: se conserva lo que haya (la base pone 'fijo').
+        tipo_instalacion:
+          tipoEquipo === "CONVENCIONAL" ? tipoInstalacion : equipo?.tipo_instalacion,
         gen_marca: genMarca || undefined,
         gen_modelo: genModelo || undefined,
         gen_numero_serie: genSerie || undefined,
@@ -540,7 +550,7 @@ export function EquipoFormDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {TIPOS_EQUIPO.map((tipo) => (
+                  {tiposEquipoSeleccionables(tipoEquipo).map((tipo) => (
                     <SelectItem key={tipo} value={tipo}>
                       {TIPO_LABELS[tipo] ?? tipo}
                     </SelectItem>
@@ -548,6 +558,22 @@ export function EquipoFormDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {tipoEquipo === "CONVENCIONAL" && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-600">Tipo de instalación</Label>
+                <div>
+                  <TipoInstalacionToggle
+                    value={tipoInstalacion}
+                    onChange={(v) => {
+                      setTipoInstalacion(v);
+                      // El portátil no tiene Bucky: se sugiere "No" si aún no se eligió.
+                      if (v === "portatil" && !bucky) setBucky("No");
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

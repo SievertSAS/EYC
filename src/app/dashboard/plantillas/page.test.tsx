@@ -92,4 +92,61 @@ describe("PlantillasPage", () => {
     expect(await screen.findByText("Coordinadora Historial")).toBeInTheDocument();
     expect(screen.getAllByText(/v1/).length).toBeGreaterThan(0);
   });
+
+  describe("#187 — variante portátil del convencional", () => {
+    function respuestaOk() {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          plantilla: {
+            id: "borr-2",
+            tipo_equipo: "CONVENCIONAL",
+            codigo: "FT-LEC-6c",
+            version: null,
+            estado: "borrador",
+            contenido: { pruebas: {} },
+          },
+        }),
+      });
+    }
+
+    it("el toggle Portátil muestra y edita los textos de la variante; se guardan aparte", async () => {
+      respuestaOk();
+      render(<PlantillasPage />);
+      const intro = (await screen.findByLabelText(/^Introducción/i)) as HTMLTextAreaElement;
+      expect(intro.value).not.toContain("equipo portátil");
+
+      fireEvent.click(screen.getByRole("radio", { name: "Portátil" }));
+      const introPortatil = (await screen.findByLabelText(/^Introducción/i)) as HTMLTextAreaElement;
+      expect(introPortatil.value).toContain("equipo portátil de rayos X");
+      fireEvent.change(introPortatil, { target: { value: "INTRO-PORTATIL-EDITADA" } });
+
+      // La metodología de la 2.5 del portátil viene sin "sobre la mesa".
+      const met25 = screen.getByLabelText("Metodología", {
+        selector: "#plantilla-portatil-2\\.5-metodologia",
+      }) as HTMLTextAreaElement;
+      expect(met25.value).not.toContain("sobre la mesa");
+
+      fireEvent.click(screen.getByRole("button", { name: /Guardar borrador/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.contenido.variantes.portatil.introduccion).toBe("INTRO-PORTATIL-EDITADA");
+      // El texto del fijo no cambia.
+      expect(body.contenido.introduccion).toMatch(/^El presente informe técnico documenta/);
+      expect(body.contenido.introduccion).not.toContain("INTRO-PORTATIL-EDITADA");
+    });
+
+    it("el convencional abre en Fijo; un campo vacío del portátil muestra el texto del fijo", async () => {
+      render(<PlantillasPage />);
+      const fijo = await screen.findByRole("radio", { name: "Fijo" });
+      expect(fijo.getAttribute("aria-checked")).toBe("true");
+      fireEvent.click(screen.getByRole("radio", { name: "Portátil" }));
+      // La 2.3 no cambia en el portátil: vacío, con el texto del fijo de placeholder.
+      const obj23 = screen.getByLabelText("Objetivo", {
+        selector: "#plantilla-portatil-2\\.3-objetivo",
+      }) as HTMLTextAreaElement;
+      expect(obj23.value).toBe("");
+      expect(obj23.placeholder).toMatch(/campo luminoso/);
+    });
+  });
 });

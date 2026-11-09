@@ -75,6 +75,21 @@ export const TIPOS_EQUIPO = [
 ] as const;
 export type TipoEquipo = (typeof TIPOS_EQUIPO)[number];
 
+/**
+ * Tipos que ya no se ofrecen al crear un equipo. `RX_PORTATIL`: el portátil es
+ * un CONVENCIONAL marcado con `tipo_instalacion = "portatil"` (#187); el tipo
+ * se conserva para que los equipos viejos sigan mostrándose.
+ */
+const TIPOS_EQUIPO_RETIRADOS: readonly TipoEquipo[] = ["RX_PORTATIL"];
+
+/**
+ * Tipos para el selector del formulario de equipo. Un tipo retirado solo
+ * aparece si es el del equipo que se está editando.
+ */
+export function tiposEquipoSeleccionables(actual?: string): TipoEquipo[] {
+  return TIPOS_EQUIPO.filter((t) => !TIPOS_EQUIPO_RETIRADOS.includes(t) || t === actual);
+}
+
 export const TIPO_LABELS: Record<TipoEquipo, string> = {
   CONVENCIONAL: "Convencional",
   CT: "CT (Tomógrafo)",
@@ -94,6 +109,23 @@ export const TIPO_LABELS: Record<TipoEquipo, string> = {
   LITOTRIPTOR: "Litotriptor",
   VARIOS_RX: "Varios RX",
 };
+
+// ─── Tipo de instalación (#187) ───
+// El rayos X portátil NO es un tipo de equipo aparte: es un CONVENCIONAL
+// (mismo paquete, mismas 21 pruebas y cálculos) marcado como portátil. Solo
+// cambian algunos textos del informe y algunos valores por defecto.
+export const TIPOS_INSTALACION = ["fijo", "portatil"] as const;
+export type TipoInstalacion = (typeof TIPOS_INSTALACION)[number];
+
+export const TIPO_INSTALACION_LABELS: Record<TipoInstalacion, string> = {
+  fijo: "Fijo",
+  portatil: "Portátil",
+};
+
+/** `true` si el equipo está marcado como portátil (sin marca = fijo). */
+export function esPortatil(equipo: { tipo_instalacion?: TipoInstalacion } | undefined): boolean {
+  return equipo?.tipo_instalacion === "portatil";
+}
 
 // ─── Sistema de adquisición de imágenes ───
 // Opciones cerradas del informe FT-LEC-6c. Compartidas entre el diálogo de
@@ -212,6 +244,11 @@ export interface Equipo extends Partial<SyncFields> {
   sistema_adquisicion?: string;
   distancia_foco_paciente?: number;
   bucky?: "Si" | "No" | "No_aplica";
+  /**
+   * Fijo o portátil (#187). Solo se captura en el CONVENCIONAL; en la base es
+   * NOT NULL DEFAULT 'fijo', así que `undefined` en Dexie equivale a fijo.
+   */
+  tipo_instalacion?: TipoInstalacion;
   // Identificación y características del equipo. La plantilla oficial las
   // rotula "del generador" (gen_*): en esta app hay UN solo aparato físico.
   gen_marca?: string;

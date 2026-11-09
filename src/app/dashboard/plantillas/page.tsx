@@ -27,7 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TIPOS_EQUIPO, TIPO_LABELS, type TipoEquipo } from "@/lib/db/types";
+import { TIPOS_EQUIPO, TIPO_LABELS, type TipoEquipo, type TipoInstalacion } from "@/lib/db/types";
+import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
 import { contenidoDe, resolverPlantilla, versionesPublicadas } from "@/lib/plantillas/resolver";
 import {
   CAMPOS_TEXTO_PRUEBA,
@@ -219,14 +220,51 @@ function FormularioPlantilla({
   const [contenido, setContenido] = useState<ContenidoPlantilla>(inicial.contenido);
   const [ocupado, setOcupado] = useState<"guardar" | "publicar" | null>(null);
   const [confirmarOpen, setConfirmarOpen] = useState(false);
+  // #187: el convencional tiene una variante portátil de los textos. En modo
+  // portátil se editan solo los campos que cambian; uno vacío usa el del fijo.
+  const tieneVariantes = Boolean(inicial.contenido.variantes);
+  const [instalacion, setInstalacion] = useState<TipoInstalacion>("fijo");
+  const enPortatil = tieneVariantes && instalacion === "portatil";
+  const portatil = contenido.variantes?.portatil;
 
   const proximaVersion = (vigente?.version ?? 0) + 1;
 
   function setTextoPrueba(codigoPrueba: string, campo: CampoTextoPrueba, valor: string) {
+    if (enPortatil) {
+      setContenido((c) => {
+        const v = c.variantes?.portatil ?? {};
+        const pruebas = v.pruebas ?? {};
+        return {
+          ...c,
+          variantes: {
+            ...c.variantes,
+            portatil: {
+              ...v,
+              pruebas: { ...pruebas, [codigoPrueba]: { ...pruebas[codigoPrueba], [campo]: valor } },
+            },
+          },
+        };
+      });
+      return;
+    }
     setContenido((c) => ({
       ...c,
       pruebas: { ...c.pruebas, [codigoPrueba]: { ...c.pruebas[codigoPrueba], [campo]: valor } },
     }));
+  }
+
+  function setIntroduccion(valor: string) {
+    if (enPortatil) {
+      setContenido((c) => ({
+        ...c,
+        variantes: {
+          ...c.variantes,
+          portatil: { ...c.variantes?.portatil, introduccion: valor },
+        },
+      }));
+      return;
+    }
+    setContenido((c) => ({ ...c, introduccion: valor }));
   }
 
   async function guardarBorrador(): Promise<boolean> {
@@ -295,16 +333,29 @@ function FormularioPlantilla({
           </div>
         </div>
 
+        {tieneVariantes && (
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <p className="text-xs font-medium text-slate-600">Textos para el equipo</p>
+            <TipoInstalacionToggle value={instalacion} onChange={setInstalacion} />
+            <p className="text-[11px] text-slate-500">
+              {enPortatil
+                ? "Solo los textos que cambian en el equipo portátil. Un campo vacío usa el texto del equipo fijo (se muestra en gris)."
+                : "Textos del equipo fijo. El portátil usa estos mismos salvo los que tenga propios."}
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="plantilla-intro" className="text-xs font-medium text-slate-600">
-            Introducción
+            Introducción{enPortatil ? " (portátil)" : ""}
           </Label>
           <Textarea
             id="plantilla-intro"
-            value={contenido.introduccion ?? ""}
+            value={(enPortatil ? portatil?.introduccion : contenido.introduccion) ?? ""}
+            placeholder={enPortatil ? contenido.introduccion : undefined}
             disabled={!puedeEditar}
             className="min-h-40"
-            onChange={(e) => setContenido((c) => ({ ...c, introduccion: e.target.value }))}
+            onChange={(e) => setIntroduccion(e.target.value)}
           />
           <p className="text-[11px] text-slate-400">
             Separa los párrafos con una línea en blanco. Un campo vacío usa el texto del sistema.
@@ -320,14 +371,22 @@ function FormularioPlantilla({
           </p>
           {inicial.efectiva.pruebas.map((prueba) => {
             const campos = CAMPOS_TEXTO_PRUEBA.filter((c) => c in prueba.textos);
+            const textosPortatil = portatil?.pruebas?.[prueba.codigo];
+            const cambiaEnPortatil = campos.some((c) => textosPortatil?.[c]?.trim());
             return (
               <details key={prueba.codigo} className="rounded-lg border border-slate-200 bg-white">
                 <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-slate-800">
                   {prueba.codigo} — {prueba.nombre}
+                  {enPortatil && cambiaEnPortatil && (
+                    <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                      Portátil
+                    </span>
+                  )}
                 </summary>
                 <div className="space-y-3 px-3 pb-3">
                   {campos.map((campo) => {
-                    const id = `plantilla-${prueba.codigo}-${campo}`;
+                    const id = `plantilla-${enPortatil ? "portatil-" : ""}${prueba.codigo}-${campo}`;
+                    const textoFijo = contenido.pruebas[prueba.codigo]?.[campo] ?? "";
                     return (
                       <div key={campo} className="space-y-1">
                         <Label htmlFor={id} className="text-xs font-medium text-slate-600">
@@ -335,7 +394,8 @@ function FormularioPlantilla({
                         </Label>
                         <Textarea
                           id={id}
-                          value={contenido.pruebas[prueba.codigo]?.[campo] ?? ""}
+                          value={(enPortatil ? textosPortatil?.[campo] : textoFijo) ?? ""}
+                          placeholder={enPortatil ? textoFijo : undefined}
                           disabled={!puedeEditar}
                           onChange={(e) => setTextoPrueba(prueba.codigo, campo, e.target.value)}
                         />

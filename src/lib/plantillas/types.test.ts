@@ -11,6 +11,26 @@ describe("contenidoPlantillaSchema (#196)", () => {
     expect(r.success).toBe(true);
   });
 
+  it("#187: acepta la variante portátil (introducción + textos por prueba)", () => {
+    const r = contenidoPlantillaSchema.safeParse({
+      pruebas: {},
+      variantes: { portatil: { introduccion: "P.", pruebas: { "2.5": { metodologia: "m" } } } },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("#187: rechaza variantes desconocidas o campos raros en la variante", () => {
+    expect(
+      contenidoPlantillaSchema.safeParse({ pruebas: {}, variantes: { movil: {} } }).success
+    ).toBe(false);
+    expect(
+      contenidoPlantillaSchema.safeParse({
+        pruebas: {},
+        variantes: { portatil: { pruebas: { "2.5": { script: "x" } } } },
+      }).success
+    ).toBe(false);
+  });
+
   it("rechaza campos desconocidos dentro de una prueba", () => {
     const r = contenidoPlantillaSchema.safeParse({ pruebas: { "2.1": { script: "x" } } });
     expect(r.success).toBe(false);

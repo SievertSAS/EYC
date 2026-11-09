@@ -63,6 +63,7 @@ import { BotonRecalcular } from "@/components/visita-modulos/boton-recalcular";
 import {
   ITEMS_INSPECCION_EQUIPO,
   ITEMS_CONDICIONES_OPERACION,
+  itemsInspeccionEquipo,
 } from "@/lib/equipos/convencional/inspeccion-items";
 
 /** Columnas de la técnica del levantamiento que cumplen mA × t = mAs */
@@ -496,7 +497,18 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
         .toArray(),
     ]);
 
-    return { visita, setup, mediciones, inspeccion, elementos, evidencias };
+    // #187: el portátil tiene su propia redacción de los ítems 1 y 2 de inspección.
+    const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
+
+    return {
+      visita,
+      setup,
+      mediciones,
+      inspeccion,
+      elementos,
+      evidencias,
+      tipoInstalacion: equipo?.tipo_instalacion,
+    };
   }, [isReady, visitaId]);
 
   // ─── Initialize setup if missing ───
@@ -1293,7 +1305,7 @@ export function GrupoAModulo({ visitaId: id }: { visitaId: string }) {
           </StepHeader>
 
           <div className="space-y-3">
-            {ITEMS_INSPECCION_EQUIPO.map((desc, idx) => {
+            {itemsInspeccionEquipo(data?.tipoInstalacion).map((desc, idx) => {
               const item = inspeccionEquipo.find((i) => i.item_numero === idx + 1);
               return (
                 <div

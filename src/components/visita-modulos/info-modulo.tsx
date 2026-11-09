@@ -5,8 +5,9 @@ import { randomUUID } from "@/lib/uuid";
 import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, noBorrado } from "@/lib/db";
-import { SISTEMAS_ADQUISICION } from "@/lib/db/types";
-import type { EquipoIdentificacion, Sede } from "@/lib/db/types";
+import { SISTEMAS_ADQUISICION, esPortatil } from "@/lib/db/types";
+import type { EquipoIdentificacion, Sede, TipoInstalacion } from "@/lib/db/types";
+import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
 import { matchIdPorNombre } from "@/lib/divipola";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
 import { ImagenConTitulo } from "@/components/imagen-con-titulo";
@@ -685,6 +686,19 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     pushSingle("equipos", id);
   }
 
+  /** #187: el portátil no tiene Bucky — se deja en "No" si aún no se había capturado. */
+  async function saveTipoInstalacion(tipo: TipoInstalacion) {
+    const equipo = data?.equipo;
+    if (!equipo?.id) return;
+    await db.equipos.update(equipo.id, {
+      tipo_instalacion: tipo,
+      ...(tipo === "portatil" && !equipo.bucky ? { bucky: "No" as const } : {}),
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("equipos", equipo.id);
+  }
+
   async function saveTubo(tuboId: string, field: string, value: string, numeric = false) {
     if (!tuboId) return;
     const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
@@ -938,7 +952,8 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     tubos[0]?.ma_max,
     tubos[0]?.tiempo_s,
     tubos[0]?.foco_fino_mm,
-    tubos[0]?.foco_grueso_mm,
+    // #187: la mayoría de portátiles solo tiene foco fino — no cuenta como faltante.
+    ...(esPortatil(equipo) ? [] : [tubos[0]?.foco_grueso_mm]),
   ]);
 
   const progColimador = computeProgress([
@@ -1449,6 +1464,12 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
         subtitle="Características del colimador e imágenes"
         progress={progColimador}
       >
+        {equipo?.tipo_equipo === "CONVENCIONAL" && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-slate-600">Tipo de instalación</p>
+            <TipoInstalacionToggle value={equipo.tipo_instalacion} onChange={saveTipoInstalacion} />
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <EditableField
             label="Distancia Foco / Paciente (cm)"

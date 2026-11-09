@@ -1403,3 +1403,69 @@ describe("#196 — textos desde la plantilla de informe vigente", () => {
     expect(text).not.toContain("v77");
   });
 });
+
+describe("#187 — equipo convencional portátil", () => {
+  async function pdfConInstalacion(
+    tipoInstalacion: "fijo" | "portatil" | undefined,
+    secciones: Partial<ConvInformeSeccion>[] = []
+  ): Promise<string> {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    if (tipoInstalacion) await db.equipos.update(equipo.id!, { tipo_instalacion: tipoInstalacion });
+    for (const s of secciones) {
+      await db.conv_informe_secciones.add({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: "2.1",
+        orden: 1,
+        incluida: true,
+        sync_status: "synced",
+        last_modified: new Date().toISOString(),
+        ...s,
+      } as ConvInformeSeccion);
+    }
+    return pdfText((await generarPreInforme(visita!.id!))!);
+  }
+
+  it("portátil: la introducción es la del portátil (P1 + párrafo de particularidades)", async () => {
+    const text = await pdfConInstalacion("portatil");
+    expect(text).toContain("particularidades");
+    expect(text).not.toContain("efectuado");
+  });
+
+  it("fijo (y equipos sin marcar): la introducción del fijo, sin textos del portátil", async () => {
+    for (const t of ["fijo", undefined] as const) {
+      const text = await pdfConInstalacion(t);
+      expect(text).toContain("efectuado");
+      expect(text).not.toContain("particularidades");
+    }
+  });
+
+  it("portátil sin foco grueso: la tabla del tubo dice 'No aplica' (fijo: 'No reporta')", async () => {
+    const port = await pdfConInstalacion("portatil");
+    const fijo = await pdfConInstalacion("fijo");
+    // makeTubo no carga foco grueso.
+    const celda = /Foco grueso \\\(mm\\\)\) Tj[^(]*\((No aplica|No reporta)\) Tj/;
+    expect(port.match(celda)?.[1]).toBe("No aplica");
+    expect(fijo.match(celda)?.[1]).toBe("No reporta");
+  });
+
+  it("portátil: la 2.2.4 usa la descripción de posiciones tentativas", async () => {
+    const port = await pdfConInstalacion("portatil", [{ prueba_codigo: "2.2", orden: 2 }]);
+    expect(port).toContain("tentativas");
+    const fijo = await pdfConInstalacion("fijo", [{ prueba_codigo: "2.2", orden: 2 }]);
+    expect(fijo).not.toContain("tentativas");
+  });
+
+  it("portátil sin secciones creadas: el CAE sale 'No aplica' con el motivo del portátil", async () => {
+    const text = await pdfConInstalacion("portatil");
+    // "Dado que el sistema evaluado NO cuenta…" solo existe en la variante portátil.
+    expect(text).toContain("Dado que");
+  });
+
+  it("portátil con el CAE reactivado por el ingeniero: la 2.17 sale con formato completo", async () => {
+    const text = await pdfConInstalacion("portatil", [
+      { prueba_codigo: "2.17", orden: 17, incluida: true },
+    ]);
+    expect(text).not.toContain("Dado que");
+  });
+});

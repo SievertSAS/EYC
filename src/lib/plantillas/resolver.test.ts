@@ -152,3 +152,105 @@ describe("obtenerPlantillaVigente (Dexie)", () => {
     expect(p.version).toBe(2);
   });
 });
+
+// ============================================================
+//  #187 — Variante PORTÁTIL de la plantilla del convencional. El portátil
+//  no es otro tipo de equipo: usa el mismo paquete y la misma plantilla;
+//  solo cambian algunos textos. La variante se combina campo a campo sobre
+//  la plantilla del fijo (un campo vacío de la variante cae al del fijo).
+// ============================================================
+
+describe("resolverPlantilla — variante portátil (#187)", () => {
+  const P1_PORTATIL =
+    "El presente informe técnico documenta los resultados del control de calidad realizado al equipo portátil de rayos X";
+
+  it("fijo (o sin tipo de instalación) → textos del fijo, sin la variante", () => {
+    for (const p of [
+      resolverPlantilla("CONVENCIONAL"),
+      resolverPlantilla("CONVENCIONAL", null, "fijo"),
+    ]) {
+      expect(p.tipoInstalacion).toBe("fijo");
+      expect(parrafosIntroduccion(p)[0]).toMatch(/^El presente informe técnico documenta/);
+      expect(parrafosIntroduccion(p)[0]).not.toContain("portátil");
+      expect(textosDePrueba(p, "2.5").metodologia).toContain("sobre la mesa");
+    }
+  });
+
+  it("portátil v0 → introducción y textos portátiles del código sobre el fijo", () => {
+    const p = resolverPlantilla("CONVENCIONAL", null, "portatil");
+    expect(p.tipoInstalacion).toBe("portatil");
+    const parrafos = parrafosIntroduccion(p);
+    expect(parrafos[0].startsWith(P1_PORTATIL)).toBe(true);
+    expect(
+      parrafos.some((x) => x.includes("particularidades de operación del sistema portátil"))
+    ).toBe(true);
+    expect(parrafos).toHaveLength(5);
+    expect(textosDePrueba(p, "2.5").metodologia).not.toContain("sobre la mesa");
+    expect(textosDePrueba(p, "2.7").metodologia).not.toContain("sobre la mesa");
+    for (const codigo of ["2.17", "2.18", "2.19", "2.20"]) {
+      expect(textosDePrueba(p, codigo).metodologiaNoAplica).toBe(
+        "NO APLICA. Dado que el sistema evaluado NO cuenta con control automático de exposición."
+      );
+    }
+    expect(textosDePrueba(p, "2.21").metodologia).toContain("igual a 1");
+    // Lo que la variante no toca sale igual que en el fijo.
+    expect(textosDePrueba(p, "2.3")).toEqual(
+      textosDePrueba(resolverPlantilla("CONVENCIONAL"), "2.3")
+    );
+    expect(textosDePrueba(p, "2.5").criterio).toBe(
+      CATALOGO_SECCIONES.find((c) => c.codigo === "2.5")!.criterio
+    );
+  });
+
+  it("portátil con versión publicada → su variante sobre su texto fijo; vacío cae al fijo", () => {
+    const fila = publicada({
+      contenido: {
+        introduccion: "INTRO-FIJO",
+        pruebas: { "2.5": { metodologia: "MET-FIJO", criterio: "CRIT-FIJO" } },
+        variantes: {
+          portatil: {
+            introduccion: "  ",
+            pruebas: { "2.5": { metodologia: "MET-PORTATIL", criterio: "" } },
+          },
+        },
+      },
+    });
+    const fijo = resolverPlantilla("CONVENCIONAL", fila, "fijo");
+    expect(textosDePrueba(fijo, "2.5").metodologia).toBe("MET-FIJO");
+
+    const port = resolverPlantilla("CONVENCIONAL", fila, "portatil");
+    expect(textosDePrueba(port, "2.5").metodologia).toBe("MET-PORTATIL");
+    expect(textosDePrueba(port, "2.5").criterio).toBe("CRIT-FIJO");
+    expect(port.introduccion).toBe("INTRO-FIJO");
+    // La variante publicada reemplaza a la v0: la 2.7 ya no trae el texto portátil del código.
+    expect(textosDePrueba(port, "2.7").metodologia).toContain("sobre la mesa");
+  });
+
+  it("versión publicada sin variante (anterior a #187) → la variante del código sobre ella", () => {
+    const fila = publicada({ contenido: { pruebas: { "2.3": { objetivo: "OBJ-PUB" } } } });
+    const port = resolverPlantilla("CONVENCIONAL", fila, "portatil");
+    expect(textosDePrueba(port, "2.3").objetivo).toBe("OBJ-PUB");
+    expect(textosDePrueba(port, "2.5").metodologia).not.toContain("sobre la mesa");
+    expect(parrafosIntroduccion(port)[0].startsWith(P1_PORTATIL)).toBe(true);
+  });
+
+  it("tipos sin variante ignoran el tipo de instalación", () => {
+    const p = resolverPlantilla("PANORAMICO", null, "portatil");
+    expect(p.introduccion).toBe(resolverPlantilla("PANORAMICO").introduccion);
+  });
+
+  it("contenidoDe incluye la variante portátil efectiva (para el editor)", () => {
+    const c = contenidoDe(resolverPlantilla("CONVENCIONAL"));
+    expect(c.variantes?.portatil?.introduccion).toContain("equipo portátil de rayos X");
+    expect(c.variantes?.portatil?.pruebas?.["2.5"]?.metodologia).not.toContain("sobre la mesa");
+    // Solo los campos que cambian en el portátil.
+    expect(c.variantes?.portatil?.pruebas?.["2.3"]).toBeUndefined();
+    expect(contenidoDe(resolverPlantilla("PANORAMICO")).variantes).toBeUndefined();
+  });
+
+  it("obtenerPlantillaVigente recibe el tipo de instalación", async () => {
+    await resetTestDb();
+    const p = await obtenerPlantillaVigente("CONVENCIONAL", "portatil");
+    expect(parrafosIntroduccion(p)[0].startsWith(P1_PORTATIL)).toBe(true);
+  });
+});

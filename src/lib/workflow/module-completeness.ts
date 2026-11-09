@@ -2,7 +2,8 @@ import { db } from "@/lib/db";
 import { getPackage, getDefaultModules } from "@/lib/equipos/registry";
 import type { ModuloVisita } from "@/lib/equipos/types";
 import { getEstadoPruebasPorGrupo } from "@/lib/equipos/convencional/evaluacion";
-import type { Cliente, UbicacionRx, Equipo, Tubo } from "@/lib/db/types";
+import type { Cliente, UbicacionRx, Equipo, Tubo, CategoriaUbicacion } from "@/lib/db/types";
+import { aplicaCategoriaUbicacion } from "@/lib/ubicaciones/flotantes";
 
 // ============================================================
 //  Motor de completitud de módulos de visita
@@ -80,6 +81,8 @@ async function getModulosForVisita(visitaId: string): Promise<ModuloVisita[]> {
 
 interface InfoCtx {
   fecha_visita?: string | null;
+  categoria_ubicacion?: CategoriaUbicacion | null;
+  ubicaciones_flotantes?: string[] | null;
   cliente?: Cliente;
   ubicacion?: UbicacionRx;
   equipo?: Equipo;
@@ -100,6 +103,8 @@ const INFO_CAMPOS: {
   label: string;
   seccion: string;
   get: (c: InfoCtx) => unknown;
+  /** Si existe y da `false`, el campo no aplica a esta visita (ni suma ni falta). */
+  aplica?: (c: InfoCtx) => boolean;
 }[] = [
   {
     campo: "fecha_visita",
@@ -221,13 +226,35 @@ const INFO_CAMPOS: {
     seccion: "Especificaciones del Tubo",
     get: (c) => c.tubo?.ma_max,
   },
+  // #188: el portátil se evalúa en una sala fija o en áreas flotantes.
+  {
+    campo: "visita.categoria_ubicacion",
+    label: "Categoría de ubicación (fija / flotante)",
+    seccion: "Sala — Dimensiones y Blindaje",
+    get: (c) => c.categoria_ubicacion,
+    aplica: (c) => aplicaCategoriaUbicacion(c.equipo),
+  },
+  {
+    campo: "visita.ubicaciones_flotantes",
+    label: "Áreas evaluadas (ubicaciones flotantes)",
+    seccion: "Sala — Dimensiones y Blindaje",
+    get: (c) => (c.ubicaciones_flotantes?.length ? c.ubicaciones_flotantes : undefined),
+    aplica: (c) => aplicaCategoriaUbicacion(c.equipo) && c.categoria_ubicacion === "flotante",
+  },
 ];
+
+/** Campos de Info que aplican a la visita (los del portátil solo al portátil). */
+function camposAplicables(ctx: InfoCtx) {
+  return INFO_CAMPOS.filter((k) => k.aplica?.(ctx) ?? true);
+}
 
 async function loadInfoCtx(visita: {
   equipo_id?: string | null;
   ubicacion_id?: string | null;
   solicitud_id: string;
   fecha_visita?: string | null;
+  categoria_ubicacion?: CategoriaUbicacion | null;
+  ubicaciones_flotantes?: string[] | null;
 }): Promise<InfoCtx> {
   const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
   const ubicacion = visita.ubicacion_id
@@ -238,7 +265,15 @@ async function loadInfoCtx(visita: {
   const tubo = equipo?.id
     ? (await db.tubos.where("equipo_id").equals(equipo.id).toArray()).find((t) => !t.deleted_at)
     : undefined;
-  return { fecha_visita: visita.fecha_visita, cliente, ubicacion, equipo, tubo };
+  return {
+    fecha_visita: visita.fecha_visita,
+    categoria_ubicacion: visita.categoria_ubicacion,
+    ubicaciones_flotantes: visita.ubicaciones_flotantes,
+    cliente,
+    ubicacion,
+    equipo,
+    tubo,
+  };
 }
 
 async function getInfoPercentage(visita: {
@@ -246,9 +281,11 @@ async function getInfoPercentage(visita: {
   ubicacion_id?: string | null;
   solicitud_id: string;
   fecha_visita?: string | null;
+  categoria_ubicacion?: CategoriaUbicacion | null;
+  ubicaciones_flotantes?: string[] | null;
 }): Promise<number> {
   const ctx = await loadInfoCtx(visita);
-  return pct(INFO_CAMPOS.map((k) => k.get(ctx)));
+  return pct(camposAplicables(ctx).map((k) => k.get(ctx)));
 }
 
 /**
@@ -261,14 +298,18 @@ export async function getCamposFaltantesInfo(visita: {
   ubicacion_id?: string | null;
   solicitud_id: string;
   fecha_visita?: string | null;
+  categoria_ubicacion?: CategoriaUbicacion | null;
+  ubicaciones_flotantes?: string[] | null;
 }): Promise<CampoFaltante[]> {
   const ctx = await loadInfoCtx(visita);
-  return INFO_CAMPOS.filter((k) => !notEmpty(k.get(ctx))).map((k) => ({
-    campo: k.campo,
-    label: k.label,
-    modulo: "info",
-    seccion: k.seccion,
-  }));
+  return camposAplicables(ctx)
+    .filter((k) => !notEmpty(k.get(ctx)))
+    .map((k) => ({
+      campo: k.campo,
+      label: k.label,
+      modulo: "info",
+      seccion: k.seccion,
+    }));
 }
 
 // ─── Convencional — completitud por grupo basada en pruebas resueltas ───

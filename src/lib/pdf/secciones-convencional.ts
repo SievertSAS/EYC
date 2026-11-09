@@ -48,6 +48,7 @@ import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
 import { promedio, desviacion } from "@/lib/equipos/convencional/estadistica";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import { reducirParaPdf } from "@/lib/pdf/imagen-pdf";
+import { areasFlotantesDeVisita, textoAreasFlotantes } from "@/lib/ubicaciones/flotantes";
 import {
   COLOR_GRAY,
   COLOR_BLACK,
@@ -1252,6 +1253,7 @@ function render22(
   ctx: InformeCtx,
   conv: DatosConvencional,
   ubicacion: UbicacionRx | undefined,
+  visita: VisitaEjecucion,
   textos?: TextosRender
 ): number {
   const { doc, autoTable } = ctx;
@@ -1261,9 +1263,23 @@ function render22(
   // la plantilla (el portátil tiene el suyo, #187).
   ctx.addSubsectionTitle(`${cod}.4.`, "Descripción de la instalación y blindajes");
   ctx.addParagraph(textos?.descripcionInstalacion?.trim() || DESCRIPCION_INSTALACION_22);
-  const textoUbicacion = textoUbicacionFisica(ubicacion?.ubicacion_fisica);
-  if (textoUbicacion) ctx.addParagraph(textoUbicacion);
+  // #188: portátil en áreas flotantes → la lista de áreas elegidas del
+  // catálogo reemplaza al párrafo libre de ubicación física. Sala fija (y el
+  // fijo) → el párrafo del ingeniero, como siempre.
+  const areasFlotantes = areasFlotantesDeVisita(visita, {
+    tipo_equipo: "CONVENCIONAL",
+    tipo_instalacion: conv.tipo_instalacion,
+  });
+  if (areasFlotantes) {
+    if (areasFlotantes.length > 0) ctx.addParagraph(textoAreasFlotantes(areasFlotantes));
+  } else {
+    const textoUbicacion = textoUbicacionFisica(ubicacion?.ubicacion_fisica);
+    if (textoUbicacion) ctx.addParagraph(textoUbicacion);
+  }
 
+  // PENDIENTE DEL FÍSICO (#188): si para ubicaciones flotantes se omite la
+  // tabla de zonas A–D (y las dimensiones de la sala). Por ahora se conserva
+  // el comportamiento del fijo: se imprime si la ubicación tiene datos.
   // Zonas colindantes en tabla (en vez de párrafos sueltos)
   const zonas = (
     [
@@ -3386,7 +3402,7 @@ export function renderResultadosSeccion(
     case "2.1":
       return render21(ctx, visita, conv);
     case "2.2":
-      return render22(ctx, conv, ubicacion, textos);
+      return render22(ctx, conv, ubicacion, visita, textos);
     case "2.3":
       return render23(ctx, conv);
     case "2.4":

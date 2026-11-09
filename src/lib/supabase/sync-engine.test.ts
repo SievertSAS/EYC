@@ -901,3 +901,56 @@ describe("sync-engine — pullAllPending", () => {
     await expect(db.visitas.get("visita-sin-sesion")).resolves.toBeUndefined();
   });
 });
+
+// ============================================================
+//  #188 — catálogo de ubicaciones flotantes: "Otro" offline sube después
+// ============================================================
+
+describe("sync-engine — catálogo de ubicaciones flotantes (#188)", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+    fakeClient = createFakeSupabaseClient() as FakeSupabaseClient;
+  });
+
+  it("una entrada creada sin conexión se sube en el próximo push, sin campos locales", async () => {
+    await db.catalogo_ubicaciones_flotantes.add({
+      id: "cat-1",
+      nombre: "Sala de partos",
+      activo: true,
+      creado_por: "usr-1",
+      creado_en: "2026-01-01T00:00:00.000Z",
+      sync_status: "pending",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+
+    await pushAllPending();
+
+    const remote = fakeClient.getServerRow("catalogo_ubicaciones_flotantes", "cat-1");
+    expect(remote).toMatchObject({
+      id: "cat-1",
+      nombre: "Sala de partos",
+      activo: true,
+      creado_por: "usr-1",
+    });
+    expect(remote).not.toHaveProperty("sync_status");
+    expect((await db.catalogo_ubicaciones_flotantes.get("cat-1"))?.sync_status).toBe("synced");
+  });
+
+  it("la visita sube categoría y áreas flotantes", async () => {
+    await db.visitas.add({
+      id: "vis-188",
+      solicitud_id: "sol-1",
+      estado_visita: "en_progreso",
+      categoria_ubicacion: "flotante",
+      ubicaciones_flotantes: ["UCI adultos", "Reanimación"],
+      sync_status: "pending",
+      last_modified: "2026-01-01T00:00:00.000Z",
+    });
+
+    await pushAllPending();
+
+    const remote = fakeClient.getServerRow("visitas", "vis-188");
+    expect(remote?.categoria_ubicacion).toBe("flotante");
+    expect(remote?.ubicaciones_flotantes).toEqual(["UCI adultos", "Reanimación"]);
+  });
+});

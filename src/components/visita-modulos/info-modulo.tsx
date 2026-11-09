@@ -8,6 +8,8 @@ import { db, noBorrado } from "@/lib/db";
 import { SISTEMAS_ADQUISICION, esPortatil } from "@/lib/db/types";
 import type { EquipoIdentificacion, Sede, TipoInstalacion } from "@/lib/db/types";
 import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
+import { UbicacionPortatil } from "@/components/visita-modulos/ubicacion-portatil";
+import { aplicaCategoriaUbicacion } from "@/lib/ubicaciones/flotantes";
 import { matchIdPorNombre } from "@/lib/divipola";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
 import { ImagenConTitulo } from "@/components/imagen-con-titulo";
@@ -971,7 +973,16 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     sede?.departamento,
   ]);
 
-  const progSala = computeProgress([ubicacion?.ancho_m, ubicacion?.largo_m, ubicacion?.alto_m]);
+  // #188: el CONVENCIONAL portátil elige categoría de ubicación (fija / flotante).
+  const conCategoriaUbicacion = aplicaCategoriaUbicacion(equipo);
+  const flotante = conCategoriaUbicacion && visita.categoria_ubicacion === "flotante";
+  const progSala = computeProgress([
+    ubicacion?.ancho_m,
+    ubicacion?.largo_m,
+    ubicacion?.alto_m,
+    ...(conCategoriaUbicacion ? [visita.categoria_ubicacion] : []),
+    ...(flotante ? [visita.ubicaciones_flotantes?.length ? 1 : undefined] : []),
+  ]);
 
   const allValues = [
     progInfoGeneral,
@@ -1598,11 +1609,24 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           subtitle="Características del recinto"
           progress={progSala}
         >
-          <EditableField
-            label="Ubicación física del equipo"
-            value={toStr(ubicacion.ubicacion_fisica)}
-            onSave={(v) => saveUbicacion("ubicacion_fisica", v)}
-          />
+          {conCategoriaUbicacion && (
+            <UbicacionPortatil
+              visitaId={visitaId}
+              categoria={visita.categoria_ubicacion}
+              areas={visita.ubicaciones_flotantes ?? []}
+              usuarioId={role?.usuarioId}
+            />
+          )}
+          {/* Flotante: el informe lista las áreas elegidas en vez de este párrafo
+              libre (#188). Dimensiones y zonas A–D se mantienen: si se omiten
+              para flotante está pendiente de definición del físico. */}
+          {!flotante && (
+            <EditableField
+              label="Ubicación física del equipo"
+              value={toStr(ubicacion.ubicacion_fisica)}
+              onSave={(v) => saveUbicacion("ubicacion_fisica", v)}
+            />
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <EditableField
               label="Ancho (m)"

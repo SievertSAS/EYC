@@ -34,6 +34,7 @@ import type {
   ChangeLog,
   SyncMeta,
   SyncRetry,
+  UbicacionFlotanteCatalogo,
 } from "./types";
 import type {
   ConvLevantamientoSetup,
@@ -198,6 +199,7 @@ class EyCDatabase extends Dexie {
   conv_evidencias!: EntityTable<ConvEvidencia, "id">;
   configuracion_informe!: EntityTable<ConfiguracionInforme, "id">;
   plantillas_informe!: EntityTable<PlantillaInforme, "id">;
+  catalogo_ubicaciones_flotantes!: EntityTable<UbicacionFlotanteCatalogo, "id">;
 
   constructor() {
     super("SievertEyC");
@@ -540,6 +542,16 @@ class EyCDatabase extends Dexie {
     // ─────────────────────────────────────────────────────────────
     this.version(24).stores({
       plantillas_informe: "id, tipo_equipo, estado, [tipo_equipo+estado]",
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v25 — catálogo de ubicaciones flotantes del portátil (#188). Tabla
+    //  de sync bidireccional: el técnico agrega entradas con "Otro" también
+    //  sin conexión. Las columnas nuevas de `visitas` (categoria_ubicacion,
+    //  ubicaciones_flotantes) no son índices, no requieren cambio de esquema.
+    // ─────────────────────────────────────────────────────────────
+    this.version(25).stores({
+      catalogo_ubicaciones_flotantes: "id, nombre, sync_status",
     });
   }
 }

@@ -178,3 +178,66 @@ describe("module-completeness — #65 getCamposFaltantesInfo", () => {
     expect(await getCamposFaltantesInfo(v!)).toEqual([]);
   });
 });
+
+describe("module-completeness — #188 ubicaciones del portátil", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  async function camposDe(
+    tipoInstalacion: "fijo" | "portatil",
+    visitaPatch: Record<string, unknown> = {}
+  ): Promise<string[]> {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipos.update(equipo.id!, { tipo_instalacion: tipoInstalacion });
+    await db.visitas.update(visita!.id!, visitaPatch);
+    const v = await db.visitas.get(visita!.id!);
+    return (await getCamposFaltantesInfo(v!)).map((f) => f.campo);
+  }
+
+  it("portátil sin categoría → falta la categoría de ubicación", async () => {
+    const campos = await camposDe("portatil");
+    expect(campos).toContain("visita.categoria_ubicacion");
+    expect(campos).not.toContain("visita.ubicaciones_flotantes");
+  });
+
+  it("portátil flotante sin áreas → faltan las áreas flotantes", async () => {
+    for (const ubicaciones_flotantes of [undefined, []]) {
+      await resetTestDb();
+      const campos = await camposDe("portatil", {
+        categoria_ubicacion: "flotante",
+        ubicaciones_flotantes,
+      });
+      expect(campos).toContain("visita.ubicaciones_flotantes");
+      expect(campos).not.toContain("visita.categoria_ubicacion");
+    }
+  });
+
+  it("portátil flotante con áreas, o en sala fija → nada que reportar de ubicación", async () => {
+    const flot = await camposDe("portatil", {
+      categoria_ubicacion: "flotante",
+      ubicaciones_flotantes: ["UCI adultos"],
+    });
+    expect(flot.filter((c) => c.startsWith("visita.") && c !== "visita.fecha_visita")).toEqual([]);
+    await resetTestDb();
+    const fija = await camposDe("portatil", { categoria_ubicacion: "fija" });
+    expect(fija).not.toContain("visita.categoria_ubicacion");
+    expect(fija).not.toContain("visita.ubicaciones_flotantes");
+  });
+
+  it("equipo fijo: no se le pide categoría (sin cambios)", async () => {
+    const campos = await camposDe("fijo");
+    expect(campos).not.toContain("visita.categoria_ubicacion");
+    expect(campos).not.toContain("visita.ubicaciones_flotantes");
+  });
+
+  it("la categoría faltante baja el % del módulo Info del portátil", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const antes = (await getModuleStatuses(visita!.id!)).info.percentage;
+    await db.equipos.update(equipo.id!, { tipo_instalacion: "portatil" });
+    const despues = (await getModuleStatuses(visita!.id!)).info.percentage;
+    expect(despues).toBeLessThan(antes);
+    await db.visitas.update(visita!.id!, { categoria_ubicacion: "fija" });
+    expect((await getModuleStatuses(visita!.id!)).info.percentage).toBeGreaterThan(despues);
+  });
+});

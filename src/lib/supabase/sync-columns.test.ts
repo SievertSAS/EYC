@@ -67,6 +67,7 @@ const SEEDED = [
   "visitas",
   "informes",
   "informe_versiones",
+  "catalogo_ubicaciones_flotantes",
 ] as const;
 
 describe("sync — parseo de columnas Supabase (sanity)", () => {
@@ -118,6 +119,21 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
       last_modified: "2026-01-01",
     });
 
+    // #188: columnas nuevas de la visita (portátil) y el catálogo de flotantes.
+    await db.visitas.update(g.visita!.id!, {
+      categoria_ubicacion: "flotante",
+      ubicaciones_flotantes: ["UCI adultos"],
+    });
+    await db.catalogo_ubicaciones_flotantes.add({
+      id: "cat-guard",
+      nombre: "UCI adultos",
+      activo: true,
+      creado_por: "usr-guard",
+      creado_en: "2026-01-01",
+      sync_status: "pending",
+      last_modified: "2026-01-01",
+    });
+
     const asRow = (o: unknown) => o as Record<string, unknown> | undefined;
     const rows: Record<string, Record<string, unknown> | undefined> = {
       clientes: asRow(g.cliente),
@@ -126,12 +142,15 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
       equipos: asRow(g.equipo),
       tubos: asRow(g.tubo),
       solicitudes: asRow(g.solicitud),
-      visitas: asRow(g.visita),
+      visitas: asRow(await db.visitas.get(g.visita!.id!)),
       contactos: asRow(
         (await db.contactos.where("cliente_id").equals(g.cliente.id!).first()) ?? undefined
       ),
       informes: asRow(await db.informes.get("inf-guard")),
       informe_versiones: asRow(await db.informe_versiones.get("inf-v-guard")),
+      catalogo_ubicaciones_flotantes: asRow(
+        await db.catalogo_ubicaciones_flotantes.get("cat-guard")
+      ),
     };
 
     const problemas: string[] = [];
@@ -141,7 +160,10 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
       const row = rows[local];
       if (!row) continue;
       const remota = supaCols.get(local);
-      if (!remota) continue;
+      if (!remota) {
+        problemas.push(`${local} — está en SYNC_TABLES pero no en types.ts de Supabase`);
+        continue;
+      }
 
       const enviadas = Object.keys(prepareForRemote(row, local));
       for (const col of enviadas) {
@@ -155,6 +177,29 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
     }
 
     expect(problemas, problemas.join("\n")).toEqual([]);
+  });
+
+  it("#188: el catálogo de flotantes es tabla de sync (push) y la visita sube categoría y áreas", async () => {
+    expect(SYNC_TABLES.map((t) => t.local)).toContain("catalogo_ubicaciones_flotantes");
+    const data = prepareForRemote(
+      {
+        id: "v1",
+        solicitud_id: "s1",
+        categoria_ubicacion: "fija",
+        ubicaciones_flotantes: null,
+        sync_status: "pending",
+        last_modified: "2026-01-01",
+      },
+      "visitas"
+    );
+    // null viaja en el JSON: pasar a "fija" limpia las áreas en el servidor.
+    expect(JSON.stringify(data)).toContain('"ubicaciones_flotantes":null');
+    expect(data).not.toHaveProperty("sync_status");
+    const cat = prepareForRemote(
+      { id: "c1", nombre: "UCI", activo: true, creado_por: "u1", sync_status: "pending" },
+      "catalogo_ubicaciones_flotantes"
+    );
+    expect(cat).toEqual({ id: "c1", nombre: "UCI", activo: true, creado_por: "u1" });
   });
 
   it("LOCAL_ONLY_FIELDS y EXTRA_LOCAL_FIELDS siguen exportados (no romper el guard)", () => {

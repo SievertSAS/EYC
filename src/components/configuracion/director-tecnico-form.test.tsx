@@ -76,4 +76,48 @@ describe("DirectorTecnicoForm", () => {
       expect((await db.configuracion_informe.get("global"))?.director_nombre).toBe("Nuevo Director")
     );
   });
+
+  it("precarga la cédula y la envía al guardar", async () => {
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "Directora",
+      director_cedula: "11111111",
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ configuracion: { id: "global", director_cedula: "22222222" } }),
+    });
+    render(<DirectorTecnicoForm />);
+    const cedula = (await screen.findByLabelText(/Cédula/i)) as HTMLInputElement;
+    await waitFor(() => expect(cedula.value).toBe("11111111"));
+    fireEvent.change(cedula, { target: { value: "22222222" } });
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toMatchObject({ director_cedula: "22222222" });
+  });
+
+  it("precarga la licencia y la envía al guardar", async () => {
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "Directora",
+      director_licencia: "Licencia N.º 0001",
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        configuracion: { id: "global", director_licencia: "Licencia N.º 0002" },
+      }),
+    });
+    render(<DirectorTecnicoForm />);
+    const licencia = (await screen.findByLabelText(/Licencia/i)) as HTMLInputElement;
+    await waitFor(() => expect(licencia.value).toBe("Licencia N.º 0001"));
+    fireEvent.change(licencia, { target: { value: "Licencia N.º 0002" } });
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toMatchObject({ director_licencia: "Licencia N.º 0002" });
+  });
 });

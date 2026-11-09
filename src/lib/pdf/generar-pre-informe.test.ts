@@ -491,6 +491,39 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("Fisica Medica Licencia 1234");
   });
 
+  it("firma del director: nombre, cédula, cargo y por último la licencia", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "NOMBRE-DIRECTOR",
+      director_cedula: "987654321",
+      director_titulo: "CARGO-DIRECTOR",
+      director_licencia: "LICENCIA-DIRECTOR-0001",
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    const iNombre = text.indexOf("NOMBRE-DIRECTOR");
+    const iCedula = text.indexOf("C.C. 987654321");
+    const iCargo = text.indexOf("CARGO-DIRECTOR");
+    const iLicencia = text.indexOf("LICENCIA-DIRECTOR-0001");
+    expect(iNombre).toBeGreaterThan(-1);
+    expect(iCedula).toBeGreaterThan(iNombre);
+    expect(iCargo).toBeGreaterThan(iCedula);
+    expect(iLicencia).toBeGreaterThan(iCargo);
+  });
+
+  it("firma del director: sin licencia configurada no imprime un renglón vacío ni rompe el PDF", async () => {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.configuracion_informe.put({
+      id: "global",
+      director_nombre: "DIRECTOR-SIN-LICENCIA",
+      director_titulo: "CARGO-SIN-LICENCIA",
+    });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("CARGO-SIN-LICENCIA");
+  });
+
   it("#195: sin título configurado → cae a 'Director Técnico' bajo el nombre", async () => {
     const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.configuracion_informe.put({ id: "global", director_nombre: "DIRECTOR-SIN-TITULO" });

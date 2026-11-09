@@ -2122,10 +2122,11 @@ export async function generarPreInforme(
   //  FIRMAS
   // ═══════════════════════════════════════════════════════════
   // Bloque completo de firmas: título 1 + tres responsables (102 mm entre la
-  // primera y la última línea base) — se reserva entero para que no se parta
-  // ni se salga por el pie.
+  // primera y la última línea base, + 8 mm de los renglones de cédula y
+  // licencia del director) — se reserva entero para que no se parta ni se
+  // salga por el pie.
   const ALTO_FIRMAS =
-    SPACE.h1.before + baseDesdeTope(FONT.h1) + TITLE_RULE_GAP + SPACE.h1.after + 3 + 102 + 2;
+    SPACE.h1.before + baseDesdeTope(FONT.h1) + TITLE_RULE_GAP + SPACE.h1.after + 3 + 110 + 2;
   checkPage(ALTO_FIRMAS);
   y = addSectionTitle(doc, "5. FIRMAS", y);
   registrarToc("5. FIRMAS");
@@ -2155,6 +2156,12 @@ export async function generarPreInforme(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLOR_GRAY);
+  // Orden del bloque: firma, nombre, cédula, cargo y licencia.
+  const directorCedula = datos.configuracionInforme?.director_cedula?.trim();
+  if (directorNombre && directorCedula) {
+    doc.text(`C.C. ${directorCedula}`, MARGIN_LEFT, y);
+    y += 4;
+  }
   doc.text(
     directorNombre
       ? datos.configuracionInforme?.director_titulo?.trim() || "Director Técnico"
@@ -2162,6 +2169,12 @@ export async function generarPreInforme(
     MARGIN_LEFT,
     y
   );
+  // Licencia, último renglón del bloque.
+  const directorLicencia = datos.configuracionInforme?.director_licencia?.trim();
+  if (directorNombre && directorLicencia) {
+    y += 4;
+    doc.text(directorLicencia, MARGIN_LEFT, y);
+  }
 
   // Responsable de visita — contacto del cliente (no el técnico de Sievert que ejecuta la visita)
   y += 15;

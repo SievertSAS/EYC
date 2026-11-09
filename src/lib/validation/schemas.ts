@@ -78,6 +78,8 @@ export const patchConfiguracionInformeSchema = z
   .object({
     director_nombre: textoOpcionalNulo(150).optional(),
     director_titulo: textoOpcionalNulo(150).optional(),
+    director_cedula: textoOpcionalNulo(30).optional(),
+    director_licencia: textoOpcionalNulo(150).optional(),
     director_firma_url: z.null().optional(),
   })
   .strict();

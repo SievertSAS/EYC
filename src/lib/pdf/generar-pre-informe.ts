@@ -30,6 +30,7 @@ import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import { reducirParaPdf } from "@/lib/pdf/imagen-pdf";
+import { areasFlotantesDeVisita, textoAreaServicio } from "@/lib/ubicaciones/flotantes";
 import {
   COLOR_PRIMARY,
   COLOR_HEADER_BG,
@@ -902,7 +903,14 @@ export async function generarPreInforme(
     ["Razón social:", datos.cliente?.nombre_cliente ?? "No reporta"],
     ["NIT:", `${datos.cliente?.nit ?? "No reporta"}-${datos.cliente?.digito_verificacion ?? ""}`],
     ["Sede:", datos.sede?.nombre_sede ?? "No reporta"],
-    ["Área - servicio:", datos.ubicacion?.nombre_servicio ?? "No reporta"],
+    // #188: portátil en áreas flotantes → las áreas elegidas del catálogo.
+    [
+      "Área - servicio:",
+      textoAreaServicio(
+        datos.ubicacion?.nombre_servicio,
+        areasFlotantesDeVisita(datos.visita, datos.equipo)
+      ),
+    ],
     ["Dirección:", datos.sede?.direccion_sede ?? datos.cliente?.direccion ?? "No reporta"],
     [
       "Ciudad - Departamento:",

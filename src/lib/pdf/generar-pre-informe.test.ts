@@ -1456,6 +1456,60 @@ describe("#187 — equipo convencional portátil", () => {
     expect(fijo).not.toContain("tentativas");
   });
 
+  describe("#188 — ubicaciones fija / flotante", () => {
+    async function pdfUbicacion(
+      tipoInstalacion: "fijo" | "portatil",
+      visitaPatch: Record<string, unknown>
+    ): Promise<string> {
+      const { visita, equipo, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+      await db.equipos.update(equipo.id!, { tipo_instalacion: tipoInstalacion });
+      await db.ubicaciones_rx.update(ubicacion.id!, {
+        nombre_servicio: "Servicio Imagenes",
+        ubicacion_fisica: "Sala de rayos X del primer piso",
+      });
+      await db.visitas.update(visita!.id!, visitaPatch);
+      await db.conv_informe_secciones.add({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: "2.2",
+        orden: 2,
+        incluida: true,
+        sync_status: "synced",
+        last_modified: new Date().toISOString(),
+      } as ConvInformeSeccion);
+      return pdfText((await generarPreInforme(visita!.id!))!);
+    }
+
+    const flotante = {
+      categoria_ubicacion: "flotante",
+      ubicaciones_flotantes: ["UCI adultos", "Urgencias"],
+    };
+
+    it("flotante: la 2.2.4 lista las áreas elegidas en vez del párrafo de ubicación física", async () => {
+      const text = await pdfUbicacion("portatil", flotante);
+      expect(text).toContain("evaluadas \\(ubicaciones flotantes\\): UCI adultos, Urgencias.");
+      expect(text).not.toContain("Sala de rayos X del primer piso");
+    });
+
+    it("flotante: la portada lista las áreas en 'Área - servicio'", async () => {
+      const text = await pdfUbicacion("portatil", flotante);
+      expect(text).toContain("Ubicaciones flotantes: UCI adultos, Urgencias");
+    });
+
+    it("portátil en sala fija: igual que el convencional (párrafo de ubicación física)", async () => {
+      const text = await pdfUbicacion("portatil", { categoria_ubicacion: "fija" });
+      expect(text).toContain("Sala de rayos X del primer piso");
+      expect(text).not.toContain("flotantes");
+    });
+
+    it("equipo fijo con una categoría flotante vieja guardada: sin cambios", async () => {
+      const text = await pdfUbicacion("fijo", flotante);
+      expect(text).toContain("Sala de rayos X del primer piso");
+      expect(text).toContain("Servicio Imagenes");
+      expect(text).not.toContain("flotantes");
+    });
+  });
+
   it("portátil sin secciones creadas: el CAE sale 'No aplica' con el motivo del portátil", async () => {
     const text = await pdfConInstalacion("portatil");
     // "Dado que el sistema evaluado NO cuenta…" solo existe en la variante portátil.

@@ -33,6 +33,44 @@ export type Database = {
   };
   public: {
     Tables: {
+      catalogo_ubicaciones_flotantes: {
+        Row: {
+          activo: boolean;
+          creado_en: string;
+          creado_por: string | null;
+          deleted_at: string | null;
+          id: string;
+          last_modified: string;
+          nombre: string;
+        };
+        Insert: {
+          activo?: boolean;
+          creado_en?: string;
+          creado_por?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          last_modified?: string;
+          nombre: string;
+        };
+        Update: {
+          activo?: boolean;
+          creado_en?: string;
+          creado_por?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          last_modified?: string;
+          nombre?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalogo_ubicaciones_flotantes_creado_por_fkey";
+            columns: ["creado_por"];
+            isOneToOne: false;
+            referencedRelation: "usuarios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       change_logs: {
         Row: {
           campo: string;
@@ -2827,6 +2865,7 @@ export type Database = {
       };
       visitas: {
         Row: {
+          categoria_ubicacion: string | null;
           creado_en: string;
           devuelto_en: string | null;
           dias_laborados_semana: number | null;
@@ -2853,8 +2892,10 @@ export type Database = {
           tecnico_id: string | null;
           temperatura_c: number | null;
           ubicacion_id: string | null;
+          ubicaciones_flotantes: Json | null;
         };
         Insert: {
+          categoria_ubicacion?: string | null;
           creado_en?: string;
           devuelto_en?: string | null;
           dias_laborados_semana?: number | null;
@@ -2881,8 +2922,10 @@ export type Database = {
           tecnico_id?: string | null;
           temperatura_c?: number | null;
           ubicacion_id?: string | null;
+          ubicaciones_flotantes?: Json | null;
         };
         Update: {
+          categoria_ubicacion?: string | null;
           creado_en?: string;
           devuelto_en?: string | null;
           dias_laborados_semana?: number | null;
@@ -2909,6 +2952,7 @@ export type Database = {
           tecnico_id?: string | null;
           temperatura_c?: number | null;
           ubicacion_id?: string | null;
+          ubicaciones_flotantes?: Json | null;
         };
         Relationships: [
           {

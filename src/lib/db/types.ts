@@ -127,6 +127,18 @@ export function esPortatil(equipo: { tipo_instalacion?: TipoInstalacion } | unde
   return equipo?.tipo_instalacion === "portatil";
 }
 
+// ─── Categoría de ubicación del portátil (#188) ───
+// Un informe del portátil es UNA sala fija (con barreras, como el fijo) o un
+// grupo de áreas flotantes (control solo administrativo) elegidas de un
+// catálogo. Nunca se mezclan. Solo aplica al CONVENCIONAL portátil.
+export const CATEGORIAS_UBICACION = ["fija", "flotante"] as const;
+export type CategoriaUbicacion = (typeof CATEGORIAS_UBICACION)[number];
+
+export const CATEGORIA_UBICACION_LABELS: Record<CategoriaUbicacion, string> = {
+  fija: "Fija",
+  flotante: "Flotante",
+};
+
 // ─── Sistema de adquisición de imágenes ───
 // Opciones cerradas del informe FT-LEC-6c. Compartidas entre el diálogo de
 // creación de equipo y el módulo de Información General para que la captura
@@ -704,6 +716,31 @@ export interface VisitaEjecucion extends SyncFields {
   reprogramada_en?: string;
   reprogramada_por_id?: string;
   reprogramacion_motivo?: string;
+  /**
+   * #188 — solo CONVENCIONAL portátil: sala fija (usa `ubicacion_id`, como el
+   * fijo) o áreas flotantes. `null`/ausente = sin definir (falta en el
+   * pre-informe del portátil).
+   */
+  categoria_ubicacion?: CategoriaUbicacion | null;
+  /**
+   * #188 — nombres de las áreas flotantes elegidas del catálogo (instantánea:
+   * si el catálogo se renombra después, el informe conserva el nombre con el
+   * que se evaluó). Solo con `categoria_ubicacion = "flotante"`.
+   */
+  ubicaciones_flotantes?: string[] | null;
+  creado_en?: string;
+}
+
+/**
+ * Catálogo compartido de ubicaciones flotantes del portátil (#188). El
+ * técnico agrega entradas con "Otro" (también sin conexión); renombrar o
+ * desactivar es del coordinador.
+ */
+export interface UbicacionFlotanteCatalogo extends SyncFields {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  creado_por?: string | null;
   creado_en?: string;
 }
 

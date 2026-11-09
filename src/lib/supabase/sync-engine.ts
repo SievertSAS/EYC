@@ -81,6 +81,7 @@ const TABLE_LABELS: Record<string, string> = {
   rol_permisos: "Permisos",
   configuracion_informe: "Configuración del informe",
   plantillas_informe: "Plantillas de informe",
+  catalogo_ubicaciones_flotantes: "Ubicaciones flotantes",
   conv_levantamiento_setup: "Setup levantamiento",
   conv_mediciones: "Mediciones radiométricas Conv.",
   conv_inspeccion_items: "Inspección visual",
@@ -242,6 +243,9 @@ export const SYNC_TABLES = [
   { local: "gantry", remote: "gantry" },
   { local: "equipo_identificaciones", remote: "equipo_identificaciones" },
   { local: "solicitudes", remote: "solicitudes" },
+  // #188: catálogo de ubicaciones flotantes del portátil. Sync (no maestra):
+  // el técnico agrega entradas con "Otro" también sin conexión.
+  { local: "catalogo_ubicaciones_flotantes", remote: "catalogo_ubicaciones_flotantes" },
   // ─── Datos de campo ───
   { local: "visitas", remote: "visitas" },
   // Orden importa: informe_versiones.informe_id referencia informes.id (FK).

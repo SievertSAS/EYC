@@ -67,6 +67,7 @@ import {
   type PlantillaResuelta,
 } from "@/lib/plantillas/resolver";
 import {
+  calcularResultado24,
   evaluarConceptoPrueba,
   tieneCriterio,
   motivoNoAplicaAutomatico,
@@ -88,6 +89,7 @@ import {
   renderTablaBaseRef216,
   renderTablaBaseRef221,
   adaptarMetodologia,
+  parrafosConcepto24,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -1402,6 +1404,8 @@ export async function generarPreInforme(
 
       let conceptoLabel: string;
       let conceptoParrafo: string | undefined;
+      // Pruebas cuyo Concepto lleva más de un párrafo (2.4, #190).
+      let conceptoParrafos: string[] | undefined;
       let esNoConforme = veredicto === "No_conforme";
       let accionesTexto = resolverAccionesTexto(
         seccion.acciones_correctivas,
@@ -1470,20 +1474,24 @@ export async function generarPreInforme(
           accionesTexto = resolverAccionesTexto(seccion.acciones_correctivas, cat.accionesConforme);
         }
       } else if (codigo === "2.4" && aplica) {
+        // #190: exactitud y repetibilidad en párrafos separados. Si la consola
+        // no muestra tiempo, la exactitud "no aplica" (con su motivo) y el
+        // veredicto lo decide solo la repetibilidad (ya en `veredicto`).
+        if (!esPendiente) {
+          conceptoParrafos = parrafosConcepto24(
+            calcularResultado24(conv.raysafeMediciones, conv.parametros_consola)
+          );
+        }
         if (esPendiente) {
           conceptoLabel = "PENDIENTE";
         } else if (esNoConforme) {
           conceptoLabel = "NO FAVORABLE";
-          conceptoParrafo =
-            "La prueba de exactitud y repetibilidad del tiempo de exposición se considera no conforme, ya que una o más combinaciones evaluadas presentaron desviaciones o variabilidad fuera de los criterios de aceptación establecidos.";
           accionesTexto = resolverAccionesTexto(
             seccion.acciones_correctivas,
             cat.accionesNoConforme
           );
         } else {
           conceptoLabel = "FAVORABLE";
-          conceptoParrafo =
-            "La prueba de exactitud y repetibilidad del tiempo de exposición se considera conforme, ya que las desviaciones y la variabilidad observadas se encuentran dentro de los criterios de aceptación establecidos.";
           accionesTexto = resolverAccionesTexto(seccion.acciones_correctivas, cat.accionesConforme);
         }
       } else if (codigo === "2.5" && aplica) {
@@ -1793,14 +1801,13 @@ export async function generarPreInforme(
               : "PENDIENTE";
       }
 
-      // Título + veredicto + párrafo, reservados como un solo bloque — la
-      // altura real (con o sin conceptoParrafo) recién se conoce acá.
-      const alturaConcepto = conceptoParrafo ? altoParrafo(conceptoParrafo) : 0;
+      // Título + veredicto + párrafos, reservados como un solo bloque — la
+      // altura real (con o sin párrafos) recién se conoce acá.
+      const parrafosConcepto = conceptoParrafos ?? (conceptoParrafo ? [conceptoParrafo] : []);
+      const alturaConcepto = parrafosConcepto.reduce((s, p) => s + altoParrafo(p), 0);
       addSubsectionTitle(numConcepto, "Concepto", ALTO_VEREDICTO + alturaConcepto);
       dibujarVeredicto(conceptoLabel);
-      if (conceptoParrafo) {
-        addParagraph(conceptoParrafo);
-      }
+      for (const parrafo of parrafosConcepto) addParagraph(parrafo);
       // `observaciones` es el texto editado del Análisis y ya se imprimió en
       // esa subsección (ver arriba) — reimprimirlo aquí lo duplicaría.
 

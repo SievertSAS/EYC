@@ -982,6 +982,67 @@ describe("Análisis editable en cualquier prueba (observaciones de la sección)"
   });
 });
 
+describe("#190 — 2.4 sin tiempo nominal: la exactitud no aplica y la repetibilidad decide", () => {
+  // Solo la 2.4 aplica: el concepto general depende únicamente de ella.
+  // Desviación ~47 % (exactitud fallaría) con CV ~5 % (repetibilidad conforme).
+  async function pdfCon24(parametros_consola: ("kv" | "ma" | "tiempo" | "mas")[] | null) {
+    const { visita, equipo } = await seedGraph({
+      tipoEquipo: "CONVENCIONAL",
+      estadoVisita: "en_progreso",
+    });
+    await db.equipos.update(equipo.id!, { parametros_consola });
+    await db.conv_raysafe_mediciones.bulkAdd(
+      [0.4, 0.42, 0.44].map((tiempo_medido_s, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        tipo_medicion: "principal" as const,
+        grupo_numero: 1,
+        toma_numero: i + 1,
+        tiempo_nominal_s: 0.8,
+        tiempo_medido_s,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    await db.conv_informe_secciones.bulkAdd(
+      Array.from({ length: 21 }, (_, i) => ({
+        id: randomUUID(),
+        visita_id: visita!.id!,
+        prueba_codigo: `2.${i + 1}`,
+        orden: i + 1,
+        incluida: i + 1 === 4,
+        sync_status: "synced" as const,
+        last_modified: new Date().toISOString(),
+      }))
+    );
+    return pdfText((await generarPreInforme(visita!.id!))!);
+  }
+
+  it("consola con tiempo: la desviación hace la prueba (y el concepto general) NO FAVORABLE", async () => {
+    const text = await pdfCon24(null);
+    expect(text).toContain("NO FAVORABLE");
+    expect(text).not.toContain("PENDIENTE");
+  });
+
+  it("consola sin tiempo: el 'No aplica' parcial no es no conforme ni pendiente → FAVORABLE", async () => {
+    const text = await pdfCon24(["kv", "mas"]);
+    expect(text).toContain("(FAVORABLE) Tj");
+    expect(text).not.toContain("NO FAVORABLE");
+    expect(text).not.toContain("PENDIENTE");
+  });
+
+  it("consola sin tiempo: el Concepto agrega el párrafo de exactitud no aplicable", async () => {
+    // El párrafo justificado no queda legible entero en el buffer: se compara
+    // cuántas veces aparece una palabra suya ("…se determina únicamente por la
+    // repetibilidad") con y sin tiempo en la consola.
+    const veces = (texto: string, marca: string) => texto.split(marca).length - 1;
+    const sinTiempo = await pdfCon24(["kv", "mas"]);
+    await resetTestDb();
+    const conTiempo = await pdfCon24(null);
+    expect(veces(sinTiempo, "determina")).toBeGreaterThan(veces(conTiempo, "determina"));
+  });
+});
+
 describe("Prueba 'No aplica': motivo en Metodología y resto compactado en dos columnas", () => {
   // Una sola sección en la visita, para que cada marcador venga de esa prueba.
   // Los párrafos de varias líneas se justifican palabra por palabra y no

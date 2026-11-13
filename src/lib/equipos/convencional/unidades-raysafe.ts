@@ -21,7 +21,8 @@ export type UnidadKerma = "ugy" | "mgy" | "cgy" | "dgy" | "gy";
 const FACTOR_DAP: Record<UnidadDap, number> = {
   mgy_cm2: 1,
   ugy_cm2: 1 / 1000,
-  dgy_cm2: 10,
+  // 1 dGy = 100 mGy (igual que FACTOR_KERMA.dgy)
+  dgy_cm2: 100,
   // 1 Gy·m² = 1000 mGy × 10 000 cm² = 10 000 000 mGy·cm²
   gy_m2: 1000 * 10_000,
 };

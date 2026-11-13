@@ -458,6 +458,29 @@ describe("calcularResultado221/28 — valores intermedios", () => {
     expect(r[0].dapNominal).toBeNull();
     expect(r[0].factorCorreccion).toBeNull();
   });
+
+  it("calcularResultado28 con DAP del panel en dGy·cm² → factor cercano a 1, no ×10", () => {
+    // Caso reportado en campo: 0,064 dGy·cm² = 6,4 mGy·cm². d1 = d2 para
+    // aislar la conversión de unidades de la corrección por distancia.
+    const r = calcularResultado28(
+      [
+        rs({
+          tipo_medicion: "kerma",
+          toma_numero: 27,
+          dosis_medida_mgy: 0.02572,
+          dap_nominal: 0.064,
+          ancho_irradiacion_cm: 17,
+          largo_irradiacion_cm: 13,
+          distancia_foco_sensor_cm: 100,
+          distancia_foco_detector_cm: 100,
+        }),
+      ],
+      { visita_id: "v1", unidad_dap: "dgy_cm2", unidad_kerma: "mgy" }
+    );
+    expect(r[0].dapNominal).toBeCloseTo(6.4, 10);
+    expect(r[0].dapEstimado).toBeCloseTo(5.68412, 5);
+    expect(r[0].factorCorreccion).toBeCloseTo(0.888, 3);
+  });
 });
 
 // ─── 2.9 / 2.10 DDI/EI ───

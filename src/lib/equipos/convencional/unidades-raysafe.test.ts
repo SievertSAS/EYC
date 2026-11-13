@@ -10,8 +10,8 @@ describe("convertirDap — normaliza a mGy·cm²", () => {
     expect(convertirDap(1000, "ugy_cm2")).toBeCloseTo(1, 10);
   });
 
-  it("dgy_cm2 → multiplica por 10", () => {
-    expect(convertirDap(1, "dgy_cm2")).toBeCloseTo(10, 10);
+  it("dgy_cm2 → multiplica por 100 (1 dGy = 100 mGy)", () => {
+    expect(convertirDap(1, "dgy_cm2")).toBeCloseTo(100, 10);
   });
 
   it("gy_m2 → multiplica por 10 000 000 (1000 mGy × 10 000 cm²)", () => {

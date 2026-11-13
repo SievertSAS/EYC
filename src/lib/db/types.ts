@@ -127,6 +127,19 @@ export function esPortatil(equipo: { tipo_instalacion?: TipoInstalacion } | unde
   return equipo?.tipo_instalacion === "portatil";
 }
 
+// ─── Parámetros nominales que muestra la consola (#189) ───
+// Qué magnitudes deja seleccionar/visualizar la consola del CONVENCIONAL. Por
+// ahora solo se capturan; el informe/evaluación las usará en un paso posterior.
+export const PARAMETROS_CONSOLA = ["kv", "ma", "tiempo", "mas"] as const;
+export type ParametroConsola = (typeof PARAMETROS_CONSOLA)[number];
+
+export const PARAMETRO_CONSOLA_LABELS: Record<ParametroConsola, string> = {
+  kv: "kV",
+  ma: "mA",
+  tiempo: "Tiempo",
+  mas: "mAs",
+};
+
 // ─── Categoría de ubicación del portátil (#188) ───
 // Un informe del portátil es UNA sala fija (con barreras, como el fijo) o un
 // grupo de áreas flotantes (control solo administrativo) elegidas de un
@@ -261,6 +274,11 @@ export interface Equipo extends Partial<SyncFields> {
    * NOT NULL DEFAULT 'fijo', así que `undefined` en Dexie equivale a fijo.
    */
   tipo_instalacion?: TipoInstalacion;
+  /**
+   * Parámetros nominales que muestra la consola (#189). Solo CONVENCIONAL.
+   * `null`/`undefined` = sin definir (equipos existentes); nunca `[]` guardado.
+   */
+  parametros_consola?: ParametroConsola[] | null;
   // Identificación y características del equipo. La plantilla oficial las
   // rotula "del generador" (gen_*): en esta app hay UN solo aparato físico.
   gen_marca?: string;

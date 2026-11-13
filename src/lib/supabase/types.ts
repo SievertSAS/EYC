@@ -1550,6 +1550,7 @@ export type Database = {
           gen_numero_serie: string | null;
           id: string;
           last_modified: string;
+          parametros_consola: string[] | null;
           planilla_espacial: boolean;
           reporta_di: boolean | null;
           reporta_tei: boolean | null;
@@ -1573,6 +1574,7 @@ export type Database = {
           gen_numero_serie?: string | null;
           id?: string;
           last_modified?: string;
+          parametros_consola?: string[] | null;
           planilla_espacial?: boolean;
           reporta_di?: boolean | null;
           reporta_tei?: boolean | null;
@@ -1596,6 +1598,7 @@ export type Database = {
           gen_numero_serie?: string | null;
           id?: string;
           last_modified?: string;
+          parametros_consola?: string[] | null;
           planilla_espacial?: boolean;
           reporta_di?: boolean | null;
           reporta_tei?: boolean | null;

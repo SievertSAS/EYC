@@ -298,4 +298,88 @@ describe("EquipoFormDialog", () => {
       expect(screen.queryByRole("radio", { name: "Portátil" })).toBeNull();
     });
   });
+
+  describe("#189 — parámetros nominales que muestra la consola", () => {
+    const GRUPO = "Parámetros nominales que muestra la consola";
+
+    function abrir(equipo: Equipo, onSaved = vi.fn()) {
+      render(
+        <EquipoFormDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          ubicacionId="ubicacion-1"
+          equipo={equipo}
+          onSaved={onSaved}
+        />
+      );
+      return onSaved;
+    }
+
+    async function guardar(onSaved: ReturnType<typeof vi.fn>) {
+      fireEvent.click(screen.getByRole("button", { name: /^guardar$/i }));
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    }
+
+    it("CONVENCIONAL: muestra el checklist y guarda la selección en orden canónico", async () => {
+      const equipo = await seedEquipo({ tipo_equipo: "CONVENCIONAL" });
+      const onSaved = abrir(equipo);
+
+      const grupo = await waitFor(() => screen.getByRole("group", { name: GRUPO }));
+      const mas = within(grupo).getByRole("button", { name: "mAs" });
+      const kv = within(grupo).getByRole("button", { name: "kV" });
+      expect(mas.getAttribute("aria-pressed")).toBe("false");
+      fireEvent.click(mas);
+      fireEvent.click(kv);
+      expect(mas.getAttribute("aria-pressed")).toBe("true");
+      await guardar(onSaved);
+
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.parametros_consola).toEqual(["kv", "mas"]);
+    });
+
+    it("sin selección se guarda null (sin definir)", async () => {
+      const equipo = await seedEquipo({ tipo_equipo: "CONVENCIONAL" });
+      const onSaved = abrir(equipo);
+      await waitFor(() => screen.getByRole("group", { name: GRUPO }));
+      await guardar(onSaved);
+
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.parametros_consola).toBeNull();
+    });
+
+    it("en edición precarga lo guardado; desmarcar todo vuelve a null", async () => {
+      const equipo = await seedEquipo({
+        tipo_equipo: "CONVENCIONAL",
+        parametros_consola: ["ma", "tiempo"],
+      });
+      const onSaved = abrir(equipo);
+
+      const grupo = await waitFor(() => screen.getByRole("group", { name: GRUPO }));
+      const ma = within(grupo).getByRole("button", { name: "mA" });
+      const tiempo = within(grupo).getByRole("button", { name: "Tiempo" });
+      await waitFor(() => expect(ma.getAttribute("aria-pressed")).toBe("true"));
+      expect(tiempo.getAttribute("aria-pressed")).toBe("true");
+      expect(within(grupo).getByRole("button", { name: "kV" }).getAttribute("aria-pressed")).toBe(
+        "false"
+      );
+
+      fireEvent.click(ma);
+      fireEvent.click(tiempo);
+      await guardar(onSaved);
+
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.parametros_consola).toBeNull();
+    });
+
+    it("otros tipos de equipo no lo muestran y conservan el valor existente", async () => {
+      const equipo = await seedEquipo({ tipo_equipo: "PANORAMICO", parametros_consola: ["kv"] });
+      const onSaved = abrir(equipo);
+      await waitFor(() => screen.getByDisplayValue("Siemens"));
+      expect(screen.queryByRole("group", { name: GRUPO })).toBeNull();
+      await guardar(onSaved);
+
+      const fresh = await db.equipos.get(equipo.id!);
+      expect(fresh!.parametros_consola).toEqual(["kv"]);
+    });
+  });
 });

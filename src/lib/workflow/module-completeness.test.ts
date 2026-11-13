@@ -169,6 +169,7 @@ describe("module-completeness — #65 getCamposFaltantesInfo", () => {
       distancia_foco_paciente: 100,
       filtracion_inherente_mmal: 2,
       filtracion_anadida_mmal: 1,
+      parametros_consola: ["kv", "mas"],
     });
     const tubo = await db.tubos.where("equipo_id").equals(equipo.id!).first();
     await db.tubos.update(tubo!.id!, { kv_max: 120, ma_max: 500 });
@@ -262,5 +263,60 @@ describe("module-completeness — #188 ubicaciones del portátil", () => {
     expect(despues).toBeLessThan(antes);
     await db.visitas.update(visita!.id!, { categoria_ubicacion: "fija" });
     expect((await getModuleStatuses(visita!.id!)).info.percentage).toBeGreaterThan(despues);
+  });
+});
+
+describe("module-completeness — #189 parámetros nominales de la consola", () => {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  const CAMPO = "equipo.parametros_consola";
+
+  async function faltantesCon(
+    tipoEquipo: "CONVENCIONAL" | "MAMOGRAFO",
+    parametros_consola: unknown
+  ) {
+    const { visita, equipo } = await seedGraph({ tipoEquipo });
+    await db.equipos.update(equipo.id!, {
+      parametros_consola: parametros_consola as ("kv" | "ma")[] | null | undefined,
+    });
+    const v = await db.visitas.get(visita!.id!);
+    return getCamposFaltantesInfo(v!);
+  }
+
+  it("CONVENCIONAL sin definir (null, undefined o []) → falta, en Colimador y Sistema de Adquisición", async () => {
+    for (const valor of [null, undefined, []]) {
+      await resetTestDb();
+      const faltantes = await faltantesCon("CONVENCIONAL", valor);
+      const f = faltantes.find((x) => x.campo === CAMPO);
+      expect(f, `valor ${JSON.stringify(valor)}`).toBeDefined();
+      expect(f!.label).toBe("Parámetros nominales que muestra la consola");
+      expect(f!.seccion).toBe("Colimador y Sistema de Adquisición");
+    }
+  });
+
+  it("CONVENCIONAL con al menos un parámetro → no falta", async () => {
+    const faltantes = await faltantesCon("CONVENCIONAL", ["ma"]);
+    expect(faltantes.map((f) => f.campo)).not.toContain(CAMPO);
+  });
+
+  it("también se exige al portátil (es un CONVENCIONAL)", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.equipos.update(equipo.id!, { tipo_instalacion: "portatil" });
+    const v = await db.visitas.get(visita!.id!);
+    expect((await getCamposFaltantesInfo(v!)).map((f) => f.campo)).toContain(CAMPO);
+  });
+
+  it("otros tipos de equipo no lo requieren", async () => {
+    const faltantes = await faltantesCon("MAMOGRAFO", null);
+    expect(faltantes.map((f) => f.campo)).not.toContain(CAMPO);
+  });
+
+  it("marcar un parámetro sube el % del módulo Info", async () => {
+    const { visita, equipo } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    const antes = (await getModuleStatuses(visita!.id!)).info.percentage;
+    await db.equipos.update(equipo.id!, { parametros_consola: ["kv"] });
+    expect((await getModuleStatuses(visita!.id!)).info.percentage).toBeGreaterThan(antes);
   });
 });

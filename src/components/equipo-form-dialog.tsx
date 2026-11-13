@@ -13,9 +13,12 @@ import {
   type Gantry,
   type TipoEquipo,
   type TipoInstalacion,
+  type ParametroConsola,
   type SubtablaIdentificacion,
 } from "@/lib/db/types";
 import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
+import { ParametrosConsolaChecklist } from "@/components/parametros-consola-checklist";
+import { normalizarParametrosConsola } from "@/lib/equipos/parametros-consola";
 import { randomUUID } from "@/lib/uuid";
 import { parseDecimal } from "@/lib/decimal";
 import { pushSingle } from "@/lib/supabase/sync-engine";
@@ -163,6 +166,10 @@ export function EquipoFormDialog({
   const [tipoInstalacion, setTipoInstalacion] = useState<TipoInstalacion>(
     equipo?.tipo_instalacion ?? "fijo"
   );
+  // #189: solo CONVENCIONAL. Sin valor = sin definir (equipos existentes).
+  const [parametrosConsola, setParametrosConsola] = useState<ParametroConsola[]>(
+    equipo?.parametros_consola ?? []
+  );
 
   // Generador (en la práctica son los datos del equipo — un solo aparato físico)
   const [genMarca, setGenMarca] = useState(equipo?.gen_marca ?? "");
@@ -249,6 +256,7 @@ export function EquipoFormDialog({
       setDistanciaFoco(equipo?.distancia_foco_paciente?.toString() ?? "");
       setBucky(equipo?.bucky ?? "");
       setTipoInstalacion(equipo?.tipo_instalacion ?? "fijo");
+      setParametrosConsola(equipo?.parametros_consola ?? []);
       setGenMarca(equipo?.gen_marca ?? "");
       setGenModelo(equipo?.gen_modelo ?? "");
       setGenSerie(equipo?.gen_numero_serie ?? "");
@@ -335,6 +343,11 @@ export function EquipoFormDialog({
         // Otros tipos no lo capturan: se conserva lo que haya (la base pone 'fijo').
         tipo_instalacion:
           tipoEquipo === "CONVENCIONAL" ? tipoInstalacion : equipo?.tipo_instalacion,
+        // #189: misma regla. Selección vacía → null (sin definir).
+        parametros_consola:
+          tipoEquipo === "CONVENCIONAL"
+            ? normalizarParametrosConsola(parametrosConsola)
+            : equipo?.parametros_consola,
         gen_marca: genMarca || undefined,
         gen_modelo: genModelo || undefined,
         gen_numero_serie: genSerie || undefined,
@@ -570,6 +583,20 @@ export function EquipoFormDialog({
                       // El portátil no tiene Bucky: se sugiere "No" si aún no se eligió.
                       if (v === "portatil" && !bucky) setBucky("No");
                     }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {tipoEquipo === "CONVENCIONAL" && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-600">
+                  Parámetros nominales que muestra la consola
+                </Label>
+                <div>
+                  <ParametrosConsolaChecklist
+                    value={parametrosConsola}
+                    onChange={setParametrosConsola}
                   />
                 </div>
               </div>

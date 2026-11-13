@@ -124,6 +124,8 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
       categoria_ubicacion: "flotante",
       ubicaciones_flotantes: [{ nombre: "UCI adultos", descripcion: "Cama 3" }],
     });
+    // #189: parámetros nominales de la consola (text[] en Supabase).
+    await db.equipos.update(g.equipo.id!, { parametros_consola: ["kv", "mas"] });
     await db.catalogo_ubicaciones_flotantes.add({
       id: "cat-guard",
       nombre: "UCI adultos",
@@ -139,7 +141,7 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
       clientes: asRow(g.cliente),
       sedes: asRow(g.sede),
       ubicaciones_rx: asRow(g.ubicacion),
-      equipos: asRow(g.equipo),
+      equipos: asRow(await db.equipos.get(g.equipo.id!)),
       tubos: asRow(g.tubo),
       solicitudes: asRow(g.solicitud),
       visitas: asRow(await db.visitas.get(g.visita!.id!)),

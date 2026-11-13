@@ -6,8 +6,13 @@ import { parseDecimal, decimalInputValue } from "@/lib/decimal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, noBorrado } from "@/lib/db";
 import { SISTEMAS_ADQUISICION, esPortatil } from "@/lib/db/types";
-import type { EquipoIdentificacion, Sede, TipoInstalacion } from "@/lib/db/types";
+import type { EquipoIdentificacion, ParametroConsola, Sede, TipoInstalacion } from "@/lib/db/types";
 import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
+import { ParametrosConsolaChecklist } from "@/components/parametros-consola-checklist";
+import {
+  normalizarParametrosConsola,
+  parametrosConsolaDefinidos,
+} from "@/lib/equipos/parametros-consola";
 import { UbicacionPortatil } from "@/components/visita-modulos/ubicacion-portatil";
 import {
   aplicaCategoriaUbicacion,
@@ -705,6 +710,18 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     pushSingle("equipos", equipo.id);
   }
 
+  /** #189: selección vacía → null (sin definir; requerido en el CONVENCIONAL). */
+  async function saveParametrosConsola(sel: ParametroConsola[]) {
+    const id = data?.equipo?.id;
+    if (!id) return;
+    await db.equipos.update(id, {
+      parametros_consola: normalizarParametrosConsola(sel),
+      sync_status: "pending",
+      last_modified: now(),
+    });
+    pushSingle("equipos", id);
+  }
+
   async function saveTubo(tuboId: string, field: string, value: string, numeric = false) {
     if (!tuboId) return;
     const parsed = numeric ? (value === "" ? undefined : parseDecimal(value)) : value || undefined;
@@ -968,6 +985,10 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
     equipo?.sistema_adquisicion,
     equipo?.filtracion_inherente_mmal,
     equipo?.filtracion_anadida_mmal,
+    // #189: requerido solo en el CONVENCIONAL.
+    ...(equipo?.tipo_equipo === "CONVENCIONAL"
+      ? [parametrosConsolaDefinidos(equipo.parametros_consola) ? 1 : undefined]
+      : []),
   ]);
 
   const progCondiciones = computeProgress([
@@ -1490,6 +1511,17 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-slate-600">Tipo de instalación</p>
             <TipoInstalacionToggle value={equipo.tipo_instalacion} onChange={saveTipoInstalacion} />
+          </div>
+        )}
+        {equipo?.tipo_equipo === "CONVENCIONAL" && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-slate-600">
+              Parámetros nominales que muestra la consola
+            </p>
+            <ParametrosConsolaChecklist
+              value={equipo.parametros_consola}
+              onChange={saveParametrosConsola}
+            />
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

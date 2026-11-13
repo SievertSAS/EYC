@@ -8,6 +8,7 @@ import {
   areasFlotantesCompletas,
   normalizarAreasFlotantes,
 } from "@/lib/ubicaciones/flotantes";
+import { parametrosConsolaDefinidos } from "@/lib/equipos/parametros-consola";
 
 // ============================================================
 //  Motor de completitud de módulos de visita
@@ -211,6 +212,15 @@ const INFO_CAMPOS: {
     label: "Filtración añadida (mm Al)",
     seccion: "Colimador y Sistema de Adquisición",
     get: (c) => c.equipo?.filtracion_anadida_mmal,
+  },
+  // #189: qué parámetros deja ver la consola. Solo CONVENCIONAL (fijo y
+  // portátil); los equipos existentes quedan sin definir hasta completarlo.
+  {
+    campo: "equipo.parametros_consola",
+    label: "Parámetros nominales que muestra la consola",
+    seccion: "Colimador y Sistema de Adquisición",
+    get: (c) => (parametrosConsolaDefinidos(c.equipo?.parametros_consola) ? 1 : undefined),
+    aplica: (c) => c.equipo?.tipo_equipo === "CONVENCIONAL",
   },
   {
     campo: "tubo.marca",

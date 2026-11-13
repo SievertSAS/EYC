@@ -3,6 +3,8 @@ import {
   toggleParametro,
   parametrosConsolaDefinidos,
   normalizarParametrosConsola,
+  parametrosVisibles,
+  muestraParametro,
 } from "./parametros-consola";
 import { PARAMETROS_CONSOLA, PARAMETRO_CONSOLA_LABELS } from "@/lib/db/types";
 
@@ -62,6 +64,23 @@ describe("#189 — parámetros nominales que muestra la consola", () => {
 
     it("con selección → arreglo en orden canónico, sin duplicados", () => {
       expect(normalizarParametrosConsola(["mas", "kv", "mas"])).toEqual(["kv", "mas"]);
+    });
+  });
+
+  describe("parametrosVisibles / muestraParametro (informe, #189)", () => {
+    it("null, undefined o vacío → se muestran los cuatro (comportamiento previo)", () => {
+      for (const v of [null, undefined, []]) {
+        expect([...parametrosVisibles(v)]).toEqual(["kv", "ma", "tiempo", "mas"]);
+        expect(muestraParametro(v, "ma")).toBe(true);
+      }
+    });
+
+    it("con selección → solo los marcados, en orden canónico", () => {
+      expect([...parametrosVisibles(["mas", "kv"])]).toEqual(["kv", "mas"]);
+      expect(muestraParametro(["kv", "mas"], "kv")).toBe(true);
+      expect(muestraParametro(["kv", "mas"], "mas")).toBe(true);
+      expect(muestraParametro(["kv", "mas"], "ma")).toBe(false);
+      expect(muestraParametro(["kv", "mas"], "tiempo")).toBe(false);
     });
   });
 });

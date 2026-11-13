@@ -1,8 +1,16 @@
 import type { jsPDF } from "jspdf";
 import type autoTableType from "jspdf-autotable";
+import type { RowInput, Styles } from "jspdf-autotable";
 import { db } from "@/lib/db";
 import { formatCapturado, formatDecimal } from "@/lib/decimal";
-import type { Equipo, TipoInstalacion, VisitaEjecucion, UbicacionRx } from "@/lib/db/types";
+import type {
+  Equipo,
+  ParametroConsola,
+  TipoInstalacion,
+  VisitaEjecucion,
+  UbicacionRx,
+} from "@/lib/db/types";
+import { muestraParametro } from "@/lib/equipos/parametros-consola";
 import type { TextosPrueba } from "@/lib/plantillas/types";
 import type {
   ConvLevantamientoSetup,
@@ -100,6 +108,12 @@ export interface DatosConvencional {
   reporta_tei?: boolean;
   /** `equipo.tipo_instalacion` (#187) -- inyectado por el caller; sin marcar = fijo. */
   tipo_instalacion?: TipoInstalacion;
+  /**
+   * `equipo.parametros_consola` (#189) -- inyectado por el caller. Qué
+   * parámetros nominales (kV, mA, tiempo, mAs) muestra el informe; null o
+   * vacío = los cuatro. Solo presentación: los cálculos usan todos los valores.
+   */
+  parametros_consola?: ParametroConsola[] | null;
   secciones: ConvInformeSeccion[];
   setup?: ConvLevantamientoSetup;
   mediciones: ConvMedicionRadiometrica[];
@@ -521,17 +535,26 @@ export async function recopilarDatosConv(
  * aplicabilidad de 2.14/2.15. #187: `tipo_instalacion` (portátil) cambia el
  * valor inicial del switch del CAE y algunos textos. #111: `reporta_di`/`reporta_tei` controlan si se
  * muestran las columnas D.I./TEI de 2.9/2.10 y 2.15 (por defecto, sí).
+ * #189: `parametros_consola` decide qué parámetros nominales cita el informe.
  */
 export function inyectarDatosEquipo(
   conv: DatosConvencional,
   equipo:
-    | Pick<Equipo, "sistema_adquisicion" | "reporta_di" | "reporta_tei" | "tipo_instalacion">
+    | Pick<
+        Equipo,
+        | "sistema_adquisicion"
+        | "reporta_di"
+        | "reporta_tei"
+        | "tipo_instalacion"
+        | "parametros_consola"
+      >
     | undefined
 ): void {
   conv.sistema_adquisicion = equipo?.sistema_adquisicion;
   conv.reporta_di = equipo?.reporta_di ?? true;
   conv.reporta_tei = equipo?.reporta_tei ?? true;
   conv.tipo_instalacion = equipo?.tipo_instalacion ?? "fijo";
+  conv.parametros_consola = equipo?.parametros_consola ?? null;
   // #187: si el pre-informe nunca se abrió, las secciones son las del
   // catálogo (sin id): se les aplica el valor inicial del switch según el
   // equipo, el mismo con el que el editor las crearía.
@@ -541,6 +564,26 @@ export function inyectarDatosEquipo(
 }
 
 // ─── Helpers de render ───
+
+/** #189: `true` si el informe muestra el parámetro nominal `p` para este equipo. */
+function ver(conv: DatosConvencional, p: ParametroConsola): boolean {
+  return muestraParametro(conv.parametros_consola, p);
+}
+
+/**
+ * Columna de una tabla que puede ocultarse según los parámetros de la consola
+ * (#189). Sin `param`, la columna siempre se muestra.
+ */
+interface ColumnaParam<T> {
+  head: string;
+  valor: (fila: T) => string;
+  param?: ParametroConsola;
+}
+
+/** Columnas visibles para el equipo, en el orden dado. */
+function columnasVisibles<T>(conv: DatosConvencional, cols: ColumnaParam<T>[]): ColumnaParam<T>[] {
+  return cols.filter((c) => !c.param || ver(conv, c.param));
+}
 
 function num(v: number | undefined | null): number {
   return v == null || isNaN(v) ? 0 : v;
@@ -669,25 +712,42 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
     "Se registraron las lecturas de tasa de dosis equivalente ambiental H*(10) en los puntos de medición definidos en el diagrama radiométrico. Las mediciones se realizaron utilizando la técnica radiográfica máxima empleada en la práctica clínica del equipo evaluado."
   );
 
-  // Técnica utilizada y fondo natural — tabla compacta de 4 columnas (clave/valor)
+  // Técnica utilizada y fondo natural — tabla compacta de 4 columnas (clave/valor).
+  // #189: solo los parámetros que muestra la consola, reacomodados de a dos por
+  // fila (sin huecos); si queda uno solo en la última fila, ocupa el ancho completo.
+  const tecnica = (
+    [
+      ["kv", "Tensión (kV)", setup?.tecnica_kv],
+      ["tiempo", "Tiempo (s)", setup?.tecnica_tiempo_s],
+      ["ma", "Corriente (mA)", setup?.tecnica_ma],
+      ["mas", "Exposición (mAs)", setup?.tecnica_mas],
+    ] as const
+  )
+    .filter(([p]) => ver(conv, p))
+    .map(([, label, v]) => [label, formatCapturado(v)] as const);
+  const filasTecnica: RowInput[] = [];
+  for (let i = 0; i < tecnica.length; i += 2) {
+    const [a, b] = [tecnica[i], tecnica[i + 1]];
+    filasTecnica.push(
+      b
+        ? [a[0], a[1], b[0], b[1]]
+        : [
+            a[0],
+            {
+              content: a[1],
+              colSpan: 3,
+              styles: { fontStyle: "normal", fillColor: [255, 255, 255] },
+            },
+          ]
+    );
+  }
   ctx.checkPage(24);
   addCaption(ctx, "Técnica radiográfica utilizada en la prueba");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
     body: [
-      [
-        "Tensión (kV)",
-        formatCapturado(setup?.tecnica_kv),
-        "Tiempo (s)",
-        formatCapturado(setup?.tecnica_tiempo_s),
-      ],
-      [
-        "Corriente (mA)",
-        formatCapturado(setup?.tecnica_ma),
-        "Exposición (mAs)",
-        formatCapturado(setup?.tecnica_mas),
-      ],
+      ...filasTecnica,
       [
         "Fondo natural (mSv/h)",
         {
@@ -759,7 +819,13 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
       ["Carga de trabajo W estimada (mA·min/sem)", fmt(wEstimada)],
       ["Carga de trabajo estándar (mA·min/sem)", fmt(wEstandar, 0)],
       ["Carga de trabajo W usada = max(estimada, estándar)", fmt(wUsado)],
-      ["Corriente utilizada en la prueba I (mA)", formatCapturado(setup?.tecnica_ma)],
+      // #189: si la consola no muestra la corriente se cita la exposición (mAs)
+      // de la técnica de la prueba. Solo presentación: el cálculo sigue con mA.
+      ...(ver(conv, "ma")
+        ? [["Corriente utilizada en la prueba I (mA)", formatCapturado(setup?.tecnica_ma)]]
+        : ver(conv, "mas")
+          ? [["Exposición utilizada en la prueba (mAs)", formatCapturado(setup?.tecnica_mas)]]
+          : []),
       ["Factor de uso (U)", "Según punto de medición (Tabla 2.1.2)"],
       ["Semanas laborales", fmt(semanas, 0)],
     ],
@@ -1433,29 +1499,30 @@ function render23(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
+  // Pares rótulo/valor con su ancho (mm). Con los tres pares las seis columnas
+  // suman el ancho útil de 169 mm (51, no 52, en la SID). #189: los pares que
+  // la consola no muestra se quitan y los restantes se escalan en proporción
+  // para seguir llenando los 169 mm.
+  const pares = (
+    [
+      ["kv", "Tensión (kV)", c.tecnica_kv, 28, 20],
+      ["mas", "Exposición (mAs)", c.tecnica_mas, 32, 20],
+      [null, "Distancia foco-receptor, SID (cm)", c.sid_cm, 51, 18],
+    ] as const
+  ).filter(([p]) => p == null || ver(conv, p));
+  const anchoPares = pares.reduce((a, [, , , wl, wv]) => a + wl + wv, 0);
+  const escala = pares.length === 3 ? 1 : CONTENT_WIDTH / anchoPares;
+  const columnStyles23: Record<number, Partial<Styles>> = {};
+  pares.forEach(([, , , wl, wv], i) => {
+    columnStyles23[2 * i] = { cellWidth: wl * escala, fontStyle: "bold", fillColor: COLOR_ALT_ROW };
+    columnStyles23[2 * i + 1] = { cellWidth: wv * escala };
+  });
   ctx.checkPage(14);
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    body: [
-      [
-        "Tensión (kV)",
-        formatCapturado(c.tecnica_kv),
-        "Exposición (mAs)",
-        formatCapturado(c.tecnica_mas),
-        "Distancia foco-receptor, SID (cm)",
-        formatCapturado(c.sid_cm),
-      ],
-    ],
-    columnStyles: {
-      0: { cellWidth: 28, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 32, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
-      3: { cellWidth: 20 },
-      // 51 (no 52): las seis columnas suman el ancho útil de 169 mm.
-      4: { cellWidth: 51, fontStyle: "bold", fillColor: COLOR_ALT_ROW },
-      5: { cellWidth: 18 },
-    },
+    body: [pares.flatMap(([, label, v]) => [label, formatCapturado(v)])],
+    columnStyles: columnStyles23,
   });
   ctx.y = finalY(doc) + SPACE.table.after;
 
@@ -1812,25 +1879,22 @@ export function renderTablaChrRef(ctx: InformeCtx) {
 export function renderTablaBaseRef29(ctx: InformeCtx, conv: DatosConvencional) {
   const { doc, autoTable } = ctx;
   const toma1 = conv.ddiMediciones.find((m) => m.grupo === 1 && m.toma_numero === 1);
-  const kv = toma1?.kv_nominal ?? null;
-  const mas = toma1?.carga_mas ?? null;
-  const eiBase = toma1?.ei_base ?? null;
-  const diBase = toma1?.di_base ?? null;
   const reportaDi = conv.reporta_di ?? true;
+  const cols = columnasVisibles<ConvDdiMedicion | undefined>(conv, [
+    { head: "Tensión (kVp)", valor: (m) => formatCapturado(m?.kv_nominal), param: "kv" },
+    { head: "Carga (mAs)", valor: (m) => formatCapturado(m?.carga_mas), param: "mas" },
+    { head: "EI", valor: (m) => formatCapturado(m?.ei_base) },
+    ...(reportaDi
+      ? [{ head: "D.I.", valor: (m?: ConvDdiMedicion) => formatCapturado(m?.di_base) }]
+      : []),
+  ]);
   ctx.checkPage(30);
   addCaption(ctx, "Valores base de referencia");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["Tensión (kVp)", "Carga (mAs)", "EI", ...(reportaDi ? ["D.I."] : [])]],
-    body: [
-      [
-        formatCapturado(kv),
-        formatCapturado(mas),
-        formatCapturado(eiBase),
-        ...(reportaDi ? [formatCapturado(diBase)] : []),
-      ],
-    ],
+    head: [cols.map((c) => c.head)],
+    body: [cols.map((c) => c.valor(toma1))],
   });
   ctx.y = finalY(doc) + SPACE.table.after;
 }
@@ -1870,21 +1934,22 @@ export function renderTablaBaseRef216(ctx: InformeCtx, conv: DatosConvencional) 
  */
 export function renderTablaBaseRef221(ctx: InformeCtx, conv: DatosConvencional) {
   const { doc, autoTable } = ctx;
+  const cols = columnasVisibles<ConvRaysafeMedicion>(conv, [
+    { head: "Programa", valor: (m) => m.programa_clinico ?? "—" },
+    { head: "Tensión (kV)", valor: (m) => formatCapturado(m.kv_nominal), param: "kv" },
+    { head: "Carga (mAs)", valor: (m) => formatCapturado(m.mas_nominal), param: "mas" },
+    { head: "Dosis al receptor base (mGy)", valor: (m) => formatCapturado(m.dosis_base_mgy) },
+  ]);
   const filas = conv.raysafeMediciones
     .filter((m) => m.tipo_medicion === "sin_rejilla" && m.dosis_base_mgy != null)
-    .map((m) => [
-      m.programa_clinico ?? "—",
-      formatCapturado(m.kv_nominal),
-      formatCapturado(m.mas_nominal),
-      formatCapturado(m.dosis_base_mgy),
-    ]);
+    .map((m) => cols.map((c) => c.valor(m)));
   ctx.checkPage(30);
   addCaption(ctx, "Valores base de referencia");
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["Programa", "Tensión (kV)", "Carga (mAs)", "Dosis al receptor base (mGy)"]],
-    body: filas.length > 0 ? filas : [["—", "—", "—", "—"]],
+    head: [cols.map((c) => c.head)],
+    body: filas.length > 0 ? filas : [cols.map(() => "—")],
     columnStyles: { 0: { halign: "left" as const } },
   });
   ctx.y = finalY(doc) + SPACE.table.after;
@@ -1903,9 +1968,14 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
         m.grupo_numero != null &&
         GRUPOS_LINEALIDAD_27.has(m.grupo_numero)
     )?.kv_nominal ?? 80;
+  // #189: la tensión nominal solo se cita si la consola la muestra. La carga
+  // (mAs) se muestra siempre: la linealidad se define respecto al mAs y sin él
+  // las filas de la tabla 2.7.1 no se distinguen. El rendimiento (µGy/mAs) es
+  // un valor calculado y también se conserva.
+  const verKv = ver(conv, "kv");
   ctx.addParagraph(
     "La prueba se llevó a cabo bajo las siguientes condiciones de medición:\n" +
-      `Tensión programada: ${formatCapturado(kvProgramada)} kVp\n` +
+      (verKv ? `Tensión programada: ${formatCapturado(kvProgramada)} kVp\n` : "") +
       `Distancia foco-detector: ${distancia} cm\n` +
       "Estimación del rendimiento: normalizado a 80 kVp y 100 centímetros\n" +
       "Factor de corrección por presión y temperatura del analizador: 1,0"
@@ -1930,29 +2000,23 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   addEtiqueta(ctx, "a) Evaluación del rendimiento del tubo de rayos X y linealidad");
 
   if (resultado.linealidad.length > 0) {
-    const rowsLin = resultado.linealidad.map(
-      ({ masNominal, kermaProm, rendimiento, linealidadPct }) => [
-        formatCapturado(masNominal),
-        formatDecimal(kermaProm, 3),
-        formatDecimal(rendimiento, 1),
-        linealidadPct != null ? formatDecimal(linealidadPct, 2) + " %" : "-%",
-      ]
-    );
+    const colsLin = columnasVisibles<(typeof resultado.linealidad)[number]>(conv, [
+      { head: "Exposición nominal (mAs)", valor: (l) => formatCapturado(l.masNominal) },
+      { head: "Kerma en aire promedio (mGy)", valor: (l) => formatDecimal(l.kermaProm, 3) },
+      { head: "Rendimiento (µGy/mAs)", valor: (l) => formatDecimal(l.rendimiento, 1) },
+      {
+        head: "Linealidad (%)",
+        valor: (l) => (l.linealidadPct != null ? formatDecimal(l.linealidadPct, 2) + " %" : "-%"),
+      },
+    ]);
 
     ctx.checkPage(40);
     addCaption(ctx, "Tabla 2.7.1. Rendimiento del tubo de rayos X y linealidad");
     autoTable(doc, {
       ...TABLE_STYLE,
       startY: ctx.y,
-      head: [
-        [
-          "Exposición nominal (mAs)",
-          "Kerma en aire promedio (mGy)",
-          "Rendimiento (µGy/mAs)",
-          "Linealidad (%)",
-        ],
-      ],
-      body: rowsLin,
+      head: [colsLin.map((c) => c.head)],
+      body: resultado.linealidad.map((l) => colsLin.map((c) => c.valor(l))),
       columnStyles: { 0: { cellWidth: 38 } },
     });
     ctx.y = finalY(doc) + SPACE.table.after;
@@ -1972,9 +2036,12 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
 
   addEtiqueta(ctx, "b) Evaluación de la repetibilidad de la radiación de salida");
 
+  const condicionesRep = [verKv ? "80 kV" : null, "aproximadamente 10 mAs"]
+    .filter(Boolean)
+    .join(" y ");
   ctx.addParagraph(
     "La repetibilidad se evaluó a partir de exposiciones repetidas bajo las mismas condiciones " +
-      "de irradiación (80 kV y aproximadamente 10 mAs)."
+      `de irradiación${condicionesRep ? ` (${condicionesRep})` : ""}.`
   );
 
   if (kermasRep.length > 0) {
@@ -2015,14 +2082,15 @@ function render27(ctx: InformeCtx, conv: DatosConvencional): number {
   const linStr = formatDecimal(linMaxPct, 2);
   const rMinStr = formatDecimal(rendMin, 1);
   const rMaxStr = formatDecimal(rendMax, 1);
+  const a80kv = verKv ? " a 80 kV" : "";
 
   if (conformeRep && conformeLin) {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados a 80 kV, lo que indica un comportamiento consistente del sistema de generación de radiación. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} %, valor inferior al límite establecido. Asimismo, la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %, lo que indica un comportamiento proporcional entre la radiación de salida y la carga seleccionada. En conjunto, los resultados indican que el generador de rayos X presenta un comportamiento estable, reproducible y lineal bajo las condiciones de irradiación evaluadas.`
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados${a80kv}, lo que indica un comportamiento consistente del sistema de generación de radiación. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} %, valor inferior al límite establecido. Asimismo, la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %, lo que indica un comportamiento proporcional entre la radiación de salida y la carga seleccionada. En conjunto, los resultados indican que el generador de rayos X presenta un comportamiento estable, reproducible y lineal bajo las condiciones de irradiación evaluadas.`
     );
   } else {
     ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados a 80 kV. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} % y la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %.` +
+      `Los resultados obtenidos evidencian que el rendimiento del tubo de rayos X presenta valores entre ${rMinStr} y ${rMaxStr} µGy/mAs para los diferentes valores de carga evaluados${a80kv}. La repetibilidad de la radiación de salida presenta un coeficiente de variación (CV) de ${cvStr} % y la linealidad del rendimiento con respecto al mAs presenta una desviación máxima de ${linStr} %.` +
         (!conformeRep ? ` La repetibilidad supera el criterio de aceptación del 5 %.` : "") +
         (!conformeLin ? ` La linealidad supera el criterio de aceptación del 10 %.` : "")
     );
@@ -2047,31 +2115,30 @@ function render28(ctx: InformeCtx, conv: DatosConvencional): number {
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
   const resultado = calcularResultado28(conv.raysafeMediciones, conv.raysafeSetup);
-  const rows = resultado.map((r) => ({
-    kv: formatCapturado(r.kvNominal),
-    mas: formatCapturado(r.masNominal),
-    dapNom: formatCapturado(r.dapNominal),
-    dapEst: r.dapEstimado > 0 ? formatDecimal(r.dapEstimado, 2) : "—",
-    fc: r.factorCorreccion != null ? formatDecimal(r.factorCorreccion, 2) : "—",
-  }));
+  const labelDap = LABEL_UNIDAD_DAP.mgy_cm2;
+  const cols = columnasVisibles<(typeof resultado)[number]>(conv, [
+    { head: "Tensión (kV)", valor: (r) => formatCapturado(r.kvNominal), param: "kv" },
+    { head: "Carga (mAs)", valor: (r) => formatCapturado(r.masNominal), param: "mas" },
+    { head: `DAP nominal (${labelDap})`, valor: (r) => formatCapturado(r.dapNominal) },
+    {
+      head: `DAP estimado (${labelDap})`,
+      valor: (r) => (r.dapEstimado > 0 ? formatDecimal(r.dapEstimado, 2) : "—"),
+    },
+    {
+      head: "Factor de corrección",
+      valor: (r) => (r.factorCorreccion != null ? formatDecimal(r.factorCorreccion, 2) : "—"),
+    },
+  ]);
 
   ctx.checkPage(40);
   addCaption(ctx, "Tabla 2.8.1. Determinación del factor de corrección del PKA");
-  const labelDap = LABEL_UNIDAD_DAP.mgy_cm2;
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [
-      [
-        "Tensión (kV)",
-        "Carga (mAs)",
-        `DAP nominal (${labelDap})`,
-        `DAP estimado (${labelDap})`,
-        "Factor de corrección",
-      ],
-    ],
-    body: rows.map((r) => [r.kv, r.mas, r.dapNom, r.dapEst, r.fc]),
-    columnStyles: { 4: { cellWidth: 32 } },
+    head: [cols.map((c) => c.head)],
+    body: resultado.map((r) => cols.map((c) => c.valor(r))),
+    // Ancho fijo de "Factor de corrección" (la última columna).
+    columnStyles: { [cols.length - 1]: { cellWidth: 32 } },
   });
   ctx.y = finalY(doc) + SPACE.table.after;
 
@@ -2111,11 +2178,18 @@ function render29(ctx: InformeCtx, conv: DatosConvencional): number {
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [["Tensión (kVp)", "Carga (mAs)", "EI", ...(reportaDi ? ["D.I."] : [])]],
+    head: [
+      [
+        ...(ver(conv, "kv") ? ["Tensión (kVp)"] : []),
+        ...(ver(conv, "mas") ? ["Carga (mAs)"] : []),
+        "EI",
+        ...(reportaDi ? ["D.I."] : []),
+      ],
+    ],
     body: [
       [
-        kv ? formatCapturado(kv) : "—",
-        mas ? formatCapturado(mas) : "—",
+        ...(ver(conv, "kv") ? [kv ? formatCapturado(kv) : "—"] : []),
+        ...(ver(conv, "mas") ? [mas ? formatCapturado(mas) : "—"] : []),
         formatCapturado(ei),
         ...(reportaDi ? [formatCapturado(di)] : []),
       ],
@@ -2289,8 +2363,8 @@ function render213(ctx: InformeCtx, conv: DatosConvencional): number {
       [
         "Distancia foco-receptor, SID (cm):",
         formatCapturado(bc?.sid_cm),
-        "Tensión (kVp):",
-        formatCapturado(bc?.tecnica_kv),
+        // #189: la tensión solo se cita si la consola la muestra.
+        ...(ver(conv, "kv") ? ["Tensión (kVp):", formatCapturado(bc?.tecnica_kv)] : []),
       ],
     ],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
@@ -2364,8 +2438,8 @@ function render212(ctx: InformeCtx, conv: DatosConvencional): number {
       [
         "Distancia foco-receptor, SID (cm):",
         formatCapturado(resol?.sid_cm),
-        "Tensión (kVp):",
-        formatCapturado(resol?.tecnica_kv),
+        // #189: la tensión solo se cita si la consola la muestra.
+        ...(ver(conv, "kv") ? ["Tensión (kVp):", formatCapturado(resol?.tecnica_kv)] : []),
       ],
     ],
     headStyles: { ...TABLE_STYLE.headStyles, halign: "center" as const },
@@ -2647,21 +2721,30 @@ function render216(ctx: InformeCtx, conv: DatosConvencional): number {
   const sid =
     m.distancia_foco_sensor_cm != null ? `${formatCapturado(m.distancia_foco_sensor_cm)} cm` : "—";
   const kv = m.tecnica_kv != null ? `${formatCapturado(m.tecnica_kv)} kVp` : "—";
+  // #189: la tensión solo se cita si la consola la muestra.
+  const tension = ver(conv, "kv") ? `tensión de referencia ${kv}, ` : "";
   const pixel = m.pixel_size_mm != null ? `${formatCapturado(m.pixel_size_mm)} mm` : "—";
   // Nyquist se deriva del píxel; el valor guardado queda para visitas sin píxel.
   const nyquistLpmm = nyquistDesdePixel(m.pixel_size_mm) ?? m.nyquist_lpmm;
   const nyquist = nyquistLpmm != null ? `${formatCapturado(nyquistLpmm)} lp/mm` : "—";
-  // mA / t / mAs solo se citan si se cargaron (visitas previas no los tienen).
+  // mA / t / mAs solo se citan si se cargaron (visitas previas no los tienen)
+  // y si la consola los muestra (#189).
   const tecnica = [
-    m.tecnica_ma != null ? `corriente ${formatCapturado(m.tecnica_ma)} mA` : null,
-    m.tecnica_tiempo_s != null ? `tiempo ${formatCapturado(m.tecnica_tiempo_s)} s` : null,
-    m.tecnica_mas != null ? `exposición ${formatCapturado(m.tecnica_mas)} mAs` : null,
+    m.tecnica_ma != null && ver(conv, "ma")
+      ? `corriente ${formatCapturado(m.tecnica_ma)} mA`
+      : null,
+    m.tecnica_tiempo_s != null && ver(conv, "tiempo")
+      ? `tiempo ${formatCapturado(m.tecnica_tiempo_s)} s`
+      : null,
+    m.tecnica_mas != null && ver(conv, "mas")
+      ? `exposición ${formatCapturado(m.tecnica_mas)} mAs`
+      : null,
   ]
     .filter(Boolean)
     .map((t) => `${t}, `)
     .join("");
   addParagraph(
-    `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, tensión de referencia ${kv}, ${tecnica}tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`
+    `La prueba se llevó a cabo bajo las siguientes condiciones de medición: distancia foco-sensor ${sid}, ${tension}${tecnica}tamaño de píxel ${pixel} y frecuencia de Nyquist ${nyquist}.`
   );
 
   // Tabla de valores medidos
@@ -3310,29 +3393,25 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   addParagraph(`Distancia foco-sensor d1 (cm): ${formatCapturado(d1)}`);
   addParagraph(`Distancia foco-detector de imagen d2 (cm): ${formatCapturado(d2)}`);
 
-  const filas221 = resultado.filas.map((f) => [
-    f.programa,
-    formatCapturado(f.kvNominal),
-    formatCapturado(f.masNominal),
-    formatCapturado(f.dosisMedida),
-    "1",
-    f.dosisReceptor != null ? formatDecimal(f.dosisReceptor, 5) : "—",
+  const cols221 = columnasVisibles<(typeof resultado.filas)[number] | undefined>(conv, [
+    { head: "Programa", valor: (f) => f?.programa ?? "—" },
+    { head: "Tensión (kVp)", valor: (f) => formatCapturado(f?.kvNominal), param: "kv" },
+    { head: "Carga (mAs)", valor: (f) => formatCapturado(f?.masNominal), param: "mas" },
+    { head: `Dosis medida (${labelKerma})`, valor: (f) => formatCapturado(f?.dosisMedida) },
+    { head: "TPR", valor: () => "1" },
+    {
+      head: `Dosis al receptor (${labelKerma})`,
+      valor: (f) => (f?.dosisReceptor != null ? formatDecimal(f.dosisReceptor, 5) : "—"),
+    },
   ]);
+  const filas221 = resultado.filas.map((f) => cols221.map((c) => c.valor(f)));
 
   addCaption(ctx, "Tabla 2.21.1. Registro de mediciones de dosis al receptor de imagen");
   autoTable(doc, {
     ...TABLE_STYLE,
-    head: [
-      [
-        "Programa",
-        "Tensión (kVp)",
-        "Carga (mAs)",
-        `Dosis medida (${labelKerma})`,
-        "TPR",
-        `Dosis al receptor (${labelKerma})`,
-      ],
-    ],
-    body: filas221.length > 0 ? filas221 : [["—", "—", "—", "—", "1", "—"]],
+    head: [cols221.map((c) => c.head)],
+    // Sin filas: una fila vacía ("—", con TPR = 1) del mismo ancho que el encabezado.
+    body: filas221.length > 0 ? filas221 : [cols221.map((c) => c.valor(undefined))],
     startY: ctx.y,
     didDrawPage: () => {
       ctx.y = 30;
@@ -3388,6 +3467,36 @@ function render221(ctx: InformeCtx, conv: DatosConvencional): number {
   }
 
   return 6;
+}
+
+/** Frase de la metodología de la 2.4 (catálogo) que nombra los parámetros de la técnica. */
+const FRASE_TECNICA_24 = "combinación representativa de tensión y corriente del generador";
+
+/**
+ * Metodología adaptada a los parámetros que muestra la consola (#189). Solo
+ * reescribe el texto PREDETERMINADO del catálogo en código: una plantilla
+ * publicada distinta o la edición por visita se respetan tal cual. Hoy solo la
+ * 2.4 nombra parámetros ("tensión y corriente"); sin 'ma' se cita la
+ * exposición (mAs) si la consola la muestra.
+ */
+export function adaptarMetodologia(
+  codigo: string,
+  texto: string,
+  parametros: readonly ParametroConsola[] | null | undefined
+): string {
+  if (codigo !== "2.4") return texto;
+  const predeterminado = CATALOGO_SECCIONES.find((c) => c.codigo === codigo)?.metodologia;
+  if (texto !== predeterminado) return texto;
+  const terminos = [
+    muestraParametro(parametros, "kv") ? "tensión" : null,
+    muestraParametro(parametros, "ma")
+      ? "corriente"
+      : muestraParametro(parametros, "mas")
+        ? "exposición"
+        : null,
+  ].filter(Boolean);
+  const nombres = terminos.length > 0 ? terminos.join(" y ") : "parámetros de irradiación";
+  return texto.replace(FRASE_TECNICA_24, `combinación representativa de ${nombres} del generador`);
 }
 
 /**

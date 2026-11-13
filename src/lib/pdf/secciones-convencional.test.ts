@@ -5,6 +5,7 @@ import {
   recopilarDatosConv,
   renderResultadosSeccion,
   renderEvidenciaGrafica,
+  renderTablaBaseRef29,
   renderTablaBaseRef216,
   renderTablaBaseRef221,
   renderTablaChrRef,
@@ -13,9 +14,11 @@ import {
   inyectarDatosEquipo,
   analisisPredeterminadoDeVisita,
   textoUbicacionFisica,
+  adaptarMetodologia,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
+import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
 import { evaluarConceptoPrueba, type DatosEvalConv } from "@/lib/equipos/convencional/evaluacion";
 
 // Las filas conv_* tienen muchos campos obligatorios que no importan acá;
@@ -1951,5 +1954,482 @@ describe("#199 — el informe muestra los valores capturados exactos, sin redond
 
     expect(parrafos).toContain("Distancia foco-sensor d1 (cm): 90,5");
     expect(parrafos).toContain("Distancia foco-detector de imagen d2 (cm): 100");
+  });
+});
+
+// ─── #189: el informe muestra solo los parámetros nominales que muestra la consola ───
+
+describe("#189 — el informe solo muestra los parámetros que muestra la consola", () => {
+  async function ctxCaptura() {
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const parrafos: string[] = [];
+    ctx.addParagraph = (texto: string) => {
+      parrafos.push(texto);
+    };
+    return { ctx, tablas, parrafos };
+  }
+
+  /** Texto de una celda de autoTable (string, número o `{ content }`). */
+  const celda = (c: unknown): string =>
+    c != null && typeof c === "object" && "content" in c
+      ? String((c as { content: unknown }).content)
+      : String(c);
+
+  /** Todo el texto de las tablas y párrafos capturados, para buscar rótulos. */
+  function textoCompleto(tablas: TablaCapturada[], parrafos: string[]): string {
+    const deTablas = tablas.flatMap((t) => [
+      ...t.head.map(celda),
+      ...t.body.flatMap((fila) => fila.map(celda)),
+    ]);
+    return [...deTablas, ...parrafos].join("\n");
+  }
+
+  async function convCon(
+    parametros: DatosConvencional["parametros_consola"]
+  ): Promise<DatosConvencional> {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.parametros_consola = parametros;
+    return conv;
+  }
+
+  const KV_MAS = ["kv", "mas"] as const;
+
+  it("inyectarDatosEquipo copia parametros_consola del equipo (sin dato → null)", async () => {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    inyectarDatosEquipo(conv, row({ parametros_consola: ["kv", "mas"] }));
+    expect(conv.parametros_consola).toEqual(["kv", "mas"]);
+    inyectarDatosEquipo(conv, row({}));
+    expect(conv.parametros_consola).toBeNull();
+  });
+
+  // ── 2.1 ──
+  const setup21 = () =>
+    row({
+      id: "s1",
+      visita_id: V,
+      tecnica_kv: 81.5,
+      tecnica_ma: 12.5,
+      tecnica_mas: 2.5,
+      tecnica_tiempo_s: 0.125,
+      fondo_natural_usv_h: 100,
+    });
+
+  it("2.1: null → técnica 2x2 y 'Corriente utilizada' como hoy", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.setup = setup21();
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, conv, undefined);
+    const tecnica = tablas.find((t) => t.body[0]?.[0] === "Tensión (kV)")!;
+    expect(tecnica.body[0]).toEqual(["Tensión (kV)", "81,5", "Tiempo (s)", "0,125"]);
+    expect(tecnica.body[1]).toEqual(["Corriente (mA)", "12,5", "Exposición (mAs)", "2,5"]);
+    expect(celda(tecnica.body[2][0])).toBe("Fondo natural (mSv/h)");
+    const carga = tablas.find((t) => t.head.includes("Parámetro"))!;
+    const filas = carga.body.map((f) => celda(f[0]));
+    expect(filas).toContain("Corriente utilizada en la prueba I (mA)");
+    expect(filas).not.toContain("Exposición utilizada en la prueba (mAs)");
+  });
+
+  it("2.1: [kv, mas] → la técnica se reacomoda sin huecos y sin mA ni tiempo", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon([...KV_MAS]);
+    conv.setup = setup21();
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, conv, undefined);
+    const tecnica = tablas.find((t) => t.body[0]?.[0] === "Tensión (kV)")!;
+    expect(tecnica.body[0]).toEqual(["Tensión (kV)", "81,5", "Exposición (mAs)", "2,5"]);
+    expect(celda(tecnica.body[1][0])).toBe("Fondo natural (mSv/h)");
+    expect(tecnica.body).toHaveLength(2);
+    const texto = textoCompleto([tecnica], []);
+    expect(texto).not.toContain("Corriente (mA)");
+    expect(texto).not.toContain("Tiempo (s)");
+  });
+
+  it("2.1: cantidad impar de parámetros → el último ocupa la fila completa", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["kv", "ma", "mas"]);
+    conv.setup = setup21();
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, conv, undefined);
+    const tecnica = tablas.find((t) => t.body[0]?.[0] === "Tensión (kV)")!;
+    expect(tecnica.body[0]).toEqual(["Tensión (kV)", "81,5", "Corriente (mA)", "12,5"]);
+    expect(tecnica.body[1][0]).toBe("Exposición (mAs)");
+    expect(celda(tecnica.body[1][1])).toBe("2,5");
+    expect((tecnica.body[1][1] as { colSpan?: number }).colSpan).toBe(3);
+    expect(tecnica.body[1]).toHaveLength(2);
+  });
+
+  it("2.1: sin 'ma' → la carga de trabajo cita la exposición (mAs) de la prueba", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon([...KV_MAS]);
+    conv.setup = setup21();
+    renderResultadosSeccion(ctx, "2.1", visitaFixture, conv, undefined);
+    const carga = tablas.find((t) => t.head.includes("Parámetro"))!;
+    const fila = carga.body.find((f) => celda(f[0]) === "Exposición utilizada en la prueba (mAs)");
+    expect(fila).toBeDefined();
+    expect(fila![1]).toBe("2,5");
+    expect(carga.body.some((f) => celda(f[0]).startsWith("Corriente utilizada"))).toBe(false);
+  });
+
+  // ── 2.3 ──
+  const colim = () =>
+    row({ id: "c1", visita_id: V, sid_cm: 100, tecnica_kv: 70, tecnica_mas: 2.25 });
+
+  /** Suma de anchos de columna de la tabla de condiciones de la 2.3. */
+  function anchoTotal(t: TablaCapturada): number {
+    const cols = t.opts.columnStyles as Record<string, { cellWidth: number }>;
+    return Object.values(cols).reduce((a, c) => a + c.cellWidth, 0);
+  }
+
+  it("2.3: null → Tensión/Exposición/SID en 6 columnas de 169 mm, como hoy", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.colimacion = colim();
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+    const cond = tablas.find((t) => celda(t.body[0]?.[0]) === "Tensión (kV)")!;
+    expect(cond.body[0]).toHaveLength(6);
+    const cols = cond.opts.columnStyles as Record<string, { cellWidth: number }>;
+    expect(Object.values(cols).map((c) => c.cellWidth)).toEqual([28, 20, 32, 20, 51, 18]);
+  });
+
+  it("2.3: sin 'mas' → se quita el par Exposición y el resto sigue llenando 169 mm", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["kv", "ma"]);
+    conv.colimacion = colim();
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+    const cond = tablas.find((t) => celda(t.body[0]?.[0]) === "Tensión (kV)")!;
+    expect(cond.body[0].map(celda)).toEqual([
+      "Tensión (kV)",
+      "70",
+      "Distancia foco-receptor, SID (cm)",
+      "100",
+    ]);
+    expect(Object.keys(cond.opts.columnStyles as object)).toHaveLength(4);
+    expect(anchoTotal(cond)).toBeCloseTo(169, 6);
+  });
+
+  it("2.3: sin 'kv' → la fila arranca en Exposición y llena 169 mm", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["mas"]);
+    conv.colimacion = colim();
+    renderResultadosSeccion(ctx, "2.3", visitaFixture, conv, undefined);
+    const cond = tablas.find((t) => celda(t.body[0]?.[0]) === "Exposición (mAs)")!;
+    expect(cond.body[0]).toHaveLength(4);
+    expect(textoCompleto([cond], [])).not.toContain("Tensión");
+    expect(anchoTotal(cond)).toBeCloseTo(169, 6);
+  });
+
+  // ── 2.7 ──
+  const shots27 = () => [
+    row({
+      id: "m1",
+      visita_id: V,
+      tipo_medicion: "principal",
+      kv_nominal: 80,
+      grupo_numero: 2,
+      mas_nominal: 10,
+      toma_numero: 1,
+      dosis_medida_mgy: 0.5,
+    }),
+  ];
+
+  it("2.7: null → tensión programada, columna de mAs nominal y '80 kV y aproximadamente 10 mAs'", async () => {
+    const { ctx, tablas, parrafos } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.raysafeMediciones = shots27();
+    renderResultadosSeccion(ctx, "2.7", visitaFixture, conv, undefined);
+    const texto = textoCompleto(tablas, parrafos);
+    expect(texto).toContain("Tensión programada: 80 kVp");
+    expect(texto).toContain("Exposición nominal (mAs)");
+    expect(texto).toContain("(80 kV y aproximadamente 10 mAs)");
+    const t271 = tablas.find((t) => t.head.includes("Rendimiento (µGy/mAs)"))!;
+    expect(t271.opts.columnStyles).toEqual({ 0: { cellWidth: 38 } });
+  });
+
+  it("2.7: solo ['ma', 'tiempo'] → sin tensión programada; el mAs nominal se muestra siempre (la linealidad es respecto al mAs)", async () => {
+    const { ctx, tablas, parrafos } = await ctxCaptura();
+    const conv = await convCon(["ma", "tiempo"]);
+    conv.raysafeMediciones = shots27();
+    renderResultadosSeccion(ctx, "2.7", visitaFixture, conv, undefined);
+    const texto = textoCompleto(tablas, parrafos);
+    expect(texto).not.toContain("Tensión programada");
+    expect(texto).toContain("Exposición nominal (mAs)");
+    expect(texto).not.toContain("80 kV y aproximadamente");
+    expect(texto).not.toContain("evaluados a 80 kV");
+    expect(texto).toContain("condiciones de irradiación (aproximadamente 10 mAs).");
+    expect(texto).toContain("Rendimiento (µGy/mAs)");
+    const t271 = tablas.find((t) => t.head.includes("Rendimiento (µGy/mAs)"))!;
+    expect(t271.head).toHaveLength(4);
+    expect(t271.body[0]).toHaveLength(4);
+  });
+
+  it("2.7: [kv, mas] → conserva tensión y mAs (sin cambios respecto a hoy)", async () => {
+    const { ctx, tablas, parrafos } = await ctxCaptura();
+    const conv = await convCon([...KV_MAS]);
+    conv.raysafeMediciones = shots27();
+    renderResultadosSeccion(ctx, "2.7", visitaFixture, conv, undefined);
+    const texto = textoCompleto(tablas, parrafos);
+    expect(texto).toContain("Tensión programada: 80 kVp");
+    expect(texto).toContain("Exposición nominal (mAs)");
+    expect(texto).toContain("(80 kV y aproximadamente 10 mAs)");
+  });
+
+  it("2.7: [kv, ma] → la carga se cita igual: '(80 kV y aproximadamente 10 mAs)'", async () => {
+    const { ctx, parrafos } = await ctxCaptura();
+    const conv = await convCon(["kv", "ma"]);
+    conv.raysafeMediciones = shots27();
+    renderResultadosSeccion(ctx, "2.7", visitaFixture, conv, undefined);
+    expect(parrafos.join("\n")).toContain(
+      "condiciones de irradiación (80 kV y aproximadamente 10 mAs)."
+    );
+  });
+
+  // ── 2.8 ──
+  const shots28 = () => [
+    row({
+      id: "m1",
+      visita_id: V,
+      tipo_medicion: "kerma",
+      toma_numero: 1,
+      kv_nominal: 70,
+      mas_nominal: 10,
+      dosis_medida_mgy: 0.5,
+      ancho_irradiacion_cm: 10,
+      largo_irradiacion_cm: 10,
+      dap_nominal: 50,
+    }),
+  ];
+
+  it("2.8: null → Tensión y Carga como hoy", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.raysafeMediciones = shots28();
+    renderResultadosSeccion(ctx, "2.8", visitaFixture, conv, undefined);
+    const t = tablas.find((x) => x.head.includes("Factor de corrección"))!;
+    expect(t.head.slice(0, 2)).toEqual(["Tensión (kV)", "Carga (mAs)"]);
+    expect(t.opts.columnStyles).toEqual({ 4: { cellWidth: 32 } });
+  });
+
+  it("2.8: solo 'mas' → sin columna de tensión; el ancho fijo sigue en 'Factor de corrección'", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["mas"]);
+    conv.raysafeMediciones = shots28();
+    renderResultadosSeccion(ctx, "2.8", visitaFixture, conv, undefined);
+    const t = tablas.find((x) => x.head.includes("Factor de corrección"))!;
+    expect(t.head).not.toContain("Tensión (kV)");
+    expect(t.head[0]).toBe("Carga (mAs)");
+    expect(t.body[0][0]).toBe("10");
+    expect(t.body[0]).toHaveLength(4);
+    expect(t.opts.columnStyles).toEqual({ 3: { cellWidth: 32 } });
+  });
+
+  // ── 2.9 ──
+  const ddi = () => [
+    row({
+      id: "d1",
+      visita_id: V,
+      grupo: 1,
+      toma_numero: 1,
+      kv_nominal: 70,
+      carga_mas: 5,
+      ei: 300,
+      di: 0.1,
+      ei_base: 310,
+      di_base: 0.2,
+    }),
+  ];
+
+  it("2.9 y su tabla base: null → Tensión y Carga como hoy", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.ddiMediciones = ddi();
+    renderTablaBaseRef29(ctx, conv);
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const conTension = tablas.filter((t) => t.head.includes("Tensión (kVp)"));
+    expect(conTension).toHaveLength(2);
+    for (const t of conTension) expect(t.head).toContain("Carga (mAs)");
+  });
+
+  it("2.9 y su tabla base: solo 'kv' → sin columna de carga", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["kv"]);
+    conv.ddiMediciones = ddi();
+    renderTablaBaseRef29(ctx, conv);
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const conEi = tablas.filter((t) => t.head[0] === "Tensión (kVp)");
+    expect(conEi).toHaveLength(2);
+    for (const t of conEi) {
+      expect(t.head).toEqual(["Tensión (kVp)", "EI", "D.I."]);
+      expect(t.body[0]).toHaveLength(3);
+    }
+  });
+
+  it("2.9 y su tabla base: solo 'mas' → sin columna de tensión", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["mas"]);
+    conv.ddiMediciones = ddi();
+    renderTablaBaseRef29(ctx, conv);
+    renderResultadosSeccion(ctx, "2.9", visitaFixture, conv, undefined);
+    const conEi = tablas.filter((t) => t.head[0] === "Carga (mAs)");
+    expect(conEi).toHaveLength(2);
+    for (const t of conEi) expect(t.body[0][0]).toBe("5");
+    expect(textoCompleto(tablas, [])).not.toContain("Tensión (kVp)");
+  });
+
+  // ── 2.12 / 2.13 ──
+  it("2.12 y 2.13: null → muestran 'Tensión (kVp):'; sin 'kv' → solo la SID", async () => {
+    for (const [codigo, campo] of [
+      ["2.12", "resolucion"],
+      ["2.13", "bajoContraste"],
+    ] as const) {
+      const hoy = await ctxCaptura();
+      const convHoy = await convCon(null);
+      convHoy[campo] = row({ id: "x", visita_id: V, sid_cm: 100, tecnica_kv: 70 });
+      renderResultadosSeccion(hoy.ctx, codigo, visitaFixture, convHoy, undefined);
+      const condHoy = hoy.tablas.find((t) => String(t.body[0]?.[0]).startsWith("Distancia"))!;
+      expect(condHoy.body[0]).toEqual([
+        "Distancia foco-receptor, SID (cm):",
+        "100",
+        "Tensión (kVp):",
+        "70",
+      ]);
+
+      const sin = await ctxCaptura();
+      const convSin = await convCon(["mas"]);
+      convSin[campo] = row({ id: "x", visita_id: V, sid_cm: 100, tecnica_kv: 70 });
+      renderResultadosSeccion(sin.ctx, codigo, visitaFixture, convSin, undefined);
+      const condSin = sin.tablas.find((t) => String(t.body[0]?.[0]).startsWith("Distancia"))!;
+      expect(condSin.body[0]).toEqual(["Distancia foco-receptor, SID (cm):", "100"]);
+    }
+  });
+
+  // ── 2.16 ──
+  const mtf = () =>
+    row({
+      id: "mtf1",
+      visita_id: V,
+      distancia_foco_sensor_cm: 150,
+      tecnica_kv: 70,
+      tecnica_ma: 200,
+      tecnica_tiempo_s: 0.05,
+      tecnica_mas: 10,
+      pixel_size_mm: 0.1,
+    });
+
+  it("2.16: null → cita tensión, corriente, tiempo y exposición como hoy", async () => {
+    const { ctx, parrafos } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.mtf = mtf();
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    expect(parrafos[0]).toContain(
+      "tensión de referencia 70 kVp, corriente 200 mA, tiempo 0,05 s, exposición 10 mAs, tamaño de píxel"
+    );
+  });
+
+  it("2.16: [kv, mas] → omite corriente y tiempo", async () => {
+    const { ctx, parrafos } = await ctxCaptura();
+    const conv = await convCon([...KV_MAS]);
+    conv.mtf = mtf();
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    expect(parrafos[0]).toContain(
+      "tensión de referencia 70 kVp, exposición 10 mAs, tamaño de píxel"
+    );
+    expect(parrafos[0]).not.toContain("corriente");
+    expect(parrafos[0]).not.toContain("tiempo");
+  });
+
+  it("2.16: sin 'kv' → omite la tensión de referencia", async () => {
+    const { ctx, parrafos } = await ctxCaptura();
+    const conv = await convCon(["ma", "tiempo"]);
+    conv.mtf = mtf();
+    renderResultadosSeccion(ctx, "2.16", visitaFixture, conv, undefined);
+    expect(parrafos[0]).toContain(
+      "distancia foco-sensor 150 cm, corriente 200 mA, tiempo 0,05 s, tamaño de píxel"
+    );
+    expect(parrafos[0]).not.toContain("tensión");
+    expect(parrafos[0]).not.toContain("exposición");
+  });
+
+  // ── 2.21 ──
+  const shots221 = () => [
+    row({
+      id: "r1",
+      visita_id: V,
+      tipo_medicion: "sin_rejilla",
+      programa_clinico: "Tórax AP",
+      kv_nominal: 90,
+      mas_nominal: 5,
+      dosis_medida_mgy: 0.3258,
+      dosis_base_mgy: 0.319,
+    }),
+  ];
+
+  it("2.21 y su tabla base: null → Tensión y Carga como hoy", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(null);
+    conv.raysafeMediciones = shots221();
+    renderTablaBaseRef221(ctx, conv);
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    const base = tablas.find((t) => t.head.includes("Dosis al receptor base (mGy)"))!;
+    expect(base.head).toEqual([
+      "Programa",
+      "Tensión (kV)",
+      "Carga (mAs)",
+      "Dosis al receptor base (mGy)",
+    ]);
+    const t2211 = tablas.find((t) => t.head.includes("TPR"))!;
+    expect(t2211.head.slice(1, 3)).toEqual(["Tensión (kVp)", "Carga (mAs)"]);
+  });
+
+  it("2.21 y su tabla base: solo 'kv' → sin columna de carga (también en la fila vacía)", async () => {
+    const { ctx, tablas } = await ctxCaptura();
+    const conv = await convCon(["kv"]);
+    conv.raysafeMediciones = shots221();
+    renderTablaBaseRef221(ctx, conv);
+    renderResultadosSeccion(ctx, "2.21", visitaFixture, conv, undefined);
+    const base = tablas.find((t) => t.head.includes("Dosis al receptor base (mGy)"))!;
+    expect(base.head).toEqual(["Programa", "Tensión (kV)", "Dosis al receptor base (mGy)"]);
+    expect(base.body[0]).toEqual(["Tórax AP", "90", "0,319"]);
+    const t2211 = tablas.find((t) => t.head.includes("TPR"))!;
+    expect(t2211.head).not.toContain("Carga (mAs)");
+    expect(t2211.body[0]).toHaveLength(t2211.head.length);
+
+    const vacio = await ctxCaptura();
+    const convVacio = await convCon(["kv"]);
+    renderTablaBaseRef221(vacio.ctx, convVacio);
+    renderResultadosSeccion(vacio.ctx, "2.21", visitaFixture, convVacio, undefined);
+    for (const t of vacio.tablas) expect(t.body[0]).toHaveLength(t.head.length);
+  });
+
+  // ── 2.4 metodología ──
+  describe("adaptarMetodologia (2.4)", () => {
+    const cat24 = CATALOGO_SECCIONES.find((c) => c.codigo === "2.4")!.metodologia;
+
+    it("null o con 'ma' → el texto del catálogo queda igual", () => {
+      expect(adaptarMetodologia("2.4", cat24, null)).toBe(cat24);
+      expect(adaptarMetodologia("2.4", cat24, ["kv", "ma"])).toBe(cat24);
+    });
+
+    it("sin 'ma' pero con 'mas' → 'tensión y exposición'", () => {
+      const out = adaptarMetodologia("2.4", cat24, ["kv", "mas"]);
+      expect(out).toContain("combinación representativa de tensión y exposición del generador");
+      expect(out).not.toContain("corriente");
+    });
+
+    it("sin 'kv' ni 'ma' → solo la exposición; sin ninguno de los tres → 'parámetros de irradiación'", () => {
+      expect(adaptarMetodologia("2.4", cat24, ["mas"])).toContain(
+        "combinación representativa de exposición del generador"
+      );
+      expect(adaptarMetodologia("2.4", cat24, ["tiempo"])).toContain(
+        "combinación representativa de parámetros de irradiación del generador"
+      );
+    });
+
+    it("no toca un texto de plantilla publicada o editado (distinto al del catálogo)", () => {
+      const propio = cat24.replace("Se posicionó", "Se ubicó");
+      expect(adaptarMetodologia("2.4", propio, ["kv", "mas"])).toBe(propio);
+    });
+
+    it("no toca otras pruebas", () => {
+      const cat25 = CATALOGO_SECCIONES.find((c) => c.codigo === "2.5")!.metodologia;
+      expect(adaptarMetodologia("2.5", cat25, ["kv", "mas"])).toBe(cat25);
+    });
   });
 });

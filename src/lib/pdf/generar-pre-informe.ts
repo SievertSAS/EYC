@@ -87,6 +87,7 @@ import {
   renderTablaBaseRef29,
   renderTablaBaseRef216,
   renderTablaBaseRef221,
+  adaptarMetodologia,
   type InformeCtx,
 } from "./secciones-convencional";
 
@@ -1278,7 +1279,13 @@ export async function generarPreInforme(
         resumenRows.push([`${codigo} ${cat.nombre}`, "NO APLICA"]);
         continue;
       }
-      addSubsectionParagraph(`${codigo}.3.`, "Metodología", cat.metodologia);
+      // #189: el texto predeterminado nombra solo los parámetros que muestra la
+      // consola (una plantilla publicada propia se respeta tal cual).
+      addSubsectionParagraph(
+        `${codigo}.3.`,
+        "Metodología",
+        adaptarMetodologia(codigo, cat.metodologia, conv.parametros_consola)
+      );
 
       // Resultados (+ análisis en 2.1, descripción en 2.2)
       let nextSub: number;

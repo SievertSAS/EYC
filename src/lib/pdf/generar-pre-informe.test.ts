@@ -1499,6 +1499,12 @@ describe("#187 — equipo convencional portátil", () => {
       await db.ubicaciones_rx.update(ubicacion.id!, {
         nombre_servicio: "Servicio Imagenes",
         ubicacion_fisica: "Sala de rayos X del primer piso",
+        zona_a_desc: "ZONA-A-MARCADOR",
+        piso_desc: "PISO-MARCADOR-188",
+        techo_desc: "TECHO-MARCADOR-188",
+        ancho_m: 4.5,
+        largo_m: 5,
+        alto_m: 3,
       });
       await db.visitas.update(visita!.id!, visitaPatch);
       await db.conv_informe_secciones.add({
@@ -1515,13 +1521,35 @@ describe("#187 — equipo convencional portátil", () => {
 
     const flotante = {
       categoria_ubicacion: "flotante",
-      ubicaciones_flotantes: ["UCI adultos", "Urgencias"],
+      ubicaciones_flotantes: [
+        { nombre: "UCI adultos", descripcion: "Cama 3 junto a enfermeria" },
+        { nombre: "Urgencias", descripcion: "Box de reanimacion" },
+      ],
     };
 
-    it("flotante: la 2.2.4 lista las áreas elegidas en vez del párrafo de ubicación física", async () => {
+    it("flotante: la 2.2.4 lista cada área con su descripción en vez del párrafo de ubicación física", async () => {
       const text = await pdfUbicacion("portatil", flotante);
-      expect(text).toContain("evaluadas \\(ubicaciones flotantes\\): UCI adultos, Urgencias.");
+      expect(text).toContain("evaluadas \\(ubicaciones flotantes\\):");
+      expect(text).toContain("UCI adultos: Cama 3 junto a enfermeria");
+      expect(text).toContain("Urgencias: Box de reanimacion");
       expect(text).not.toContain("Sala de rayos X del primer piso");
+    });
+
+    it("flotante: no imprime zonas A–D, piso/techo ni dimensiones de la sala", async () => {
+      const text = await pdfUbicacion("portatil", flotante);
+      expect(text).not.toContain("ZONA-A-MARCADOR");
+      expect(text).not.toContain("PISO-MARCADOR-188");
+      expect(text).not.toContain("TECHO-MARCADOR-188");
+      expect(text).not.toContain("Dimensiones de la sala");
+    });
+
+    it("flotante con datos viejos (solo nombres): lista los nombres", async () => {
+      const text = await pdfUbicacion("portatil", {
+        categoria_ubicacion: "flotante",
+        ubicaciones_flotantes: ["UCI adultos", "Urgencias"],
+      });
+      expect(text).toContain("Ubicaciones flotantes: UCI adultos, Urgencias");
+      expect(text).toMatch(/\(UCI adultos\) Tj/);
     });
 
     it("flotante: la portada lista las áreas en 'Área - servicio'", async () => {
@@ -1532,6 +1560,9 @@ describe("#187 — equipo convencional portátil", () => {
     it("portátil en sala fija: igual que el convencional (párrafo de ubicación física)", async () => {
       const text = await pdfUbicacion("portatil", { categoria_ubicacion: "fija" });
       expect(text).toContain("Sala de rayos X del primer piso");
+      expect(text).toContain("ZONA-A-MARCADOR");
+      expect(text).toContain("PISO-MARCADOR-188");
+      expect(text).toContain("Dimensiones de la sala");
       expect(text).not.toContain("flotantes");
     });
 

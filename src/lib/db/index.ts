@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { PlantillaInforme } from "@/lib/plantillas/types";
+import { normalizarAreasFlotantes } from "@/lib/ubicaciones/flotantes";
 import type {
   Cliente,
   Contacto,
@@ -89,6 +90,27 @@ export async function dedupeFilasPorClave<T extends Record<string, unknown>>(
     });
     await tabla.bulkDelete(grupo.slice(1).map((f) => f.id));
   }
+}
+
+/**
+ * v26 (#188): `visitas.ubicaciones_flotantes` pasó de `string[]` (nombres) a
+ * `{ nombre, descripcion }[]`. Convierte las filas locales con elementos
+ * viejos. No toca `sync_status` ni `last_modified`: el servidor convierte las
+ * suyas con la migración 052 y la lectura normaliza igual cualquier resto
+ * (`normalizarAreasFlotantes`), así que no hace falta re-subir nada.
+ */
+export async function migrarUbicacionesFlotantesV26(
+  tabla: Dexie.Table<Record<string, unknown>, string>
+): Promise<void> {
+  await tabla
+    .filter(
+      (v) =>
+        Array.isArray(v.ubicaciones_flotantes) &&
+        v.ubicaciones_flotantes.some((a: unknown) => typeof a === "string")
+    )
+    .modify((v) => {
+      v.ubicaciones_flotantes = normalizarAreasFlotantes(v.ubicaciones_flotantes);
+    });
 }
 
 interface EspecDedupeV21 {
@@ -553,6 +575,15 @@ class EyCDatabase extends Dexie {
     this.version(25).stores({
       catalogo_ubicaciones_flotantes: "id, nombre, sync_status",
     });
+
+    // ─────────────────────────────────────────────────────────────
+    //  v26 — cada área flotante de la visita lleva su descripción (#188):
+    //  `ubicaciones_flotantes` pasa de `string[]` a `{ nombre, descripcion }[]`.
+    //  Sin cambio de índices; solo convierte los datos locales viejos.
+    // ─────────────────────────────────────────────────────────────
+    this.version(26)
+      .stores({})
+      .upgrade((tx) => migrarUbicacionesFlotantesV26(tx.table("visitas")));
   }
 }
 

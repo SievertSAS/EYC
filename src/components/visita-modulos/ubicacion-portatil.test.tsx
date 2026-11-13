@@ -57,35 +57,92 @@ describe("InfoModulo — categoría de ubicación", () => {
     });
   });
 
-  it("portátil flotante: oculta el párrafo de ubicación física y muestra las áreas", async () => {
+  it("portátil flotante: oculta ubicación física, dimensiones, zonas A–D y piso/techo", async () => {
+    const id = await sembrar("portatil", {
+      categoria_ubicacion: "flotante",
+      ubicaciones_flotantes: [{ nombre: "UCI adultos", descripcion: "Cama 3" }],
+    });
+    render(<InfoModulo visitaId={id} />);
+    await screen.findByText("UCI adultos");
+    for (const label of [
+      "Ubicación física del equipo",
+      "Ancho (m)",
+      "Largo (m)",
+      "Alto (m)",
+      "Área (m²)",
+      "Zona A",
+      "Zona D",
+      "Piso",
+      "Techo",
+    ]) {
+      expect(screen.queryByText(label), label).toBeNull();
+    }
+  });
+
+  it("portátil en sala fija: muestra dimensiones, zonas y piso/techo (como el fijo)", async () => {
+    const id = await sembrar("portatil", { categoria_ubicacion: "fija" });
+    render(<InfoModulo visitaId={id} />);
+    await screen.findByText("Ancho (m)");
+    expect(screen.getByText("Zona A")).toBeInTheDocument();
+    expect(screen.getByText("Piso")).toBeInTheDocument();
+  });
+
+  it("datos viejos (string[]) se muestran como áreas sin descripción", async () => {
     const id = await sembrar("portatil", {
       categoria_ubicacion: "flotante",
       ubicaciones_flotantes: ["UCI adultos"],
     });
     render(<InfoModulo visitaId={id} />);
     await screen.findByText("UCI adultos");
-    expect(screen.queryByText("Ubicación física del equipo")).toBeNull();
+    expect(screen.getByLabelText("Descripción de UCI adultos")).toHaveValue("");
   });
 });
 
 describe("UbicacionPortatil — áreas flotantes", () => {
+  const dosAreas = [
+    { nombre: "UCI adultos", descripcion: "Cama 3" },
+    { nombre: "Urgencias", descripcion: "" },
+  ];
+
   it("quitar un área la saca de la visita", async () => {
     const id = await sembrar("portatil", {
       categoria_ubicacion: "flotante",
-      ubicaciones_flotantes: ["UCI adultos", "Urgencias"],
+      ubicaciones_flotantes: dosAreas,
     });
     render(
-      <UbicacionPortatil
-        visitaId={id}
-        categoria="flotante"
-        areas={["UCI adultos", "Urgencias"]}
-        usuarioId="usr-tec"
-      />
+      <UbicacionPortatil visitaId={id} categoria="flotante" areas={dosAreas} usuarioId="usr-tec" />
     );
     fireEvent.click(screen.getByRole("button", { name: "Quitar Urgencias" }));
     await waitFor(async () => {
-      expect((await db.visitas.get(id))?.ubicaciones_flotantes).toEqual(["UCI adultos"]);
+      expect((await db.visitas.get(id))?.ubicaciones_flotantes).toEqual([dosAreas[0]]);
     });
+  });
+
+  it("cada área tiene su descripción, que se guarda en la visita al salir del campo", async () => {
+    const id = await sembrar("portatil", {
+      categoria_ubicacion: "flotante",
+      ubicaciones_flotantes: dosAreas,
+    });
+    render(
+      <UbicacionPortatil visitaId={id} categoria="flotante" areas={dosAreas} usuarioId="usr-tec" />
+    );
+    expect(screen.getByLabelText("Descripción de UCI adultos")).toHaveValue("Cama 3");
+    const desc = screen.getByLabelText("Descripción de Urgencias");
+    fireEvent.change(desc, { target: { value: "Box de reanimación" } });
+    fireEvent.blur(desc);
+    await waitFor(async () => {
+      expect((await db.visitas.get(id))?.ubicaciones_flotantes).toEqual([
+        dosAreas[0],
+        { nombre: "Urgencias", descripcion: "Box de reanimación" },
+      ]);
+    });
+  });
+
+  it("avisa cuando falta la descripción de alguna área", () => {
+    render(
+      <UbicacionPortatil visitaId="v" categoria="flotante" areas={dosAreas} usuarioId="usr-tec" />
+    );
+    expect(screen.getByText("Describe la ubicación de cada área.")).toBeInTheDocument();
   });
 
   it("'Otro' agrega la ubicación al catálogo y a la visita; repetida no se duplica", async () => {
@@ -105,7 +162,9 @@ describe("UbicacionPortatil — áreas flotantes", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     await waitFor(async () => {
-      expect((await db.visitas.get(id))?.ubicaciones_flotantes).toEqual(["UCI pediátrica"]);
+      expect((await db.visitas.get(id))?.ubicaciones_flotantes).toEqual([
+        { nombre: "UCI pediátrica", descripcion: "" },
+      ]);
     });
     expect(await db.catalogo_ubicaciones_flotantes.count()).toBe(1);
 

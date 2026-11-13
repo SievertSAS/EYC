@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import Dexie from "dexie";
-import { db, dedupeFilasPorClave, especsDedupeV21 } from "./index";
+import { db, dedupeFilasPorClave, especsDedupeV21, migrarUbicacionesFlotantesV26 } from "./index";
 import { resetTestDb } from "@/test/db-reset";
 
 describe("esquema — instalación nueva", () => {
@@ -19,8 +19,8 @@ describe("esquema — instalación nueva", () => {
     await resetTestDb();
   });
 
-  it("abre en la versión 25", () => {
-    expect(db.verno).toBe(25);
+  it("abre en la versión 26", () => {
+    expect(db.verno).toBe(26);
   });
 
   it("las tablas de dominio tienen PK string 'id' (migración v13 a UUID)", () => {
@@ -302,6 +302,59 @@ describe("dedupeFilasPorClave — motor genérico de v21 (inspección/RaySafe/CA
       await dedupeFilasPorClave(tabla, clave, editada);
       const restantes = await tabla.toArray();
       expect(restantes.map((f) => f.id).sort()).toEqual(["unica-a", "unica-b"]);
+    });
+  });
+});
+
+describe("esquema — v26 convierte ubicaciones_flotantes viejas (string[]) a áreas", () => {
+  async function conVisitas(
+    fn: (tabla: Dexie.Table<Record<string, unknown>, string>) => Promise<void>
+  ) {
+    const name = "mig-v26-" + Math.random().toString(36).slice(2);
+    const d = new Dexie(name);
+    d.version(1).stores({ visitas: "id, sync_status" });
+    await d.open();
+    try {
+      await fn(d.table("visitas"));
+    } finally {
+      d.close();
+      await Dexie.delete(name);
+    }
+  }
+
+  it("convierte nombres sueltos a { nombre, descripcion: '' } sin tocar el estado de sync", async () => {
+    await conVisitas(async (tabla) => {
+      await tabla.bulkAdd([
+        {
+          id: "vieja",
+          ubicaciones_flotantes: ["UCI adultos", "Urgencias"],
+          sync_status: "synced",
+          last_modified: "2026-01-01T00:00:00Z",
+        },
+        {
+          id: "nueva",
+          ubicaciones_flotantes: [{ nombre: "UCI", descripcion: "Cama 3" }],
+          sync_status: "pending",
+          last_modified: "2026-01-02T00:00:00Z",
+        },
+        { id: "fija", ubicaciones_flotantes: null, sync_status: "synced" },
+        { id: "sin-campo", sync_status: "synced" },
+      ]);
+
+      await migrarUbicacionesFlotantesV26(tabla);
+
+      const vieja = await tabla.get("vieja");
+      expect(vieja?.ubicaciones_flotantes).toEqual([
+        { nombre: "UCI adultos", descripcion: "" },
+        { nombre: "Urgencias", descripcion: "" },
+      ]);
+      expect(vieja?.sync_status).toBe("synced");
+      expect(vieja?.last_modified).toBe("2026-01-01T00:00:00Z");
+      expect((await tabla.get("nueva"))?.ubicaciones_flotantes).toEqual([
+        { nombre: "UCI", descripcion: "Cama 3" },
+      ]);
+      expect((await tabla.get("fija"))?.ubicaciones_flotantes).toBeNull();
+      expect((await tabla.get("sin-campo"))?.ubicaciones_flotantes).toBeUndefined();
     });
   });
 });

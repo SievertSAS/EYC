@@ -2,6 +2,7 @@ import { db, noBorrado } from "@/lib/db";
 import { randomUUID } from "@/lib/uuid";
 import { pushSingle } from "@/lib/supabase/sync-engine";
 import type {
+  AreaFlotante,
   CategoriaUbicacion,
   UbicacionFlotanteCatalogo,
   VisitaEjecucion,
@@ -97,14 +98,14 @@ export async function guardarCategoriaUbicacion(
   });
 }
 
-/** Guarda las áreas flotantes elegidas (nombres del catálogo). */
+/** Guarda las áreas flotantes elegidas (nombre del catálogo + descripción). */
 export async function guardarUbicacionesFlotantes(
   visitaId: string,
-  nombres: string[]
+  areas: AreaFlotante[]
 ): Promise<void> {
   // La categoría viaja junto con la lista: el CHECK de la 050 exige "flotante".
   await actualizarVisita(visitaId, {
     categoria_ubicacion: "flotante",
-    ubicaciones_flotantes: nombres,
+    ubicaciones_flotantes: areas,
   });
 }

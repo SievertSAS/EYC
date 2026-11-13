@@ -936,13 +936,18 @@ describe("sync-engine — catálogo de ubicaciones flotantes (#188)", () => {
     expect((await db.catalogo_ubicaciones_flotantes.get("cat-1"))?.sync_status).toBe("synced");
   });
 
-  it("la visita sube categoría y áreas flotantes", async () => {
+  const areas = [
+    { nombre: "UCI adultos", descripcion: "Cama 3, junto a la estación" },
+    { nombre: "Reanimación", descripcion: "" },
+  ];
+
+  it("la visita sube categoría y áreas flotantes con su descripción", async () => {
     await db.visitas.add({
       id: "vis-188",
       solicitud_id: "sol-1",
       estado_visita: "en_progreso",
       categoria_ubicacion: "flotante",
-      ubicaciones_flotantes: ["UCI adultos", "Reanimación"],
+      ubicaciones_flotantes: areas,
       sync_status: "pending",
       last_modified: "2026-01-01T00:00:00.000Z",
     });
@@ -951,6 +956,23 @@ describe("sync-engine — catálogo de ubicaciones flotantes (#188)", () => {
 
     const remote = fakeClient.getServerRow("visitas", "vis-188");
     expect(remote?.categoria_ubicacion).toBe("flotante");
-    expect(remote?.ubicaciones_flotantes).toEqual(["UCI adultos", "Reanimación"]);
+    expect(remote?.ubicaciones_flotantes).toEqual(areas);
+  });
+
+  it("el pull baja las áreas flotantes (jsonb de objetos) intactas", async () => {
+    fakeClient.seedTable("visitas", [
+      {
+        id: "vis-188-pull",
+        solicitud_id: "sol-1",
+        estado_visita: "en_progreso",
+        categoria_ubicacion: "flotante",
+        ubicaciones_flotantes: areas,
+        last_modified: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+
+    await pullAllPending();
+
+    expect((await db.visitas.get("vis-188-pull"))?.ubicaciones_flotantes).toEqual(areas);
   });
 });

@@ -213,10 +213,33 @@ describe("module-completeness — #188 ubicaciones del portátil", () => {
     }
   });
 
-  it("portátil flotante con áreas, o en sala fija → nada que reportar de ubicación", async () => {
+  it("portátil flotante con áreas sin descripción → falta la descripción (también datos viejos)", async () => {
+    for (const ubicaciones_flotantes of [
+      ["UCI adultos"],
+      [
+        { nombre: "UCI adultos", descripcion: "Cama 3" },
+        { nombre: "Urgencias", descripcion: "   " },
+      ],
+    ]) {
+      await resetTestDb();
+      const campos = await camposDe("portatil", {
+        categoria_ubicacion: "flotante",
+        ubicaciones_flotantes,
+      });
+      expect(campos).toContain("visita.ubicaciones_flotantes.descripcion");
+      expect(campos).not.toContain("visita.ubicaciones_flotantes");
+    }
+  });
+
+  it("portátil flotante sin áreas → no pide descripción (solo las áreas)", async () => {
+    const campos = await camposDe("portatil", { categoria_ubicacion: "flotante" });
+    expect(campos).not.toContain("visita.ubicaciones_flotantes.descripcion");
+  });
+
+  it("portátil flotante con áreas descritas, o en sala fija → nada que reportar de ubicación", async () => {
     const flot = await camposDe("portatil", {
       categoria_ubicacion: "flotante",
-      ubicaciones_flotantes: ["UCI adultos"],
+      ubicaciones_flotantes: [{ nombre: "UCI adultos", descripcion: "Cama 3" }],
     });
     expect(flot.filter((c) => c.startsWith("visita.") && c !== "visita.fecha_visita")).toEqual([]);
     await resetTestDb();

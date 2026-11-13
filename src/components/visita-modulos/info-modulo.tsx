@@ -9,7 +9,11 @@ import { SISTEMAS_ADQUISICION, esPortatil } from "@/lib/db/types";
 import type { EquipoIdentificacion, Sede, TipoInstalacion } from "@/lib/db/types";
 import { TipoInstalacionToggle } from "@/components/tipo-instalacion-toggle";
 import { UbicacionPortatil } from "@/components/visita-modulos/ubicacion-portatil";
-import { aplicaCategoriaUbicacion } from "@/lib/ubicaciones/flotantes";
+import {
+  aplicaCategoriaUbicacion,
+  areasFlotantesCompletas,
+  normalizarAreasFlotantes,
+} from "@/lib/ubicaciones/flotantes";
 import { matchIdPorNombre } from "@/lib/divipola";
 import { useImagenSrc } from "@/hooks/use-imagen-src";
 import { ImagenConTitulo } from "@/components/imagen-con-titulo";
@@ -976,12 +980,19 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
   // #188: el CONVENCIONAL portátil elige categoría de ubicación (fija / flotante).
   const conCategoriaUbicacion = aplicaCategoriaUbicacion(equipo);
   const flotante = conCategoriaUbicacion && visita.categoria_ubicacion === "flotante";
+  // Filas viejas traen `string[]` (solo nombres): se normalizan al leer.
+  const areasFlotantes = normalizarAreasFlotantes(visita.ubicaciones_flotantes);
+  // Flotante no tiene sala: las dimensiones no cuentan; sí las áreas y sus
+  // descripciones (obligatorias).
   const progSala = computeProgress([
-    ubicacion?.ancho_m,
-    ubicacion?.largo_m,
-    ubicacion?.alto_m,
+    ...(flotante ? [] : [ubicacion?.ancho_m, ubicacion?.largo_m, ubicacion?.alto_m]),
     ...(conCategoriaUbicacion ? [visita.categoria_ubicacion] : []),
-    ...(flotante ? [visita.ubicaciones_flotantes?.length ? 1 : undefined] : []),
+    ...(flotante
+      ? [
+          areasFlotantes.length ? 1 : undefined,
+          areasFlotantesCompletas(areasFlotantes) ? 1 : undefined,
+        ]
+      : []),
   ]);
 
   const allValues = [
@@ -1613,74 +1624,77 @@ export function InfoModulo({ visitaId: id }: { visitaId: string }) {
             <UbicacionPortatil
               visitaId={visitaId}
               categoria={visita.categoria_ubicacion}
-              areas={visita.ubicaciones_flotantes ?? []}
+              areas={areasFlotantes}
               usuarioId={role?.usuarioId}
             />
           )}
-          {/* Flotante: el informe lista las áreas elegidas en vez de este párrafo
-              libre (#188). Dimensiones y zonas A–D se mantienen: si se omiten
-              para flotante está pendiente de definición del físico. */}
+          {/* Flotante no tiene sala (#188): el informe lista las áreas con su
+              descripción en vez de la ubicación física, y se ocultan las
+              dimensiones, las zonas A–D y piso/techo. Los valores guardados
+              de la ubicación no se borran: vuelven a verse si pasa a fija. */}
           {!flotante && (
-            <EditableField
-              label="Ubicación física del equipo"
-              value={toStr(ubicacion.ubicacion_fisica)}
-              onSave={(v) => saveUbicacion("ubicacion_fisica", v)}
-            />
-          )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <EditableField
-              label="Ancho (m)"
-              value={toStr(ubicacion.ancho_m)}
-              type="number"
-              onSave={(v) => saveUbicacionDim("ancho_m", v)}
-            />
-            <EditableField
-              label="Largo (m)"
-              value={toStr(ubicacion.largo_m)}
-              type="number"
-              onSave={(v) => saveUbicacionDim("largo_m", v)}
-            />
-            <EditableField
-              label="Alto (m)"
-              value={toStr(ubicacion.alto_m)}
-              type="number"
-              onSave={(v) => saveUbicacionDim("alto_m", v)}
-            />
-            <ReadonlyField label="Área (m²)" value={ubicacion.area_m2} />
-          </div>
-
-          <div className="space-y-3 pt-3 border-t border-slate-100">
-            <p className="text-xs font-medium text-slate-400">Descripción de zonas</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(["a", "b", "c", "d"] as const).map((z) => (
-                <EditableTextArea
-                  key={z}
-                  label={`Zona ${z.toUpperCase()}`}
-                  value={toStr(ubicacion[`zona_${z}_desc` as keyof typeof ubicacion] as string)}
-                  placeholder="Limita con… / puertas / barreras"
-                  onSave={(v) => saveUbicacion(`zona_${z}_desc`, v)}
+            <>
+              <EditableField
+                label="Ubicación física del equipo"
+                value={toStr(ubicacion.ubicacion_fisica)}
+                onSave={(v) => saveUbicacion("ubicacion_fisica", v)}
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <EditableField
+                  label="Ancho (m)"
+                  value={toStr(ubicacion.ancho_m)}
+                  type="number"
+                  onSave={(v) => saveUbicacionDim("ancho_m", v)}
                 />
-              ))}
-            </div>
-          </div>
+                <EditableField
+                  label="Largo (m)"
+                  value={toStr(ubicacion.largo_m)}
+                  type="number"
+                  onSave={(v) => saveUbicacionDim("largo_m", v)}
+                />
+                <EditableField
+                  label="Alto (m)"
+                  value={toStr(ubicacion.alto_m)}
+                  type="number"
+                  onSave={(v) => saveUbicacionDim("alto_m", v)}
+                />
+                <ReadonlyField label="Área (m²)" value={ubicacion.area_m2} />
+              </div>
 
-          <div className="space-y-3 pt-3 border-t border-slate-100">
-            <p className="text-xs font-medium text-slate-400">Piso y techo</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <EditableTextArea
-                label="Piso"
-                value={toStr(ubicacion.piso_desc)}
-                placeholder="Material / plomo equiv. / colindancia inferior"
-                onSave={(v) => saveUbicacion("piso_desc", v)}
-              />
-              <EditableTextArea
-                label="Techo"
-                value={toStr(ubicacion.techo_desc)}
-                placeholder="Material / plomo equiv. / colindancia superior"
-                onSave={(v) => saveUbicacion("techo_desc", v)}
-              />
-            </div>
-          </div>
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <p className="text-xs font-medium text-slate-400">Descripción de zonas</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(["a", "b", "c", "d"] as const).map((z) => (
+                    <EditableTextArea
+                      key={z}
+                      label={`Zona ${z.toUpperCase()}`}
+                      value={toStr(ubicacion[`zona_${z}_desc` as keyof typeof ubicacion] as string)}
+                      placeholder="Limita con… / puertas / barreras"
+                      onSave={(v) => saveUbicacion(`zona_${z}_desc`, v)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <p className="text-xs font-medium text-slate-400">Piso y techo</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <EditableTextArea
+                    label="Piso"
+                    value={toStr(ubicacion.piso_desc)}
+                    placeholder="Material / plomo equiv. / colindancia inferior"
+                    onSave={(v) => saveUbicacion("piso_desc", v)}
+                  />
+                  <EditableTextArea
+                    label="Techo"
+                    value={toStr(ubicacion.techo_desc)}
+                    placeholder="Material / plomo equiv. / colindancia superior"
+                    onSave={(v) => saveUbicacion("techo_desc", v)}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </SectionCard>
       )}
     </div>

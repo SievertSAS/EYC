@@ -91,10 +91,14 @@ describe("categoría de ubicación de la visita", () => {
     const id = visita!.id!;
 
     await guardarCategoriaUbicacion(id, "flotante");
-    await guardarUbicacionesFlotantes(id, ["UCI adultos", "Reanimación"]);
+    const areas = [
+      { nombre: "UCI adultos", descripcion: "Cama 3" },
+      { nombre: "Reanimación", descripcion: "" },
+    ];
+    await guardarUbicacionesFlotantes(id, areas);
     let v = await db.visitas.get(id);
     expect(v?.categoria_ubicacion).toBe("flotante");
-    expect(v?.ubicaciones_flotantes).toEqual(["UCI adultos", "Reanimación"]);
+    expect(v?.ubicaciones_flotantes).toEqual(areas);
     expect(v?.sync_status).toBe("pending");
 
     // Un informe nunca mezcla fija y flotante.

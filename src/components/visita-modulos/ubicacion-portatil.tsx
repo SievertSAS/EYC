@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 import {
   CATEGORIAS_UBICACION,
   CATEGORIA_UBICACION_LABELS,
+  type AreaFlotante,
   type CategoriaUbicacion,
 } from "@/lib/db/types";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,12 @@ import {
   ComboboxTrigger,
   ComboboxValue,
 } from "@/components/ui/combobox";
-import { agregarArea, normalizarNombreUbicacion, quitarArea } from "@/lib/ubicaciones/flotantes";
+import {
+  actualizarDescripcionArea,
+  agregarArea,
+  normalizarNombreUbicacion,
+  quitarArea,
+} from "@/lib/ubicaciones/flotantes";
 import {
   crearUbicacionFlotante,
   guardarCategoriaUbicacion,
@@ -31,7 +37,8 @@ import {
  * Ubicación del CONVENCIONAL portátil (#188): "Categoría de ubicación:
  * Fija / Flotante". Fija → el padre muestra los campos de la sala (como el
  * fijo). Flotante → selección múltiple de áreas del catálogo compartido, con
- * "Otra ubicación" para agregar una entrada nueva al catálogo de todos.
+ * "Otra ubicación" para agregar una entrada nueva al catálogo de todos. Cada
+ * área elegida lleva la descripción de su ubicación (propia de la visita).
  */
 export function UbicacionPortatil({
   visitaId,
@@ -41,7 +48,7 @@ export function UbicacionPortatil({
 }: {
   visitaId: string;
   categoria: CategoriaUbicacion | null | undefined;
-  areas: string[];
+  areas: AreaFlotante[];
   usuarioId: string | undefined;
 }) {
   return (
@@ -105,7 +112,7 @@ function AreasFlotantes({
   usuarioId,
 }: {
   visitaId: string;
-  areas: string[];
+  areas: AreaFlotante[];
   usuarioId: string | undefined;
 }) {
   const catalogo = useLiveQuery(() => listarCatalogoFlotantes(), []) ?? [];
@@ -113,12 +120,13 @@ function AreasFlotantes({
   const [otro, setOtro] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const elegidas = new Set(areas.map(normalizarNombreUbicacion));
+  const elegidas = new Set(areas.map((a) => normalizarNombreUbicacion(a.nombre)));
   const disponibles = catalogo
     .map((c) => c.nombre)
     .filter((n) => !elegidas.has(normalizarNombreUbicacion(n)));
+  const faltaDescripcion = areas.some((a) => !a.descripcion.trim());
 
-  function guardar(nuevas: string[]) {
+  function guardar(nuevas: AreaFlotante[]) {
     if (nuevas !== areas) guardarUbicacionesFlotantes(visitaId, nuevas);
   }
 
@@ -140,26 +148,33 @@ function AreasFlotantes({
         Áreas evaluadas (ubicaciones flotantes) <span className="text-red-500">*</span>
       </p>
       {areas.length > 0 ? (
-        <ul className="flex flex-wrap gap-1.5">
+        <ul className="space-y-2">
           {areas.map((a) => (
-            <li
-              key={a}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pl-3 pr-1 text-xs font-medium text-primary"
-            >
-              {a}
-              <button
-                type="button"
-                aria-label={`Quitar ${a}`}
-                onClick={() => guardar(quitarArea(areas, a))}
-                className="rounded-full p-0.5 hover:bg-primary/20"
-              >
-                <X className="w-3 h-3" />
-              </button>
+            <li key={a.nombre} className="space-y-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pl-3 pr-1 text-xs font-medium text-primary">
+                {a.nombre}
+                <button
+                  type="button"
+                  aria-label={`Quitar ${a.nombre}`}
+                  onClick={() => guardar(quitarArea(areas, a.nombre))}
+                  className="rounded-full p-0.5 hover:bg-primary/20"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+              <DescripcionArea
+                nombre={a.nombre}
+                value={a.descripcion}
+                onSave={(d) => guardar(actualizarDescripcionArea(areas, a.nombre, d))}
+              />
             </li>
           ))}
         </ul>
       ) : (
         <p className="text-xs text-amber-600">Elige al menos un área.</p>
+      )}
+      {faltaDescripcion && (
+        <p className="text-xs text-amber-600">Describe la ubicación de cada área.</p>
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -228,5 +243,42 @@ function AreasFlotantes({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Descripción de la ubicación de un área flotante. Guarda al salir del campo
+ * (blur), no por tecla, igual que los textos de la sala en Información General.
+ */
+function DescripcionArea({
+  nombre,
+  value,
+  onSave,
+}: {
+  nombre: string;
+  value: string;
+  onSave: (v: string) => void;
+}) {
+  const [local, setLocal] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
+
+  // Sincronizar `local` cuando el valor externo cambia (sync entre
+  // dispositivos): ajuste de estado en render, no en efecto.
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setLocal(value);
+  }
+
+  return (
+    <textarea
+      aria-label={`Descripción de ${nombre}`}
+      className={`w-full rounded-lg border p-2.5 text-sm font-medium resize-none h-16 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+        value.trim() ? "border-slate-200" : "border-amber-300"
+      }`}
+      value={local}
+      placeholder="Describe la ubicación (piso, cama, puntos de referencia…)"
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => local !== value && onSave(local)}
+    />
   );
 }

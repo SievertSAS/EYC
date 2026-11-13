@@ -1249,37 +1249,9 @@ export function textoUbicacionFisica(texto: string | null | undefined): string |
 const DESCRIPCION_INSTALACION_22 =
   CATALOGO_SECCIONES.find((c) => c.codigo === "2.2")?.descripcionInstalacion ?? "";
 
-function render22(
-  ctx: InformeCtx,
-  conv: DatosConvencional,
-  ubicacion: UbicacionRx | undefined,
-  visita: VisitaEjecucion,
-  textos?: TextosRender
-): number {
+/** Zonas colindantes (A–D, piso, techo) y dimensiones de la sala de la 2.2.4. */
+function renderSala22(ctx: InformeCtx, ubicacion: UbicacionRx | undefined): void {
   const { doc, autoTable } = ctx;
-  const cod = "2.2";
-
-  // .4 Descripción de la instalación y blindajes — el párrafo inicial sale de
-  // la plantilla (el portátil tiene el suyo, #187).
-  ctx.addSubsectionTitle(`${cod}.4.`, "Descripción de la instalación y blindajes");
-  ctx.addParagraph(textos?.descripcionInstalacion?.trim() || DESCRIPCION_INSTALACION_22);
-  // #188: portátil en áreas flotantes → la lista de áreas elegidas del
-  // catálogo reemplaza al párrafo libre de ubicación física. Sala fija (y el
-  // fijo) → el párrafo del ingeniero, como siempre.
-  const areasFlotantes = areasFlotantesDeVisita(visita, {
-    tipo_equipo: "CONVENCIONAL",
-    tipo_instalacion: conv.tipo_instalacion,
-  });
-  if (areasFlotantes) {
-    if (areasFlotantes.length > 0) ctx.addParagraph(textoAreasFlotantes(areasFlotantes));
-  } else {
-    const textoUbicacion = textoUbicacionFisica(ubicacion?.ubicacion_fisica);
-    if (textoUbicacion) ctx.addParagraph(textoUbicacion);
-  }
-
-  // PENDIENTE DEL FÍSICO (#188): si para ubicaciones flotantes se omite la
-  // tabla de zonas A–D (y las dimensiones de la sala). Por ahora se conserva
-  // el comportamiento del fijo: se imprime si la ubicación tiene datos.
   // Zonas colindantes en tabla (en vez de párrafos sueltos)
   const zonas = (
     [
@@ -1334,6 +1306,41 @@ function render22(
     });
     ctx.y = finalY(doc) + SPACE.table.after;
   }
+}
+
+function render22(
+  ctx: InformeCtx,
+  conv: DatosConvencional,
+  ubicacion: UbicacionRx | undefined,
+  visita: VisitaEjecucion,
+  textos?: TextosRender
+): number {
+  const { doc, autoTable } = ctx;
+  const cod = "2.2";
+
+  // .4 Descripción de la instalación y blindajes — el párrafo inicial sale de
+  // la plantilla (el portátil tiene el suyo, #187).
+  ctx.addSubsectionTitle(`${cod}.4.`, "Descripción de la instalación y blindajes");
+  ctx.addParagraph(textos?.descripcionInstalacion?.trim() || DESCRIPCION_INSTALACION_22);
+  // #188: portátil en áreas flotantes → la lista de áreas elegidas del
+  // catálogo reemplaza al párrafo libre de ubicación física. Sala fija (y el
+  // fijo) → el párrafo del ingeniero, como siempre.
+  const areasFlotantes = areasFlotantesDeVisita(visita, {
+    tipo_equipo: "CONVENCIONAL",
+    tipo_instalacion: conv.tipo_instalacion,
+  });
+  if (areasFlotantes) {
+    if (areasFlotantes.length > 0) {
+      for (const parrafo of textoAreasFlotantes(areasFlotantes)) ctx.addParagraph(parrafo);
+    }
+  } else {
+    const textoUbicacion = textoUbicacionFisica(ubicacion?.ubicacion_fisica);
+    if (textoUbicacion) ctx.addParagraph(textoUbicacion);
+  }
+
+  // Flotante no tiene sala (#188): sin zonas A–D, piso/techo ni dimensiones.
+  // Los valores guardados de la ubicación se conservan; solo no se imprimen.
+  if (!areasFlotantes) renderSala22(ctx, ubicacion);
 
   // .5 Resultados
   ctx.addSubsectionTitle(`${cod}.5.`, "Resultados");

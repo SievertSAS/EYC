@@ -1,4 +1,4 @@
-import type { CategoriaUbicacion, TipoInstalacion } from "@/lib/db/types";
+import type { AreaFlotante, CategoriaUbicacion, TipoInstalacion } from "@/lib/db/types";
 
 // ============================================================
 //  Ubicaciones del portátil (#188) — lógica pura
@@ -8,9 +8,12 @@ import type { CategoriaUbicacion, TipoInstalacion } from "@/lib/db/types";
 //  (solo control administrativo) elegidas del catálogo compartido. Un informe
 //  nunca mezcla las dos categorías.
 //
-//  PENDIENTE DEL FÍSICO (no implementado — se conserva el comportamiento del
-//  fijo): si la tabla de zonas A–D de la 2.2.4 se omite para flotante, si
-//  T = 1 / U = 1 para flotante, y las lecturas con/sin EPP (#191).
+//  Flotante no tiene sala: se ocultan (y no se imprimen ni cuentan para la
+//  completitud) las dimensiones, las zonas A–D y piso/techo. Cada área lleva
+//  una descripción de la ubicación, propia de la visita y obligatoria.
+//
+//  PENDIENTE DEL FÍSICO (no implementado): si T = 1 / U = 1 para flotante, y
+//  las lecturas con/sin EPP (#191).
 // ============================================================
 
 /** Clave de comparación: sin tildes, en minúsculas y con espacios simples. */
@@ -31,6 +34,35 @@ export function aplicaCategoriaUbicacion(
 }
 
 /**
+ * Lee `visitas.ubicaciones_flotantes` tal como venga guardado. Filas viejas
+ * (antes de la descripción) traen `string[]` con solo los nombres: se
+ * convierten en áreas sin descripción. Descarta elementos sin nombre y
+ * repetidos (comparación normalizada) en vez de fallar.
+ */
+export function normalizarAreasFlotantes(raw: unknown): AreaFlotante[] {
+  if (!Array.isArray(raw)) return [];
+  const areas: AreaFlotante[] = [];
+  const vistas = new Set<string>();
+  for (const el of raw) {
+    let nombre: unknown;
+    let descripcion: unknown = "";
+    if (typeof el === "string") {
+      nombre = el;
+    } else if (el && typeof el === "object") {
+      nombre = (el as { nombre?: unknown }).nombre;
+      descripcion = (el as { descripcion?: unknown }).descripcion;
+    }
+    if (typeof nombre !== "string") continue;
+    const limpio = limpiarNombreUbicacion(nombre);
+    const clave = normalizarNombreUbicacion(limpio);
+    if (!limpio || vistas.has(clave)) continue;
+    vistas.add(clave);
+    areas.push({ nombre: limpio, descripcion: typeof descripcion === "string" ? descripcion : "" });
+  }
+  return areas;
+}
+
+/**
  * Áreas flotantes de la visita, o `null` si el informe no es de ubicaciones
  * flotantes (fijo, portátil en sala fija o sin categoría). Un equipo que dejó
  * de ser portátil ignora la categoría que haya quedado guardada.
@@ -38,44 +70,71 @@ export function aplicaCategoriaUbicacion(
 export function areasFlotantesDeVisita(
   visita: {
     categoria_ubicacion?: CategoriaUbicacion | null;
-    ubicaciones_flotantes?: string[] | null;
+    ubicaciones_flotantes?: unknown;
   },
   equipo: { tipo_equipo?: string; tipo_instalacion?: TipoInstalacion } | undefined
-): string[] | null {
+): AreaFlotante[] | null {
   if (!aplicaCategoriaUbicacion(equipo) || visita.categoria_ubicacion !== "flotante") return null;
-  return visita.ubicaciones_flotantes ?? [];
+  return normalizarAreasFlotantes(visita.ubicaciones_flotantes);
 }
 
-/** Agrega un área a la selección si no estaba (comparación normalizada). */
-export function agregarArea(seleccion: string[], nombre: string): string[] {
+/** Agrega un área (sin descripción) si no estaba (comparación normalizada). */
+export function agregarArea(seleccion: AreaFlotante[], nombre: string): AreaFlotante[] {
   const limpio = limpiarNombreUbicacion(nombre);
   if (!limpio) return seleccion;
   const clave = normalizarNombreUbicacion(limpio);
-  if (seleccion.some((s) => normalizarNombreUbicacion(s) === clave)) return seleccion;
-  return [...seleccion, limpio];
+  if (seleccion.some((a) => normalizarNombreUbicacion(a.nombre) === clave)) return seleccion;
+  return [...seleccion, { nombre: limpio, descripcion: "" }];
 }
 
 /** Quita un área de la selección (comparación normalizada). */
-export function quitarArea(seleccion: string[], nombre: string): string[] {
+export function quitarArea(seleccion: AreaFlotante[], nombre: string): AreaFlotante[] {
   const clave = normalizarNombreUbicacion(nombre);
-  return seleccion.filter((s) => normalizarNombreUbicacion(s) !== clave);
+  return seleccion.filter((a) => normalizarNombreUbicacion(a.nombre) !== clave);
 }
 
-/** Párrafo de la 2.2.4 para un informe de ubicaciones flotantes. */
-export function textoAreasFlotantes(areas: string[]): string {
-  return `Áreas evaluadas (ubicaciones flotantes): ${areas.join(", ")}.`;
+/** Cambia la descripción de un área (comparación normalizada), sin mutar. */
+export function actualizarDescripcionArea(
+  seleccion: AreaFlotante[],
+  nombre: string,
+  descripcion: string
+): AreaFlotante[] {
+  const clave = normalizarNombreUbicacion(nombre);
+  return seleccion.map((a) =>
+    normalizarNombreUbicacion(a.nombre) === clave ? { ...a, descripcion } : a
+  );
+}
+
+/** Completo: al menos un área y todas con descripción no vacía. */
+export function areasFlotantesCompletas(areas: AreaFlotante[]): boolean {
+  return areas.length > 0 && areas.every((a) => a.descripcion.trim() !== "");
 }
 
 /**
- * Valor de "Área - servicio" de la portada: las áreas flotantes si el informe
- * es de flotantes; si no, el nombre del servicio (como siempre).
+ * Párrafos de la 2.2.4 para un informe de ubicaciones flotantes: encabezado y
+ * una línea por área ("Nombre: descripción"). La descripción va tal cual la
+ * redactó el ingeniero, sin puntuación agregada (como la ubicación física, #197).
+ */
+export function textoAreasFlotantes(areas: AreaFlotante[]): string[] {
+  return [
+    "Áreas evaluadas (ubicaciones flotantes):",
+    ...areas.map((a) => {
+      const desc = a.descripcion.trim();
+      return desc ? `${a.nombre}: ${desc}` : a.nombre;
+    }),
+  ];
+}
+
+/**
+ * Valor de "Área - servicio" de la portada: los nombres de las áreas flotantes
+ * si el informe es de flotantes; si no, el nombre del servicio (como siempre).
  */
 export function textoAreaServicio(
   nombreServicio: string | undefined | null,
-  areasFlotantes: string[] | null
+  areasFlotantes: AreaFlotante[] | null
 ): string {
   if (areasFlotantes && areasFlotantes.length > 0) {
-    return `Ubicaciones flotantes: ${areasFlotantes.join(", ")}`;
+    return `Ubicaciones flotantes: ${areasFlotantes.map((a) => a.nombre).join(", ")}`;
   }
   return nombreServicio ?? "No reporta";
 }

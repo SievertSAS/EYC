@@ -122,7 +122,7 @@ describe("#39 — toda columna pusheada existe en Supabase", () => {
     // #188: columnas nuevas de la visita (portátil) y el catálogo de flotantes.
     await db.visitas.update(g.visita!.id!, {
       categoria_ubicacion: "flotante",
-      ubicaciones_flotantes: ["UCI adultos"],
+      ubicaciones_flotantes: [{ nombre: "UCI adultos", descripcion: "Cama 3" }],
     });
     await db.catalogo_ubicaciones_flotantes.add({
       id: "cat-guard",

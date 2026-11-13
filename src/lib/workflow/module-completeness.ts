@@ -3,7 +3,11 @@ import { getPackage, getDefaultModules } from "@/lib/equipos/registry";
 import type { ModuloVisita } from "@/lib/equipos/types";
 import { getEstadoPruebasPorGrupo } from "@/lib/equipos/convencional/evaluacion";
 import type { Cliente, UbicacionRx, Equipo, Tubo, CategoriaUbicacion } from "@/lib/db/types";
-import { aplicaCategoriaUbicacion } from "@/lib/ubicaciones/flotantes";
+import {
+  aplicaCategoriaUbicacion,
+  areasFlotantesCompletas,
+  normalizarAreasFlotantes,
+} from "@/lib/ubicaciones/flotantes";
 
 // ============================================================
 //  Motor de completitud de módulos de visita
@@ -82,7 +86,7 @@ async function getModulosForVisita(visitaId: string): Promise<ModuloVisita[]> {
 interface InfoCtx {
   fecha_visita?: string | null;
   categoria_ubicacion?: CategoriaUbicacion | null;
-  ubicaciones_flotantes?: string[] | null;
+  ubicaciones_flotantes?: unknown;
   cliente?: Cliente;
   ubicacion?: UbicacionRx;
   equipo?: Equipo;
@@ -238,10 +242,28 @@ const INFO_CAMPOS: {
     campo: "visita.ubicaciones_flotantes",
     label: "Áreas evaluadas (ubicaciones flotantes)",
     seccion: "Sala — Dimensiones y Blindaje",
-    get: (c) => (c.ubicaciones_flotantes?.length ? c.ubicaciones_flotantes : undefined),
-    aplica: (c) => aplicaCategoriaUbicacion(c.equipo) && c.categoria_ubicacion === "flotante",
+    get: (c) => (areasDe(c).length ? 1 : undefined),
+    aplica: esFlotante,
+  },
+  // Cada área elegida necesita la descripción de su ubicación. Sin áreas no se
+  // pide (ya falta el campo de arriba).
+  {
+    campo: "visita.ubicaciones_flotantes.descripcion",
+    label: "Descripción de cada área flotante",
+    seccion: "Sala — Dimensiones y Blindaje",
+    get: (c) => (areasFlotantesCompletas(areasDe(c)) ? 1 : undefined),
+    aplica: (c) => esFlotante(c) && areasDe(c).length > 0,
   },
 ];
+
+function esFlotante(c: InfoCtx): boolean {
+  return aplicaCategoriaUbicacion(c.equipo) && c.categoria_ubicacion === "flotante";
+}
+
+/** Áreas flotantes normalizadas (las filas viejas traen `string[]`). */
+function areasDe(c: InfoCtx) {
+  return normalizarAreasFlotantes(c.ubicaciones_flotantes);
+}
 
 /** Campos de Info que aplican a la visita (los del portátil solo al portátil). */
 function camposAplicables(ctx: InfoCtx) {
@@ -254,7 +276,7 @@ async function loadInfoCtx(visita: {
   solicitud_id: string;
   fecha_visita?: string | null;
   categoria_ubicacion?: CategoriaUbicacion | null;
-  ubicaciones_flotantes?: string[] | null;
+  ubicaciones_flotantes?: unknown;
 }): Promise<InfoCtx> {
   const equipo = visita.equipo_id ? await db.equipos.get(visita.equipo_id) : undefined;
   const ubicacion = visita.ubicacion_id
@@ -282,7 +304,7 @@ async function getInfoPercentage(visita: {
   solicitud_id: string;
   fecha_visita?: string | null;
   categoria_ubicacion?: CategoriaUbicacion | null;
-  ubicaciones_flotantes?: string[] | null;
+  ubicaciones_flotantes?: unknown;
 }): Promise<number> {
   const ctx = await loadInfoCtx(visita);
   return pct(camposAplicables(ctx).map((k) => k.get(ctx)));
@@ -299,7 +321,7 @@ export async function getCamposFaltantesInfo(visita: {
   solicitud_id: string;
   fecha_visita?: string | null;
   categoria_ubicacion?: CategoriaUbicacion | null;
-  ubicaciones_flotantes?: string[] | null;
+  ubicaciones_flotantes?: unknown;
 }): Promise<CampoFaltante[]> {
   const ctx = await loadInfoCtx(visita);
   return camposAplicables(ctx)

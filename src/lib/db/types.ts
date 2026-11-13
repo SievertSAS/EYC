@@ -727,12 +727,23 @@ export interface VisitaEjecucion extends SyncFields {
    */
   categoria_ubicacion?: CategoriaUbicacion | null;
   /**
-   * #188 — nombres de las áreas flotantes elegidas del catálogo (instantánea:
+   * #188 — áreas flotantes elegidas del catálogo (el nombre es instantánea:
    * si el catálogo se renombra después, el informe conserva el nombre con el
-   * que se evaluó). Solo con `categoria_ubicacion = "flotante"`.
+   * que se evaluó) con la descripción de la ubicación, propia de esta visita.
+   * Solo con `categoria_ubicacion = "flotante"`. Filas viejas pueden traer
+   * `string[]` (solo nombres): leer siempre con `normalizarAreasFlotantes`.
    */
-  ubicaciones_flotantes?: string[] | null;
+  ubicaciones_flotantes?: AreaFlotante[] | null;
   creado_en?: string;
+}
+
+/**
+ * Área flotante evaluada en una visita (#188): nombre del catálogo y la
+ * descripción que detalla la ubicación (obligatoria para completar el módulo).
+ */
+export interface AreaFlotante {
+  nombre: string;
+  descripcion: string;
 }
 
 /**

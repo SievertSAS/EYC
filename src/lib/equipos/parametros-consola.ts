@@ -30,3 +30,19 @@ export function normalizarParametrosConsola(sel: Seleccion): ParametroConsola[] 
   const out = canonico(sel);
   return out.length > 0 ? out : null;
 }
+
+/**
+ * Parámetros que el INFORME muestra (#189): los marcados en el checklist, en
+ * orden canónico. Sin selección (null/vacío: equipos anteriores al checklist)
+ * se muestran los cuatro, como se generaba el informe hasta ahora. Solo afecta
+ * la presentación: los cálculos siguen usando todos los valores capturados.
+ */
+export function parametrosVisibles(v: Seleccion): Set<ParametroConsola> {
+  const sel = canonico(v);
+  return new Set(sel.length > 0 ? sel : PARAMETROS_CONSOLA);
+}
+
+/** `true` si el informe debe mostrar el parámetro `p` (ver `parametrosVisibles`). */
+export function muestraParametro(v: Seleccion, p: ParametroConsola): boolean {
+  return parametrosVisibles(v).has(p);
+}

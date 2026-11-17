@@ -10,6 +10,7 @@ import {
   incluidaPorDefecto,
   rendimiento27,
   calcularResultado24,
+  exactitudTiempoAplica,
   calcularResultado25,
   calcularResultado26,
   calcularResultado27,
@@ -171,6 +172,38 @@ describe("2.4 — tiempo (desv ≤10%, CV ≤10%)", () => {
       )
     ).toBe("Conforme");
   });
+
+  // #190: sin tiempo nominal en la consola la exactitud "No aplica" y la
+  // repetibilidad (CV) decide sola el concepto.
+  const desviados = [
+    shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.2 }),
+    shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.2 }),
+  ];
+  const inestables = [
+    shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.1 }),
+    shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.2 }),
+  ];
+
+  it("consola con tiempo (o sin checklist) → la desviación sigue contando", () => {
+    expect(ev("2.4", datos({ raysafeMediciones: desviados, parametros_consola: null }))).toBe(
+      "No_conforme"
+    );
+    expect(
+      ev("2.4", datos({ raysafeMediciones: desviados, parametros_consola: ["kv", "tiempo"] }))
+    ).toBe("No_conforme");
+  });
+
+  it("consola sin tiempo: desviación >10% pero CV ≤10% → Conforme (exactitud no aplica)", () => {
+    expect(
+      ev("2.4", datos({ raysafeMediciones: desviados, parametros_consola: ["kv", "mas"] }))
+    ).toBe("Conforme");
+  });
+
+  it("consola sin tiempo: CV >10% → No_conforme (la repetibilidad se evalúa normal)", () => {
+    expect(
+      ev("2.4", datos({ raysafeMediciones: inestables, parametros_consola: ["kv", "mas"] }))
+    ).toBe("No_conforme");
+  });
 });
 
 describe("2.5 — kV (desv ≤10%, CV ≤5%)", () => {
@@ -324,6 +357,38 @@ describe("calcularResultado24/25/26 — valores intermedios por grupo", () => {
     ]);
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ tiempoNominal: 0.1, tiempoProm: 0.1, desvPct: 0, conforme: true });
+  });
+
+  it("calcularResultado24 separa exactitud y repetibilidad por grupo (#190)", () => {
+    const desviados = [
+      shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.2 }),
+      shot({ tiempo_nominal_s: 0.1, tiempo_medido_s: 0.2 }),
+    ];
+    // Con tiempo nominal visible: exactitud evaluada (y fallida).
+    expect(calcularResultado24(desviados)[0]).toMatchObject({
+      tiempoNominal: 0.1,
+      conformeExactitud: false,
+      conformeRepetibilidad: true,
+      conforme: false,
+    });
+    // Sin tiempo en la consola: exactitud null (no aplica); el agrupamiento
+    // por tiempo nominal y la desviación calculada se mantienen.
+    const [g] = calcularResultado24(desviados, ["kv", "mas"]);
+    expect(g.tiempoNominal).toBe(0.1);
+    expect(g.desvPct).toBeCloseTo(100, 5);
+    expect(g).toMatchObject({
+      conformeExactitud: null,
+      conformeRepetibilidad: true,
+      conforme: true,
+    });
+  });
+
+  it("exactitudTiempoAplica: solo false si la consola tiene checklist sin tiempo", () => {
+    expect(exactitudTiempoAplica(null)).toBe(true);
+    expect(exactitudTiempoAplica(undefined)).toBe(true);
+    expect(exactitudTiempoAplica([])).toBe(true);
+    expect(exactitudTiempoAplica(["tiempo"])).toBe(true);
+    expect(exactitudTiempoAplica(["kv", "mas"])).toBe(false);
   });
 
   it("calcularResultado25 ídem para kV, No_conforme si la desviación supera el 10%", () => {

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import type { TipoInstalacion } from "@/lib/db/types";
+import type { ParametroConsola, TipoInstalacion } from "@/lib/db/types";
+import { muestraParametro } from "@/lib/equipos/parametros-consola";
 import type {
   ConvMedicionRadiometrica,
   ConvInspeccionItem,
@@ -93,6 +94,8 @@ export interface DatosEvalConv {
   sistema_adquisicion?: string;
   /** `equipo.tipo_instalacion` (#187) — el portátil arranca con el CAE en "No aplica". */
   tipo_instalacion?: TipoInstalacion;
+  /** `equipo.parametros_consola` (#189) — sin tiempo nominal, la exactitud de la 2.4 no aplica (#190). */
+  parametros_consola?: ParametroConsola[] | null;
 }
 
 /**
@@ -248,6 +251,23 @@ function evaluar23(d: DatosEvalConv): Concepto | undefined {
  */
 export const GRUPOS_TIEMPO_KV_CHR = new Set([1, 2, 6]);
 
+/**
+ * Motivo del "No aplica" de la exactitud del tiempo (#190): sin tiempo nominal
+ * en la consola no hay valor seleccionado con el cual comparar el medido.
+ */
+export const MOTIVO_NO_APLICA_EXACTITUD_TIEMPO = "el sistema no muestra tiempo nominal";
+
+/**
+ * ¿Se evalúa la exactitud del tiempo (2.4)? Solo si la consola muestra el
+ * tiempo nominal (#190). Sin checklist (null/vacío) se asumen los cuatro
+ * parámetros, igual que el informe (ver `muestraParametro`).
+ */
+export function exactitudTiempoAplica(
+  parametrosConsola: readonly ParametroConsola[] | null | undefined
+): boolean {
+  return muestraParametro(parametrosConsola, "tiempo");
+}
+
 export interface Resultado24Grupo {
   grupoNumero: number;
   tiempoNominal: number;
@@ -255,11 +275,25 @@ export interface Resultado24Grupo {
   desvPct: number;
   std: number;
   cvPct: number;
+  /** Exactitud (desv ≤10%); `null` = no aplica (la consola no muestra tiempo, #190). */
+  conformeExactitud: boolean | null;
+  /** Repetibilidad (CV ≤10%) — se evalúa siempre. */
+  conformeRepetibilidad: boolean;
+  /** Concepto del grupo: repetibilidad y, si aplica, exactitud. */
   conforme: boolean;
 }
 
-/** 2.4 — Exactitud/repetibilidad del tiempo, por grupo (desv ≤10%, CV ≤10%). */
-export function calcularResultado24(mediciones: ConvRaysafeMedicion[]): Resultado24Grupo[] {
+/**
+ * 2.4 — Exactitud/repetibilidad del tiempo, por grupo (desv ≤10%, CV ≤10%).
+ * `parametrosConsola` (#190): si la consola no muestra tiempo, la exactitud no
+ * aplica y la repetibilidad decide sola. Los disparos se siguen agrupando por
+ * `tiempo_nominal_s` (el valor programado) y la desviación se sigue calculando.
+ */
+export function calcularResultado24(
+  mediciones: ConvRaysafeMedicion[],
+  parametrosConsola?: readonly ParametroConsola[] | null
+): Resultado24Grupo[] {
+  const evaluaExactitud = exactitudTiempoAplica(parametrosConsola);
   const principales = mediciones.filter(
     (m) => m.tipo_medicion === "principal" && GRUPOS_TIEMPO_KV_CHR.has(m.grupo_numero ?? -1)
   );
@@ -277,6 +311,8 @@ export function calcularResultado24(mediciones: ConvRaysafeMedicion[]): Resultad
       const desvPct = desvNominal(medidos, nom);
       const std = desviacion(medidos);
       const cv = tiempoProm > 0 ? (std / tiempoProm) * 100 : 0;
+      const conformeExactitud = evaluaExactitud ? desvPct <= 10 : null;
+      const conformeRepetibilidad = cv <= 10;
       return {
         grupoNumero: ms[0].grupo_numero!,
         tiempoNominal: nom,
@@ -284,14 +320,16 @@ export function calcularResultado24(mediciones: ConvRaysafeMedicion[]): Resultad
         desvPct,
         std,
         cvPct: cv,
-        conforme: desvPct <= 10 && cv <= 10,
+        conformeExactitud,
+        conformeRepetibilidad,
+        conforme: conformeRepetibilidad && (conformeExactitud ?? true),
       };
     });
 }
 
 /** 2.4 — Exactitud/repetibilidad del tiempo (desv ≤10%, CV ≤10%). */
 function evaluar24(d: DatosEvalConv): Concepto | undefined {
-  const resultados = calcularResultado24(d.raysafeMediciones);
+  const resultados = calcularResultado24(d.raysafeMediciones, d.parametros_consola);
   if (resultados.length === 0) return undefined;
   return resultados.some((r) => !r.conforme) ? "No_conforme" : "Conforme";
 }
@@ -971,6 +1009,7 @@ export async function cargarTablasConv(visitaId: string): Promise<DatosEvalConv>
     resolucion,
     sistema_adquisicion: equipo?.sistema_adquisicion,
     tipo_instalacion: equipo?.tipo_instalacion,
+    parametros_consola: equipo?.parametros_consola ?? null,
     bajoContraste,
     cassettes,
     uniformidadCr,

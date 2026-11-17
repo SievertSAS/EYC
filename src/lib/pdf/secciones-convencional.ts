@@ -50,6 +50,9 @@ import {
   calcularResultado27,
   calcularResultado221,
   calcularResultado28,
+  exactitudTiempoAplica,
+  MOTIVO_NO_APLICA_EXACTITUD_TIEMPO,
+  type Resultado24Grupo,
 } from "@/lib/equipos/convencional/evaluacion";
 import { LABEL_UNIDAD_DAP, LABEL_UNIDAD_KERMA } from "@/lib/equipos/convencional/unidades-raysafe";
 import { nyquistDesdePixel } from "@/lib/equipos/convencional/nyquist";
@@ -1666,7 +1669,7 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   ctx.addSubsectionTitle("2.4.4.", "Resultados");
   ctx.addParagraph("La prueba se llevó a cabo bajo las siguientes condiciones de medición:");
 
-  const resultado = calcularResultado24(conv.raysafeMediciones);
+  const resultado = calcularResultado24(conv.raysafeMediciones, conv.parametros_consola);
   if (resultado.length === 0) return SIN_DATOS(ctx);
 
   // Orden descendente de tiempo nominal (igual que siempre mostró el PDF).
@@ -1674,15 +1677,31 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   // `calcularResultado24`, nunca re-parsea el texto ya formateado de la tabla
   // con `parseFloat` (corta en la coma de "0,67 %" y da 0 — #bug real).
   const statsPorGrupo = [...resultado].sort((a, b) => b.tiempoNominal - a.tiempoNominal);
+  const exactitudAplica = exactitudTiempoAplica(conv.parametros_consola);
 
-  const rows = statsPorGrupo.map(({ tiempoNominal, tiempoProm, desvPct, std, cvPct, conforme }) => [
-    formatCapturado(tiempoNominal),
-    formatDecimal(tiempoProm, 3),
-    formatDecimal(desvPct, 2) + " %",
-    formatDecimal(std, 5),
-    formatDecimal(cvPct, 2) + " %",
-    conforme ? "Conforme" : "No conforme",
+  // #190: sin tiempo nominal en la consola se oculta su columna (#189) y la
+  // desviación queda como "No aplica" en vez de desaparecer: así la tabla
+  // muestra explícitamente que la exactitud no se evaluó, en lugar de dejar
+  // al lector preguntándose si se omitió.
+  const cols = columnasVisibles<Resultado24Grupo>(conv, [
+    {
+      head: "Tiempo nominal (s)",
+      valor: (r) => formatCapturado(r.tiempoNominal),
+      param: "tiempo",
+    },
+    { head: "Tiempo promedio medido (s)", valor: (r) => formatDecimal(r.tiempoProm, 3) },
+    {
+      head: "Desviación máxima (%)",
+      valor: (r) =>
+        r.conformeExactitud === null ? "No aplica" : formatDecimal(r.desvPct, 2) + " %",
+    },
+    { head: "Desviación estándar (s)", valor: (r) => formatDecimal(r.std, 5) },
+    { head: "CV (%)", valor: (r) => formatDecimal(r.cvPct, 2) + " %" },
+    { head: "Concepto", valor: (r) => (r.conforme ? "Conforme" : "No conforme") },
   ]);
+  const head = cols.map((c) => c.head);
+  const iCv = head.indexOf("CV (%)");
+  const iConcepto = head.indexOf("Concepto");
 
   ctx.checkPage(40);
   addCaption(
@@ -1692,45 +1711,93 @@ function render24(ctx: InformeCtx, conv: DatosConvencional): number {
   autoTable(doc, {
     ...TABLE_STYLE,
     startY: ctx.y,
-    head: [
-      [
-        "Tiempo nominal (s)",
-        "Tiempo promedio medido (s)",
-        "Desviación máxima (%)",
-        "Desviación estándar (s)",
-        "CV (%)",
-        "Concepto",
-      ],
-    ],
-    body: rows,
+    head: [head],
+    body: statsPorGrupo.map((r) => cols.map((c) => c.valor(r))),
     // CV con ancho fijo: a 8,5 pt el reparto automático lo dejaba tan angosto
     // que "0,63 %" se partía en dos líneas.
-    columnStyles: { 0: { cellWidth: 32 }, 4: { cellWidth: 16 }, 5: { cellWidth: 24 } },
-    didParseCell: colorearConcepto(5),
+    columnStyles: {
+      ...(exactitudAplica ? { 0: { cellWidth: 32 } } : {}),
+      [iCv]: { cellWidth: 16 },
+      [iConcepto]: { cellWidth: 24 },
+    },
+    didParseCell: colorearConcepto(iConcepto),
   });
   ctx.y = finalY(doc) + SPACE.table.after;
 
   ctx.addParagraph(
-    "La exactitud del tiempo de exposición se evaluó mediante la desviación máxima porcentual entre el tiempo nominal seleccionado y el tiempo medido con mayor desviación."
+    exactitudAplica
+      ? "La exactitud del tiempo de exposición se evaluó mediante la desviación máxima porcentual entre el tiempo nominal seleccionado y el tiempo medido con mayor desviación."
+      : `La exactitud del tiempo de exposición no se evaluó, toda vez que ${MOTIVO_NO_APLICA_EXACTITUD_TIEMPO}.`
   );
   ctx.addParagraph(
-    "La repetibilidad del sistema de temporización se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada tiempo nominal."
+    exactitudAplica
+      ? "La repetibilidad del sistema de temporización se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada tiempo nominal."
+      : "La repetibilidad del sistema de temporización se evaluó mediante el coeficiente de variación (CV) calculado a partir de las mediciones repetidas para cada tiempo de exposición evaluado."
   );
 
   ctx.addSubsectionTitle("2.4.5.", "Análisis");
-  const todosConformes = statsPorGrupo.every((s) => s.conforme);
-  const maxDv = Math.max(...statsPorGrupo.map((s) => s.desvPct));
-  const maxCv = Math.max(...statsPorGrupo.map((s) => s.cvPct));
-  if (todosConformes) {
-    ctx.addParagraph(
-      `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${formatDecimal(maxDv, 2)} % respecto al valor seleccionado. Asimismo, la repetibilidad de las mediciones presenta coeficientes de variación máximos de ${formatDecimal(maxCv, 2)} %, lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
-    );
-  } else {
-    ctx.addParagraph(
-      `Los resultados obtenidos evidencian que una o más combinaciones de tiempos de exposición evaluadas presentaron desviaciones de hasta ${formatDecimal(maxDv, 2)} % y coeficientes de variación de hasta ${formatDecimal(maxCv, 2)} %, superiores a los criterios de aceptación establecidos (desviación ≤ 10 %, CV ≤ 10 %), lo que indica inestabilidad en el sistema de temporización del generador de rayos X.`
-    );
-  }
+  for (const parrafo of parrafosAnalisis24(statsPorGrupo)) ctx.addParagraph(parrafo);
   return 6;
+}
+
+/**
+ * Estado de cada criterio de la 2.4 sobre todos los grupos (#190):
+ * `true`/`false` = conforme/no conforme; `null` = no aplica (solo exactitud).
+ */
+function criterios24(resultado: Resultado24Grupo[]): {
+  exactitud: boolean | null;
+  repetibilidad: boolean;
+  maxDv: number;
+  maxCv: number;
+} {
+  const exactitudAplica = resultado.every((r) => r.conformeExactitud !== null);
+  return {
+    exactitud: exactitudAplica ? resultado.every((r) => r.conformeExactitud) : null,
+    repetibilidad: resultado.every((r) => r.conformeRepetibilidad),
+    maxDv: Math.max(...resultado.map((r) => r.desvPct)),
+    maxCv: Math.max(...resultado.map((r) => r.cvPct)),
+  };
+}
+
+/**
+ * Análisis de la 2.4 (#190): SIEMPRE dos párrafos — exactitud y repetibilidad
+ * — nunca mezclados. Si la consola no muestra tiempo, el de exactitud dice que
+ * no aplica y por qué.
+ */
+function parrafosAnalisis24(resultado: Resultado24Grupo[]): [string, string] {
+  const { exactitud, repetibilidad, maxDv, maxCv } = criterios24(resultado);
+  const dv = formatDecimal(maxDv, 2);
+  const cv = formatDecimal(maxCv, 2);
+  const parrafoExactitud =
+    exactitud === null
+      ? `La exactitud del tiempo de exposición no aplica, toda vez que ${MOTIVO_NO_APLICA_EXACTITUD_TIEMPO}, por lo que no se dispone de un valor seleccionado con el cual comparar el tiempo medido.`
+      : exactitud
+        ? `Los resultados obtenidos evidencian que el tiempo de exposición medido presenta desviaciones máximas de hasta ${dv} % respecto al valor seleccionado, dentro del criterio de aceptación establecido (desviación ≤ 10 %).`
+        : `Los resultados obtenidos evidencian que una o más combinaciones de tiempos de exposición evaluadas presentaron desviaciones de hasta ${dv} % respecto al valor seleccionado, superiores al criterio de aceptación establecido (desviación ≤ 10 %), por lo que la exactitud del tiempo de exposición se considera no conforme.`;
+  const parrafoRepetibilidad = repetibilidad
+    ? `En cuanto a la repetibilidad, las mediciones presentan coeficientes de variación máximos de ${cv} %, dentro del criterio de aceptación establecido (CV ≤ 10 %), lo que indica una adecuada estabilidad del sistema de temporización del generador de rayos X para los tiempos de exposición evaluados.`
+    : `En cuanto a la repetibilidad, una o más combinaciones de tiempos de exposición evaluadas presentaron coeficientes de variación de hasta ${cv} %, superiores al criterio de aceptación establecido (CV ≤ 10 %), lo que indica inestabilidad en el sistema de temporización del generador de rayos X.`;
+  return [parrafoExactitud, parrafoRepetibilidad];
+}
+
+/**
+ * Párrafos del Concepto de la 2.4 (#190): uno de exactitud y uno de
+ * repetibilidad, nunca mezclados. El veredicto (FAVORABLE/NO FAVORABLE) lo
+ * sigue dando `evaluarConceptoPrueba`; si la exactitud no aplica, la
+ * repetibilidad decide sola.
+ */
+export function parrafosConcepto24(resultado: Resultado24Grupo[]): [string, string] {
+  const { exactitud, repetibilidad } = criterios24(resultado);
+  const parrafoExactitud =
+    exactitud === null
+      ? `La exactitud del tiempo de exposición no aplica, toda vez que ${MOTIVO_NO_APLICA_EXACTITUD_TIEMPO}; por lo tanto, el concepto de la prueba se determina únicamente por la repetibilidad.`
+      : exactitud
+        ? "La exactitud del tiempo de exposición se considera conforme, ya que las desviaciones respecto al tiempo nominal seleccionado se encuentran dentro del criterio de aceptación establecido."
+        : "La exactitud del tiempo de exposición se considera no conforme, ya que una o más combinaciones evaluadas presentaron desviaciones respecto al tiempo nominal seleccionado fuera del criterio de aceptación establecido.";
+  const parrafoRepetibilidad = repetibilidad
+    ? "La repetibilidad del tiempo de exposición se considera conforme, ya que la variabilidad entre las mediciones repetidas se encuentra dentro del criterio de aceptación establecido."
+    : "La repetibilidad del tiempo de exposición se considera no conforme, ya que una o más combinaciones evaluadas presentaron una variabilidad entre las mediciones repetidas fuera del criterio de aceptación establecido.";
+  return [parrafoExactitud, parrafoRepetibilidad];
 }
 
 function render25(ctx: InformeCtx, conv: DatosConvencional): number {

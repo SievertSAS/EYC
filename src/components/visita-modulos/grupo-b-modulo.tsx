@@ -34,6 +34,8 @@ import {
   calcularResultado27,
   calcularResultado221,
   calcularResultado28,
+  exactitudTiempoAplica,
+  MOTIVO_NO_APLICA_EXACTITUD_TIEMPO,
 } from "@/lib/equipos/convencional/evaluacion";
 import {
   ArrowLeft,
@@ -409,7 +411,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;
 
-    const [setup, mediciones, evidencias, equipoBase] = await Promise.all([
+    const [setup, mediciones, evidencias, equipoBase, equipo] = await Promise.all([
       db.conv_raysafe_setup.where("visita_id").equals(visitaId).first(),
       db.conv_raysafe_mediciones.where("visita_id").equals(visitaId).sortBy("toma_numero"),
       db.conv_evidencias
@@ -418,9 +420,12 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
         .filter((r) => !r.deleted_at)
         .toArray(),
       obtenerValoresBaseEquipo(visita.equipo_id),
+      visita.equipo_id ? db.equipos.get(visita.equipo_id) : undefined,
     ]);
 
-    return { visita, setup, mediciones, evidencias, equipoBase };
+    // #190: sin tiempo nominal en la consola, la exactitud de la 2.4 no aplica.
+    const parametrosConsola = equipo?.parametros_consola ?? null;
+    return { visita, setup, mediciones, evidencias, equipoBase, parametrosConsola };
   }, [isReady, visitaId]);
 
   // ─── Initialize setup ───
@@ -727,7 +732,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
   const resultadosCalculados = useMemo(() => {
     const mediciones = data?.mediciones ?? [];
     return {
-      r24: calcularResultado24(mediciones),
+      r24: calcularResultado24(mediciones, data?.parametrosConsola),
       r25: calcularResultado25(mediciones),
       r26: calcularResultado26(mediciones),
       r27: calcularResultado27(
@@ -738,7 +743,7 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       r221: calcularResultado221(mediciones, setup),
       r28: calcularResultado28(mediciones, setup),
     };
-  }, [data?.mediciones, setup]);
+  }, [data?.mediciones, data?.parametrosConsola, setup]);
 
   const principales = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "principal");
   const conRejilla = (data?.mediciones ?? []).filter((m) => m.tipo_medicion === "con_rejilla");
@@ -1481,7 +1486,9 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
       <Card className="border border-slate-200 shadow-none rounded-lg bg-white overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <StepHeader step="Resultados" title="2.4 Tiempo de exposición" icon={Zap}>
-            Desviación ≤ 10% respecto al nominal, CV ≤ 10% entre repeticiones.
+            {exactitudTiempoAplica(data?.parametrosConsola)
+              ? "Desviación ≤ 10% respecto al nominal, CV ≤ 10% entre repeticiones."
+              : `Exactitud no aplica: ${MOTIVO_NO_APLICA_EXACTITUD_TIEMPO}. CV ≤ 10% entre repeticiones.`}
           </StepHeader>
           {resultadosCalculados.r24.length === 0 ? (
             <ConceptoBadgeChico conforme={null} />
@@ -1490,7 +1497,9 @@ export function GrupoBModulo({ visitaId: id }: { visitaId: string }) {
               <FilaResultado
                 key={r.grupoNumero}
                 label={`Grupo ${r.grupoNumero} (${fmtNum(r.tiempoNominal, 3)}s nominal)`}
-                valor={`${fmtNum(r.tiempoProm, 3)}s · desv ${fmtNum(r.desvPct, 1)}% · CV ${fmtNum(r.cvPct, 1)}%`}
+                valor={`${fmtNum(r.tiempoProm, 3)}s · desv ${
+                  r.conformeExactitud === null ? "N/A" : `${fmtNum(r.desvPct, 1)}%`
+                } · CV ${fmtNum(r.cvPct, 1)}%`}
                 conforme={r.conforme}
               />
             ))

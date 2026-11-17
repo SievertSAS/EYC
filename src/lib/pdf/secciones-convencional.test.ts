@@ -15,11 +15,16 @@ import {
   analisisPredeterminadoDeVisita,
   textoUbicacionFisica,
   adaptarMetodologia,
+  parrafosConcepto24,
   type DatosConvencional,
   type InformeCtx,
 } from "./secciones-convencional";
 import { CATALOGO_SECCIONES } from "@/lib/equipos/convencional/informe-secciones";
-import { evaluarConceptoPrueba, type DatosEvalConv } from "@/lib/equipos/convencional/evaluacion";
+import {
+  calcularResultado24,
+  evaluarConceptoPrueba,
+  type DatosEvalConv,
+} from "@/lib/equipos/convencional/evaluacion";
 
 // Las filas conv_* tienen muchos campos obligatorios que no importan acá;
 // `row()` afloja el tipado para armar fixtures mínimos.
@@ -1235,8 +1240,10 @@ describe("#122 — 'Análisis' de 2.3/2.4/2.5 cita la desviación/CV real, no re
 
     const texto = parrafos.join(" ");
     expect(texto).not.toContain("0,00 %");
+    // #190: exactitud y repetibilidad van en párrafos separados; la exactitud
+    // (la que falla) cita la desviación real y la repetibilidad su CV real.
     expect(texto).toMatch(/desviaciones de hasta \d+,\d+ %/);
-    expect(texto).toMatch(/coeficientes de variación de hasta \d+,\d+ %/);
+    expect(texto).toMatch(/coeficientes de variación máximos de \d+,\d+ %/);
   });
 
   it("2.5: cita la desviación y CV reales (no 0,00 %) cuando es Conforme", async () => {
@@ -1381,24 +1388,30 @@ const shot221 = (extra: Record<string, unknown> = {}) =>
 const EDITADO = "Texto de análisis editado a mano por el físico.";
 
 describe("textoAnalisisPredeterminado — texto automático del 'Análisis' de cada prueba", () => {
-  it("2.4 conforme: devuelve el único párrafo del Análisis, sin los párrafos de Resultados", async () => {
+  it("2.4 conforme: dos párrafos (exactitud y repetibilidad), sin los párrafos de Resultados", async () => {
     const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
     conv.raysafeMediciones = tiempos24([0.79, 0.795, 0.8]);
     const texto = await textoAnalisisPredeterminado("2.4", visitaFixture, conv, undefined);
-    expect(texto).toMatch(
+    const partes = texto!.split("\n\n");
+    expect(partes).toHaveLength(2);
+    expect(partes[0]).toMatch(
       /^Los resultados obtenidos evidencian que el tiempo de exposición medido/
     );
-    expect(texto).toContain("adecuada estabilidad del sistema de temporización");
-    expect(texto).not.toContain("\n");
+    expect(partes[0]).not.toContain("coeficiente");
+    expect(partes[1]).toMatch(/^En cuanto a la repetibilidad/);
+    expect(partes[1]).toContain("adecuada estabilidad del sistema de temporización");
+    expect(partes[1]).not.toContain("desviaci");
     expect(texto).not.toContain("La prueba se llevó a cabo");
   });
 
-  it("2.4 no conforme: devuelve el párrafo que cita el incumplimiento", async () => {
+  it("2.4 no conforme por exactitud: el párrafo de exactitud cita el incumplimiento y el de repetibilidad no", async () => {
     const conv: DatosConvencional = (await recopilarDatosConv(V)) as DatosConvencional;
     conv.raysafeMediciones = tiempos24([0.4, 0.42, 0.44]);
     const texto = await textoAnalisisPredeterminado("2.4", visitaFixture, conv, undefined);
-    expect(texto).toContain("superiores a los criterios de aceptación establecidos");
-    expect(texto).not.toContain("adecuada estabilidad");
+    const [exactitud, repetibilidad] = texto!.split("\n\n");
+    expect(exactitud).toContain("superiores al criterio de aceptación establecido");
+    expect(exactitud).toContain("se considera no conforme");
+    expect(repetibilidad).toContain("adecuada estabilidad");
   });
 
   it("2.16: une los tres párrafos con una línea en blanco", async () => {
@@ -1636,7 +1649,7 @@ describe("analisisPredeterminadoDeVisita — predeterminado del editor leído de
       )
     );
     const texto = await analisisPredeterminadoDeVisita(V, "2.4");
-    expect(texto).toContain("superiores a los criterios de aceptación establecidos");
+    expect(texto).toContain("superiores al criterio de aceptación establecido");
   });
 
   it("toma reporta_di del equipo de la visita (2.9 sin D.I.)", async () => {
@@ -2430,6 +2443,147 @@ describe("#189 — el informe solo muestra los parámetros que muestra la consol
     it("no toca otras pruebas", () => {
       const cat25 = CATALOGO_SECCIONES.find((c) => c.codigo === "2.5")!.metodologia;
       expect(adaptarMetodologia("2.5", cat25, ["kv", "mas"])).toBe(cat25);
+    });
+  });
+});
+
+describe("#190 — 2.4: exactitud 'No aplica' sin tiempo nominal; análisis y concepto separados", () => {
+  // Desviación ~47 % (exactitud fallaría) con CV ~5 % (repetibilidad conforme).
+  const DESVIADOS = [0.4, 0.42, 0.44];
+  // CV ~29 % (repetibilidad no conforme).
+  const INESTABLES = [0.5, 0.8, 0.9];
+  const SIN_TIEMPO = ["kv", "mas"] as const;
+
+  async function render(medidos: number[], parametros: DatosConvencional["parametros_consola"]) {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = tiempos24(medidos);
+    conv.parametros_consola = parametros;
+    const { ctx, tablas } = await ctxConTablasCapturadas();
+    const { ctx: ctxReg, eventos } = await ctxConRegistro();
+    ctx.addParagraph = ctxReg.addParagraph;
+    ctx.addSubsectionTitle = ctxReg.addSubsectionTitle;
+    renderResultadosSeccion(ctx, "2.4", visitaFixture, conv, undefined);
+    const tabla = tablas.find((t) => t.head.includes("CV (%)"))!;
+    return { tabla, eventos, analisis: parrafosDe(trasAnalisis(eventos)), conv };
+  }
+
+  it("con tiempo visible: columna de tiempo nominal y desviación numérica, como siempre", async () => {
+    const { tabla } = await render(DESVIADOS, null);
+    expect(tabla.head).toEqual([
+      "Tiempo nominal (s)",
+      "Tiempo promedio medido (s)",
+      "Desviación máxima (%)",
+      "Desviación estándar (s)",
+      "CV (%)",
+      "Concepto",
+    ]);
+    expect(tabla.body[0][2]).toMatch(/^\d+,\d+ %$/);
+    expect(tabla.body[0][5]).toBe("No conforme");
+  });
+
+  it("sin tiempo: oculta el tiempo nominal, la desviación dice 'No aplica' y el concepto lo da el CV", async () => {
+    const { tabla } = await render(DESVIADOS, [...SIN_TIEMPO]);
+    expect(tabla.head).not.toContain("Tiempo nominal (s)");
+    expect(tabla.head).toContain("Desviación máxima (%)");
+    const iDesv = tabla.head.indexOf("Desviación máxima (%)");
+    const iConcepto = tabla.head.indexOf("Concepto");
+    expect(tabla.body[0]).toHaveLength(tabla.head.length);
+    expect(tabla.body[0][iDesv]).toBe("No aplica");
+    expect(tabla.body[0][iConcepto]).toBe("Conforme");
+    // Los estilos de columna siguen apuntando a CV y Concepto aunque se corran.
+    const estilos = tabla.opts.columnStyles as Record<number, unknown>;
+    expect(Object.keys(estilos).map(Number).sort()).toEqual([
+      tabla.head.indexOf("CV (%)"),
+      iConcepto,
+    ]);
+  });
+
+  it("sin tiempo: el Análisis tiene un párrafo de exactitud ('No aplica' + motivo) y otro de repetibilidad", async () => {
+    const { analisis } = await render(DESVIADOS, [...SIN_TIEMPO]);
+    expect(analisis).toHaveLength(2);
+    const [exactitud, repetibilidad] = analisis;
+    expect(exactitud).toMatch(/no aplica/i);
+    expect(exactitud).toContain("el sistema no muestra tiempo nominal");
+    expect(exactitud).not.toMatch(/\d+,\d+ %/);
+    expect(repetibilidad).toMatch(/^En cuanto a la repetibilidad/);
+    expect(repetibilidad).toMatch(/coeficientes de variación máximos de \d+,\d+ %/);
+    expect(repetibilidad).not.toContain("desviaci");
+  });
+
+  it("sin tiempo: los párrafos de Resultados no describen una exactitud que no se evaluó", async () => {
+    const { eventos } = await render(DESVIADOS, [...SIN_TIEMPO]);
+    const resultados = parrafosDe(
+      eventos.slice(
+        0,
+        eventos.findIndex((e) => e.tipo === "titulo" && e.texto === "Análisis")
+      )
+    ).join(" ");
+    expect(resultados).not.toContain("entre el tiempo nominal seleccionado y el tiempo medido");
+    expect(resultados).toContain("el sistema no muestra tiempo nominal");
+    expect(resultados).toContain("coeficiente de variación");
+  });
+
+  it("CV fuera de criterio: el párrafo de repetibilidad cita el incumplimiento (con o sin tiempo)", async () => {
+    for (const parametros of [null, [...SIN_TIEMPO]]) {
+      const { analisis, tabla } = await render(INESTABLES, parametros);
+      const repetibilidad = analisis[1];
+      expect(repetibilidad).toMatch(/coeficientes de variación de hasta \d+,\d+ %/);
+      expect(repetibilidad).toContain("superiores al criterio de aceptación establecido");
+      expect(tabla.body[0][tabla.head.indexOf("Concepto")]).toBe("No conforme");
+    }
+  });
+
+  it("textoAnalisisPredeterminado sin tiempo: los dos párrafos separados por línea en blanco", async () => {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = tiempos24(DESVIADOS);
+    conv.parametros_consola = [...SIN_TIEMPO];
+    const texto = await textoAnalisisPredeterminado("2.4", visitaFixture, conv, undefined);
+    const partes = texto!.split("\n\n");
+    expect(partes).toHaveLength(2);
+    expect(partes[0]).toContain("el sistema no muestra tiempo nominal");
+    expect(partes[1]).toMatch(/^En cuanto a la repetibilidad/);
+  });
+
+  it("conAnalisisPersonalizado sin tiempo: el texto editado reemplaza ambos párrafos", async () => {
+    const conv = (await recopilarDatosConv(V)) as DatosConvencional;
+    conv.raysafeMediciones = tiempos24(DESVIADOS);
+    conv.parametros_consola = [...SIN_TIEMPO];
+    const { ctx, eventos } = await ctxConRegistro();
+    const personalizado = conAnalisisPersonalizado(ctx, EDITADO);
+    renderResultadosSeccion(personalizado.ctx, "2.4", visitaFixture, conv, undefined);
+    personalizado.flush();
+    expect(parrafosDe(trasAnalisis(eventos))).toEqual([EDITADO]);
+  });
+
+  describe("parrafosConcepto24 — concepto en dos párrafos (exactitud, repetibilidad)", () => {
+    const resultado = (medidos: number[], parametros: DatosConvencional["parametros_consola"]) =>
+      calcularResultado24(tiempos24(medidos), parametros);
+
+    it("todo conforme: dos párrafos, uno por criterio, sin mezclar", () => {
+      const p = parrafosConcepto24(resultado([0.79, 0.795, 0.8], null));
+      expect(p).toHaveLength(2);
+      expect(p[0]).toMatch(/^La exactitud del tiempo de exposición se considera conforme/);
+      expect(p[0]).not.toMatch(/repetibilidad|CV/);
+      expect(p[1]).toMatch(/^La repetibilidad del tiempo de exposición se considera conforme/);
+      expect(p[1]).not.toMatch(/exactitud|desviaci/);
+    });
+
+    it("exactitud no conforme con tiempo visible", () => {
+      const p = parrafosConcepto24(resultado(DESVIADOS, null));
+      expect(p[0]).toMatch(/^La exactitud del tiempo de exposición se considera no conforme/);
+      expect(p[1]).toMatch(/^La repetibilidad del tiempo de exposición se considera conforme/);
+    });
+
+    it("sin tiempo: la exactitud no aplica (con motivo) y la repetibilidad decide", () => {
+      const p = parrafosConcepto24(resultado(DESVIADOS, [...SIN_TIEMPO]));
+      expect(p).toHaveLength(2);
+      expect(p[0]).toMatch(/^La exactitud del tiempo de exposición no aplica/);
+      expect(p[0]).toContain("el sistema no muestra tiempo nominal");
+      expect(p[1]).toMatch(/^La repetibilidad del tiempo de exposición se considera conforme/);
+
+      const q = parrafosConcepto24(resultado(INESTABLES, [...SIN_TIEMPO]));
+      expect(q[0]).toMatch(/^La exactitud del tiempo de exposición no aplica/);
+      expect(q[1]).toMatch(/^La repetibilidad del tiempo de exposición se considera no conforme/);
     });
   });
 });

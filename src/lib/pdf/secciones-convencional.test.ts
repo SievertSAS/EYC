@@ -5,6 +5,7 @@ import {
   recopilarDatosConv,
   renderResultadosSeccion,
   renderEvidenciaGrafica,
+  renderDiagramaRadiometrico,
   renderTablaBaseRef29,
   renderTablaBaseRef216,
   renderTablaBaseRef221,
@@ -1728,6 +1729,29 @@ describe("Estándar de documentación — tablas, rótulos y figuras", () => {
     conv.fotos24 = [{ label: "Montaje", dataUrl: PNG_1X1, width: 100, height: 100 }];
     renderEvidenciaGrafica(ctx, conv, "2.4");
     expect(tamanoAntesDe(ctx.doc.output(), "(Fig. 2.4.1.")).toBe(8.5);
+  });
+
+  it("diagrama radiométrico lleva pie de figura Fig. 2.1.1 a 8,5 pt", async () => {
+    const { ctx } = await ctxConTablasCapturadas();
+    const conv = await convConDatos();
+    conv.planoRadiometrico = { dataUrl: PNG_1X1, width: 100, height: 100 };
+    renderDiagramaRadiometrico(ctx, conv, 7);
+    const pdf = ctx.doc.output();
+    expect(pdf).toContain("(Fig. 2.1.1. Diagrama Radiom\xe9trico)");
+    expect(tamanoAntesDe(pdf, "(Fig. 2.1.1.")).toBe(8.5);
+  });
+
+  it("diagrama radiométrico reserva título + imagen + pie como un bloque (sin título huérfano)", async () => {
+    const { ctx } = await ctxConTablasCapturadas();
+    const conv = await convConDatos();
+    conv.planoRadiometrico = { dataUrl: PNG_1X1, width: 100, height: 100 };
+    const keeps: (number | undefined)[] = [];
+    ctx.addSubsectionTitle = (_n, _t, keepWithMm) => keeps.push(keepWithMm);
+    const yAntes = ctx.y;
+    renderDiagramaRadiometrico(ctx, conv, 7);
+    // El bloque reservado con el título cubre todo lo que se dibuja después.
+    expect(keeps).toHaveLength(1);
+    expect(keeps[0]).toBeGreaterThanOrEqual(ctx.y - yAntes);
   });
 });
 

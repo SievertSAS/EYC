@@ -98,7 +98,7 @@ export interface InformeCtx {
   y: number;
   checkPage: (needed: number) => void;
   addParagraph: (text: string, fontSize?: number, indent?: number) => void;
-  addSubsectionTitle: (number: string, title: string) => void;
+  addSubsectionTitle: (number: string, title: string, keepWithMm?: number) => void;
 }
 
 // ─── Datos convencionales ───
@@ -879,9 +879,9 @@ function render21(ctx: InformeCtx, visita: VisitaEjecucion, conv: DatosConvencio
 
 /** Subsección extra de la 2.1: diagrama radiométrico (después del criterio) */
 export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencional, sub: number) {
-  ctx.addSubsectionTitle(`2.1.${sub}.`, "Diagrama radiométrico");
   const plano = conv.planoRadiometrico;
   if (!plano) {
+    ctx.addSubsectionTitle(`2.1.${sub}.`, "Diagrama radiométrico");
     ctx.addParagraph("No se adjuntó el plano radiométrico de la instalación.");
     return;
   }
@@ -890,11 +890,19 @@ export function renderDiagramaRadiometrico(ctx: InformeCtx, conv: DatosConvencio
   const scale = Math.min(maxW / plano.width, maxH / plano.height);
   const w = plano.width * scale;
   const h = plano.height * scale;
-  ctx.checkPage(h + SPACE.figureCaption.after);
+  const pie = prepararPieFigura(
+    ctx.doc,
+    figCaption("2.1", 1, "Diagrama Radiométrico"),
+    CONTENT_WIDTH
+  );
+  // Título + imagen + pie se reservan como un solo bloque: sin esto el título
+  // queda huérfano al final de la página y el diagrama salta a la siguiente.
+  ctx.addSubsectionTitle(`2.1.${sub}.`, "Diagrama radiométrico", h + pie.alto);
   try {
     const x = MARGIN_LEFT + (CONTENT_WIDTH - w) / 2;
     ctx.doc.addImage(plano.dataUrl, x, ctx.y, w, h);
-    ctx.y += h + SPACE.figureCaption.after;
+    dibujarPieFigura(ctx.doc, pie, MARGIN_LEFT + CONTENT_WIDTH / 2, ctx.y + h, "center");
+    ctx.y += h + pie.alto;
   } catch {
     ctx.addParagraph("No fue posible incluir la imagen del plano radiométrico.");
   }

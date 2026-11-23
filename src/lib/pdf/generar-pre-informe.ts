@@ -30,6 +30,7 @@ import { hasPackage } from "@/lib/equipos/registry";
 import { logger } from "@/lib/logger";
 import { descargarEvidencia } from "@/lib/supabase/storage";
 import { reducirParaPdf } from "@/lib/pdf/imagen-pdf";
+import { protegerTextoWinAnsi } from "@/lib/pdf/texto-winansi";
 import { areasFlotantesDeVisita, textoAreaServicio } from "@/lib/ubicaciones/flotantes";
 import {
   COLOR_PRIMARY,
@@ -435,7 +436,11 @@ export async function generarPreInforme(
   // (ancho × alto × 3 bytes): un informe real pesaba 21 MB, 13,5 de ellos
   // en PNG sin comprimir (#123). Con el filtro FlateEncode activo, addImage
   // también comprime las imágenes (sin pérdida).
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+  // Todo texto pasa a WinAnsi (≤ → <=, etc.): un carácter que Helvetica no
+  // tiene rompe la línea entera (ver texto-winansi.ts).
+  const doc = protegerTextoWinAnsi(
+    new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
+  );
   let y = CONTENT_TOP;
   let pageCount = 0;
   // Títulos de sección en orden de aparición, para la página de "CONTENIDO"
@@ -686,7 +691,9 @@ export async function generarPreInforme(
    * tabla saliéndose de la tarjeta.
    */
   function medirAltoTabla(opciones: Parameters<typeof autoTable>[1]): number {
-    const medidor = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const medidor = protegerTextoWinAnsi(
+      new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
+    );
     autoTable(medidor, { ...opciones, startY: CONTENT_TOP });
     return (
       (medidor as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY -

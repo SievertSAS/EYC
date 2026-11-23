@@ -122,6 +122,19 @@ describe("generarPreInforme — contrato de datos", () => {
     expect(text).toContain("SERIE-MARCADOR-999");
   });
 
+  it("texto con caracteres fuera de WinAnsi (≤, espacio fino) no rompe la codificación del PDF", async () => {
+    const { visita, cliente } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
+    await db.clientes.update(cliente.id!, { nombre_cliente: "CLINICA ≤ MARCADOR" });
+
+    const text = await pdfText((await generarPreInforme(visita!.id!))!);
+    expect(text).toContain("CLINICA <= MARCADOR");
+    // Una cadena con un solo carácter no-WinAnsi se codifica entera a 2 bytes
+    // (byte nulo por letra → texto espaciado). Ningún Tj debe llevar nulos.
+    const tjs = text.split("\n").filter((l) => l.endsWith("Tj"));
+    expect(tjs.length).toBeGreaterThan(0);
+    expect(tjs.filter((l) => l.includes("\u0000"))).toEqual([]);
+  });
+
   it("#68: los decimales del informe usan coma (es-CO), no punto", async () => {
     const { visita, ubicacion } = await seedGraph({ tipoEquipo: "CONVENCIONAL" });
     await db.ubicaciones_rx.update(ubicacion.id!, {

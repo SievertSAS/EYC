@@ -82,7 +82,11 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
   const [expandedUbis, setExpandedUbis] = useState<Set<string>>(new Set());
 
   const data = useLiveQuery(async () => {
-    if (!isReady || !clienteId) return null;
+    // undefined (no null) mientras la DB abre: useLiveQuery conserva el último
+    // resultado al cambiar deps, y un null acá se vería como "no encontrado"
+    // en el primer render con isReady=true, antes de que llegue la consulta real.
+    if (!isReady) return undefined;
+    if (!clienteId) return null;
 
     const cliente = await db.clientes.get(clienteId);
     if (!cliente) return null;

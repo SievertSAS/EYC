@@ -54,7 +54,11 @@ export default function EquipoDetailPage({ params }: { params: Promise<{ id: str
   const [trasladarOpen, setTrasladarOpen] = useState(false);
 
   const data = useLiveQuery(async () => {
-    if (!isReady || !equipoId) return null;
+    // undefined (no null) mientras la DB abre: useLiveQuery conserva el último
+    // resultado al cambiar deps, y un null acá se vería como "no encontrado"
+    // en el primer render con isReady=true, antes de que llegue la consulta real.
+    if (!isReady) return undefined;
+    if (!equipoId) return null;
 
     const equipo = await db.equipos.get(equipoId);
     if (!equipo) return null;

@@ -78,7 +78,11 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   const [publicarError, setPublicarError] = useState<string | null>(null);
 
   const data = useLiveQuery(async () => {
-    if (!isReady || !informeId) return null;
+    // undefined (no null) mientras la DB abre: useLiveQuery conserva el último
+    // resultado al cambiar deps, y un null acá se vería como "no encontrado"
+    // en el primer render con isReady=true, antes de que llegue la consulta real.
+    if (!isReady) return undefined;
+    if (!informeId) return null;
 
     const informe = await db.informes.get(informeId);
     if (!informe) return null;

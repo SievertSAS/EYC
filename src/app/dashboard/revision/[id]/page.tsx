@@ -79,7 +79,11 @@ export default function RevisionDetailPage({ params }: { params: Promise<{ id: s
   const [showObservaciones, setShowObservaciones] = useState(false);
 
   const data = useLiveQuery(async () => {
-    if (!isReady || !visitaId) return null;
+    // undefined (no null) mientras la DB abre: useLiveQuery conserva el último
+    // resultado al cambiar deps, y un null acá se vería como "no encontrado"
+    // en el primer render con isReady=true, antes de que llegue la consulta real.
+    if (!isReady) return undefined;
+    if (!visitaId) return null;
 
     const visita = await db.visitas.get(visitaId);
     if (!visita) return null;

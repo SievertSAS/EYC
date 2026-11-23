@@ -109,7 +109,11 @@ export default function SolicitudDetailPage({ params }: { params: Promise<{ id: 
   } | null>(null);
 
   const data = useLiveQuery(async () => {
-    if (!isReady || !solicitudId) return null;
+    // undefined (no null) mientras la DB abre: useLiveQuery conserva el último
+    // resultado al cambiar deps, y un null acá se vería como "no encontrado"
+    // en el primer render con isReady=true, antes de que llegue la consulta real.
+    if (!isReady) return undefined;
+    if (!solicitudId) return null;
 
     const solicitud = await db.solicitudes.get(solicitudId);
     if (!solicitud) return null;

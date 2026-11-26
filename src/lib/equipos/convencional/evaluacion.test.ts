@@ -4,6 +4,7 @@ import {
   tieneCriterio,
   detalle213,
   conceptoEfectivoSeccion,
+  esConceptoReferencia,
   motivoNoAplicaAutomatico,
   reglaNoAplicaAutomatica,
   seccionAplica,
@@ -932,6 +933,47 @@ describe("conceptoEfectivoSeccion — precedencia de overrides manuales (#120)",
   it("incluida=true sin override y sin datos → undefined (pendiente)", () => {
     const seccion = { incluida: true, concepto: undefined, prueba_codigo: "2.1" };
     expect(conceptoEfectivoSeccion(seccion, undefined)).toBeUndefined();
+  });
+});
+
+describe("esConceptoReferencia — 2.8 aplicada lleva concepto 'Referencia'", () => {
+  const conDap = datos({ raysafeSetup: rs({ unidad_dap: "mgy_cm2" }) });
+  const sinDap = datos({ raysafeSetup: rs({ unidad_dap: "no_aplica" }) });
+
+  it("2.8 con el switch encendido → Referencia (aunque no haya datos)", () => {
+    expect(esConceptoReferencia({ incluida: true, prueba_codigo: "2.8" }, conDap)).toBe(true);
+    expect(esConceptoReferencia({ incluida: true, prueba_codigo: "2.8" }, undefined)).toBe(true);
+  });
+
+  it("2.8 con el switch apagado → no (es No aplica)", () => {
+    expect(esConceptoReferencia({ incluida: false, prueba_codigo: "2.8" }, conDap)).toBe(false);
+  });
+
+  it("2.8 en no aplica automático (equipo sin DAP) → no", () => {
+    expect(esConceptoReferencia({ incluida: true, prueba_codigo: "2.8" }, sinDap)).toBe(false);
+  });
+
+  it("2.8 marcada 'no se pudo ejecutar' → no (gana el override)", () => {
+    expect(
+      esConceptoReferencia(
+        { incluida: true, concepto: "No_favorable_no_ejecutada", prueba_codigo: "2.8" },
+        conDap
+      )
+    ).toBe(false);
+  });
+
+  it("ninguna otra prueba es de referencia", () => {
+    for (let i = 1; i <= 21; i++) {
+      const c = `2.${i}`;
+      if (c === "2.8") continue;
+      expect(esConceptoReferencia({ incluida: true, prueba_codigo: c }, conDap), c).toBe(false);
+    }
+  });
+
+  it("no altera el concepto efectivo de la 2.8 (el concepto general no cambia)", () => {
+    expect(
+      conceptoEfectivoSeccion({ incluida: true, prueba_codigo: "2.8" }, conDap)
+    ).toBeUndefined();
   });
 });
 

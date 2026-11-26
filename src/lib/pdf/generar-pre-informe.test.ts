@@ -1661,3 +1661,80 @@ describe("#187 — equipo convencional portátil", () => {
     expect(text).not.toContain("Dado que");
   });
 });
+
+describe("2.8 — concepto 'Referencia' cuando la prueba aplica", () => {
+  const veces = (texto: string, marca: string) => texto.split(marca).length - 1;
+
+  async function visitaCon28(
+    campos: Partial<ConvInformeSeccion> = {},
+    estadoVisita: "en_progreso" | "aprobada" = "en_progreso"
+  ) {
+    const { visita } = await seedGraph({ tipoEquipo: "CONVENCIONAL", estadoVisita });
+    await db.conv_informe_secciones.add({
+      id: randomUUID(),
+      visita_id: visita!.id!,
+      prueba_codigo: "2.8",
+      orden: 1,
+      incluida: true,
+      sync_status: "synced",
+      last_modified: new Date().toISOString(),
+      ...campos,
+    });
+    return visita!.id!;
+  }
+
+  it("por defecto: 'REFERENCIA' en 2.8.8 Concepto y en el resumen, sin 'NO APLICA'", async () => {
+    const visitaId = await visitaCon28();
+    const text = await pdfText((await generarPreInforme(visitaId))!);
+    expect(text).toContain("2.8.8.");
+    expect(veces(text, "(REFERENCIA) Tj")).toBe(2);
+    expect(text).not.toContain("(NO APLICA) Tj");
+    // Se conserva el párrafo descriptivo y las acciones "No Aplica".
+    expect(text).toContain("(No Aplica) Tj");
+  });
+
+  it("legado (conceptoReferencia28: false): conserva 'NO APLICA' en 2.8.8 y en el resumen", async () => {
+    const visitaId = await visitaCon28();
+    const text = await pdfText(
+      (await generarPreInforme(visitaId, { conceptoReferencia28: false }))!
+    );
+    expect(veces(text, "(NO APLICA) Tj")).toBe(2);
+    expect(text).not.toContain("REFERENCIA");
+  });
+
+  it("informe oficial con la 2.8 en Referencia: se emite y el concepto general es FAVORABLE", async () => {
+    const visitaId = await visitaCon28({}, "aprobada");
+    const blob = await generarPreInforme(visitaId);
+    expect(blob).not.toBeNull();
+    const text = await pdfText(blob!);
+    expect(text).toContain("(FAVORABLE) Tj");
+    expect(text).not.toContain("PENDIENTE");
+    expect(text).not.toContain("NO FAVORABLE");
+  });
+
+  it("2.8 apagada: sigue siendo 'NO APLICA' (solo en el resumen)", async () => {
+    const visitaId = await visitaCon28({ incluida: false });
+    const text = await pdfText((await generarPreInforme(visitaId))!);
+    expect(veces(text, "(NO APLICA) Tj")).toBe(1);
+    expect(text).not.toContain("REFERENCIA");
+  });
+
+  it("2.8 en no aplica automático (equipo sin DAP): no es Referencia", async () => {
+    const visitaId = await visitaCon28();
+    await db.conv_raysafe_setup.add({
+      id: randomUUID(),
+      visita_id: visitaId,
+      unidad_dap: "no_aplica",
+    });
+    const text = await pdfText((await generarPreInforme(visitaId))!);
+    expect(text).not.toContain("REFERENCIA");
+    expect(veces(text, "(NO APLICA) Tj")).toBe(1);
+  });
+
+  it("2.8 'no se pudo ejecutar': gana NO EJECUTADA", async () => {
+    const visitaId = await visitaCon28({ concepto: "No_favorable_no_ejecutada" });
+    const text = await pdfText((await generarPreInforme(visitaId))!);
+    expect(text).toContain("(NO EJECUTADA) Tj");
+    expect(text).not.toContain("REFERENCIA");
+  });
+});

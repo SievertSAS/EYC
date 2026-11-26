@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { db } from "@/lib/db";
 import { resetTestDb } from "@/test/db-reset";
 import { seedGraph } from "@/test/seed";
+import type { EstadoVisita } from "@/lib/db/types";
 
 const generarPreInforme = vi.fn();
 vi.mock("@/lib/pdf/generar-pre-informe", () => ({
@@ -44,8 +45,8 @@ beforeEach(async () => {
   updateAndSync.mockClear();
 });
 
-async function seedInforme() {
-  const { visita, equipo, ubicacion } = await seedGraph();
+async function seedInforme(opts: { estadoVisita?: EstadoVisita; fechaGeneracion?: string } = {}) {
+  const { visita, equipo, ubicacion } = await seedGraph({ estadoVisita: opts.estadoVisita });
   const informeId = "inf-1";
   await db.informes.add({
     id: informeId,
@@ -69,7 +70,7 @@ async function seedInforme() {
     informe_id: informeId,
     numero_version: 1,
     motivo_cambio: "emision_inicial",
-    fecha_generacion: "2026-01-01",
+    fecha_generacion: opts.fechaGeneracion ?? "2026-01-01",
     estado: "aprobado",
     creado_en: "2026-01-01",
     sync_status: "synced",
@@ -173,5 +174,29 @@ describe("publicarVersionOficial", () => {
 
     const version = await db.informe_versiones.get(versionId);
     expect(version?.plantilla_version_id).toBeNull();
+  });
+
+  describe("2.8 — concepto 'Referencia' según la versión vigente", () => {
+    const flag = () =>
+      (generarPreInforme.mock.calls[0][1] as { conceptoReferencia28?: boolean })
+        .conceptoReferencia28;
+
+    it("reintento de publicación de una versión emitida antes del corte → legado (false)", async () => {
+      const { visita, informeId } = await seedInforme({
+        estadoVisita: "aprobada",
+        fechaGeneracion: "2026-05-01T12:00:00.000Z",
+      });
+      await publicarVersionOficial(informeId, visita.id!);
+      expect(flag()).toBe(false);
+    });
+
+    it("versión nueva (aprobación o re-aprobación tras corrección del cliente) → true", async () => {
+      const { visita, informeId } = await seedInforme({
+        estadoVisita: "aprobada",
+        fechaGeneracion: new Date().toISOString(),
+      });
+      await publicarVersionOficial(informeId, visita.id!);
+      expect(flag()).toBe(true);
+    });
   });
 });

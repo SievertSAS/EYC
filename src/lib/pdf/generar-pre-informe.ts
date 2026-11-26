@@ -383,6 +383,12 @@ export async function generarPreInforme(
      * falta, se usa la vigente del tipo de equipo.
      */
     plantilla?: PlantillaResuelta;
+    /**
+     * La 2.8 aplicada se imprime "REFERENCIA" (default). `false` conserva el
+     * "NO APLICA" con el que se emitieron los informes anteriores al corte;
+     * lo decide el llamador con `resolverConceptoReferencia28`.
+     */
+    conceptoReferencia28?: boolean;
   }
 ): Promise<Blob | null> {
   const [{ jsPDF }, { default: autoTable }, logoBase64] = await Promise.all([
@@ -1553,7 +1559,10 @@ export async function generarPreInforme(
           accionesTexto = resolverAccionesTexto(seccion.acciones_correctivas, cat.accionesConforme);
         }
       } else if (codigo === "2.8" && aplica) {
-        conceptoLabel = "NO APLICA";
+        // Sin criterio de aceptación: concepto "REFERENCIA". No cuenta como
+        // pendiente ni como no conforme para el concepto general. Los informes
+        // emitidos antes del corte conservan "NO APLICA" (ver opts).
+        conceptoLabel = opts?.conceptoReferencia28 === false ? "NO APLICA" : "REFERENCIA";
         conceptoParrafo =
           "La prueba no define tolerancias, debido a que es de carácter descriptivo y de referencia técnica.";
         accionesTexto = "No Aplica";

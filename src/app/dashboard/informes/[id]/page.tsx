@@ -28,6 +28,7 @@ import {
 import Link from "next/link";
 import { generarPreInforme } from "@/lib/pdf/generar-pre-informe";
 import { publicarVersionOficial } from "@/lib/workflow/publicar-informe";
+import { resolverConceptoReferencia28 } from "@/lib/workflow/concepto-referencia-28";
 import { fechaIsoColombia } from "@/lib/fecha-informe";
 
 // ============================================================
@@ -160,7 +161,12 @@ export default function InformeDetailPage({ params }: { params: Promise<{ id: st
   async function handleRegenerar() {
     if (!visita) return;
     try {
-      const blob = await generarPreInforme(visita.id!, { usuarioGeneradorId: role?.usuarioId });
+      // Un informe emitido antes del corte conserva su 2.8 "NO APLICA".
+      const conceptoReferencia28 = await resolverConceptoReferencia28(visita.id!);
+      const blob = await generarPreInforme(visita.id!, {
+        usuarioGeneradorId: role?.usuarioId,
+        conceptoReferencia28,
+      });
       if (blob) {
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");

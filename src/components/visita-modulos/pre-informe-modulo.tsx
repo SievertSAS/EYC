@@ -46,11 +46,14 @@ import type { ConvInformeSeccion } from "@/lib/equipos/convencional/db/types";
 import {
   cargarTablasConv,
   conceptoEfectivoSeccion,
+  esConceptoReferencia,
   reglaNoAplicaAutomatica,
   incluidaPorDefecto,
   tieneCriterio,
+  type Concepto,
   type ReglaNoAplicaAutomatica,
 } from "@/lib/equipos/convencional/evaluacion";
+import { resolverConceptoReferencia28 } from "@/lib/workflow/concepto-referencia-28";
 
 // ─── Constants ───
 
@@ -62,7 +65,12 @@ const GRUPO_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   E: Target,
 };
 
-type ConceptoType = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
+/**
+ * Concepto que muestra el editor: el `Concepto` de evaluación más "Referencia"
+ * (2.8 aplicada, ver `esConceptoReferencia`). "Referencia" es solo de
+ * presentación: nunca se guarda en `conv_informe_secciones.concepto`.
+ */
+type ConceptoType = Concepto | "Referencia";
 
 // ─── UI Components ───
 
@@ -326,7 +334,7 @@ export function SeccionCard({
           <div className="rounded-lg bg-slate-50 border border-slate-100 p-2.5">
             <p className="text-xs text-slate-500 font-medium leading-relaxed">
               {sinCriterio
-                ? "Esta prueba es de carácter descriptivo/referencial y no define un criterio de aceptación, por lo que no emite concepto."
+                ? "Esta prueba es de carácter descriptivo/referencial y no define un criterio de aceptación: su concepto es Referencia y no afecta el concepto general del equipo."
                 : "El concepto (Conforme / No conforme) se calcula automáticamente a partir de los datos capturados de la prueba. Usa el interruptor para marcar la prueba como no aplicable, o el ícono de llave si la prueba aplica pero no se pudo ejecutar por falla de un componente."}
             </p>
           </div>
@@ -492,6 +500,15 @@ function ConceptoBadgeSmall({ concepto }: { concepto?: ConceptoType }) {
         <Wrench className="w-3 h-3" /> N/E
       </span>
     );
+  if (concepto === "Referencia")
+    return (
+      <span
+        data-testid="badge-concepto-referencia"
+        className="text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-md flex-shrink-0"
+      >
+        Referencia
+      </span>
+    );
   return (
     <span className="text-xs font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md flex-shrink-0">
       N/A
@@ -619,9 +636,10 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
 
   // Concepto efectivo de una prueba: No aplica si está excluida, o el veredicto
   // automático del evaluador (undefined = pendiente / sin datos).
+  // La 2.8 aplicada muestra "Referencia" (no tiene criterio de aceptación).
   const conceptoDe = useCallback(
     (seccion: ConvInformeSeccion): ConceptoType | undefined =>
-      conceptoEfectivoSeccion(seccion, datos),
+      esConceptoReferencia(seccion, datos) ? "Referencia" : conceptoEfectivoSeccion(seccion, datos),
     [datos]
   );
 
@@ -747,10 +765,19 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
     const noEjecutadas = secciones.filter(
       (s) => conceptoDe(s) === "No_favorable_no_ejecutada"
     ).length;
+    const referencia = secciones.filter((s) => conceptoDe(s) === "Referencia").length;
     const sinConcepto = secciones.filter(
       (s) => s.incluida && conceptoDe(s) == null && tieneCriterio(s.prueba_codigo)
     ).length;
-    return { total: secciones.length, conformes, noConformes, noAplica, noEjecutadas, sinConcepto };
+    return {
+      total: secciones.length,
+      conformes,
+      noConformes,
+      noAplica,
+      noEjecutadas,
+      referencia,
+      sinConcepto,
+    };
   }, [secciones, conceptoDe]);
 
   // ─── Generate PDF ───
@@ -761,7 +788,12 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
       setPdfUrl(null);
 
       const { generarPreInforme } = await import("@/lib/pdf/generar-pre-informe");
-      const blob = await generarPreInforme(visitaId, { usuarioGeneradorId: role?.usuarioId });
+      // Regenerar un informe emitido antes del corte conserva su 2.8 "NO APLICA".
+      const conceptoReferencia28 = await resolverConceptoReferencia28(visitaId);
+      const blob = await generarPreInforme(visitaId, {
+        usuarioGeneradorId: role?.usuarioId,
+        conceptoReferencia28,
+      });
       if (!blob) {
         setError("No se pudo generar el pre-informe. Verifica los datos.");
         return;
@@ -874,6 +906,12 @@ export function PreInformeModulo({ visitaId: id }: { visitaId: string }) {
                 <p className="text-lg font-semibold text-slate-400">{stats.noAplica}</p>
                 <p className="text-xs font-medium text-slate-400">N/A</p>
               </div>
+              {stats.referencia > 0 && (
+                <div className="text-center" data-testid="stat-referencia">
+                  <p className="text-lg font-semibold text-blue-600">{stats.referencia}</p>
+                  <p className="text-xs font-medium text-slate-400">Referencia</p>
+                </div>
+              )}
               {stats.sinConcepto > 0 && (
                 <div className="text-center">
                   <p className="text-lg font-semibold text-amber-500">{stats.sinConcepto}</p>

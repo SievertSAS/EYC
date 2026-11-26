@@ -5,6 +5,7 @@ import { generarPreInforme } from "@/lib/pdf/generar-pre-informe";
 import { updateAndSync } from "@/lib/supabase/sync-engine";
 import { logger } from "@/lib/logger";
 import { obtenerPlantillaVigente } from "@/lib/plantillas/resolver";
+import { resolverConceptoReferencia28 } from "@/lib/workflow/concepto-referencia-28";
 
 // ============================================================
 //  Publicación de la versión oficial de un informe:
@@ -48,7 +49,16 @@ export async function publicarVersionOficial(
       equipo?.tipo_instalacion ?? "fijo"
     );
 
-    const blob = await generarPreInforme(visitaId, { qrDataUrl, usuarioGeneradorId, plantilla });
+    // 2.8 "Referencia": una versión nueva (aprobación / re-aprobación) usa la
+    // lógica nueva; el reintento de una versión emitida antes del corte, no.
+    const conceptoReferencia28 = await resolverConceptoReferencia28(visitaId);
+
+    const blob = await generarPreInforme(visitaId, {
+      qrDataUrl,
+      usuarioGeneradorId,
+      plantilla,
+      conceptoReferencia28,
+    });
     if (!blob) return { success: false, error: "No se pudo generar el PDF" };
 
     const hash = await hashBlob(blob);

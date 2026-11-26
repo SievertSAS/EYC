@@ -38,7 +38,8 @@ import { promedio, desviacion, cvPct, desvNominal } from "@/lib/equipos/convenci
 //    - "Conforme" / "No_conforme": veredicto según el criterio.
 //    - undefined: pendiente (datos insuficientes para evaluar).
 //  La prueba 2.8 (factor PKA) no tiene criterio → siempre undefined
-//  (ver tieneCriterio()).
+//  (ver tieneCriterio()); cuando aplica, su concepto es "Referencia"
+//  (ver esConceptoReferencia()), que no cuenta para el concepto general.
 // ============================================================
 
 export type Concepto = "Conforme" | "No_conforme" | "No_aplica" | "No_favorable_no_ejecutada";
@@ -949,6 +950,24 @@ export function conceptoEfectivoSeccion(
   if (seccion.concepto === "No_favorable_no_ejecutada") return "No_favorable_no_ejecutada";
   if (!datos) return undefined;
   return evaluarConceptoPrueba(seccion.prueba_codigo, datos);
+}
+
+/**
+ * ¿La sección lleva concepto "Referencia"? Solo la 2.8 (sin criterio de
+ * aceptación) cuando APLICA: switch encendido, ninguna regla automática la
+ * excluye y no está marcada "no se pudo ejecutar". Es solo una etiqueta de
+ * presentación (editor + PDF): no se persiste en `conv_informe_secciones` ni
+ * altera `conceptoEfectivoSeccion`, así que no afecta el concepto general.
+ */
+export function esConceptoReferencia(
+  seccion: { incluida: boolean; concepto?: Concepto | null; prueba_codigo: string },
+  datos: DatosNoAplicaAutomatico | undefined
+): boolean {
+  return (
+    seccion.prueba_codigo === "2.8" &&
+    seccion.concepto !== "No_favorable_no_ejecutada" &&
+    seccionAplica(seccion, datos)
+  );
 }
 
 /** Carga todas las tablas conv_* necesarias para evaluar (sin fotos). */

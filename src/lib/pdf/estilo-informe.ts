@@ -173,9 +173,10 @@ export type NivelVeredicto = "seccion" | "celda";
 
 /**
  * Colores por etiqueta de veredicto. Acepta las dos familias de vocabulario:
- *  - nivel sección/general: FAVORABLE / NO FAVORABLE / PENDIENTE / NO APLICA
+ *  - nivel sección/general: FAVORABLE / NO FAVORABLE / PENDIENTE / NO APLICA /
+ *    REFERENCIA (2.8, neutro como NO APLICA)
  *  - nivel celda de medición: Conforme / No conforme / No aplica / —
- * Devuelve `COLOR_GRAY` para "no aplica" y desconocidos.
+ * Devuelve `COLOR_GRAY` para "no aplica", "referencia" y desconocidos.
  */
 export function veredictoColor(label: string | undefined | null): RGB {
   switch (normalizarVeredicto(label)) {
